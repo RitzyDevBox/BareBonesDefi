@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>BareBones</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="banner">
+    <div class="brand">BareBones</div>
+    <div class="spacer"></div>
+    <div id="netBadge" class="net-badge">Not connected</div>
+    <button id="connectBtn" class="btn primary">Connect</button>
+  </header>
+
+  <nav class="menu">
+    <button data-view="sendView" class="tab active">Send</button>
+    <button data-view="orderView" class="tab">Create Order</button>
+  </nav>
+
+  <main>
+    <!-- SEND VIEW -->
+    <section id="sendView" class="view active">
+      <div class="card">
+        <h2>Send Native</h2>
+        <label>Recipient
+          <input id="nativeTo" placeholder="0x..." />
+        </label>
+        <label>Amount (native)
+          <input id="nativeAmount" type="number" step="any" placeholder="0.1" />
+        </label>
+        <button id="sendNativeBtn" class="btn">Send Native</button>
+        <pre id="nativeResult" class="result"></pre>
+      </div>
+
+      <div class="card">
+        <h2>Send ERC-20</h2>
+        <label>Token Address
+          <input id="erc20Token" placeholder="0xToken..." />
+        </label>
+        <label>Recipient
+          <input id="erc20To" placeholder="0xRecipient..." />
+        </label>
+        <label>Amount
+          <input id="erc20Amount" type="number" step="any" placeholder="5.0" />
+        </label>
+        <label>Decimals
+          <input id="erc20Decimals" type="number" min="0" max="36" value="18" />
+        </label>
+        <button id="sendErc20Btn" class="btn">Send ERC-20</button>
+        <pre id="erc20Result" class="result"></pre>
+      </div>
+    </section>
+
+    <!-- ORDER VIEW -->
+    <section id="orderView" class="view">
+      <div class="card">
+        <h2>Create & Sign Order (EIP-712)</h2>
+
+        <div class="grid">
+          <label>Token In
+            <input id="ordTokenIn" placeholder="0x..." />
+          </label>
+          <label>Decimals In
+            <input id="ordDecIn" type="number" min="0" max="36" value="18" />
+          </label>
+          <label>Amount In
+            <input id="ordAmtIn" type="number" step="any" placeholder="0.10" />
+          </label>
+
+          <label>Token Out
+            <input id="ordTokenOut" placeholder="0x..." />
+          </label>
+          <label>Decimals Out
+            <input id="ordDecOut" type="number" min="0" max="36" value="6" />
+          </label>
+          <label>Amount Out
+            <input id="ordAmtOut" type="number" step="any" placeholder="5" />
+          </label>
+
+          <label>Recipient
+            <input id="ordRecipient" placeholder="0x..." />
+          </label>
+          <label>Deadline (minutes)
+            <input id="ordDeadlineMin" type="number" min="1" value="60" />
+          </label>
+          <label>Verifying Contract (optional)
+            <input id="ordVerifier" placeholder="0x... (reactor or any)" />
+          </label>
+        </div>
+
+        <button id="signOrderBtn" class="btn">Sign Order</button>
+        <pre id="orderPreview" class="result"></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <small>Vanilla JS • No deps</small>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
