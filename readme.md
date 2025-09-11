@@ -1,21 +1,42 @@
 # BareBones
 
-A **dependency-free** (vanilla HTML/CSS/JS) demo that can:
-- Connect to an Ethereum wallet (`window.ethereum` — e.g. MetaMask).
-- Send **native** transfers.
-- Send **ERC-20** transfers.
+A **dependency-free** (vanilla HTML/CSS/JS) demo that shows how to:
+
+- Connect to an Ethereum wallet via `window.ethereum` (e.g. MetaMask).
+- Forward wallet connections into **sandboxed partner iframes** using an **EIP-1193 shim**.
+- Send **native transfers** (ETH, MATIC, etc.).
+- Send **ERC-20 transfers**.
 - Create & sign a simple **EIP-712 “Order”** payload (for PoC use).
 
 No build tools, no npm deps — just static files.
 
 ---
 
-## Quick start (serve locally)
+## ⚙️ Architecture
 
-Modern browsers block ES modules from `file://` URLs, so you need a **static server**. Any simple server works:
+- **Parent site**  
+  Hosts the wallet connection (MetaMask, Coinbase Wallet, etc.).  
+  Injects state (`accounts`, `chainId`) into sandboxed iframes.  
+  Relays *sensitive* RPC calls (signing, sendTransaction) to the wallet.  
+  Broadcasts `accountsChanged` and `chainChanged` events to all children.  
+
+- **Child iframe (partner app)**  
+  Has no direct wallet access.  
+  Gets a safe `window.ethereum` shim that looks like a real provider.  
+  Can use `ethers.js` or `web3.js` as normal (`new Web3Provider(window.ethereum)` works).  
+  Reads may go directly to a public RPC; writes always go through the parent.  
+
+This lets you host **third-party apps on subdomains** without exposing your wallet directly.
+
+---
+
+## 🚀 Quick start (serve locally)
+
+Modern browsers block ES modules from `file://` URLs, so you need a static server.  
+Run one from the project root:
 
 ### Option A: Python (all platforms)
 ```bash
 cd barebones
 python3 -m http.server 8080
-# open http://localhost:8080
+# open http://localhost:8080/parent/index.html
