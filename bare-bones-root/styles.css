@@ -9,8 +9,20 @@
   }
   
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; }
   
+  /* ===== Page layout ===== */
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto;
+  }
+  
+  /* Header & nav stay at the top */
   .banner {
     display: flex; align-items: center; gap: 12px;
     padding: 12px 16px; border-bottom: 1px solid var(--border);
@@ -24,18 +36,49 @@
   .tab { background: transparent; color: var(--text); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; cursor: pointer; }
   .tab.active { border-color: var(--accent-2); color: var(--accent-2); }
   
-  main { max-width: 980px; margin: 20px auto; padding: 0 16px; }
-  .view { display: none; }
-  .view.active { display: block; }
+  /* Main area fills the rest of the viewport */
+  main {
+    flex: 1;                       /* take remaining height */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;                 /* allow children to grow */
+    /* keep your width container if you like; otherwise remove next 2 lines */
+    max-width: 980px;
+    margin: 20px auto;
+    padding: 0 16px;
+  }
   
+  /* Only the active view is visible and it must stretch */
+  .view { display: none; }
+  .view.active {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;                 /* critical for the iframe to expand */
+  }
+  
+  /* Card stretches inside the view */
   .card {
     background: var(--card); border: 1px solid var(--border);
     border-radius: 14px; padding: 16px; margin: 14px 0;
     box-shadow: 0 10px 20px rgba(0,0,0,.15);
+    display: flex; flex-direction: column;
+    flex: 1;
+    min-height: 0;                 /* critical */
   }
   
   h2 { margin-top: 0; font-size: 18px; }
   
+  /* Make the iframe fill the card’s remaining space */
+  iframe#tenantFrame {
+    width: 100%;
+    flex: 1;                       /* takes the leftover height */
+    min-height: 0;                 /* avoid overflow collapsing */
+    border: 1px solid #ccc;
+    border-radius: 8px;
+  }
+  
+  /* ===== Form/controls ===== */
   label { display: block; margin: 10px 0; color: var(--muted); }
   input {
     width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
@@ -43,9 +86,7 @@
   }
   input:focus { border-color: var(--accent-2); }
   
-  .grid {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
-  }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
   
   .btn {

@@ -3,7 +3,7 @@ import { bindTabs, setNetBadge, setConnectState, shortAddr } from './ui.js';
 
 // ==== CONFIG ====
 const READ_RPC_URL = "https://mainnet.infura.io/v3/YOUR_KEY";  // your canonical read endpoint
-const ALLOWED_CHAINS = new Set(["0x1", "0x89"]);               // mainnet, polygon (example)
+const ALLOWED_CHAINS = new Set(["0x1", "0x89", "0x3e7"]);               // mainnet, polygon (example)
 const SAFE_READS = new Set([
   "eth_call",
   "eth_getBalance",

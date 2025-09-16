@@ -1,0 +1,260 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Child Send Modal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #0f1115;
+      color: #e5e7eb;
+    }
+    #modal {
+      border: 1px solid #2a2f3a;
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 420px;
+      margin: auto;
+      background: #171923;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+    }
+    h3 {
+      margin-top: 0;
+      margin-bottom: 16px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    label {
+      display:block;
+      margin:10px 0 6px;
+      font-size: 14px;
+      color: #9ca3af;
+    }
+    select, input, button {
+      width:100%;
+      padding:10px 12px;
+      border: 1px solid #2a2f3a;
+      border-radius: 10px;
+      background: #0d0f15;
+      color: #e5e7eb;
+      font-size: 14px;
+      margin-bottom: 14px;
+      outline: none;
+    }
+    select option {
+      padding-left: 28px;
+      background-color: #0d0f15;
+      color: #e5e7eb;
+    }
+    select option[style*="background-image"] {
+      background-size: 16px 16px;
+      background-repeat: no-repeat;
+      background-position: 6px center;
+    }
+    select:focus, input:focus {
+      border-color: #60a5fa;
+    }
+    button {
+      background: #6ee7b7;
+      color: #0f1115;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #4ade80;
+    }
+    small {
+      color: #9ca3af;
+    }
+    pre {
+      background:#0b0e14;
+      padding:10px;
+      border-radius:10px;
+      max-height:200px;
+      overflow:auto;
+      font-size: 13px;
+      color: #a7b1c2;
+    }
+  </style>
+</head>
+<body>
+  <div id="modal">
+    <h3>Send Modal (Shim)</h3>
+
+    <label>Token</label>
+    <select id="tokenSelect"></select>
+
+    <label id="recipientLabel">Recipient</label>
+    <input id="recipient" placeholder="0x..." />
+
+    <label>Amount</label>
+    <input id="amount" type="number" step="any" placeholder="0.0" />
+
+    <div><small>Balance: <span id="balance">-</span></small></div>
+
+    <button id="sendBtn">Send</button>
+  </div>
+
+  <pre id="log"></pre>
+
+  <script src="js/ethers-shim.js"></script>
+  <script type="module">
+    const logEl = document.getElementById('log');
+    const log = (...a) => { logEl.textContent += a.map(x => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ') + '\\n'; };
+
+    const tokenSelect = document.getElementById('tokenSelect');
+    const recipientEl = document.getElementById('recipient');
+    const recipientLabel = document.getElementById('recipientLabel');
+    const amountEl = document.getElementById('amount');
+    const balanceEl = document.getElementById('balance');
+
+    let currentAccount = null;
+    let currentChainId = null;
+
+    const MapChainIdToSlug = {
+      1: "ethereum",
+      137: "polygon-pos",
+      10: "optimistic-ethereum",
+      999: "hyperevm"
+    };
+
+    async function loadTokenList(chainId) {
+      const slug = MapChainIdToSlug[chainId];
+      if (!slug) {
+        log("Unsupported chain:", chainId);
+        return;
+      }
+      try {
+        const url = `https://tokens.coingecko.com/${slug}/all.json`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const tokens = data.tokens.filter(t => t.chainId === chainId);
+
+        tokenSelect.innerHTML = "";
+        const nativeOpt = document.createElement("option");
+        nativeOpt.value = "native";
+        nativeOpt.dataset.decimals = "18";
+        nativeOpt.textContent = "Native (" + slug + ")";
+        tokenSelect.appendChild(nativeOpt);
+
+        for (const t of tokens) {
+          const opt = document.createElement("option");
+          opt.value = t.address;
+          opt.dataset.decimals = t.decimals;
+          opt.textContent = t.symbol;
+          if (t.logoURI) {
+            opt.style.backgroundImage = `url(${t.logoURI})`;
+          }
+          tokenSelect.appendChild(opt);
+        }
+        log("Loaded", tokens.length, "tokens for chain", chainId);
+      } catch(e) {
+        log("token load err:", e.message);
+      }
+    }
+
+    async function callERC20(token, method, params=[]) {
+      const data = encodeERC20Call(method, params);
+      return await window.ethereum.request({
+        method: "eth_call",
+        params: [{ to: token, data }, "latest"]
+      });
+    }
+
+    function encodeERC20Call(method, params) {
+      const sigs = {
+        "balanceOf(address)": "0x70a08231",
+        "decimals()": "0x313ce567",
+        "transfer(address,uint256)": "0xa9059cbb"
+      };
+      if (method === "balanceOf(address)") {
+        const addr = params[0].replace(/^0x/,"").padStart(64,"0");
+        return sigs[method] + addr;
+      }
+      return sigs[method];
+    }
+
+    function formatBalance(rawHex, decimals) {
+      const raw = BigInt(rawHex);
+      const divisor = 10n ** BigInt(decimals);
+      const intPart = raw / divisor;
+      const fracPart = raw % divisor;
+      const fracStr = (fracPart.toString().padStart(decimals,"0")).slice(0,6);
+      return `${intPart}.${fracStr}`;
+    }
+
+    async function updateBalance() {
+      if (!currentAccount) return;
+      const token = tokenSelect.value;
+      if (token === "native") {
+        const balHex = await window.ethereum.request({ method:"eth_getBalance", params:[currentAccount,"latest"] });
+        balanceEl.textContent = formatBalance(balHex, 18) + " Native";
+      } else {
+        const raw = await callERC20(token,"balanceOf(address)",[currentAccount]);
+        const decimals = Number(tokenSelect.selectedOptions[0].dataset.decimals);
+        balanceEl.textContent = formatBalance(raw, decimals) + " tokens";
+      }
+    }
+
+    document.getElementById('sendBtn').addEventListener('click', async () => {
+      try {
+        const [from] = await window.ethereum.request({ method:"eth_accounts" });
+        if (!from) throw new Error("No account");
+        const token = tokenSelect.value;
+        const amt = amountEl.value.trim();
+        if (!amt) throw new Error("No amount");
+
+        let tx;
+        if (token === "native") {
+          const to = recipientEl.value.trim() || from;
+          const value = "0x" + (BigInt(Math.floor(Number(amt)*1e18))).toString(16);
+          tx = { from, to, value };
+        } else {
+          const to = recipientEl.value.trim();
+          if (!to) throw new Error("Recipient required for ERC20");
+          const decimals = Number(tokenSelect.selectedOptions[0].dataset.decimals);
+          const value = "0x" + (BigInt(Math.floor(Number(amt)*10**decimals))).toString(16);
+          const data = encodeERC20Call("transfer(address,uint256)",[to,value]);
+          tx = { from, to: token, data };
+        }
+
+        const hash = await window.ethereum.request({ method:"eth_sendTransaction", params:[tx] });
+        log("tx sent:", hash);
+      } catch(e) {
+        log("send err:", e.message || String(e));
+      }
+    });
+
+    tokenSelect.addEventListener('change', () => {
+      if (tokenSelect.value === "native") {
+        recipientLabel.textContent = "Recipient (optional)";
+        recipientEl.placeholder = "leave blank = self";
+      } else {
+        recipientLabel.textContent = "Recipient";
+        recipientEl.placeholder = "0x...";
+      }
+      updateBalance();
+    });
+
+    (async () => {
+      try {
+        const accts = await window.ethereum.request({ method:"eth_requestAccounts" });
+        currentAccount = accts[0];
+        currentChainId = parseInt(await window.ethereum.request({ method:"eth_chainId" }),16);
+        log("Connected:", currentAccount, "chain:", currentChainId);
+        await loadTokenList(currentChainId);
+        updateBalance();
+      } catch(e) {
+        log("err:", e.message);
+      }
+    })();
+
+    window.ethereum.on("accountsChanged", (accs)=>{ currentAccount=accs[0]; updateBalance(); });
+    window.ethereum.on("chainChanged", (cid)=>{ currentChainId=parseInt(cid,16); loadTokenList(currentChainId); updateBalance(); });
+  </script>
+</body>
+</html>

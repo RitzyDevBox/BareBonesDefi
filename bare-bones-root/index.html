@@ -15,22 +15,19 @@
   </header>
 
   <nav class="menu">
+    <!-- <button data-view="exampleView" class="tab">Example</button> -->
     <button data-view="sendView" class="tab active">Send</button>
     <button data-view="orderView" class="tab">Create Order</button>
   </nav>
 
   <main>
     <section id="sendView" class="view active">
-      <div class="card">
-        <h2>Partner Iframe (Child)</h2>
-        <p>Loaded below. It will receive the wallet state and use the shim.</p>
-        <iframe id="tenantFrame"
-            src="../child/bootstrap.html"
-            sandbox="allow-scripts"
-            style="width:100%;height:420px;border:1px solid #ccc;border-radius:8px"></iframe>
-
-      </div>
-    </section>
+        <div class="card">
+          <h2>Partner Iframe Send Modal</h2>
+          <p>Loaded below. It will receive the wallet state and use the shim.</p>
+          <iframe id="tenantFrame" src="../child/sendModal.html" sandbox="allow-scripts"></iframe>
+        </div>
+      </section>
 
     <section id="orderView" class="view">
       <div class="card">
