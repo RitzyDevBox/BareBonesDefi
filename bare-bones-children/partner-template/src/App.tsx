@@ -1,18 +1,16 @@
 import { useShimWallet } from "./hooks/useShimWallet";
 import { SwapForm } from "./components/SwapForm";
+import "./styles/modal.css";
 
 export default function App() {
   const { account, chainId, connect } = useShimWallet();
 
   function handleSignOrder(order: unknown) {
     console.log("Ready to sign order:", order);
-    // TODO: integrate with signer._signTypedData for real UniswapX flow
   }
 
   return (
-    <div style={{ maxWidth: "600px", margin: "2rem auto", fontFamily: "system-ui, sans-serif" }}>
-      <h1>Swap DApp</h1>
-
+    <div>
       {!account ? (
         <button onClick={connect}>Connect Wallet</button>
       ) : (

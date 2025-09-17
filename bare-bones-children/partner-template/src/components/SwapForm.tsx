@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { ethers } from "ethers";
 import { TokenPicker, TokenInfo } from "./TokenPicker";
+import { useShimWallet } from "../hooks/useShimWallet";
 
 interface Props {
   chainId: number | null;
@@ -7,44 +9,79 @@ interface Props {
 }
 
 export function SwapForm({ chainId, onSign }: Props) {
+  const { provider, account } = useShimWallet();
   const [tokenIn, setTokenIn] = useState<TokenInfo | null>(null);
   const [tokenOut, setTokenOut] = useState<TokenInfo | null>(null);
   const [amountIn, setAmountIn] = useState("");
+  const [balance, setBalance] = useState<string>("-");
+
+  // fetch balance whenever account or token changes
+  useEffect(() => {
+    async function fetchBalance() {
+      if (!provider || !account || !tokenIn) return;
+      try {
+        if ("type" in tokenIn && tokenIn.type === "native") {
+          const bal = await provider.getBalance(account);
+          setBalance(ethers.utils.formatUnits(bal, 18));
+        } else {
+          const erc20 = new ethers.Contract(
+            tokenIn.address,
+            ["function balanceOf(address owner) view returns (uint256)"],
+            provider
+          );
+          const bal = await erc20.balanceOf(account);
+          setBalance(ethers.utils.formatUnits(bal, tokenIn.decimals));
+        }
+      } catch {
+        setBalance("-");
+      }
+    }
+    fetchBalance();
+  }, [provider, account, tokenIn]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!tokenIn || !tokenOut || !amountIn) return;
 
-    // simple UniswapX-style order payload
     const order = {
       type: "LIMIT_ORDER",
       tokenIn,
       tokenOut,
       amountIn,
-      amountOut: "TBD", // left blank for now
-      expiry: Date.now() + 1000 * 60 * 15, // 15 mins
+      amountOut: "TBD",
+      expiry: Date.now() + 1000 * 60 * 15,
     };
     onSign(order);
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ border: "1px solid #ddd", padding: "1rem", borderRadius: "8px" }}>
-      <TokenPicker chainId={chainId} label="From" onSelect={(t) => setTokenIn(t as TokenInfo)} />
-      <TokenPicker chainId={chainId} label="To" onSelect={(t) => setTokenOut(t as TokenInfo)} />
+    <div className="modal">
+      <h3>Swap</h3>
 
-      <div style={{ marginBottom: "1rem" }}>
-        <label>
-          Amount In:
-          <input
-            type="text"
-            value={amountIn}
-            onChange={(e) => setAmountIn(e.target.value)}
-            style={{ marginLeft: "0.5rem" }}
-          />
-        </label>
-      </div>
+      <form onSubmit={handleSubmit}>
+        <label>From Token</label>
+        <TokenPicker chainId={chainId} label="From" onSelect={(t) => setTokenIn(t as TokenInfo)} />
 
-      <button type="submit">Sign Order</button>
-    </form>
+        <label>To Token</label>
+        <TokenPicker chainId={chainId} label="To" onSelect={(t) => setTokenOut(t as TokenInfo)} />
+
+        <label>Amount In</label>
+        <input
+          type="number"
+          step="any"
+          placeholder="0.0"
+          value={amountIn}
+          onChange={(e) => setAmountIn(e.target.value)}
+        />
+
+        <div>
+          <small>Balance: {balance}</small>
+        </div>
+
+        <button type="submit" disabled={!account}>
+          Sign Order
+        </button>
+      </form>
+    </div>
   );
 }
