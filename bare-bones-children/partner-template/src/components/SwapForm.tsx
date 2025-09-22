@@ -1,11 +1,18 @@
 import { useState, useEffect } from "react";
-import { ethers } from "ethers";
+import { BigNumber, ethers } from "ethers";
 import { TokenPicker, TokenInfo } from "./TokenPicker";
 import { useShimWallet } from "../hooks/useShimWallet";
 
+export interface OrderMetadata {
+    tokenIn: TokenInfo,
+    amountIn: BigNumber,
+    tokenOut: TokenInfo,
+    minAmountOut: BigNumber
+}
+
 interface Props {
   chainId: number | null;
-  onSign: (order: unknown) => void;
+  onSign: (order: OrderMetadata) => void;
 }
 
 export function SwapForm({ chainId, onSign }: Props) {
@@ -44,12 +51,10 @@ export function SwapForm({ chainId, onSign }: Props) {
     if (!tokenIn || !tokenOut || !amountIn) return;
 
     const order = {
-      type: "LIMIT_ORDER",
       tokenIn,
       tokenOut,
-      amountIn,
-      amountOut: "TBD",
-      expiry: Date.now() + 1000 * 60 * 15,
+      amountIn: BigNumber.from(amountIn),
+      minAmountOut: BigNumber.from(0),
     };
     onSign(order);
   }

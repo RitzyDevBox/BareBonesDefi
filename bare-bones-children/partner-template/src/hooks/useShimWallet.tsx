@@ -4,7 +4,7 @@ import { ethers } from "ethers";
 export function useShimWallet() {
   const [provider, setProvider] = useState<ethers.providers.Web3Provider>();
   const [account, setAccount] = useState<string | null>(null);
-  const [chainId, setChainId] = useState<string | null>(null);
+  const [chainId, setChainId] = useState<number | null>(null);
 
   useEffect(() => {
     if (window.ethereum) {
@@ -17,7 +17,7 @@ export function useShimWallet() {
       });
 
       _provider.send("eth_chainId", []).then((id: string) => {
-        setChainId(id);
+        setChainId(Number(id));
       });
 
       // event listeners with typed payloads
@@ -28,8 +28,8 @@ export function useShimWallet() {
       });
 
       window.ethereum?.on?.("chainChanged", (id) => {
-        if (typeof id === "string") {
-          setChainId(id);
+        if (typeof id === "string" || typeof id === 'number') {
+          setChainId(Number(id));
         }
       });
     }
