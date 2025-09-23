@@ -53,7 +53,7 @@
       // ===== internal =====
       _emit(event, ...args) {
         (this._events[event] || []).forEach(fn => {
-          try { fn(...args); } catch {}
+          try { fn(...args); } catch { /* empty */ }
         });
       }
   

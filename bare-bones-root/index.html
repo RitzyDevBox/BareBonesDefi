@@ -14,43 +14,18 @@
     <button id="connectBtn" class="btn primary">Connect</button>
   </header>
 
-  <nav class="menu">
-    <!-- <button data-view="exampleView" class="tab">Example</button> -->
-    <button data-view="sendView" class="tab active">Send</button>
-    <button data-view="orderView" class="tab">Create Order</button>
-  </nav>
+  <iframe
+    id="tenantFrame"
+    src="http://localhost:5173/"
+    sandbox="allow-scripts"
+  ></iframe>
 
-  <main>
-    <section id="sendView" class="view active">
-        <!-- <div class="card">
-          <h2>Partner Iframe Send Modal</h2>
-          <p>Loaded below. It will receive the wallet state and use the shim.</p>
-          <iframe id="tenantFrame" src="../child/sendModal.html" sandbox="allow-scripts"></iframe>
-        </div> -->
-        <div class="card">
-          <h2>Partner Uniswap X Modal</h2>
-          <p>Loaded below. It will receive the wallet state and use the shim.</p>
-          <iframe id="tenantFrame" src="http://localhost:5173/" sandbox="allow-scripts"></iframe>
-        </div>
-      </section>
-
-    <section id="orderView" class="view">
-      <div class="card">
-        <h2>Notes</h2>
-        <ul>
-          <li>Parent acts as the wallet gatekeeper.</li>
-          <li>Child sees only the shimmed <code>window.ethereum</code>.</li>
-          <li>Reads can be direct to a public RPC; writes are relayed here.</li>
-        </ul>
-      </div>
-    </section>
-  </main>
-
-  <footer>
+  <footer class="site-footer">
     <small>Vanilla JS • No deps</small>
   </footer>
 
   <script type="module" src="js/ui.js"></script>
   <script type="module" src="js/app.js"></script>
+  <script src="js/iframe-resize.js"></script>
 </body>
 </html>

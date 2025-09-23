@@ -1,105 +1,78 @@
-:root {
-    --bg: #0f1115;
-    --card: #171923;
-    --text: #e5e7eb;
-    --muted: #9ca3af;
-    --accent: #6ee7b7;
-    --accent-2: #60a5fa;
-    --border: #2a2f3a;
-  }
-  
-  * { box-sizing: border-box; }
-  
-  /* ===== Page layout ===== */
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg);
-    color: var(--text);
-    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto;
-  }
-  
-  /* Header & nav stay at the top */
-  .banner {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 16px; border-bottom: 1px solid var(--border);
-    position: sticky; top: 0; background: rgba(15,17,21,.9); backdrop-filter: blur(6px);
-  }
-  .brand { font-weight: 700; letter-spacing: .3px; }
-  .spacer { flex: 1; }
-  .net-badge { padding: 4px 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); }
-  
-  .menu { display: flex; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
-  .tab { background: transparent; color: var(--text); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; cursor: pointer; }
-  .tab.active { border-color: var(--accent-2); color: var(--accent-2); }
-  
-  /* Main area fills the rest of the viewport */
-  main {
-    flex: 1;                       /* take remaining height */
-    display: flex;
-    flex-direction: column;
-    min-height: 0;                 /* allow children to grow */
-    /* keep your width container if you like; otherwise remove next 2 lines */
-    max-width: 980px;
-    margin: 20px auto;
-    padding: 0 16px;
-  }
-  
-  /* Only the active view is visible and it must stretch */
-  .view { display: none; }
-  .view.active {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;                 /* critical for the iframe to expand */
-  }
-  
-  /* Card stretches inside the view */
-  .card {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 14px; padding: 16px; margin: 14px 0;
-    box-shadow: 0 10px 20px rgba(0,0,0,.15);
-    display: flex; flex-direction: column;
-    flex: 1;
-    min-height: 0;                 /* critical */
-  }
-  
-  h2 { margin-top: 0; font-size: 18px; }
-  
-  /* Make the iframe fill the card’s remaining space */
-  iframe#tenantFrame {
-    width: 100%;
-    flex: 1;                       /* takes the leftover height */
-    min-height: 0;                 /* avoid overflow collapsing */
-    border: 1px solid #ccc;
-    border-radius: 8px;
-  }
-  
-  /* ===== Form/controls ===== */
-  label { display: block; margin: 10px 0; color: var(--muted); }
-  input {
-    width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
-    background: #0d0f15; color: var(--text); outline: none;
-  }
-  input:focus { border-color: var(--accent-2); }
-  
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-  
-  .btn {
-    padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: #10131a; color: var(--text);
-    cursor: pointer;
-  }
-  .btn.primary { border-color: var(--accent); color: var(--bg); background: var(--accent); }
-  .btn:disabled { opacity: .6; cursor: not-allowed; }
-  
-  .result {
-    background: #0b0e14; border: 1px dashed var(--border); padding: 10px; border-radius: 10px; overflow: auto;
-    color: #a7b1c2;
-  }
-  
-  footer { padding: 20px; text-align: center; color: var(--muted); }
-  
+:root{
+  --bg:#0f1115;
+  --card:#171923;
+  --text:#e5e7eb;
+  --muted:#9ca3af;
+  --accent:#6ee7b7;
+  --accent-2:#60a5fa;
+  --border:#2a2f3a;
+}
+
+*{box-sizing:border-box}
+
+/* page layout */
+html,body{
+  margin:0;
+  padding:0;
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  background:var(--bg);
+  color:var(--text);
+  font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto;
+}
+
+/* header + footer are fixed-height rows */
+header.banner, footer.site-footer{
+  flex:0 0 auto;
+}
+
+/* header styling */
+.banner{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px 16px;
+  border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.9);
+  backdrop-filter:blur(6px);
+}
+.brand{font-weight:700;letter-spacing:.3px}
+.spacer{flex:1}
+.net-badge{
+  padding:4px 8px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  color:var(--muted);
+}
+.btn{
+  padding:10px 14px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:#10131a;
+  color:var(--text);
+  cursor:pointer;
+}
+.btn.primary{
+  border-color:var(--accent);
+  color:var(--bg);
+  background:var(--accent);
+}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+
+/* iframe fills everything between header and footer */
+#tenantFrame{
+  flex:1 1 auto;        /* take remaining height */
+  width:100%;
+  min-height:0;         /* allow shrinking without overflow */
+  border:0;
+  display:block;        /* remove inline-gap quirks */
+}
+
+/* footer */
+.site-footer{
+  padding:16px;
+  text-align:center;
+  color:var(--muted);
+  border-top:1px solid var(--border);
+}

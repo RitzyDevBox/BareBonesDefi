@@ -63,7 +63,7 @@ export function SwapForm({ chainId, onSign }: Props) {
     <div className="modal">
       <h3>Swap</h3>
 
-      <form onSubmit={handleSubmit}>
+      <div>
         <label>From Token</label>
         <TokenPicker chainId={chainId} label="From" onSelect={(t) => setTokenIn(t as TokenInfo)} />
 
@@ -72,21 +72,22 @@ export function SwapForm({ chainId, onSign }: Props) {
 
         <label>Amount In</label>
         <input
-          type="number"
-          step="any"
-          placeholder="0.0"
-          value={amountIn}
-          onChange={(e) => setAmountIn(e.target.value)}
+            type="number"
+            step="any"
+            placeholder="0.0"
+            value={amountIn}
+            onChange={(e) => setAmountIn(e.target.value)}
         />
 
         <div>
-          <small>Balance: {balance}</small>
+            <small>Balance: {balance}</small>
         </div>
 
-        <button type="submit" disabled={!account}>
-          Sign Order
+        <button onClick={handleSubmit} disabled={!account}>
+            Sign Order
         </button>
-      </form>
+      </div>
+
     </div>
   );
 }
