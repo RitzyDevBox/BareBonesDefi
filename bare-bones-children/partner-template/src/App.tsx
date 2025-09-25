@@ -4,6 +4,7 @@ import { buildDutchOrder } from "./utils/buildDutchOrder";
 import "./styles/modal.css";
 
 import { PERMIT2_MAPPING, REACTOR_ADDRESS_MAPPING } from "@uniswap/uniswapx-sdk";
+import { broadcastOrder } from "./utils/broadcastOrder";
 
 export default function App() {
   const { account, chainId, connect, provider } = useShimWallet();
@@ -30,7 +31,7 @@ export default function App() {
 
     const { domain, types, values } = order.permitData();
     const signature = await signer._signTypedData(domain, types, values);
-    console.log(signature);
+    broadcastOrder(order, signature, chainId)
   }
 
   // ✅ App returns JSX here
