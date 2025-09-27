@@ -4,6 +4,7 @@ import { TokenPicker, TokenInfo } from "./TokenPicker";
 import { useShimWallet } from "../hooks/useShimWallet";
 import { useApproval, ApprovalState } from "../hooks/useApproval";
 import { REACTOR_ADDRESS_MAPPING } from "@uniswap/uniswapx-sdk";
+import { getQuote, QuoteResponse } from "../utils/getOrderQuote";
 
 export interface OrderMetadata {
   tokenIn: TokenInfo;
@@ -23,6 +24,8 @@ export function SwapForm({ chainId, onSign }: Props) {
   const [tokenOut, setTokenOut] = useState<TokenInfo | null>(null);
   const [amountIn, setAmountIn] = useState("");
   const [balance, setBalance] = useState<string>("-");
+  const [quote, setQuote] = useState<QuoteResponse | null>(null);
+  const [loadingQuote, setLoadingQuote] = useState(false);
 
   const chainReactorMapping = chainId ? REACTOR_ADDRESS_MAPPING[chainId] : undefined;
 
@@ -34,7 +37,7 @@ export function SwapForm({ chainId, onSign }: Props) {
     account
   );
 
-  // fetch balance whenever account or token changes
+  // Fetch user balance
   useEffect(() => {
     async function fetchBalance() {
       if (!provider || !account || !tokenIn) return;
@@ -58,15 +61,46 @@ export function SwapForm({ chainId, onSign }: Props) {
     fetchBalance();
   }, [provider, account, tokenIn]);
 
+  // Fetch quote when inputs change
+  useEffect(() => {
+    async function fetchQuote() {
+      if (!chainId || !tokenIn || !tokenOut || !amountIn || !account) {
+        setQuote(null);
+        return;
+      }
+      try {
+        setLoadingQuote(true);
+        const q = await getQuote({
+          inputTokenAddress: tokenIn.address,
+          inputTokenDecimals: tokenIn.decimals,
+          inputTokenSymbol: tokenIn.symbol,
+          outputTokenAddress: tokenOut.address,
+          outputTokenDecimals: tokenOut.decimals,
+          outputTokenSymbol: tokenOut.symbol,
+          amountIn: ethers.utils.parseUnits(amountIn, tokenIn.decimals).toString(),
+          recipient: account,
+          chainId,
+        });
+        setQuote(q);
+      } catch (err) {
+        console.error("❌ Quote fetch failed:", err);
+        setQuote(null);
+      } finally {
+        setLoadingQuote(false);
+      }
+    }
+    fetchQuote();
+  }, [chainId, tokenIn, tokenOut, amountIn, account]);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!tokenIn || !tokenOut || !amountIn) return;
+    if (!tokenIn || !tokenOut || !amountIn || !quote) return;
 
     const order = {
       tokenIn,
       tokenOut,
       amountIn: BigNumber.from(amountIn),
-      minAmountOut: BigNumber.from(0),
+      minAmountOut: BigNumber.from(quote.bestPath.output),
     };
     onSign(order);
   }
@@ -103,6 +137,21 @@ export function SwapForm({ chainId, onSign }: Props) {
           <small>Balance: {balance}</small>
         </div>
 
+        {/* Show min out if quote exists */}
+        {quote && tokenOut && (
+          <div>
+            <label>Min Out</label>
+            <input
+              type="text"
+              readOnly
+              value={ethers.utils.formatUnits(
+                quote.bestPath.output,
+                tokenOut.decimals
+              )}
+            />
+          </div>
+        )}
+
         {/* Approval / Signing buttons */}
         {approvalState === ApprovalState.NOT_APPROVED && (
           <button onClick={() => approve()} disabled={!account}>
@@ -115,9 +164,14 @@ export function SwapForm({ chainId, onSign }: Props) {
         )}
 
         {approvalState === ApprovalState.APPROVED && (
-          <button onClick={handleSubmit} disabled={!account}>
-            Sign Order
-          </button>
+          <>
+            {loadingQuote && <p>Fetching best route...</p>}
+            {quote && (
+              <button onClick={handleSubmit} disabled={!account}>
+                Sign Order
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
