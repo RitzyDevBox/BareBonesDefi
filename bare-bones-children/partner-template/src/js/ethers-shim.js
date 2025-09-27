@@ -24,7 +24,8 @@
         const safeReads = new Set([
           "eth_call", "eth_getBalance", "eth_getBlockByNumber", "eth_getBlockByHash",
           "eth_getTransactionByHash", "eth_getTransactionReceipt", "eth_blockNumber",
-          "eth_gasPrice", "eth_getCode", "eth_getStorageAt", "eth_getTransactionCount", "eth_getLogs"
+          "eth_gasPrice", "eth_getCode", "eth_getStorageAt", "eth_getTransactionCount", 
+          "eth_getLogs", "eth_estimateGas"
         ]);
   
         if (identityMethods.has(method) || dangerousWrites.has(method) || safeReads.has(method)) {

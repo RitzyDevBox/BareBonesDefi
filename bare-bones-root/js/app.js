@@ -16,7 +16,8 @@ const SAFE_READS = new Set([
   "eth_getCode",
   "eth_getStorageAt",
   "eth_getTransactionCount",
-  "eth_getLogs"
+  "eth_getLogs",
+  "eth_estimateGas"
 ]);
 const DANGEROUS_WRITES = new Set([
   "eth_sendTransaction",
@@ -159,6 +160,7 @@ window.addEventListener("message", async (event) => {
 
     throw new Error("Method not allowed");
   } catch (err) {
+    console.error("[Parent] Error handling request:", method, params, err)
     safePostMessage(source, { id, error: err?.message ?? String(err) }, origin);
   }
 });
