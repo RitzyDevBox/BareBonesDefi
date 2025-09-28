@@ -5,6 +5,7 @@ import { useShimWallet } from "../hooks/useShimWallet";
 import { useApproval, ApprovalState } from "../hooks/useApproval";
 import { REACTOR_ADDRESS_MAPPING } from "@uniswap/uniswapx-sdk";
 import { getQuote, QuoteResponse } from "../utils/getOrderQuote";
+import { parseUnits } from "ethers/lib/utils";
 
 export interface OrderMetadata {
   tokenIn: TokenInfo;
@@ -15,7 +16,7 @@ export interface OrderMetadata {
 
 interface Props {
   chainId: number | null;
-  onSign: (order: OrderMetadata) => void;
+  onSign: (tokenInAddress: string, order: OrderMetadata, quote: QuoteResponse | null) => void;
 }
 
 export function SwapForm({ chainId, onSign }: Props) {
@@ -96,13 +97,14 @@ export function SwapForm({ chainId, onSign }: Props) {
     e.preventDefault();
     if (!tokenIn || !tokenOut || !amountIn || !quote) return;
 
+    const amountInRaw = parseUnits(amountIn,tokenIn.decimals);
     const order = {
       tokenIn,
       tokenOut,
-      amountIn: BigNumber.from(amountIn),
+      amountIn: BigNumber.from(amountInRaw),
       minAmountOut: BigNumber.from(quote.bestPath.output),
     };
-    onSign(order);
+    onSign(tokenIn.address, order, quote);
   }
 
   return (

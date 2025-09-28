@@ -5,11 +5,13 @@ import "./styles/modal.css";
 
 import { PERMIT2_MAPPING, REACTOR_ADDRESS_MAPPING } from "@uniswap/uniswapx-sdk";
 import { broadcastOrder } from "./utils/broadcastOrder";
+import { fillOrder } from "./utils/fillOrder";
+import { QuoteResponse } from "./utils/getOrderQuote";
 
 export default function App() {
   const { account, chainId, connect, provider } = useShimWallet();
 
-  async function handleSignOrder(orderMeta: OrderMetadata) {
+  async function handleSignOrder(tokenInAddress: string, orderMeta: OrderMetadata, quote: QuoteResponse | null) {
     if (!provider || !account || !chainId) return;
 
     const signer = provider.getSigner();
@@ -31,7 +33,8 @@ export default function App() {
 
     const { domain, types, values } = order.permitData();
     const signature = await signer._signTypedData(domain, types, values);
-    broadcastOrder(order, signature, chainId)
+    //broadcastOrder(order, signature, chainId)
+    await fillOrder(provider, order, tokenInAddress, signature, chainId, quote);
   }
 
   // ✅ App returns JSX here
