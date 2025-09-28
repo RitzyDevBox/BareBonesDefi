@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { DutchOrder } from "@uniswap/uniswapx-sdk";
 import { SwapRouter02ExecutorAddress } from "../constants/misc";
 import SWAP_ROUTER02_EXECUTOR_ABI from "../abis/SwapRouter02Executor.json";
-import { Contract, providers, utils } from "ethers";
+import { BigNumberish, Contract, ethers, providers, utils } from "ethers";
 import { QuoteResponse } from "./getOrderQuote";
 
 export async function fillOrder(
@@ -43,6 +44,18 @@ export async function fillOrder(
     signer
   );
 
+  
+  // 4. Dry-run with callStatic
+  try {
+    await executor.callStatic.execute(signedOrder, callbackData, {
+      value: swapData.bestPath.value as BigNumberish,
+    });
+    console.log("✅ callStatic success — transaction should succeed");
+  } catch (err: any) {
+    console.error("❌ callStatic reverted:", err);
+    throw new Error(err?.reason || err?.message || "callStatic failed");
+  }
+
   // 4. Call execute
   const tx = await executor.execute(signedOrder, callbackData, {
     value: swapData.bestPath.value, // attach ETH if native input
@@ -50,4 +63,15 @@ export async function fillOrder(
   });
 
   return tx.wait();
+}
+
+export async function verifyUniswapXSignature(
+  signerAddress: string,
+  domain: any,
+  types: any,
+  message: any,
+  signature: string
+): Promise<boolean> {
+  const recovered = ethers.utils.verifyTypedData(domain, types, message, signature);
+  return recovered.toLowerCase() === signerAddress.toLowerCase();
 }
