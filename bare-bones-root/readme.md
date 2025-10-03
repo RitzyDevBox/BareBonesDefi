@@ -37,6 +37,8 @@ Run one from the project root:
 
 ### Option A: Python (all platforms)
 ```bash
-cd barebones
+cd bare-bones-root/
 python3 -m http.server 8080
 # open http://localhost:8080/parent/index.html
+
+bare-bones-children/partner-template$ 

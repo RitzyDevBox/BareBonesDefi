@@ -16,7 +16,7 @@ export interface OrderMetadata {
 
 interface Props {
   chainId: number | null;
-  onSign: (tokenInAddress: string, order: OrderMetadata, quote: QuoteResponse | null) => void;
+  onSign: (tokenInAddress: string, tokenOutAddress: string, order: OrderMetadata, quote: QuoteResponse | null) => void;
 }
 
 export function SwapForm({ chainId, onSign }: Props) {
@@ -104,7 +104,7 @@ export function SwapForm({ chainId, onSign }: Props) {
       amountIn: BigNumber.from(amountInRaw),
       minAmountOut: BigNumber.from(quote.bestPath.output),
     };
-    onSign(tokenIn.address, order, quote);
+    onSign(tokenIn.address, tokenOut.address, order, quote);
   }
 
   return (

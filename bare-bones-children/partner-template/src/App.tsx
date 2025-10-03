@@ -7,16 +7,17 @@ import { PERMIT2_MAPPING, REACTOR_ADDRESS_MAPPING } from "@uniswap/uniswapx-sdk"
 import { broadcastOrder } from "./utils/broadcastOrder";
 import { fillOrder, verifyUniswapXSignature } from "./utils/fillOrder";
 import { QuoteResponse } from "./utils/getOrderQuote";
+import { mintExecutorFillOrder } from "./utils/mintExecutorFillOrder";
 
 export default function App() {
   const { account, chainId, connect, provider } = useShimWallet();
 
-  async function handleSignOrder(tokenInAddress: string, orderMeta: OrderMetadata, quote: QuoteResponse | null) {
+  async function handleSignOrder(tokenInAddress: string, tokenOutAddress: string, orderMeta: OrderMetadata, quote: QuoteResponse | null) {
     if (!provider || !account || !chainId) return;
 
     const signer = provider.getSigner();
     const { Dutch_V2: dutchReactorV2Address } = REACTOR_ADDRESS_MAPPING[chainId];
-    const permit2Address = PERMIT2_MAPPING[chainId];
+    const permit2Address = PERMIT2_MAPPING[chainId]; 
 
     if (!dutchReactorV2Address || !permit2Address) return;
 
@@ -36,7 +37,8 @@ export default function App() {
     //broadcastOrder(order, signature, chainId)
 
     verifyUniswapXSignature(account, domain, types, values, signature)
-    await fillOrder(provider, order, tokenInAddress, signature, chainId, quote);
+    mintExecutorFillOrder(signer, order, signature);
+    //await fillOrder(provider, order, tokenInAddress, tokenOutAddress, signature, chainId, quote);
   }
 
   // ✅ App returns JSX here

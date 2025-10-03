@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { ethers } from "ethers";
+import { useShimWallet } from "../hooks/useShimWallet";
 
 const MapChainIdToSlug: Record<number, string> = {
   1: "ethereum",
@@ -17,13 +19,18 @@ export interface TokenInfo {
 
 interface Props {
   chainId: number | null;
-  label: string; // ✅ added
+  label: string;
   onSelect: (token: TokenInfo | { type: "native"; symbol: string; decimals: number }) => void;
 }
 
 export function TokenPicker({ chainId, label, onSelect }: Props) {
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // for custom token
+  const [customAddress, setCustomAddress] = useState("");
+  const [customToken, setCustomToken] = useState<TokenInfo | null>(null);
+  const { provider } = useShimWallet()
 
   useEffect(() => {
     async function loadTokenList(cid: number) {
@@ -45,6 +52,37 @@ export function TokenPicker({ chainId, label, onSelect }: Props) {
     else setTokens([]);
   }, [chainId]);
 
+  async function handleCustomAddress(addr: string) {
+    setCustomAddress(addr);
+    if (!addr || !ethers.utils.isAddress(addr) || !chainId) {
+      setCustomToken(null);
+      return;
+    }
+
+    try {
+      const erc20 = new ethers.Contract(
+        addr,
+        [
+          "function symbol() view returns (string)",
+          "function decimals() view returns (uint8)",
+        ],
+        provider
+      );
+      const [symbol, decimals] = await Promise.all([erc20.symbol(), erc20.decimals()]);
+      const token: TokenInfo = {
+        chainId,
+        address: addr,
+        symbol,
+        decimals,
+      };
+      setCustomToken(token);
+      onSelect(token);
+    } catch (err) {
+      console.warn("Custom token fetch failed, fallback to manual:", err);
+      setCustomToken(null);
+    }
+  }
+
   return (
     <div style={{ marginBottom: "1rem" }}>
       <label>
@@ -55,26 +93,50 @@ export function TokenPicker({ chainId, label, onSelect }: Props) {
             if (e.target.value === "native") {
               const slug = chainId ? MapChainIdToSlug[chainId] : "unknown";
               onSelect({ type: "native", symbol: `Native (${slug})`, decimals: 18 });
+              setCustomAddress("");
+              setCustomToken(null);
+            } else if (e.target.value === "custom") {
+              // just show input, don’t trigger select yet
             } else {
               const token = tokens.find((t) => t.address === e.target.value);
-              if (token) onSelect(token);
+              if (token) {
+                onSelect(token);
+                setCustomAddress("");
+                setCustomToken(null);
+              }
             }
           }}
         >
           <option value="">-- Select Token --</option>
           {chainId && (
-            <option value="native" data-decimals="18">
-              Native ({MapChainIdToSlug[chainId]})
-            </option>
+            <option value="native">Native ({MapChainIdToSlug[chainId]})</option>
           )}
+          <option value="custom">➕ Custom token…</option>
           {tokens.map((t) => (
-            <option key={t.address} value={t.address} data-decimals={t.decimals}>
+            <option key={t.address} value={t.address}>
               {t.symbol}
             </option>
           ))}
         </select>
       </label>
+
       {loading && <p>Loading tokens…</p>}
+
+      {/* Custom input */}
+      <div style={{ marginTop: "0.5rem" }}>
+        <input
+          type="text"
+          placeholder="Paste token address"
+          value={customAddress}
+          onChange={(e) => handleCustomAddress(e.target.value)}
+          style={{ width: "100%" }}
+        />
+        {customToken && (
+          <p>
+            ✅ Detected {customToken.symbol} (decimals {customToken.decimals})
+          </p>
+        )}
+      </div>
     </div>
   );
 }
