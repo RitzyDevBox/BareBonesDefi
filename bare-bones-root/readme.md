@@ -35,6 +35,12 @@ This lets you host **third-party apps on subdomains** without exposing your wall
 Modern browsers block ES modules from `file://` URLs, so you need a static server.  
 Run one from the project root:
 
+### Run the child iframe project:
+```
+cd bare-bones-children/partner-template/
+yarn dev
+```
+
 ### Option A: Python (all platforms)
 ```bash
 cd bare-bones-root/
