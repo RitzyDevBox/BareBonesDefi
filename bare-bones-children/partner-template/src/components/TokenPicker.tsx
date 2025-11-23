@@ -68,7 +68,10 @@ export function TokenPicker({ chainId, label, onSelect }: Props) {
         ],
         provider
       );
-      const [symbol, decimals] = await Promise.all([erc20.symbol(), erc20.decimals()]);
+
+      const symbol = erc20.symbol()
+      const decimals = await erc20.decimals()
+      // const [symbol, decimals] = await Promise.all([erc20.symbol(), erc20.decimals()]);
       const token: TokenInfo = {
         chainId,
         address: addr,
