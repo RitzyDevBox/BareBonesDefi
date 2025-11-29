@@ -25,7 +25,7 @@ export function DeployWalletPage() {
   const [log, setLog] = useState("");
 
   const appendLog = (msg: any) =>
-    setLog((l) => l + (typeof msg === "string" ? msg : JSON.stringify(msg)) + "\n");
+    setLog((l) => l + (typeof msg === "string" ? msg : JSON.stringify(msg, null, 2)) + "\n");
 
   async function deployWallet() {
     try {
@@ -46,26 +46,89 @@ export function DeployWalletPage() {
     }
   }
 
+  const container = {
+    width: "100%",
+    maxWidth: "480px",
+    margin: "0 auto",
+    padding: "24px",
+    background: "#171923",
+    borderRadius: "14px",
+    border: "1px solid #2a2f3a",
+    boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "16px",
+    color: "#e5e7eb",
+    boxSizing: "border-box" as const,
+  };
+
+  const label = {
+    fontSize: "14px",
+    color: "#9ca3af",
+  };
+
+  const input = {
+    width: "100%",
+    padding: "12px",
+    borderRadius: "10px",
+    border: "1px solid #2a2f3a",
+    background: "#0d0f15",
+    color: "#e5e7eb",
+    fontSize: "14px",
+    boxSizing: "border-box" as const,
+  };
+
+  const button = {
+    padding: "12px",
+    borderRadius: "10px",
+    border: "1px solid #2a2f3a",
+    background: "#6ee7b7",
+    color: "#0f1115",
+    fontWeight: 600,
+    cursor: "pointer",
+    fontSize: "14px",
+  };
+
+  const logBox = {
+    background: "#0b0e14",
+    padding: "12px",
+    borderRadius: "10px",
+    whiteSpace: "pre-wrap" as const,
+    fontSize: "13px",
+    maxHeight: "250px",
+    overflowY: "auto" as const,
+    color: "#a7b1c2",
+    marginTop: "8px",
+  };
+
   return (
-    <div style={{ maxWidth: 420 }}>
-      <h2>Deploy Wallet</h2>
+    <div style={container}>
+      <h2 style={{ margin: 0, marginBottom: "8px", color: "#e5e7eb", fontSize: "18px" }}>
+        Deploy Wallet
+      </h2>
 
-      <label>Owner</label>
-      <input value={owner} onChange={(e) => setOwner(e.target.value)} placeholder={account || "0x..."} />
-
-      <label>Policy Delay (seconds)</label>
+      <label style={label}>Owner</label>
       <input
+        style={input}
+        value={owner}
+        onChange={(e) => setOwner(e.target.value)}
+        placeholder={account || "0x..."}
+      />
+
+      <label style={label}>Policy Delay (seconds)</label>
+      <input
+        style={input}
         type="number"
         min="0"
         value={policyDelay}
         onChange={(e) => setPolicyDelay(e.target.value)}
       />
 
-      <button onClick={deployWallet}>Deploy</button>
+      <button style={button} onClick={deployWallet}>
+        Deploy
+      </button>
 
-      <pre style={{ marginTop: 20, background: "#111", padding: 10, borderRadius: 8 }}>
-        {log}
-      </pre>
+      <pre style={logBox}>{log}</pre>
     </div>
   );
 }
