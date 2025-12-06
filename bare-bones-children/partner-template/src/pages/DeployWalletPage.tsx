@@ -1,51 +1,76 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
-import { useShimWallet } from "../hooks/useShimWallet";
 import { ethers } from "ethers";
+import { useShimWallet } from "../hooks/useShimWallet";
 
-const FACTORY_ADDRESS = "0xff8D562a44C27567972fd89eDdE36880F338E5CE";
+const FACTORY_ADDRESS = "0xA2156c50c876cA57efF74f1646bC642a74e06a64";
 
 const FACTORY_ABI = [
   {
-    name: "createWallet",
+    name: "deployDiamond",
     type: "function",
     stateMutability: "nonpayable",
+    inputs: [{ name: "seed", type: "uint256" }],
+    outputs: [{ name: "diamond", type: "address" }],
+  },
+  {
+    anonymous: false,
+    type: "event",
+    name: "DiamondDeployed",
     inputs: [
-      { name: "owner", type: "address" },
-      { name: "policyDelay", type: "uint256" },
+      { indexed: true, name: "user", type: "address" },
+      { indexed: true, name: "seed", type: "uint256" },
+      { indexed: false, name: "diamond", type: "address" },
     ],
-    outputs: [{ type: "address" }],
   },
 ];
 
-export function DeployWalletPage() {
-  const { provider, account } = useShimWallet();
-  const [owner, setOwner] = useState("");
-  const [policyDelay, setPolicyDelay] = useState("0");
+export function DeployDiamondPage() {
+  const { provider } = useShimWallet();
+  const [seed, setSeed] = useState("");
   const [log, setLog] = useState("");
 
   const appendLog = (msg: any) =>
     setLog((l) => l + (typeof msg === "string" ? msg : JSON.stringify(msg, null, 2)) + "\n");
 
-  async function deployWallet() {
+  async function deploy() {
     try {
-      const signer = provider!.getSigner();
+      if (!provider) throw new Error("No provider found");
+
+      const signer = provider.getSigner();
       const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
 
-      const finalOwner = owner || account;
-      appendLog(`Deploying wallet for owner: ${finalOwner}`);
+      const finalSeed = seed || "0";
+      appendLog(`Deploying diamond with seed: ${finalSeed}`);
 
-      const tx = await factory.createWallet(finalOwner, policyDelay);
+      const tx = await factory.deployDiamond(finalSeed);
       appendLog(`Tx sent: ${tx.hash}`);
 
       const receipt = await tx.wait();
       appendLog("Tx confirmed!");
+
+      // Try reading event
+      const event = receipt.logs
+        .map((l: any) => {
+          try {
+            return factory.interface.parseLog(l);
+          } catch {
+            return null;
+          }
+        })
+        .find((x: any) => x && x.name === "DiamondDeployed");
+
+      if (event) {
+        appendLog(`New Diamond: ${event.args.diamond}`);
+      }
+
       appendLog(receipt);
     } catch (e: any) {
       appendLog("Error: " + e.message);
     }
   }
 
+  // ---- Styles ----
   const container = {
     width: "100%",
     maxWidth: "480px",
@@ -104,28 +129,20 @@ export function DeployWalletPage() {
   return (
     <div style={container}>
       <h2 style={{ margin: 0, marginBottom: "8px", color: "#e5e7eb", fontSize: "18px" }}>
-        Deploy Wallet
+        Deploy Diamond Wallet
       </h2>
 
-      <label style={label}>Owner</label>
+      <label style={label}>Seed (any number)</label>
       <input
         style={input}
-        value={owner}
-        onChange={(e) => setOwner(e.target.value)}
-        placeholder={account || "0x..."}
-      />
-
-      <label style={label}>Policy Delay (seconds)</label>
-      <input
-        style={input}
+        value={seed}
+        onChange={(e) => setSeed(e.target.value)}
+        placeholder="123"
         type="number"
-        min="0"
-        value={policyDelay}
-        onChange={(e) => setPolicyDelay(e.target.value)}
       />
 
-      <button style={button} onClick={deployWallet}>
-        Deploy
+      <button style={button} onClick={deploy}>
+        Deploy Diamond
       </button>
 
       <pre style={logBox}>{log}</pre>
