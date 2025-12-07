@@ -48,3 +48,7 @@ python3 -m http.server 8080
 # open http://localhost:8080/parent/index.html
 
 bare-bones-children/partner-template$ 
+
+##
+
+Test Wallet Deployment Seed 0: 0x6dC2F30D8D2b1683617AaECd98941D7e56cA61A1

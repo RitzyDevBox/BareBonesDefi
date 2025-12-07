@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ethers } from "ethers";
 import { useShimWallet } from "../hooks/useShimWallet";
 
-const FACTORY_ADDRESS = "0xA2156c50c876cA57efF74f1646bC642a74e06a64";
+const FACTORY_ADDRESS = "0xC95776A97661A21d86FA1Bb9b9fF6934E15BF1AF";
 
 const FACTORY_ABI = [
   {
@@ -29,6 +29,8 @@ export function DeployDiamondPage() {
   const { provider } = useShimWallet();
   const [seed, setSeed] = useState("");
   const [log, setLog] = useState("");
+  const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
+
 
   const appendLog = (msg: any) =>
     setLog((l) => l + (typeof msg === "string" ? msg : JSON.stringify(msg, null, 2)) + "\n");
@@ -62,6 +64,7 @@ export function DeployDiamondPage() {
 
       if (event) {
         appendLog(`New Diamond: ${event.args.diamond}`);
+        setDeployedAddress(event.args.diamond);  // <-- Add this
       }
 
       appendLog(receipt);
@@ -145,7 +148,49 @@ export function DeployDiamondPage() {
         Deploy Diamond
       </button>
 
-      <pre style={logBox}>{log}</pre>
+      {deployedAddress && (
+        <div
+            style={{
+            padding: "12px",
+            background: "#0f172a",
+            borderRadius: "10px",
+            border: "1px solid #334155",
+            color: "#a3e635",
+            fontSize: "14px",
+            wordBreak: "break-all",
+            }}
+        >
+            <div style={{ marginBottom: "8px" }}>Deployed Diamond Address:</div>
+
+            <div
+            style={{
+                fontWeight: 600,
+                padding: "8px",
+                background: "#1e293b",
+                borderRadius: "8px",
+                cursor: "pointer",
+            }}
+            onClick={() => navigator.clipboard.writeText(deployedAddress)}
+            >
+            {deployedAddress}
+            </div>
+
+            <a
+            href={`/basic-wallet-facet/${deployedAddress}`}
+            style={{
+                marginTop: "10px",
+                display: "block",
+                color: "#6ee7b7",
+                textDecoration: "underline",
+            }}
+            >
+            Install Basic Wallet Module →
+            </a>
+        </div>
+        )}
+
+        <pre style={logBox}>{log}</pre>
+
     </div>
   );
 }
