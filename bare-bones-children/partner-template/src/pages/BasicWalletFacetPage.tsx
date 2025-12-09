@@ -7,10 +7,10 @@ import { useParams } from "react-router-dom";
 import LOUPE_ABI from "../abis/diamond/loupe.abi.json";
 import DIAMOND_CUT_ABI from "../abis/diamond/diamondCut.abi.json";
 import BASIC_WALLET_FACET_ABI from "../abis/diamond/facets/basicWalletFacet.abi.json";
-import { getSelectorsFromABI } from "../utils/getSelectorsFromAbi";
 import ERC20_ABI from "../abis/ERC20.json";
-import { TokenSendModal } from "../components/TokenSendModal/TokenSendModal";
-
+import { getSelectorsFromABI } from "../utils/getSelectorsFromAbi";
+import { useTokenInfo } from "../hooks/useTokenInfo";
+import { TokenActionModal } from "../components/TokenActionModal/TokenActionModal";
 
 import "./BasicWalletFacetPage.scss";
 
@@ -31,12 +31,21 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
   const [installed, setInstalled] = useState<boolean | null>(true);
   const [log, setLog] = useState("");
   const [tokenAddress, setTokenAddress] = useState("");
-  const [tokenSymbol, setTokenSymbol] = useState("");
-  const [decimals, setDecimals] = useState<number | null>(null);
-  const [balance, setBalance] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState("");
+  const [mode, setMode] = useState<"send" | "receive">("send");
+
+  const {
+    decimals,
+    symbol: tokenSymbol,
+    balanceDiamond,
+    balanceUser,
+    loading: tokenLoading,
+    valid: tokenValid,
+    error: tokenError,
+  } = useTokenInfo(provider, tokenAddress, diamondAddress);
+
 
   const appendLog = (m: any) =>
     setLog((l) => l + (typeof m === "string" ? m : JSON.stringify(m)) + "\n");
@@ -85,25 +94,6 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
     }
   }
 
-  async function fetchTokenDetails(addr: string) {
-    try {
-      const erc20 = new ethers.Contract(addr, ERC20_ABI, provider);
-
-      const d = await erc20.decimals();
-      const sym = await erc20.symbol();
-      const bal = await erc20.balanceOf(diamondAddress);
-
-      setDecimals(d);
-      setTokenSymbol(sym);
-      setBalance(ethers.utils.formatUnits(bal, d));
-    } catch (err) {
-      appendLog("ERC20 lookup failed: " + String(err));
-      setDecimals(null);
-      setTokenSymbol("");
-      setBalance("");
-    }
-  }
-
   async function sendToken() {
     try {
       if (!provider) throw new Error("No provider");
@@ -111,8 +101,7 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
       const signer = provider.getSigner();
       const contract = new ethers.Contract(diamondAddress, BASIC_WALLET_FACET_ABI, signer);
 
-      const amt = ethers.utils.parseUnits(amount, decimals ?? 18);
-
+      const amt = ethers.utils.parseUnits(amount, decimals || 18);
       appendLog(`Sending ${amount} ${tokenSymbol} to ${recipient}`);
 
       const tx = await contract.sendERC20(tokenAddress, recipient, amt);
@@ -127,6 +116,34 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
     }
   }
 
+  async function receiveToken() {
+    try {
+        if (!provider) throw new Error("No provider");
+
+        const signer = provider.getSigner();
+        const userAddress = await signer.getAddress();
+
+        const erc20 = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+        const amt = ethers.utils.parseUnits(amount, decimals ?? 18);
+
+        appendLog(
+        `Receiving ${amount} ${tokenSymbol} from ${userAddress} → ${diamondAddress}`
+        );
+
+        // User sends directly to the wallet
+        const tx = await erc20.transfer(diamondAddress, amt);
+        appendLog("Tx: " + tx.hash);
+
+        await tx.wait();
+        appendLog("Receive complete!");
+
+        setShowModal(false);
+    } catch (err) {
+        appendLog("Error receiving token: " + String(err));
+    }
+    }
+
+
   if (installed === null) return <div>Checking module...</div>;
 
   if (!installed)
@@ -139,52 +156,79 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
       </div>
     );
 
-  return (
-    <div className="wallet-container">
-      <h3 className="wallet-title">Basic Wallet Module</h3>
+    return (
+        <div className="wallet-container">
+            <h3 className="wallet-title">Basic Wallet Module</h3>
 
-      <div className="field-block">
-        <label className="field-label">ERC20 Token Address</label>
+            {/* --- SEND / RECEIVE TOGGLE --- */}
+            <div className="mode-toggle">
+            <button
+                className={mode === "send" ? "toggle-btn active" : "toggle-btn"}
+                onClick={() => setMode("send")}
+            >
+                Send
+            </button>
+            <button
+                className={mode === "receive" ? "toggle-btn active" : "toggle-btn"}
+                onClick={() => setMode("receive")}
+            >
+                Receive
+            </button>
+            </div>
 
-        <input
-          className="input"
-          type="text"
-          placeholder="0x..."
-          value={tokenAddress}
-          onChange={(e) => {
-            const value = e.target.value.trim();
-            setTokenAddress(value);
-            if (value.length === 42) fetchTokenDetails(value);
-          }}
-        />
+            {/* --- TOKEN INPUT --- */}
+            <div className="field-block">
+            <label className="field-label">ERC20 Token Address</label>
 
-        {tokenSymbol && (
-          <div className="token-detected">
-            {tokenSymbol} detected ({decimals} decimals)
-          </div>
-        )}
-      </div>
+            <input
+                className="input"
+                type="text"
+                placeholder="0x..."
+                value={tokenAddress}
+                onChange={(e) => {
+                const value = e.target.value.trim();
+                setTokenAddress(value);
+                }}
+            />
 
-      {tokenSymbol && (
-        <button className="primary-btn" onClick={() => setShowModal(true)}>
-          Send {tokenSymbol}
-        </button>
-      )}
+            {tokenSymbol && (
+                <div className="token-detected">
+                {tokenSymbol} detected ({decimals} decimals)
+                </div>
+            )}
+            </div>
 
-    {showModal && (
-        <TokenSendModal
-            tokenSymbol={tokenSymbol}
-            balance={balance}
-            amount={amount}
-            recipient={recipient}
-            setAmount={setAmount}
-            setRecipient={setRecipient}
-            onClose={() => setShowModal(false)}
-            onConfirm={sendToken}
-        />
-    )}
+            {/* --- OPEN MODAL BUTTON --- */}
+            {tokenSymbol && (
+            <button
+                className="primary-btn"
+                onClick={() => setShowModal(true)}
+            >
+                {mode === "send"
+                ? `Send ${tokenSymbol}`
+                : `Deposit ${tokenSymbol}`}
+            </button>
+            )}
 
-      <pre className="log-box">{log}</pre>
-    </div>
-  );
+            {/* --- MODAL --- */}
+            {showModal && (
+                <TokenActionModal
+                    mode={mode}
+                    tokenSymbol={tokenSymbol}
+                    diamondAddress={diamondAddress}
+                    balanceUser={balanceUser}
+                    balanceDiamond={balanceDiamond}
+                    amount={amount}
+                    setAmount={setAmount}
+                    recipient={recipient}
+                    setRecipient={setRecipient}
+                    onClose={() => setShowModal(false)}
+                    onConfirm={mode === "send" ? sendToken : receiveToken}
+                />
+            )}
+
+            <pre className="log-box">{log}</pre>
+        </div>
+    );
+
 }

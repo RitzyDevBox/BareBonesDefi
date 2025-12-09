@@ -98,3 +98,27 @@
   color: #9ca3af;
   font-size: 14px;
 }
+
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+
+  .toggle-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    cursor: pointer;
+    font-weight: 500;
+
+    &.active {
+      background: #6ee7b7;
+      color: #111;
+      border-color: #6ee7b7;
+      font-weight: 600;
+    }
+  }
+}
