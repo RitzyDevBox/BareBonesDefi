@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useCallback, useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { useShimWallet } from "../hooks/useShimWallet";
@@ -8,7 +9,10 @@ import DIAMOND_CUT_ABI from "../abis/diamond/diamondCut.abi.json";
 import BASIC_WALLET_FACET_ABI from "../abis/diamond/facets/basicWalletFacet.abi.json";
 import { getSelectorsFromABI } from "../utils/getSelectorsFromAbi";
 import ERC20_ABI from "../abis/ERC20.json";
+import { TokenSendModal } from "../components/TokenSendModal/TokenSendModal";
 
+
+import "./BasicWalletFacetPage.scss";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const WALLET_FACET_ADDRESS = "0x79e2fa7763C4D1884f6a6D98b51220eD79fC4484";
@@ -19,9 +23,7 @@ export function BasicWalletFacetPage() {
 
   if (!diamondAddress) return <div>No diamond address provided</div>;
 
-  return (
-    <BasicWalletInstaller diamondAddress={diamondAddress} />
-  );
+  return <BasicWalletInstaller diamondAddress={diamondAddress} />;
 }
 
 export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: string }) {
@@ -36,21 +38,18 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState("");
 
+  const appendLog = (m: any) =>
+    setLog((l) => l + (typeof m === "string" ? m : JSON.stringify(m)) + "\n");
 
-  const appendLog = (m: any) => setLog((l) => l + (typeof m === "string" ? m : JSON.stringify(m)) + "\n");
-
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const checkInstalled = useCallback(async () => {
     if (!provider || !diamondAddress) return;
 
     const diamond = new ethers.Contract(diamondAddress, LOUPE_ABI, provider);
-
-    // Get all installed facets on the diamond
     const facets = await diamond.facets();
 
-    // Check if ANY facetAddress matches the BasicWalletFacet singleton
     const isInstalled = facets.some(
-        (f: any) =>
-        f.facetAddress.toLowerCase() === WALLET_FACET_ADDRESS.toLowerCase()
+      (f: any) => f.facetAddress.toLowerCase() === WALLET_FACET_ADDRESS.toLowerCase()
     );
 
     setInstalled(isInstalled);
@@ -60,7 +59,6 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
     try {
       if (!provider) throw new Error("No provider");
       const signer = provider.getSigner();
-
       const diamondCut = new ethers.Contract(diamondAddress, DIAMOND_CUT_ABI, signer);
 
       appendLog("Installing BasicWalletFacet...");
@@ -69,7 +67,7 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
         [
           {
             facetAddress: WALLET_FACET_ADDRESS,
-            action: 0, // add
+            action: 0,
             functionSelectors: WALLET_SELECTORS,
           },
         ],
@@ -78,7 +76,6 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
       );
 
       appendLog("Tx: " + tx.hash);
-
       await tx.wait();
 
       appendLog("Wallet facet installed!");
@@ -88,231 +85,106 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
     }
   }
 
-//   useEffect(() => {
-//     checkInstalled();
-//   }, [checkInstalled]);
+  async function fetchTokenDetails(addr: string) {
+    try {
+      const erc20 = new ethers.Contract(addr, ERC20_ABI, provider);
 
+      const d = await erc20.decimals();
+      const sym = await erc20.symbol();
+      const bal = await erc20.balanceOf(diamondAddress);
 
-    async function fetchTokenDetails(addr: string) {
-        try {
-            const erc20 = new ethers.Contract(addr, ERC20_ABI, provider);
-
-            const d = await erc20.decimals();
-            const sym = await erc20.symbol();
-            const bal = await erc20.balanceOf(diamondAddress);
-
-            setDecimals(d);
-            setTokenSymbol(sym);
-            setBalance(ethers.utils.formatUnits(bal, d));
-        } catch (err) {
-            appendLog("ERC20 lookup failed: " + String(err));
-            setDecimals(null);
-            setTokenSymbol("");
-            setBalance("");
-        }
+      setDecimals(d);
+      setTokenSymbol(sym);
+      setBalance(ethers.utils.formatUnits(bal, d));
+    } catch (err) {
+      appendLog("ERC20 lookup failed: " + String(err));
+      setDecimals(null);
+      setTokenSymbol("");
+      setBalance("");
     }
+  }
 
-    async function sendToken() {
-        try {
-            if (!provider) throw new Error("No provider");
+  async function sendToken() {
+    try {
+      if (!provider) throw new Error("No provider");
 
-            const signer = provider.getSigner();
-            const contract = new ethers.Contract(
-            diamondAddress,
-            BASIC_WALLET_FACET_ABI,
-            signer
-            );
+      const signer = provider.getSigner();
+      const contract = new ethers.Contract(diamondAddress, BASIC_WALLET_FACET_ABI, signer);
 
-            const amt = ethers.utils.parseUnits(amount, decimals ?? 18);
+      const amt = ethers.utils.parseUnits(amount, decimals ?? 18);
 
-            appendLog(`Sending ${amount} ${tokenSymbol} to ${recipient}`);
+      appendLog(`Sending ${amount} ${tokenSymbol} to ${recipient}`);
 
-            const tx = await contract.sendERC20(tokenAddress, recipient, amt);
-            appendLog("Tx: " + tx.hash);
+      const tx = await contract.sendERC20(tokenAddress, recipient, amt);
+      appendLog("Tx: " + tx.hash);
 
-            await tx.wait();
-            appendLog("Transfer complete!");
+      await tx.wait();
+      appendLog("Transfer complete!");
 
-            setShowModal(false);
-        } catch (err) {
-            appendLog("Error sending token: " + String(err));
-        }
+      setShowModal(false);
+    } catch (err) {
+      appendLog("Error sending token: " + String(err));
     }
-
-
-
-  // --------------- UI ------------------
+  }
 
   if (installed === null) return <div>Checking module...</div>;
 
   if (!installed)
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-        <button
-          onClick={install}
-          style={{
-            padding: "12px",
-            borderRadius: "8px",
-            background: "#6ee7b7",
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
+      <div className="install-container">
+        <button onClick={install} className="primary-btn">
           Install Basic Wallet Module
         </button>
-
-        <pre style={{ color: "#aaa", whiteSpace: "pre-wrap" }}>{log}</pre>
+        <pre className="log-box">{log}</pre>
       </div>
     );
 
-    // If already installed → show interactive page
-    return (
-    <div style={{ padding: "16px", background: "#111", borderRadius: "8px", color: "#e5e7eb" }}>
-        <h3 style={{ marginBottom: "12px" }}>Basic Wallet Module</h3>
+  return (
+    <div className="wallet-container">
+      <h3 className="wallet-title">Basic Wallet Module</h3>
 
-        {/* ERC20 Input Section */}
-        <div style={{ marginBottom: "20px" }}>
-        <label style={{ display: "block", marginBottom: "6px", fontSize: "14px", color: "#9ca3af" }}>
-            ERC20 Token Address
-        </label>
+      <div className="field-block">
+        <label className="field-label">ERC20 Token Address</label>
+
         <input
-            style={{
-            width: "100%",
-            padding: "12px",
-            borderRadius: "8px",
-            background: "#0d1117",
-            border: "1px solid #2a2f3a",
-            color: "#e5e7eb",
-            }}
-            type="text"
-            placeholder="0x..."
-            value={tokenAddress}
-            onChange={(e) => {
+          className="input"
+          type="text"
+          placeholder="0x..."
+          value={tokenAddress}
+          onChange={(e) => {
             const value = e.target.value.trim();
             setTokenAddress(value);
-
             if (value.length === 42) fetchTokenDetails(value);
-            }}
+          }}
         />
 
         {tokenSymbol && (
-            <div style={{ marginTop: "8px", fontSize: "14px", color: "#6ee7b7" }}>
+          <div className="token-detected">
             {tokenSymbol} detected ({decimals} decimals)
-            </div>
+          </div>
         )}
-        </div>
+      </div>
 
-        {/* Show Send Button */}
-        {tokenSymbol && (
-        <button
-            onClick={() => setShowModal(true)}
-            style={{
-            padding: "12px",
-            borderRadius: "8px",
-            background: "#6ee7b7",
-            color: "#111",
-            fontWeight: 600,
-            cursor: "pointer",
-            width: "100%",
-            }}
-        >
-            Send {tokenSymbol}
+      {tokenSymbol && (
+        <button className="primary-btn" onClick={() => setShowModal(true)}>
+          Send {tokenSymbol}
         </button>
-        )}
+      )}
 
-        {/* Modal */}
-        {showModal && (
-        <div
-            style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            background: "rgba(0,0,0,0.6)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 9999,
-            }}
-            onClick={() => setShowModal(false)}
-        >
-            <div
-            style={{
-                width: "380px",
-                background: "#0f172a",
-                padding: "20px",
-                borderRadius: "12px",
-                border: "1px solid #334155",
-                color: "#e5e7eb",
-            }}
-            onClick={(e) => e.stopPropagation()}
-            >
-            <h3 style={{ marginTop: 0 }}>Send {tokenSymbol}</h3>
+    {showModal && (
+        <TokenSendModal
+            tokenSymbol={tokenSymbol}
+            balance={balance}
+            amount={amount}
+            recipient={recipient}
+            setAmount={setAmount}
+            setRecipient={setRecipient}
+            onClose={() => setShowModal(false)}
+            onConfirm={sendToken}
+        />
+    )}
 
-            <p style={{ color: "#9ca3af", fontSize: "14px" }}>
-                Balance: {balance} {tokenSymbol}
-            </p>
-
-            {/* Amount */}
-            <label style={{ display: "block", marginTop: "12px", fontSize: "14px" }}>
-                Amount
-            </label>
-            <input
-                style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "8px",
-                background: "#0d1117",
-                border: "1px solid #2a2f3a",
-                color: "#e5e7eb",
-                }}
-                type="number"
-                placeholder="0.0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-            />
-
-            {/* Recipient */}
-            <label style={{ display: "block", marginTop: "12px", fontSize: "14px" }}>
-                Recipient Address
-            </label>
-            <input
-                style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "8px",
-                background: "#0d1117",
-                border: "1px solid #2a2f3a",
-                color: "#e5e7eb",
-                }}
-                type="text"
-                placeholder="0xRecipient..."
-                value={recipient}
-                onChange={(e) => setRecipient(e.target.value)}
-            />
-
-            <button
-                onClick={sendToken}
-                style={{
-                width: "100%",
-                marginTop: "18px",
-                padding: "12px",
-                borderRadius: "8px",
-                background: "#6ee7b7",
-                color: "#111",
-                fontWeight: 600,
-                cursor: "pointer",
-                }}
-            >
-                Confirm Send
-            </button>
-            </div>
-        </div>
-        )}
-
-        <pre style={{ color: "#aaa", whiteSpace: "pre-wrap", marginTop: "20px" }}>{log}</pre>
+      <pre className="log-box">{log}</pre>
     </div>
-    );
-
+  );
 }
