@@ -7,6 +7,8 @@ import LOUPE_ABI from "../abis/diamond/loupe.abi.json";
 import DIAMOND_CUT_ABI from "../abis/diamond/diamondCut.abi.json";
 import BASIC_WALLET_FACET_ABI from "../abis/diamond/facets/basicWalletFacet.abi.json";
 import { getSelectorsFromABI } from "../utils/getSelectorsFromAbi";
+import ERC20_ABI from "../abis/ERC20.json";
+
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const WALLET_FACET_ADDRESS = "0x79e2fa7763C4D1884f6a6D98b51220eD79fC4484";
@@ -93,15 +95,7 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
 
     async function fetchTokenDetails(addr: string) {
         try {
-            const erc20 = new ethers.Contract(
-            addr,
-            [
-                "function decimals() view returns (uint8)",
-                "function symbol() view returns (string)",
-                "function balanceOf(address) view returns (uint256)",
-            ],
-            provider
-            );
+            const erc20 = new ethers.Contract(addr, ERC20_ABI, provider);
 
             const d = await erc20.decimals();
             const sym = await erc20.symbol();
