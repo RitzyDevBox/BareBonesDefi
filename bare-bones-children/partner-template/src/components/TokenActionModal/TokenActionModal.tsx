@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { ModeType } from "../../pages/BasicWalletFacetPage";
 import "./TokenActionModal.scss";
 
 export function TokenActionModal({
@@ -14,7 +15,7 @@ export function TokenActionModal({
   onClose,
   onConfirm,
 }: {
-  mode: "send" | "receive";
+  mode: ModeType;
   tokenSymbol: string;
   diamondAddress: string;
 
@@ -30,7 +31,7 @@ export function TokenActionModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  const isSend = mode === "send";
+  const isSend = mode === ModeType.SEND;
 
   return (
     <div className="modal-overlay" onClick={onClose}>

@@ -26,6 +26,16 @@ export function BasicWalletFacetPage() {
   return <BasicWalletInstaller diamondAddress={diamondAddress} />;
 }
 
+export enum AssetType {
+    NATIVE,
+    ERC20
+}
+
+export enum ModeType {
+    SEND,
+    RECEIVE
+}
+
 export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: string }) {
   const { provider } = useShimWallet();
   const [installed, setInstalled] = useState<boolean | null>(true);
@@ -34,7 +44,9 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
   const [showModal, setShowModal] = useState(false);
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState("");
-  const [mode, setMode] = useState<"send" | "receive">("send");
+  const [mode, setMode] = useState<ModeType>(ModeType.SEND);
+  const [assetType, setAssetType] = useState<AssetType>(AssetType.ERC20);
+
 
   const {
     decimals,
@@ -163,14 +175,14 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
             {/* --- SEND / RECEIVE TOGGLE --- */}
             <div className="mode-toggle">
             <button
-                className={mode === "send" ? "toggle-btn active" : "toggle-btn"}
-                onClick={() => setMode("send")}
+                className={mode === ModeType.SEND ? "toggle-btn active" : "toggle-btn"}
+                onClick={() => setMode(ModeType.SEND)}
             >
                 Send
             </button>
             <button
-                className={mode === "receive" ? "toggle-btn active" : "toggle-btn"}
-                onClick={() => setMode("receive")}
+                className={mode === ModeType.RECEIVE ? "toggle-btn active" : "toggle-btn"}
+                onClick={() => setMode(ModeType.RECEIVE)}
             >
                 Receive
             </button>
@@ -204,7 +216,7 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
                 className="primary-btn"
                 onClick={() => setShowModal(true)}
             >
-                {mode === "send"
+                {mode === ModeType.SEND
                 ? `Send ${tokenSymbol}`
                 : `Deposit ${tokenSymbol}`}
             </button>
@@ -223,7 +235,7 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
                     recipient={recipient}
                     setRecipient={setRecipient}
                     onClose={() => setShowModal(false)}
-                    onConfirm={mode === "send" ? sendToken : receiveToken}
+                    onConfirm={mode === ModeType.SEND ? sendToken : receiveToken}
                 />
             )}
 
