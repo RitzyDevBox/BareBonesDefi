@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import ERC20_ABI from "../abis/ERC20.json";
 
-export function useTokenInfo(
+export function useCurrencyInfo(
   provider: ethers.providers.Web3Provider | undefined,
   tokenAddress: string,
   diamondAddress: string
@@ -19,13 +19,44 @@ export function useTokenInfo(
   useEffect(() => {
     async function load() {
       if (!provider) return;
-      if (!tokenAddress || tokenAddress.length !== 42) return;
-
       setLoading(true);
       setError("");
       setValid(null);
 
+      const ZERO = "0x0000000000000000000000000000000000000000";
+
       try {
+        if (tokenAddress === ZERO) {
+          const d = 18;
+          const sym = "ETH";
+
+          const diamondBal = await provider.getBalance(diamondAddress);
+
+          let userBal = ethers.BigNumber.from(0);
+          try {
+            const signer = provider.getSigner();
+            const addr = await signer.getAddress();
+            userBal = await provider.getBalance(addr);
+          } catch {
+            userBal = ethers.BigNumber.from(0);
+          }
+
+          const format = (x: any) => ethers.utils.formatUnits(x, d);
+
+          setDecimals(d);
+          setSymbol(sym);
+          setBalanceDiamond(format(diamondBal));
+          setBalanceUser(format(userBal));
+          setValid(true);
+          setLoading(false);
+          return;
+        }
+
+        if (!tokenAddress || tokenAddress.length !== 42) {
+          setLoading(false);
+          return;
+        }
+
         const erc20 = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
 
         const [d, sym] = await Promise.all([
