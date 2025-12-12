@@ -63,9 +63,9 @@ export type SendModalResponse = ActionValues<UniversalActionType.SEND>;
 export type ReceiveModalResponse = ActionValues<UniversalActionType.RECEIVE>;
 export type WrapModalResponse = ActionValues<UniversalActionType.WRAP>;
 export type UnwrapModalResponse = ActionValues<UniversalActionType.UNWRAP>;
+export type SwapModalResponse = ActionValues<UniversalActionType.SWAP>;
 export type AddLiquidityModalResponse = ActionValues<UniversalActionType.ADD_V2_LP>;
 export type RemoveLiquidityModalResponse = ActionValues<UniversalActionType.REMOVE_V2_LP>;
-
 
 export const ActionSchemas = {
   [UniversalActionType.SEND]: [
