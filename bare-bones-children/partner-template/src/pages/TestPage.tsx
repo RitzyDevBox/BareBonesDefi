@@ -9,15 +9,38 @@ import {
   SwapModalResponse,
   UniversalActionType,
 } from "../components/UniversalWalletModal/models";
+import { useSendCurrencyCallback } from "../components/UniversalWalletModal/hooks/useSendCurrencyCallback";
+import { useShimWallet } from "../hooks/useShimWallet";
+import { AssetType, ZERO_ADDRESS } from "./BasicWalletFacetPage";
 
 type ActionHandlerMap = Partial<
   Record<UniversalActionType, (values: any) => Promise<void>>
 >;
 
+const walletAddress = "0x6dc2f30d8d2b1683617aaecd98941d7e56ca61a1";
+const testTokenAddress = "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c";
 function useActionHandler(action: UniversalActionType | null) {
+   const { provider } = useShimWallet();
+   const { sendCurrencyCallback } = useSendCurrencyCallback(provider, walletAddress)
+
   const handlers = useMemo<ActionHandlerMap>(() => ({
     [UniversalActionType.SEND]: async (values: SendModalResponse) => {
-      console.log("SEND:", values);
+
+      const assetType = values.asset == ZERO_ADDRESS ? AssetType.NATIVE : AssetType.ERC20
+      //HARD_CODE FOR TESTING
+      const decimals = 18
+      const tokenSymbol = "OM20"
+      
+      const response = await sendCurrencyCallback({ 
+        assetType,
+        amount: "1", // values.amount
+        recipient: values.recipient,
+        decimals, 
+        tokenSymbol,
+        tokenAddress: testTokenAddress //values.asset,
+      })
+
+      console.log(response);
     },
 
     [UniversalActionType.RECEIVE]: async (values: ReceiveModalResponse) => {
@@ -39,10 +62,10 @@ function useActionHandler(action: UniversalActionType | null) {
     [UniversalActionType.TEST]: async (values: any) => {
       console.log("TEST:", values);
     },
-  }), []);
+  }), [sendCurrencyCallback]);
 
-  if (!action) return null;
-  return handlers[action] ?? null;
+
+  return !action ? null :  (handlers[action] ?? null)
 }
 
 export function TestPage() {

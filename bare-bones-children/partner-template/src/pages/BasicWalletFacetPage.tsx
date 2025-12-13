@@ -14,7 +14,7 @@ import { useSendCurrency } from "../hooks/useSendCurrency";
 import { useReceiveCurrency } from "../hooks/useReceiveCurrency";
 import "./BasicWalletFacetPage.scss";
 
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const WALLET_FACET_ADDRESS = "0x79e2fa7763C4D1884f6a6D98b51220eD79fC4484";
 const WALLET_SELECTORS = getSelectorsFromABI(BASIC_WALLET_FACET_ABI);
 
