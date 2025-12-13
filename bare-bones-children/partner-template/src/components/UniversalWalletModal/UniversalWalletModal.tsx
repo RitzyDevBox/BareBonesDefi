@@ -2,11 +2,10 @@
 import { useState } from "react";
 import {
   UniversalActionType,
-  ActionSchemas,
   ActionNode,
   FieldComponent,
 } from "./models";
-
+import { useActionSchema } from "./hooks/useActionSchema";
 import "./UniversalWalletModal.scss";
 import { TokenInfoResolver } from "../DynamicResolvers/TokenInfoResolver";
 
@@ -23,12 +22,14 @@ export function UniversalWalletModal({
   onClose,
   onConfirm,
 }: UniversalWalletModalProps) {
-  // ❗ Hooks MUST run unconditionally
-  const rawSchema = ActionSchemas[action];
-  const fields = rawSchema.fields;
-
   const [values, setValues] = useState<Record<string, any>>({});
+  const schema = useActionSchema(action);
 
+  if (!isOpen) return null;
+  if (!schema) return null;
+
+  const fields = schema.fields;
+  
   function updateField(id: string, value: any) {
     setValues((v) => ({ ...v, [id]: value }));
   }

@@ -1,8 +1,10 @@
 import {
   FieldComponent,
   ActionNodeType,
+  ActionSchema,
+  ValuesFromSchema,
 } from "../models";
-import { ActionSchema } from "./types";
+
 
 
 export const SEND_SCHEMA = {
@@ -30,3 +32,7 @@ export const SEND_SCHEMA = {
     },
   ],
 } as const satisfies ActionSchema;
+
+export type SendModalResponse = ValuesFromSchema<typeof SEND_SCHEMA>;
+
+export default SEND_SCHEMA;

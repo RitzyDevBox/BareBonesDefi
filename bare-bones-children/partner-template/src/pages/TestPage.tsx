@@ -5,13 +5,13 @@ import {
   AddLiquidityModalResponse,
   ReceiveModalResponse,
   RemoveLiquidityModalResponse,
-  SendModalResponse,
   SwapModalResponse,
   UniversalActionType,
 } from "../components/UniversalWalletModal/models";
 import { useSendCurrencyCallback } from "../components/UniversalWalletModal/hooks/useSendCurrencyCallback";
 import { useShimWallet } from "../hooks/useShimWallet";
 import { AssetType, ZERO_ADDRESS } from "./BasicWalletFacetPage";
+import { SendModalResponse } from "../components/UniversalWalletModal/schemas/send.schema";
 
 type ActionHandlerMap = Partial<
   Record<UniversalActionType, (values: any) => Promise<void>>
