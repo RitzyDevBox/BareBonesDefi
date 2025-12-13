@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { UniversalActionType } from "../models";
+import { ActionSchema, UniversalActionType } from "../models";
 import { LazyActionSchemaRegistry } from "../registry";
-import type { ActionSchema } from "../types";
+
 
 const cache: Partial<Record<UniversalActionType, ActionSchema>> = {};
 

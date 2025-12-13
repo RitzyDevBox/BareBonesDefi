@@ -2,16 +2,16 @@
 import { useState, useMemo } from "react";
 import { UniversalWalletModal } from "../components/UniversalWalletModal/UniversalWalletModal";
 import {
-  AddLiquidityModalResponse,
-  ReceiveModalResponse,
-  RemoveLiquidityModalResponse,
-  SwapModalResponse,
   UniversalActionType,
 } from "../components/UniversalWalletModal/models";
 import { useSendCurrencyCallback } from "../components/UniversalWalletModal/hooks/useSendCurrencyCallback";
 import { useShimWallet } from "../hooks/useShimWallet";
 import { AssetType, ZERO_ADDRESS } from "./BasicWalletFacetPage";
 import { SendModalResponse } from "../components/UniversalWalletModal/schemas/send.schema";
+import { ReceiveModalResponse } from "../components/UniversalWalletModal/schemas/receive.schema";
+import { SwapModalResponse } from "../components/UniversalWalletModal/schemas/swap.schema";
+import { AddLiquidityModalResponse } from "../components/UniversalWalletModal/schemas/add-v2-lp.schema";
+import { RemoveLiquidityModalResponse } from "../components/UniversalWalletModal/schemas/remove-v2-lp.schema";
 
 type ActionHandlerMap = Partial<
   Record<UniversalActionType, (values: any) => Promise<void>>
@@ -55,10 +55,6 @@ function useActionHandler(action: UniversalActionType | null) {
 
     [UniversalActionType.REMOVE_V2_LP]: async (values: RemoveLiquidityModalResponse) => {
       console.log("REMOVE_V2_LP:", values);
-    },
-
-    [UniversalActionType.TEST]: async (values: any) => {
-      console.log("TEST:", values);
     },
   }), [sendCurrencyCallback]);
 
