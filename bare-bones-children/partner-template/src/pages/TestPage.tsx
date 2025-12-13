@@ -27,16 +27,13 @@ function useActionHandler(action: UniversalActionType | null) {
     [UniversalActionType.SEND]: async (values: SendModalResponse) => {
 
       const assetType = values.asset == ZERO_ADDRESS ? AssetType.NATIVE : AssetType.ERC20
-      //HARD_CODE FOR TESTING
-      const decimals = 18
-      const tokenSymbol = "OM20"
       
       const response = await sendCurrencyCallback({ 
         assetType,
         amount: "1", // values.amount
         recipient: values.recipient,
-        decimals, 
-        tokenSymbol,
+        decimals: values.assetInfo.decimals, 
+        tokenSymbol: values.assetInfo.symbol,
         tokenAddress: testTokenAddress //values.asset,
       })
 
