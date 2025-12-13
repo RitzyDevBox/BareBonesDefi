@@ -21,30 +21,26 @@ export enum FieldComponent {
   PERCENT = "PERCENT",
   NUMBER = "NUMBER",
   TEXT = "TEXT",
+  USE_TOKEN_INFO = "USE_TOKEN_INFO"
 }
 
-// Resolver kinds
-export enum FieldResolver {
-  GET_TOKEN_INFO = "GET_TOKEN_INFO",
+export enum ActionNodeType {
+  Field,
+  Resolver,
 }
 
-export type FieldResolverFn = (...args: any[]) => any;
-
-// Each input field in the modal:
-export interface ActionField {
+export interface ActionNode {
   id: string;
   component: FieldComponent;
-  label: string;
+  type?: ActionNodeType; // default = Field
+  deps?: readonly string[];
+  label?: string;
   optional?: boolean;
-  options?: unknown;
 }
 
-// Each resolver definition
-export interface ActionResolver {
-  id: string;
-  resolver: FieldResolver;
-  deps: readonly string[];
-}
+// --------------------
+// Value inference
+// --------------------
 
 type ValueForComponent<C extends FieldComponent> =
   C extends FieldComponent.TOKEN_PICKER ? string :
@@ -53,29 +49,37 @@ type ValueForComponent<C extends FieldComponent> =
   C extends FieldComponent.ADDRESS ? string :
   C extends FieldComponent.TEXT ? string :
   C extends FieldComponent.NUMBER ? number :
+  C extends FieldComponent.USE_TOKEN_INFO ? { decimals: number, tokenSymbol: string } :
   unknown;
 
-type ValueForResolver<R extends FieldResolver> =
-  R extends FieldResolver.GET_TOKEN_INFO ? {
-    symbol: string;
-    decimals: number;
-  } :
-  unknown;
+type ValueForResolverNode<N extends ActionNode> =
+  N["id"] extends "assetInfo"
+    ? { symbol: string; decimals: number }
+    : unknown;
 
-type FieldsToValues<S extends readonly { id: string; component: FieldComponent }[]> = {
-  [F in S[number] as F["id"]]: ValueForComponent<F["component"]>;
+// --------------------
+// Schema → Values
+// --------------------
+
+type FieldNode<N extends ActionNode> =
+  N["type"] extends ActionNodeType.Resolver ? never : N;
+
+type FieldsToValues<S extends readonly ActionNode[]> = {
+  [N in FieldNode<S[number]> as N["id"]]: ValueForComponent<N["component"]>;
 };
 
-type ResolversFromSchema<S> =
-  S extends { readonly resolvers: readonly { id: string; resolver: FieldResolver }[] }
-    ? { [R in S["resolvers"][number] as R["id"]]: ValueForResolver<R["resolver"]> }
-    : {};
-
+type ResolverNodesToValues<S extends readonly ActionNode[]> = {
+  [N in Extract<S[number], { type: ActionNodeType.Resolver }> as N["id"]]:
+    ValueForResolverNode<N>;
+};
 
 export type ActionValues<A extends UniversalActionType> =
   FieldsToValues<(typeof ActionSchemas)[A]["fields"]> &
-  ResolversFromSchema<(typeof ActionSchemas)[A]>;
+  ResolverNodesToValues<(typeof ActionSchemas)[A]["fields"]>;
 
+// --------------------
+// Actions
+// --------------------
 
 export enum UniversalActionType {
   SEND = "SEND",
@@ -85,7 +89,7 @@ export enum UniversalActionType {
   SWAP = "SWAP",
   ADD_V2_LP = "ADD_V2_LP",
   REMOVE_V2_LP = "REMOVE_V2_LP",
-  TEST = "TEST"
+  TEST = "TEST",
 }
 
 export type SendModalResponse = ActionValues<UniversalActionType.SEND>;
@@ -96,19 +100,17 @@ export type SwapModalResponse = ActionValues<UniversalActionType.SWAP>;
 export type AddLiquidityModalResponse = ActionValues<UniversalActionType.ADD_V2_LP>;
 export type RemoveLiquidityModalResponse = ActionValues<UniversalActionType.REMOVE_V2_LP>;
 
+// --------------------
+// Schemas
+// --------------------
+
 export const ActionSchemas = {
   [UniversalActionType.SEND]: {
     fields: [
       { id: "asset", component: FieldComponent.TOKEN_PICKER, label: "Asset" },
       { id: "amount", component: FieldComponent.AMOUNT, label: "Amount" },
       { id: "recipient", component: FieldComponent.ADDRESS, label: "Recipient Address" },
-    ],
-    resolvers: [
-      {
-        id: "assetInfo",
-        resolver: FieldResolver.GET_TOKEN_INFO,
-        deps: ["asset"],
-      },
+      { id: "assetInfo", type: ActionNodeType.Resolver, component: FieldComponent.USE_TOKEN_INFO, deps: ["asset"] },
     ],
   },
 
@@ -165,17 +167,6 @@ export const ActionSchemas = {
 } as const satisfies Record<
   UniversalActionType,
   {
-    readonly fields: readonly ActionField[];
-    readonly resolvers?: readonly ActionResolver[];
+    readonly fields: readonly ActionNode[];
   }
 >;
-
-export const FieldResolverImpl: Record<FieldResolver, FieldResolverFn> = {
-  [FieldResolver.GET_TOKEN_INFO]: (tokenAddress: string) => {
-    console.log('calling hook for token address: ', tokenAddress)
-    return {
-      symbol: "OM20",
-      decimals: 18,
-    };
-  },
-};

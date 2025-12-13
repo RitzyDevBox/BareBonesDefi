@@ -1,15 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import {
   UniversalActionType,
   ActionSchemas,
-  ActionField,
+  ActionNode,
   FieldComponent,
-  ActionResolver,
-  FieldResolverImpl,
 } from "./models";
 
 import "./UniversalWalletModal.scss";
+import { TokenInfoResolver } from "../DynamicResolvers/TokenInfoResolver";
 
 interface UniversalWalletModalProps {
   action: UniversalActionType;
@@ -26,39 +25,9 @@ export function UniversalWalletModal({
 }: UniversalWalletModalProps) {
   // ❗ Hooks MUST run unconditionally
   const rawSchema = ActionSchemas[action];
-  const fields = Array.isArray(rawSchema) ? rawSchema : rawSchema.fields;
-
-  const resolvers = useMemo(
-    () => ("resolvers" in rawSchema ? rawSchema.resolvers : []),
-    [rawSchema]
-  );
+  const fields = rawSchema.fields;
 
   const [values, setValues] = useState<Record<string, any>>({});
-  const lastDepsRef = useRef<Record<string, any[]>>({});
-
-
-  useEffect(() => {
-      resolvers.forEach((r: ActionResolver) => {
-          const depValues = r.deps.map((d) => values[d]);
-          const prev = lastDepsRef.current[r.id];
-
-          const changed = !prev 
-            || depValues.length !== prev.length 
-            || depValues.some((v, i) => v !== prev[i]);
-
-            if (!changed) return;
-
-            const next = FieldResolverImpl[r.resolver](...depValues);
-
-            lastDepsRef.current[r.id] = depValues;
-
-            if (next !== undefined && values[r.id] !== next) {
-            setValues((v) => ({ ...v, [r.id]: next }));
-            }
-        });
-    }, [values, resolvers]);
-
-
 
   function updateField(id: string, value: any) {
     setValues((v) => ({ ...v, [id]: value }));
@@ -77,11 +46,12 @@ export function UniversalWalletModal({
         <h2 className="uwm-title">{action.replace(/_/g, " ")}</h2>
 
         <div className="uwm-fields">
-          {fields.map((field: ActionField) => (
+          {fields.map((field: ActionNode) => (
             <RenderField
               key={field.id}
               field={field}
               value={values[field.id]}
+              allValues={values}
               onChange={(val) => updateField(field.id, val)}
             />
           ))}
@@ -102,44 +72,51 @@ export function UniversalWalletModal({
 }
 
 // -------------------------------
-// Placeholder until real inputs
+// Field + Resolver renderer
 // -------------------------------
 function RenderField({
   field,
   value,
+  allValues,
   onChange,
 }: {
-  field: ActionField;
+  field: ActionNode;
   value: any;
+  allValues: Record<string, any>;
   onChange: (value: any) => void;
 }) {
+  // -----------------------
+  // Render logic
+  // -----------------------
   switch (field.component) {
     case FieldComponent.TOKEN_PICKER:
-    return (
+      return (
         <div className="uwm-field">
-        <label className="uwm-label">{field.label}</label>
-        <input
+          <label className="uwm-label">{field.label}</label>
+          <input
             className="uwm-input"
             type="text"
             placeholder={field.label}
             value={value ?? ""}
             maxLength={42}
             onChange={(e) => {
-            const v = e.target.value;
-            if (/^(0x)?[0-9a-fA-F]*$/.test(v)) {
+              const v = e.target.value;
+              if (/^(0x)?[0-9a-fA-F]*$/.test(v)) {
                 onChange(v);
-            }
+              }
             }}
-        />
+          />
         </div>
-    );
+      );
 
     case FieldComponent.NFT_PICKER:
       return (
         <div className="uwm-field">
           <label className="uwm-label">{field.label}</label>
-          {/* TODO: Swap for real <NftPicker /> */}
-          <div className="uwm-placeholder nft" onClick={() => onChange("nft-selected")}>
+          <div
+            className="uwm-placeholder nft"
+            onClick={() => onChange("nft-selected")}
+          >
             NFT PICKER — placeholder
           </div>
         </div>
@@ -186,18 +163,19 @@ function RenderField({
         </div>
       );
 
-    default:
+    case FieldComponent.USE_TOKEN_INFO: {
+      if (!field.deps) return null;
+
+      const [tokenAddress] = field.deps.map((d) => allValues[d]);
+
+      if (!tokenAddress) return null;
+
       return (
-        <div className="uwm-field">
-          <label className="uwm-label">{field.label}</label>
-          <input
-            className="uwm-input"
-            type="text"
-            placeholder={field.label}
-            value={value ?? ""}
-            onChange={(e) => onChange(e.target.value)}
-          />
-        </div>
+        <TokenInfoResolver tokenAddress={tokenAddress} onChange={onChange}/>
       );
+    }
+
+    default:
+      return null;
   }
 }

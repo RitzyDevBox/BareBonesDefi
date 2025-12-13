@@ -26,6 +26,7 @@ function useActionHandler(action: UniversalActionType | null) {
   const handlers = useMemo<ActionHandlerMap>(() => ({
     [UniversalActionType.SEND]: async (values: SendModalResponse) => {
 
+      console.log('assetInfo:', values.assetInfo)
       const assetType = values.asset == ZERO_ADDRESS ? AssetType.NATIVE : AssetType.ERC20
       
       const response = await sendCurrencyCallback({ 
