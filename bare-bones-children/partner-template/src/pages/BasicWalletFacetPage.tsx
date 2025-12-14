@@ -15,6 +15,7 @@ import { ActionHandlerRouter } from "../components/UniversalWalletModal/componen
 import { UniversalActionType } from "../components/UniversalWalletModal/models";
 
 import "./BasicWalletFacetPage.scss";
+import { ZERO_ADDRESS } from "../constants/misc";
 
 const WALLET_FACET_ADDRESS = "0x79e2fa7763C4D1884f6a6D98b51220eD79fC4484";
 const WALLET_SELECTORS = getSelectorsFromABI(BASIC_WALLET_FACET_ABI);
@@ -28,7 +29,7 @@ export function BasicWalletFacetPage() {
 export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: string }) {
   const { provider } = useShimWallet();
 
-  const [installed, setInstalled] = useState<boolean | null>(true);
+  const [installed, setInstalled] = useState<boolean | null>(null);
   const [log, setLog] = useState("");
 
   const [action, setAction] = useState<UniversalActionType | null>(null);
@@ -43,7 +44,8 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
   const checkInstalled = useCallback(async () => {
     if (!provider || !diamondAddress) return;
 
-    const diamond = new ethers.Contract(diamondAddress, LOUPE_ABI, provider);
+    const signer = await provider.getSigner();
+    const diamond = new ethers.Contract(diamondAddress, LOUPE_ABI, signer ?? provider);
     const facets = await diamond.facets();
 
     const isInstalled = facets.some(
