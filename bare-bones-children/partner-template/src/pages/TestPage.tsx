@@ -31,7 +31,7 @@ function useActionHandler(action: UniversalActionType | null) {
       
       const response = await sendCurrencyCallback({ 
         assetType,
-        amount: "1", // values.amount
+        amount: values.amount,
         recipient: values.recipient,
         decimals: values.assetInfo.decimals, 
         tokenSymbol: values.assetInfo.symbol,

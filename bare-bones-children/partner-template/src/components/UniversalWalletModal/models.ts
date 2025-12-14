@@ -44,7 +44,7 @@ export interface ActionNode {
 
 type ValueForComponent<C extends FieldComponent> =
   C extends FieldComponent.TOKEN_PICKER ? string :
-  C extends FieldComponent.AMOUNT ? BigNumber :
+  C extends FieldComponent.AMOUNT ? string :
   C extends FieldComponent.PERCENT ? number :
   C extends FieldComponent.ADDRESS ? string :
   C extends FieldComponent.TEXT ? string :
