@@ -2,8 +2,6 @@
 // Universal Modal Models
 // =======================
 
-import { BigNumber } from "ethers";
-
 // What KIND of asset the user is interacting with
 export enum AssetType {
   NATIVE = "NATIVE",

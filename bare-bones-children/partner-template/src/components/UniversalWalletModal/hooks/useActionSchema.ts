@@ -17,7 +17,12 @@ export function useActionSchema(action: UniversalActionType) {
         return;
       }
 
-      const mod = await LazyActionSchemaRegistry[action]();
+      const loader = LazyActionSchemaRegistry[action];
+      if (!loader) {
+        throw new Error(`No schema registered for action ${action}`);
+      }
+
+      const mod = await loader();
       cache[action] = mod.default;
 
       if (!cancelled) {
