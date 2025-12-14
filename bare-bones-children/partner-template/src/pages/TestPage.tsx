@@ -1,80 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { UniversalWalletModal } from "../components/UniversalWalletModal/UniversalWalletModal";
 import {
   UniversalActionType,
 } from "../components/UniversalWalletModal/models";
-import { useSendCurrencyCallback } from "../components/UniversalWalletModal/hooks/useSendCurrencyCallback";
-import { useShimWallet } from "../hooks/useShimWallet";
-import { AssetType, ZERO_ADDRESS } from "./BasicWalletFacetPage";
-import { SendModalResponse } from "../components/UniversalWalletModal/schemas/send.schema";
-import { ReceiveModalResponse } from "../components/UniversalWalletModal/schemas/receive.schema";
-import { SwapModalResponse } from "../components/UniversalWalletModal/schemas/swap.schema";
-import { AddLiquidityModalResponse } from "../components/UniversalWalletModal/schemas/add-v2-lp.schema";
-import { RemoveLiquidityModalResponse } from "../components/UniversalWalletModal/schemas/remove-v2-lp.schema";
-import { useReceiveCurrencyCallback } from "../components/UniversalWalletModal/hooks/useReceiveCurrencyCallback";
 import { ActionHandlerRouter } from "../components/UniversalWalletModal/components/ActionHandlerRouter";
 
-type ActionHandlerMap = Partial<
-  Record<UniversalActionType, (values: any) => Promise<void>>
->;
+
 
 const walletAddress = "0x6dc2f30d8d2b1683617aaecd98941d7e56ca61a1";
 //const testTokenAddress = "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function useActionHandler(action: UniversalActionType | null) {
-   const { provider } = useShimWallet();
-   const { sendCurrencyCallback } = useSendCurrencyCallback(provider, walletAddress)
-   const { receiveCurrencyCallback } = useReceiveCurrencyCallback(provider, walletAddress);
-
-  const handlers = useMemo<ActionHandlerMap>(() => ({
-    [UniversalActionType.SEND]: async (values: SendModalResponse) => {
-
-      console.log('assetInfo:', values.assetInfo)
-      const assetType = values.asset == ZERO_ADDRESS ? AssetType.NATIVE : AssetType.ERC20
-      
-      const response = await sendCurrencyCallback({ 
-        assetType,
-        amount: values.amount,
-        recipient: values.recipient,
-        decimals: values.assetInfo.decimals, 
-        tokenSymbol: values.assetInfo.symbol,
-        tokenAddress: values.asset,
-      })
-
-      console.log(response);
-    },
-
-    [UniversalActionType.RECEIVE]: async (values: ReceiveModalResponse) => {
-        console.log("RECEIVE:", values);
-        const assetType = values.asset == ZERO_ADDRESS ? AssetType.NATIVE : AssetType.ERC20
-        const response = await receiveCurrencyCallback({ 
-          assetType,
-          tokenAddress: values.asset,
-          amount: values.amount,
-          decimals: values.assetInfo.decimals, 
-          tokenSymbol: values.assetInfo.symbol,
-        })
-
-        console.log(response);
-    },
-
-    [UniversalActionType.SWAP]: async (values: SwapModalResponse) => {
-      console.log("SWAP:", values);
-    },
-
-    [UniversalActionType.ADD_V2_LP]: async (values: AddLiquidityModalResponse) => {
-      console.log("ADD_V2_LP:", values);
-    },
-
-    [UniversalActionType.REMOVE_V2_LP]: async (values: RemoveLiquidityModalResponse) => {
-      console.log("REMOVE_V2_LP:", values);
-    },
-  }), [sendCurrencyCallback, receiveCurrencyCallback]);
-
-
-  return !action ? null :  (handlers[action] ?? null)
-}
 
 export function TestPage() {
   const [action, setAction] = useState<UniversalActionType | null>(null);
