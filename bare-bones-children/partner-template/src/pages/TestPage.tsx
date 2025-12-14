@@ -12,16 +12,20 @@ import { ReceiveModalResponse } from "../components/UniversalWalletModal/schemas
 import { SwapModalResponse } from "../components/UniversalWalletModal/schemas/swap.schema";
 import { AddLiquidityModalResponse } from "../components/UniversalWalletModal/schemas/add-v2-lp.schema";
 import { RemoveLiquidityModalResponse } from "../components/UniversalWalletModal/schemas/remove-v2-lp.schema";
+import { useReceiveCurrencyCallback } from "../components/UniversalWalletModal/hooks/useReceiveCurrencyCallback";
+import { ActionHandlerRouter } from "../components/UniversalWalletModal/components/ActionHandlerRouter";
 
 type ActionHandlerMap = Partial<
   Record<UniversalActionType, (values: any) => Promise<void>>
 >;
 
 const walletAddress = "0x6dc2f30d8d2b1683617aaecd98941d7e56ca61a1";
-const testTokenAddress = "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c";
+//const testTokenAddress = "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function useActionHandler(action: UniversalActionType | null) {
    const { provider } = useShimWallet();
    const { sendCurrencyCallback } = useSendCurrencyCallback(provider, walletAddress)
+   const { receiveCurrencyCallback } = useReceiveCurrencyCallback(provider, walletAddress);
 
   const handlers = useMemo<ActionHandlerMap>(() => ({
     [UniversalActionType.SEND]: async (values: SendModalResponse) => {
@@ -35,14 +39,24 @@ function useActionHandler(action: UniversalActionType | null) {
         recipient: values.recipient,
         decimals: values.assetInfo.decimals, 
         tokenSymbol: values.assetInfo.symbol,
-        tokenAddress: testTokenAddress //values.asset,
+        tokenAddress: values.asset,
       })
 
       console.log(response);
     },
 
     [UniversalActionType.RECEIVE]: async (values: ReceiveModalResponse) => {
-      console.log("RECEIVE:", values);
+        console.log("RECEIVE:", values);
+        const assetType = values.asset == ZERO_ADDRESS ? AssetType.NATIVE : AssetType.ERC20
+        const response = await receiveCurrencyCallback({ 
+          assetType,
+          tokenAddress: values.asset,
+          amount: values.amount,
+          decimals: values.assetInfo.decimals, 
+          tokenSymbol: values.assetInfo.symbol,
+        })
+
+        console.log(response);
     },
 
     [UniversalActionType.SWAP]: async (values: SwapModalResponse) => {
@@ -56,7 +70,7 @@ function useActionHandler(action: UniversalActionType | null) {
     [UniversalActionType.REMOVE_V2_LP]: async (values: RemoveLiquidityModalResponse) => {
       console.log("REMOVE_V2_LP:", values);
     },
-  }), [sendCurrencyCallback]);
+  }), [sendCurrencyCallback, receiveCurrencyCallback]);
 
 
   return !action ? null :  (handlers[action] ?? null)
@@ -64,7 +78,7 @@ function useActionHandler(action: UniversalActionType | null) {
 
 export function TestPage() {
   const [action, setAction] = useState<UniversalActionType | null>(null);
-  const handler = useActionHandler(action);
+  const [submittedValues, setSubmittedValues] = useState<any | null>(null);
 
   return (
     <div
@@ -99,7 +113,11 @@ export function TestPage() {
         }}
         value={action ?? ""}
         onChange={(e) =>
-          setAction(e.target.value ? (e.target.value as UniversalActionType) : null)
+          setAction(
+            e.target.value
+              ? (e.target.value as UniversalActionType)
+              : null
+          )
         }
       >
         <option value="">Select Action</option>
@@ -114,12 +132,24 @@ export function TestPage() {
         <UniversalWalletModal
           action={action}
           isOpen={true}
-          onClose={() => setAction(null)}
-          onConfirm={async (formValues) => {
-            if (handler) {
-              await handler(formValues);
-            }
+          onClose={() => {
             setAction(null);
+            setSubmittedValues(null);
+          }}
+          onConfirm={(formValues) => {
+            setSubmittedValues(formValues);
+          }}
+        />
+      )}
+
+      {action && submittedValues && (
+        <ActionHandlerRouter
+          action={action}
+          values={submittedValues}
+          walletAddress={walletAddress}
+          onDone={() => {
+            setAction(null);
+            setSubmittedValues(null);
           }}
         />
       )}
