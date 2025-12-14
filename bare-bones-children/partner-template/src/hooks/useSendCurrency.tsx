@@ -2,7 +2,7 @@
 import { useCallback } from "react";
 import { ethers } from "ethers";
 import BASIC_WALLET_FACET_ABI from "../abis/diamond/facets/basicWalletFacet.abi.json";
-import { AssetType } from "../pages/BasicWalletFacetPage";
+import { AssetType } from "../components/UniversalWalletModal/models";
 
 export function useSendCurrency({
   provider,

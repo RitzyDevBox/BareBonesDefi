@@ -2,7 +2,7 @@
 import { useCallback } from "react";
 import { ethers } from "ethers";
 import ERC20_ABI from "../abis/ERC20.json";
-import { AssetType } from "../pages/BasicWalletFacetPage";
+import { AssetType } from "../components/UniversalWalletModal/models";
 
 export function useReceiveCurrency({
   provider,

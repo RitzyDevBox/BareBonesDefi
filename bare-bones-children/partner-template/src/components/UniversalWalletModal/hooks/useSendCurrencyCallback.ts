@@ -1,8 +1,8 @@
 import { useCallback } from "react";
 import { ethers } from "ethers";
 import BASIC_WALLET_FACET_ABI from "../../../abis/diamond/facets/basicWalletFacet.abi.json";
-import { AssetType } from "../../../pages/BasicWalletFacetPage";
 import { executeTx, parseErc20, parseNative, requireSigner, TxOpts } from "../../../utils/transactionUtils";
+import { AssetType } from "../models";
 
 interface SendCurrencyArgs {
   assetType: AssetType;

@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { useShimWallet } from "../../../../hooks/useShimWallet";
 import { SendModalResponse } from "../../schemas/send.schema";
 import { useSendCurrencyCallback } from "../../hooks/useSendCurrencyCallback";
-import { AssetType, ZERO_ADDRESS } from "../../../../pages/BasicWalletFacetPage";
+import { AssetType } from "../../models";
+import { ZERO_ADDRESS } from "../../../../constants/misc";
 
 
 interface Props {

@@ -6,8 +6,6 @@ import {
 } from "../components/UniversalWalletModal/models";
 import { ActionHandlerRouter } from "../components/UniversalWalletModal/components/ActionHandlerRouter";
 
-
-
 const walletAddress = "0x6dc2f30d8d2b1683617aaecd98941d7e56ca61a1";
 //const testTokenAddress = "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c";
 

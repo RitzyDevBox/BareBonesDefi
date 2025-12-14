@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 import { ethers } from "ethers";
 import ERC20_ABI from "../../../abis/ERC20.json";
-import { AssetType } from "../../../pages/BasicWalletFacetPage";
 import {
   executeTx,
   parseNative,
@@ -9,6 +8,7 @@ import {
   requireSigner,
   TxOpts
 } from "../../../utils/transactionUtils";
+import { AssetType } from "../models";
 
 interface ReceiveCurrencyArgs {
   assetType: AssetType;

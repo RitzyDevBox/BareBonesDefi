@@ -1,8 +1,9 @@
 import { useEffect } from "react";
-import { AssetType, ZERO_ADDRESS } from "../../../../pages/BasicWalletFacetPage";
 import { useShimWallet } from "../../../../hooks/useShimWallet";
 import { useReceiveCurrencyCallback } from "../../hooks/useReceiveCurrencyCallback";
 import { ReceiveModalResponse } from "../../schemas/receive.schema";
+import { AssetType } from "../../models";
+import { ZERO_ADDRESS } from "../../../../constants/misc";
 
 interface Props {
   values: ReceiveModalResponse;
