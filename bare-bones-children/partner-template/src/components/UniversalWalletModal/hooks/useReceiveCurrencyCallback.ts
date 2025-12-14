@@ -1,8 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback } from "react";
 import { ethers } from "ethers";
 import ERC20_ABI from "../../../abis/ERC20.json";
 import { AssetType } from "../../../pages/BasicWalletFacetPage";
+import {
+  executeTx,
+  parseNative,
+  parseErc20,
+  requireSigner,
+  TxOpts
+} from "../../../utils/transactionUtils";
 
 interface ReceiveCurrencyArgs {
   assetType: AssetType;
@@ -17,78 +23,71 @@ export function useReceiveCurrencyCallback(
   diamondAddress: string
 ) {
   const receiveCurrencyCallback = useCallback(
-    async (
-      args: ReceiveCurrencyArgs,
-      opts?: {
-        onLog?: (msg: any) => void;
-        onComplete?: () => void;
-        onError?: (err: any) => void;
-      }
-    ) => {
-      try {
-        if (!provider) throw new Error("No provider");
+    async (args: ReceiveCurrencyArgs, opts?: TxOpts) => {
 
-        const {
-          assetType,
-          amount,
-          decimals,
-          tokenAddress,
-          tokenSymbol,
-        } = args;
+      return executeTx(() => {
+        const signer = requireSigner(provider);
+        const { assetType, amount, decimals, tokenAddress, tokenSymbol } = args;
 
-        const signer = provider.getSigner();
-        const userAddress = await signer.getAddress();
+        const txSenderPromise = signer.getAddress(); 
+        const symbol = assetType === AssetType.NATIVE ? 'ETH' : `${tokenSymbol ?? "???"}`
+        opts?.onLog?.(`Depositing ${amount} ${symbol} → ${diamondAddress}`);
 
-        // -----------------------
-        // Native receive (ETH)
-        // -----------------------
-        if (assetType === AssetType.NATIVE) {
-          const amt = ethers.utils.parseEther(amount);
+        return assetType === AssetType.NATIVE
+          ? buildNativeDeposit(signer, amount, diamondAddress, txSenderPromise)
+          : buildTokenDeposit(
+              signer,
+              tokenAddress!,
+              amount,
+              decimals,
+              diamondAddress,
+              tokenSymbol,
+              txSenderPromise
+            );
+      }, opts);
 
-          opts?.onLog?.(
-            `Depositing ${amount} ETH from ${userAddress} → ${diamondAddress}`
-          );
-
-          const tx = await signer.sendTransaction({
-            to: diamondAddress,
-            value: amt,
-          });
-
-          opts?.onLog?.("Tx: " + tx.hash);
-          await tx.wait();
-          opts?.onLog?.("Native deposit complete!");
-
-          opts?.onComplete?.();
-          return;
-        }
-
-        // -----------------------
-        // ERC20 receive
-        // -----------------------
-        if (!tokenAddress) {
-          throw new Error("Missing tokenAddress for ERC20 receive");
-        }
-
-        const erc20 = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
-        const amt = ethers.utils.parseUnits(amount, decimals ?? 18);
-
-        opts?.onLog?.(
-          `Receiving ${amount} ${tokenSymbol ?? ""} from ${userAddress} → ${diamondAddress}`
-        );
-
-        const tx = await erc20.transfer(diamondAddress, amt);
-        opts?.onLog?.("Tx: " + tx.hash);
-
-        await tx.wait();
-        opts?.onLog?.("Receive complete!");
-
-        opts?.onComplete?.();
-      } catch (err) {
-        opts?.onError?.(err);
-      }
     },
     [provider, diamondAddress]
   );
 
   return { receiveCurrencyCallback };
+}
+
+function buildNativeDeposit(
+  signer: ethers.Signer,
+  amount: string,
+  diamondAddress: string,
+  fromAddressPromise: Promise<string>
+) {
+  const value = parseNative(amount);
+
+  return async () => {
+    const userAddress = await fromAddressPromise;
+    console.log(`Depositing ${amount} ETH from ${userAddress}`);
+
+    return signer.sendTransaction({
+      to: diamondAddress,
+      value,
+    });
+  };
+}
+
+
+function buildTokenDeposit(
+  signer: ethers.Signer,
+  tokenAddress: string,
+  amount: string,
+  decimals: number | null | undefined,
+  diamondAddress: string,
+  tokenSymbol?: string,
+  fromAddressPromise?: Promise<string>
+) {
+  const erc20 = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+  const amt = parseErc20(amount, decimals);
+
+  return async () => {
+    const userAddress = await fromAddressPromise;
+    console.log(`Depositing ${amount} ${tokenSymbol ?? ""} from ${userAddress}`);
+    return erc20.transfer(diamondAddress, amt);
+  };
 }
