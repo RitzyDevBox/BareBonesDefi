@@ -4,21 +4,20 @@ import { SendModalResponse } from "../../schemas/send.schema";
 import { useSendCurrencyCallback } from "../../hooks/useSendCurrencyCallback";
 import { AssetType } from "../../models";
 import { ZERO_ADDRESS } from "../../../../constants/misc";
+import { ActionHandlerProps } from "./models";
 
-
-interface Props {
-  values: SendModalResponse;
-  walletAddress: string;
-  onDone: () => void;
-}
-
+interface Props extends ActionHandlerProps<SendModalResponse> {}
 function SendActionHandler({ values, walletAddress, onDone }: Props) {
   const { provider } = useShimWallet();
   const { sendCurrencyCallback } = useSendCurrencyCallback(provider, walletAddress);
 
   useEffect(() => {
+    if (!provider) return;   // ✅ Prevent early effect execution
+
     async function run() {
-      const assetType = values.asset === ZERO_ADDRESS ? AssetType.NATIVE : AssetType.ERC20;
+      const assetType =
+        values.asset === ZERO_ADDRESS ? AssetType.NATIVE : AssetType.ERC20;
+
       await sendCurrencyCallback({
         assetType,
         amount: values.amount,
@@ -32,9 +31,9 @@ function SendActionHandler({ values, walletAddress, onDone }: Props) {
     }
 
     run();
-  }, [values, sendCurrencyCallback, onDone, walletAddress]);
+  }, [provider, values, sendCurrencyCallback, onDone, walletAddress]);
 
-  return null; // headless
+  return null;
 }
 
 export default SendActionHandler;

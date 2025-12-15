@@ -2,20 +2,28 @@ import { useEffect } from "react";
 import { ethers } from "ethers";
 import ERC20_ABI from "../../abis/ERC20.json";
 import { useShimWallet } from "../../hooks/useShimWallet";
+import { ZERO_ADDRESS } from "../../constants/misc";
 
 interface TokenInfoResolverProps {
   tokenAddress: string;
   onChange: (value: { tokenSymbol: string; decimals: number }) => void;
 }
 
-export function TokenInfoResolver({
-  tokenAddress,
-  onChange,
-}: TokenInfoResolverProps) {
-
+export function TokenInfoResolver({ tokenAddress, onChange }: TokenInfoResolverProps) {
   const { provider } = useShimWallet();
+
   useEffect(() => {
-    if (!tokenAddress || !ethers.utils.isAddress(tokenAddress) || !provider) return;
+    if (!provider) return;
+
+    if (tokenAddress === ZERO_ADDRESS) {
+      onChange({
+        tokenSymbol: "ETH",
+        decimals: 18,
+      });
+      return;
+    }
+
+    if (!ethers.utils.isAddress(tokenAddress)) return;
 
     let cancelled = false;
 
@@ -44,7 +52,7 @@ export function TokenInfoResolver({
     return () => {
       cancelled = true;
     };
-  }, [tokenAddress, provider, onChange]);
+  }, [tokenAddress, provider]);
 
   return null;
 }

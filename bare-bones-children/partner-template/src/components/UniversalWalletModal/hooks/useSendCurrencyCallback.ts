@@ -13,8 +13,6 @@ interface SendCurrencyArgs {
   tokenAddress?: string;
 }
 
-
-
 export function useSendCurrencyCallback(
   provider: ethers.providers.Web3Provider | undefined,
   diamondAddress: string
@@ -22,7 +20,7 @@ export function useSendCurrencyCallback(
   const sendCurrencyCallback = useCallback(
     async (args: SendCurrencyArgs, opts?: TxOpts) => {
       return executeTx(() => {
-        const signer = requireSigner(provider); // ❗ can throw
+        const signer = requireSigner(provider);
         const contract = new ethers.Contract(diamondAddress, BASIC_WALLET_FACET_ABI, signer);
 
         const { assetType, amount, recipient, decimals, tokenAddress, tokenSymbol } = args;

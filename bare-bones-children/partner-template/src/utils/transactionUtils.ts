@@ -22,6 +22,7 @@ export async function executeTx(
     opts?.onComplete?.();
     return tx;          // your setup logic
   } catch (err) {
+    console.log('err' + (err as any).message)
     opts?.onError?.(err);
     return undefined;
   }
@@ -29,7 +30,10 @@ export async function executeTx(
 
 
 export function requireSigner(provider?: ethers.providers.Web3Provider) {
-  if (!provider) throw new Error("No provider");
+  if (!provider) { 
+    console.log('No Provider')
+    throw new Error("No provider"); 
+  }
   return provider.getSigner();
 }
 
