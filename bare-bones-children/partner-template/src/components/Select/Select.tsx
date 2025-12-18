@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect } from "react";
+import { useListNavigation } from "../../hooks/useListNavigation";
 
 export function Select<T extends string | number>({
   value,
@@ -15,9 +16,31 @@ export function Select<T extends string | number>({
   style?: React.CSSProperties;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
 
+  const ref = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
+
+  // Convert children → array of React elements
+  const options = React.Children.toArray(children).filter((c) =>
+    React.isValidElement(c)
+  ) as React.ReactElement[];
+
+  // -------------------------
+  // Keyboard Navigation Logic
+  // -------------------------
+  const { highlightIndex, handleKeyDown } = useListNavigation({
+    items: options,
+    isOpen: open,
+    onOpenChange: setOpen,
+    onSelect: (opt) => {
+      const v = opt.props.value as T;
+      onChange(v);
+    },
+  });
+
+  // -------------------------
   // Close when clicking outside
+  // -------------------------
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (!ref.current) return;
@@ -29,6 +52,26 @@ export function Select<T extends string | number>({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  // -------------------------
+  // Make head tabbable + focus ring
+  // -------------------------
+  useEffect(() => {
+    if (headRef.current) headRef.current.tabIndex = 0;
+  }, []);
+
+  const applyFocusRing = () => {
+    if (headRef.current)
+      headRef.current.style.boxShadow = "0 0 0 2px var(--colors-primary)";
+  };
+
+  const removeFocusRing = () => {
+    if (headRef.current)
+      headRef.current.style.boxShadow = "none";
+  };
+
+  // -------------------------
+  // RENDER
+  // -------------------------
   return (
     <div
       ref={ref}
@@ -40,6 +83,11 @@ export function Select<T extends string | number>({
     >
       {/* Select Head */}
       <div
+        ref={headRef}
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        onFocus={applyFocusRing}
+        onBlur={removeFocusRing}
         style={{
           padding: "var(--spacing-md)",
           borderRadius: "var(--radius-md)",
@@ -48,13 +96,19 @@ export function Select<T extends string | number>({
           color: "var(--colors-text-main)",
           cursor: "pointer",
           userSelect: "none",
+          outline: "none",
+          transition: "box-shadow 0.15s ease",
         }}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          setOpen((o) => !o);
+        }}
       >
         {value ? (
           <span>{value}</span>
         ) : (
-          <span style={{ color: "var(--colors-text-muted)" }}>{placeholder}</span>
+          <span style={{ color: "var(--colors-text-muted)" }}>
+            {placeholder}
+          </span>
         )}
       </div>
 
@@ -75,17 +129,15 @@ export function Select<T extends string | number>({
             overflowY: "auto",
           }}
         >
-          {React.Children.map(children, (child) => {
-            if (!React.isValidElement(child)) return child;
-
-            return React.cloneElement(child, {
+          {options.map((opt, i) =>
+            React.cloneElement(opt, {
               onSelect: (v: T) => {
                 onChange(v);
                 setOpen(false);
               },
-              selected: value,
-            });
-          })}
+              highlighted: i === highlightIndex,
+            })
+          )}
         </div>
       )}
     </div>
