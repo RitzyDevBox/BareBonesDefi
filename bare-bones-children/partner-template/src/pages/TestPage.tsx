@@ -1,86 +1,96 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
-import { UniversalWalletActionForm } from "../components/UniversalWalletModal/UniversalWalletModal";
+import { Modal } from "../components/Modal/Modal";
 import {
-  UniversalActionType,
-} from "../components/UniversalWalletModal/models";
-import { ActionHandlerRouter } from "../components/UniversalWalletModal/components/ActionHandlerRouter";
-
-const walletAddress = "0x6dc2f30d8d2b1683617aaecd98941d7e56ca61a1";
-//const testTokenAddress = "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c";
+  ButtonPrimary,
+  Card,
+  CardContent,
+  Text,
+} from "../components/BasicComponents";
 
 export function TestPage() {
-  const [action, setAction] = useState<UniversalActionType | null>(null);
-  const [submittedValues, setSubmittedValues] = useState<any | null>(null);
+  const [open, setOpen] = useState(false);
+
+  // grid state
+  const [rows, setRows] = useState(2);
+  const [cols, setCols] = useState(2);
+
+  // build grid data
+  const cells = Array.from({ length: rows * cols });
 
   return (
-    <div
-      style={{
-        width: "100%",
-        maxWidth: "480px",
-        margin: "0 auto",
-        padding: "24px",
-        background: "#171923",
-        borderRadius: "14px",
-        border: "1px solid #2a2f3a",
-        boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
-        display: "flex",
-        flexDirection: "column",
-        gap: "16px",
-        color: "#e5e7eb",
-      }}
-    >
-      <h2 style={{ margin: 0, marginBottom: "8px", fontSize: "18px" }}>
-        Universal Modal Test Page
-      </h2>
+    <Card style={{ maxWidth: "min(90vw, 600px)", margin: "0 auto" }}>
+      <CardContent>
+        <Text.Title>Modal Resize Test</Text.Title>
 
-      <select
-        style={{
-          width: "100%",
-          padding: "12px",
-          borderRadius: "10px",
-          border: "1px solid #2a2f3a",
-          background: "#0d0f15",
-          color: "#e5e7eb",
-          fontSize: "14px",
-        }}
-        value={action ?? ""}
-        onChange={(e) =>
-          setAction(
-            e.target.value
-              ? (e.target.value as UniversalActionType)
-              : null
-          )
-        }
+        <ButtonPrimary onClick={() => setOpen(true)}>
+          Open Modal
+        </ButtonPrimary>
+      </CardContent>
+
+      <Modal
+        isOpen={open}
+        title="Auto Resize Test"
+        onClose={() => setOpen(false)}
       >
-        <option value="">Select Action</option>
-        {Object.values(UniversalActionType).map((a) => (
-          <option key={a} value={a}>
-            {a}
-          </option>
-        ))}
-      </select>
-
-      {action && (
-        <UniversalWalletActionForm
-          action={action}
-          onConfirm={(formValues) => {
-            setSubmittedValues(formValues);
+        {/* GRID */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(${cols}, 60px)`,
+            gap: "8px",
           }}
-        />
-      )}
+        >
+          {cells.map((_, i) => (
+            <div
+              key={i}
+              style={{
+                width: "60px",
+                height: "60px",
+                background: "var(--colors-primary)",
+                borderRadius: "var(--radius-md)",
+              }}
+            />
+          ))}
+        </div>
 
-      {action && submittedValues && (
-        <ActionHandlerRouter
-          action={action}
-          values={submittedValues}
-          walletAddress={walletAddress}
-          onDone={() => {
-            setAction(null);
-            setSubmittedValues(null);
+        {/* CONTROLS */}
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            marginTop: "16px",
+            flexWrap: "wrap",
           }}
-        />
-      )}
-    </div>
+        >
+          <ButtonPrimary
+            style={{ width: "auto" }}
+            onClick={() => setRows((r) => r + 1)}
+          >
+            Add Row
+          </ButtonPrimary>
+
+          <ButtonPrimary
+            style={{ width: "auto" }}
+            onClick={() => setRows((r) => Math.max(1, r - 1))}
+          >
+            Remove Row
+          </ButtonPrimary>
+
+          <ButtonPrimary
+            style={{ width: "auto" }}
+            onClick={() => setCols((c) => c + 1)}
+          >
+            Add Column
+          </ButtonPrimary>
+
+          <ButtonPrimary
+            style={{ width: "auto" }}
+            onClick={() => setCols((c) => Math.max(1, c - 1))}
+          >
+            Remove Column
+          </ButtonPrimary>
+        </div>
+      </Modal>
+    </Card>
   );
 }

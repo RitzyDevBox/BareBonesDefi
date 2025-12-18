@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
-import { UniversalActionType, ActionNode } from "./models";
+import { UniversalActionType } from "./models";
 import { useActionSchema } from "./hooks/useActionSchema";
 import { RenderFieldComponent } from "./components/RenderFieldComponent";
 
-import { Card, Text, ButtonPrimary, Box, CardContent } from "../BasicComponents";
+import { Card, Text, ButtonPrimary, CardContent } from "../BasicComponents";
 
 interface UniversalWalletActionFormProps {
   action: UniversalActionType;
