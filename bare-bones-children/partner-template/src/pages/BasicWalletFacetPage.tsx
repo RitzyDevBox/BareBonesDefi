@@ -10,19 +10,22 @@ import BASIC_WALLET_FACET_ABI from "../abis/diamond/facets/basicWalletFacet.abi.
 
 import { getSelectorsFromABI } from "../utils/getSelectorsFromAbi";
 
-import { UniversalWalletModal } from "../components/UniversalWalletModal/UniversalWalletModal";
+import { UniversalWalletActionForm } from "../components/UniversalWalletModal/UniversalWalletModal";
 import { ActionHandlerRouter } from "../components/UniversalWalletModal/components/ActionHandlerRouter";
 import { UniversalActionType } from "../components/UniversalWalletModal/models";
 
-import "./BasicWalletFacetPage.scss";
 import { ZERO_ADDRESS } from "../constants/misc";
+
+import { Card, ButtonPrimary, Text, Box } from "../components/BasicComponents";
 
 const WALLET_FACET_ADDRESS = "0x79e2fa7763C4D1884f6a6D98b51220eD79fC4484";
 const WALLET_SELECTORS = getSelectorsFromABI(BASIC_WALLET_FACET_ABI);
 
 export function BasicWalletFacetPage() {
   const { diamondAddress } = useParams<{ diamondAddress: string }>();
+
   if (!diamondAddress) return <div>No diamond address provided</div>;
+
   return <BasicWalletInstaller diamondAddress={diamondAddress} />;
 }
 
@@ -39,12 +42,12 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
     setLog((l) => l + (typeof m === "string" ? m : JSON.stringify(m)) + "\n");
 
   // ------------------------------------------------------------
-  // CHECK IF FACET IS INSTALLED
+  // CHECK IF WALLET FACET INSTALLED
   // ------------------------------------------------------------
   const checkInstalled = useCallback(async () => {
     if (!provider || !diamondAddress) return;
 
-    const signer = await provider.getSigner();
+    const signer = provider.getSigner();
     const diamond = new ethers.Contract(diamondAddress, LOUPE_ABI, signer ?? provider);
     const facets = await diamond.facets();
 
@@ -55,13 +58,12 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
     setInstalled(isInstalled);
   }, [provider, diamondAddress]);
 
-  // Ensure check runs
   useEffect(() => {
     checkInstalled();
   }, [checkInstalled]);
 
   // ------------------------------------------------------------
-  // INSTALL FACET (UNCHANGED)
+  // INSTALL MODULE
   // ------------------------------------------------------------
   async function install() {
     try {
@@ -98,26 +100,42 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
   // ------------------------------------------------------------
   if (installed === null) return <div>Checking module...</div>;
 
+  // =========================================
+  // NOT INSTALLED UI
+  // =========================================
   if (!installed)
     return (
-      <div className="install-container">
-        <button onClick={install} className="primary-btn">
-          Install Basic Wallet Module
-        </button>
-        <pre className="log-box">{log}</pre>
-      </div>
+      <Card>
+        <ButtonPrimary onClick={install}>Install Basic Wallet Module</ButtonPrimary>
+
+        <Box style={{ padding: "var(--spacing-md)", marginTop: "var(--spacing-md)" }}>
+          <pre style={{ margin: 0 }}>{log}</pre>
+        </Box>
+      </Card>
     );
 
+  // =========================================
+  // INSTALLED UI
+  // =========================================
   return (
-    <div className="wallet-container">
-      <h3 className="wallet-title">Basic Wallet Module</h3>
+    <Card>
+      <Text.Title>Basic Wallet Module</Text.Title>
 
+      {/* ACTION SELECT */}
       <select
-        className="action-select"
         value={action ?? ""}
         onChange={(e) =>
           setAction(e.target.value ? (e.target.value as UniversalActionType) : null)
         }
+        style={{
+          width: "100%",
+          padding: "var(--spacing-md)",
+          borderRadius: "var(--radius-md)",
+          background: "var(--colors-background)",
+          color: "var(--colors-text-main)",
+          border: "1px solid var(--colors-border)",
+          marginTop: "var(--spacing-md)",
+        }}
       >
         <option value="">Select Action</option>
         <option value={UniversalActionType.SEND}>Send</option>
@@ -126,20 +144,15 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
         <option value={UniversalActionType.UNWRAP}>Unwrap WETH</option>
       </select>
 
+      {/* ACTION FORM */}
       {action && (
-        <UniversalWalletModal
+        <UniversalWalletActionForm
           action={action}
-          isOpen={true}
-          onClose={() => {
-            setAction(null);
-            setSubmittedValues(null);
-          }}
-          onConfirm={(formValues) => {
-            setSubmittedValues(formValues);
-          }}
+          onConfirm={(formValues) => setSubmittedValues(formValues)}
         />
       )}
 
+      {/* ACTION HANDLER */}
       {action && submittedValues && (
         <ActionHandlerRouter
           action={action}
@@ -152,7 +165,10 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
         />
       )}
 
-      <pre className="log-box">{log}</pre>
-    </div>
+      {/* LOG OUTPUT */}
+      <Box style={{ padding: "var(--spacing-md)", marginTop: "var(--spacing-md)" }}>
+        <pre style={{ margin: 0 }}>{log}</pre>
+      </Box>
+    </Card>
   );
 }

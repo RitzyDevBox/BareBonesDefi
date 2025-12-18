@@ -1,72 +1,67 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
-import {
-  UniversalActionType,
-  ActionNode,
-} from "./models";
+import { UniversalActionType, ActionNode } from "./models";
 import { useActionSchema } from "./hooks/useActionSchema";
-import "./UniversalWalletModal.scss";
 import { RenderFieldComponent } from "./components/RenderFieldComponent";
 
-interface UniversalWalletModalProps {
+import { Card, Text, ButtonPrimary, Box } from "../BasicComponents";
+
+interface UniversalWalletActionFormProps {
   action: UniversalActionType;
-  isOpen: boolean;
-  onClose: () => void;
   onConfirm: (values: Record<string, any>) => void;
 }
 
-export function UniversalWalletModal({
+export function UniversalWalletActionForm({
   action,
-  isOpen,
-  onClose,
   onConfirm,
-}: UniversalWalletModalProps) {
-  const [values, setValues] = useState<Record<string, any>>({});
+}: UniversalWalletActionFormProps) {
+  const [formValues, setFormValues] = useState<Record<string, any>>({});
   const schema = useActionSchema(action);
 
-  if (!isOpen) return null;
   if (!schema) return null;
 
-  const fields = schema.fields;
+  const { fields } = schema;
 
-  function updateField(id: string, value: any) {
-    setValues((v) => ({ ...v, [id]: value }));
+  function updateField(fieldId: string, fieldValue: any) {
+    setFormValues((prev) => ({ ...prev, [fieldId]: fieldValue }));
   }
 
   function handleConfirm() {
-    onConfirm(values);
+    onConfirm(formValues);
   }
 
-  // ❗ Only guard rendering AFTER hooks
-  if (!isOpen) return null;
-
   return (
-    <div className="uwm-overlay" onClick={onClose}>
-      <div className="uwm-modal" onClick={(e) => e.stopPropagation()}>
-        <h2 className="uwm-title">{action.replace(/_/g, " ")}</h2>
+    <Card style={{ marginTop: "var(--spacing-md)" }}>
+      {/* Title */}
+      <Text.Title>{action.replace(/_/g, " ")}</Text.Title>
 
-        <div className="uwm-fields">
-          {fields.map((field: ActionNode) => (
-            <RenderFieldComponent
-              key={field.id}
-              field={field}
-              value={values[field.id]}
-              allValues={values}
-              onChange={(val) => updateField(field.id, val)}
-            />
-          ))}
-        </div>
+      {/* Field List */}
+      <Box
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--spacing-md)",
+          marginTop: "var(--spacing-md)",
+        }}
+      >
+        {fields.map((field: ActionNode) => (
+          <RenderFieldComponent
+            key={field.id}
+            field={field}
+            value={formValues[field.id]}
+            allValues={formValues}
+            onChange={(v) => updateField(field.id, v)}
+          />
+        ))}
+      </Box>
 
-        <div className="uwm-actions">
-          <button className="uwm-btn cancel" onClick={onClose}>
-            Cancel
-          </button>
-
-          <button className="uwm-btn confirm" onClick={handleConfirm}>
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
+      {/* Confirm Button */}
+      <ButtonPrimary
+        style={{ marginTop: "var(--spacing-lg)" }}
+        onClick={handleConfirm}
+      >
+        Confirm
+      </ButtonPrimary>
+    </Card>
   );
 }

@@ -1,6 +1,6 @@
 import { lazy, LazyExoticComponent } from "react";
 import { UniversalActionType } from "../../models";
-import { ActionHandlerProps, WrapMode } from "./models";
+import { ActionHandlerProps } from "./models";
 
 export type ActionHandlerComponent = LazyExoticComponent<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

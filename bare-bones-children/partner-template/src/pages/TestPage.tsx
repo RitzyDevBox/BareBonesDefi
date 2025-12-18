@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
-import { UniversalWalletModal } from "../components/UniversalWalletModal/UniversalWalletModal";
+import { UniversalWalletActionForm } from "../components/UniversalWalletModal/UniversalWalletModal";
 import {
   UniversalActionType,
 } from "../components/UniversalWalletModal/models";
@@ -62,13 +62,8 @@ export function TestPage() {
       </select>
 
       {action && (
-        <UniversalWalletModal
+        <UniversalWalletActionForm
           action={action}
-          isOpen={true}
-          onClose={() => {
-            setAction(null);
-            setSubmittedValues(null);
-          }}
           onConfirm={(formValues) => {
             setSubmittedValues(formValues);
           }}

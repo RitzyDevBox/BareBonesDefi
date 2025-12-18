@@ -1,11 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// -------------------------------
-// Field + Resolver renderer
-
 import { TokenInfoResolver } from "../../DynamicResolvers/TokenInfoResolver";
 import { ActionNode, FieldComponent } from "../models";
+import { Box, Text, Input } from "../../BasicComponents";
 
-// -------------------------------
 export function RenderFieldComponent({
   field,
   value,
@@ -17,20 +14,32 @@ export function RenderFieldComponent({
   allValues: Record<string, any>;
   onChange: (value: any) => void;
 }) {
-  // -----------------------
-  // Render logic
-  // -----------------------
+  const renderInput = (type: string = "text", placeholder?: string) => {
+    return (
+      <Box style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-xs)" }}>
+        <Text.Label>{field.label}</Text.Label>
+
+        <Input
+          type={type}
+          placeholder={placeholder ?? field.label}
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </Box>
+    );
+  };
+
   switch (field.component) {
     case FieldComponent.TOKEN_PICKER:
       return (
-        <div className="uwm-field">
-          <label className="uwm-label">{field.label}</label>
-          <input
-            className="uwm-input"
+        <Box style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-xs)" }}>
+          <Text.Label>{field.label}</Text.Label>
+
+          <Input
             type="text"
+            maxLength={42}
             placeholder={field.label}
             value={value ?? ""}
-            maxLength={42}
             onChange={(e) => {
               const v = e.target.value;
               if (/^(0x)?[0-9a-fA-F]*$/.test(v)) {
@@ -38,62 +47,38 @@ export function RenderFieldComponent({
               }
             }}
           />
-        </div>
+        </Box>
       );
 
     case FieldComponent.NFT_PICKER:
       return (
-        <div className="uwm-field">
-          <label className="uwm-label">{field.label}</label>
-          <div
-            className="uwm-placeholder nft"
+        <Box style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-xs)" }}>
+          <Text.Label>{field.label}</Text.Label>
+
+          <Box
+            style={{
+              padding: "var(--spacing-md)",
+              borderRadius: "var(--radius-md)",
+              background: "var(--colors-background)",
+              border: "1px solid var(--colors-border)",
+              cursor: "pointer",
+              opacity: 0.85,
+            }}
             onClick={() => onChange("nft-selected")}
           >
             NFT PICKER — placeholder
-          </div>
-        </div>
+          </Box>
+        </Box>
       );
 
     case FieldComponent.ADDRESS:
-      return (
-        <div className="uwm-field">
-          <label className="uwm-label">{field.label}</label>
-          <input
-            className="uwm-input"
-            placeholder={field.label}
-            value={value ?? ""}
-            onChange={(e) => onChange(e.target.value)}
-          />
-        </div>
-      );
+      return renderInput("text");
 
     case FieldComponent.AMOUNT:
-      return (
-        <div className="uwm-field">
-          <label className="uwm-label">{field.label}</label>
-          <input
-            className="uwm-input"
-            type="number"
-            placeholder={field.label}
-            value={value ?? ""}
-            onChange={(e) => onChange(e.target.value)}
-          />
-        </div>
-      );
+      return renderInput("number");
 
     case FieldComponent.PERCENT:
-      return (
-        <div className="uwm-field">
-          <label className="uwm-label">{field.label}</label>
-          <input
-            className="uwm-input"
-            type="number"
-            placeholder={`${field.label} (%)`}
-            value={value ?? ""}
-            onChange={(e) => onChange(e.target.value)}
-          />
-        </div>
-      );
+      return renderInput("number", `${field.label} (%)`);
 
     case FieldComponent.USE_TOKEN_INFO: {
       if (!field.deps) return null;
@@ -102,9 +87,7 @@ export function RenderFieldComponent({
 
       if (!tokenAddress) return null;
 
-      return (
-        <TokenInfoResolver tokenAddress={tokenAddress} onChange={onChange}/>
-      );
+      return <TokenInfoResolver tokenAddress={tokenAddress} onChange={onChange} />;
     }
 
     default:
