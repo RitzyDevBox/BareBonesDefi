@@ -4,7 +4,7 @@ import { UniversalActionType, ActionNode } from "./models";
 import { useActionSchema } from "./hooks/useActionSchema";
 import { RenderFieldComponent } from "./components/RenderFieldComponent";
 
-import { Card, Text, ButtonPrimary, Box } from "../BasicComponents";
+import { Card, Text, ButtonPrimary, Box, CardContent } from "../BasicComponents";
 
 interface UniversalWalletActionFormProps {
   action: UniversalActionType;
@@ -32,19 +32,10 @@ export function UniversalWalletActionForm({
 
   return (
     <Card style={{ marginTop: "var(--spacing-md)" }}>
-      {/* Title */}
-      <Text.Title>{action.replace(/_/g, " ")}</Text.Title>
+      <CardContent>
+        <Text.Title>{action.replace(/_/g, " ")}</Text.Title>
 
-      {/* Field List */}
-      <Box
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "var(--spacing-md)",
-          marginTop: "var(--spacing-md)",
-        }}
-      >
-        {fields.map((field: ActionNode) => (
+        {fields.map((field) => (
           <RenderFieldComponent
             key={field.id}
             field={field}
@@ -53,15 +44,10 @@ export function UniversalWalletActionForm({
             onChange={(v) => updateField(field.id, v)}
           />
         ))}
-      </Box>
 
-      {/* Confirm Button */}
-      <ButtonPrimary
-        style={{ marginTop: "var(--spacing-lg)" }}
-        onClick={handleConfirm}
-      >
-        Confirm
-      </ButtonPrimary>
+        <ButtonPrimary onClick={handleConfirm}>Confirm</ButtonPrimary>
+      </CardContent>
     </Card>
+
   );
 }

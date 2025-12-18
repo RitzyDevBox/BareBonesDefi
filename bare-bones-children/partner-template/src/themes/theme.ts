@@ -29,17 +29,17 @@ export interface AppTheme {
   };
 
   spacing: {
-    xs: number;
-    sm: number;
-    md: number;
-    lg: number;
-    xl: number;
+    xs: string;
+    sm: string;
+    md: string;
+    lg: string;
+    xl: string;
   };
 
   radius: {
-    sm: number;
-    md: number;
-    lg: number;
+    sm: string;
+    md: string;
+    lg: string;
   };
 
   shadows: {
@@ -48,8 +48,8 @@ export interface AppTheme {
   };
 
   textStyles: {
-    title: { fontSize: number; fontWeight: number };
-    label: { fontSize: number; fontWeight: number };
-    body: { fontSize: number };
+    title: { fontSize: string; fontWeight: number };
+    label: { fontSize: string; fontWeight: number };
+    body: { fontSize: string };
   };
 }

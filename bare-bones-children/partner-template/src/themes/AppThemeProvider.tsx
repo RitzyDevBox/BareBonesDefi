@@ -1,23 +1,25 @@
 import { createContext, useContext, useEffect } from "react";
-import { AppTheme, ThemeMode } from "../themes/theme";
+import { AppTheme } from "../themes/theme";
+import { ThemeMode } from "../themes/theme";
 import { lightTheme } from "../themes/lightTheme";
 import { darkTheme } from "../themes/darkTheme";
 import { applyThemeToDocument } from "../themes/createCssVars";
+import { useThemeMode } from "../themes/ThemeModeContext";
 
 const ThemeContext = createContext<AppTheme>(darkTheme);
 
-export function AppThemeProvider({
-  mode = ThemeMode.DARK,
-  children,
-}: {
-  mode?: ThemeMode;
-  children: React.ReactNode;
-}) {
+export function AppThemeProvider({ children }: { children: React.ReactNode }) {
+  const { mode } = useThemeMode();
+
   const theme = mode === ThemeMode.LIGHT ? lightTheme : darkTheme;
 
   useEffect(() => applyThemeToDocument(theme), [theme]);
 
-  return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={theme}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function useAppTheme() {

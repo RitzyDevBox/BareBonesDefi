@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { TokenInfoResolver } from "../../DynamicResolvers/TokenInfoResolver";
 import { ActionNode, FieldComponent } from "../models";
-import { Box, Text, Input } from "../../BasicComponents";
+import { Input } from "../../BasicComponents";
+import { FormField } from "../../FormField";
 
 export function RenderFieldComponent({
   field,
@@ -14,31 +15,16 @@ export function RenderFieldComponent({
   allValues: Record<string, any>;
   onChange: (value: any) => void;
 }) {
-  const renderInput = (type: string = "text", placeholder?: string) => {
-    return (
-      <Box style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-xs)" }}>
-        <Text.Label>{field.label}</Text.Label>
-
-        <Input
-          type={type}
-          placeholder={placeholder ?? field.label}
-          value={value ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      </Box>
-    );
-  };
+  const placeholder = ""; // remove label duplication
 
   switch (field.component) {
     case FieldComponent.TOKEN_PICKER:
       return (
-        <Box style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-xs)" }}>
-          <Text.Label>{field.label}</Text.Label>
-
+        <FormField label={field.label ?? ""}>
           <Input
             type="text"
             maxLength={42}
-            placeholder={field.label}
+            placeholder={placeholder}
             value={value ?? ""}
             onChange={(e) => {
               const v = e.target.value;
@@ -47,15 +33,13 @@ export function RenderFieldComponent({
               }
             }}
           />
-        </Box>
+        </FormField>
       );
 
     case FieldComponent.NFT_PICKER:
       return (
-        <Box style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-xs)" }}>
-          <Text.Label>{field.label}</Text.Label>
-
-          <Box
+        <FormField label={field.label ?? ""}>
+          <div
             style={{
               padding: "var(--spacing-md)",
               borderRadius: "var(--radius-md)",
@@ -67,18 +51,44 @@ export function RenderFieldComponent({
             onClick={() => onChange("nft-selected")}
           >
             NFT PICKER — placeholder
-          </Box>
-        </Box>
+          </div>
+        </FormField>
       );
 
     case FieldComponent.ADDRESS:
-      return renderInput("text");
+      return (
+        <FormField label={field.label ?? ""}>
+          <Input
+            placeholder={placeholder}
+            value={value ?? ""}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </FormField>
+      );
 
     case FieldComponent.AMOUNT:
-      return renderInput("number");
+      return (
+        <FormField label={field.label ?? ""}>
+          <Input
+            type="number"
+            placeholder={placeholder}
+            value={value ?? ""}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </FormField>
+      );
 
     case FieldComponent.PERCENT:
-      return renderInput("number", `${field.label} (%)`);
+      return (
+        <FormField label={field.label ?? ""}>
+          <Input
+            type="number"
+            placeholder={placeholder}
+            value={value ?? ""}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </FormField>
+      );
 
     case FieldComponent.USE_TOKEN_INFO: {
       if (!field.deps) return null;

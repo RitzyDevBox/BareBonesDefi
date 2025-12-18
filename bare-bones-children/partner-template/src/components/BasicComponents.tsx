@@ -49,6 +49,28 @@ export function Card({
   );
 }
 
+export function CardContent({
+  children,
+  style,
+  ...rest
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      style={{
+        padding: "var(--spacing-lg)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--spacing-md)",
+        ...style,
+      }}
+      {...rest}
+    >
+      {children}
+    </div>
+  );
+}
+
+
 // ----------------------
 // TEXT
 // ----------------------

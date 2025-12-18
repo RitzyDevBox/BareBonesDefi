@@ -16,7 +16,9 @@ import { UniversalActionType } from "../components/UniversalWalletModal/models";
 
 import { ZERO_ADDRESS } from "../constants/misc";
 
-import { Card, ButtonPrimary, Text, Box } from "../components/BasicComponents";
+import { Card, ButtonPrimary, Text, Box, CardContent } from "../components/BasicComponents";
+import { Select } from "../components/Select";
+import { SelectOption } from "../components/Select/SelectOption";
 
 const WALLET_FACET_ADDRESS = "0x79e2fa7763C4D1884f6a6D98b51220eD79fC4484";
 const WALLET_SELECTORS = getSelectorsFromABI(BASIC_WALLET_FACET_ABI);
@@ -117,34 +119,22 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
   // =========================================
   // INSTALLED UI
   // =========================================
-  return (
-    <Card>
+return (
+  <Card>
+    <CardContent>
       <Text.Title>Basic Wallet Module</Text.Title>
 
-      {/* ACTION SELECT */}
-      <select
-        value={action ?? ""}
-        onChange={(e) =>
-          setAction(e.target.value ? (e.target.value as UniversalActionType) : null)
-        }
-        style={{
-          width: "100%",
-          padding: "var(--spacing-md)",
-          borderRadius: "var(--radius-md)",
-          background: "var(--colors-background)",
-          color: "var(--colors-text-main)",
-          border: "1px solid var(--colors-border)",
-          marginTop: "var(--spacing-md)",
-        }}
+      <Select
+        value={action}
+        onChange={(v) => setAction(v as UniversalActionType)}
+        placeholder="Select Action"
       >
-        <option value="">Select Action</option>
-        <option value={UniversalActionType.SEND}>Send</option>
-        <option value={UniversalActionType.RECEIVE}>Deposit</option>
-        <option value={UniversalActionType.WRAP}>Wrap ETH</option>
-        <option value={UniversalActionType.UNWRAP}>Unwrap WETH</option>
-      </select>
+        <SelectOption value={UniversalActionType.SEND} label="Send" />
+        <SelectOption value={UniversalActionType.RECEIVE} label="Deposit" />
+        <SelectOption value={UniversalActionType.WRAP} label="Wrap ETH" />
+        <SelectOption value={UniversalActionType.UNWRAP} label="Unwrap WETH" />
+      </Select>
 
-      {/* ACTION FORM */}
       {action && (
         <UniversalWalletActionForm
           action={action}
@@ -152,7 +142,6 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
         />
       )}
 
-      {/* ACTION HANDLER */}
       {action && submittedValues && (
         <ActionHandlerRouter
           action={action}
@@ -165,10 +154,11 @@ export function BasicWalletInstaller({ diamondAddress }: { diamondAddress: strin
         />
       )}
 
-      {/* LOG OUTPUT */}
-      <Box style={{ padding: "var(--spacing-md)", marginTop: "var(--spacing-md)" }}>
+      <Box>
         <pre style={{ margin: 0 }}>{log}</pre>
       </Box>
-    </Card>
-  );
+    </CardContent>
+  </Card>
+);
+
 }
