@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { ethers } from "ethers";
+import { useShimWallet } from "../hooks/useShimWallet";
+
 import { Modal } from "../components/Modal/Modal";
 import {
   ButtonPrimary,
@@ -7,15 +10,52 @@ import {
   Text,
 } from "../components/BasicComponents";
 
+import { useMultiContractMultiCall } from "../hooks/useMultiContractMultiCall";
+import ERC20_ABI from "../abis/ERC20.json";
+import { getAddress } from "ethers/lib/utils";
+import { MULTICALL3_ADDRESS } from "../constants/misc";
+
+const TOKEN_ADDRESSES = [
+  "0x5555555555555555555555555555555555555555",
+  "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c",
+];
+
 export function TestPage() {
+  const { provider, account } = useShimWallet();
+
   const [open, setOpen] = useState(false);
 
   // grid state
   const [rows, setRows] = useState(2);
   const [cols, setCols] = useState(2);
 
-  // build grid data
   const cells = Array.from({ length: rows * cols });
+
+  const { data, loading } = useMultiContractMultiCall<{
+    symbol: string;
+    decimals: number;
+    balance: ethers.BigNumber;
+  }>({
+    contracts: TOKEN_ADDRESSES.map((address) => ({
+      address,
+      abiKey: "erc20",
+    })),
+    abiMap: {
+      erc20: ERC20_ABI,
+    },
+    calls: [
+      { fn: "symbol", as: "symbol" },
+      { fn: "decimals", as: "decimals" },
+      {
+        fn: "balanceOf",
+        as: "balance",
+        args: account ? [getAddress(account)] : undefined,
+      },
+    ],
+    provider,
+    multicall3: MULTICALL3_ADDRESS,
+    deps: [account],
+  });
 
   return (
     <Card style={{ maxWidth: "min(90vw, 600px)", margin: "0 auto" }}>
@@ -24,6 +64,16 @@ export function TestPage() {
 
         <ButtonPrimary onClick={() => setOpen(true)}>
           Open Modal
+        </ButtonPrimary>
+
+        <ButtonPrimary
+          style={{ width: "auto" }}
+          disabled={!account || loading}
+          onClick={() => {
+            console.log("Multicall results:", data);
+          }}
+        >
+          Fetch Token Balances
         </ButtonPrimary>
       </CardContent>
 

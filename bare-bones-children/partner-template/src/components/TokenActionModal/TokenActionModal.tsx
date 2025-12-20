@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ModeType } from "../../pages/BasicWalletFacetPage";
 import "./TokenActionModal.scss";
+
+enum ModeType {
+  SEND = 'SEND',
+  RECEIVE = 'RECEIVE'
+}
 
 export function TokenActionModal({
   mode,              // "send" | "receive"

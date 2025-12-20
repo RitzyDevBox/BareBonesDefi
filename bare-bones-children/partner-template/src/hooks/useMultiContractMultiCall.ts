@@ -1,35 +1,51 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
-import { ethers } from "ethers";
+import { ethers, BigNumber } from "ethers";
+import MULTICALL3_ABI from "../abis/Multicall3.json";
 
+// ----------------------------
+// Types
+// ----------------------------
 
+export type MethodArg =
+  | string
+  | number
+  | boolean
+  | BigNumber;
 
-type CallArgMode =
-  | "shared"
-  | any[][]       // args per contract
-  | undefined;    // auto treat as shared when no args
+export type MethodArgs = Array<MethodArg | MethodArg[]>;
 
 export interface MultiCallRequest {
   fn: string;
   as: string;
-  args?: CallArgMode;
+  args?: MethodArgs | MethodArgs[];
+}
+
+export interface ContractConfig {
+  address: string;
+  abiKey: string;
 }
 
 export interface MultiCallConfig<T> {
-  contracts: string[];
+  contracts: ContractConfig[];
+  abiMap: Record<string, any[]>;
   calls: MultiCallRequest[];
-  abi: any[];
+  provider: ethers.providers.Provider | undefined;
+  multicall3: string;
   deps?: any[];
-  provider?: ethers.providers.Provider;
-  multicall3?: string; // override address
 }
+
+// ----------------------------
+// Hook
+// ----------------------------
 
 export function useMultiContractMultiCall<T>({
   contracts,
+  abiMap,
   calls,
-  abi,
-  deps = [],
   provider,
-  multicall3 = "0xca11bde05977b3631167028862be2a173976ca11",
+  multicall3 = '0xca11bde05977b3631167028862be2a173976ca11',
+  deps = [],
 }: MultiCallConfig<T>) {
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -43,58 +59,83 @@ export function useMultiContractMultiCall<T>({
       setLoading(true);
 
       try {
-        const iface = new ethers.utils.Interface(abi);
+        const callStructs: any[] = [];
 
-        // 1. Build multicall3 call list
-        const callStructs = [];
-
+        // ----------------------------
+        // Build call structs
+        // ----------------------------
         for (let i = 0; i < contracts.length; i++) {
-          const address = contracts[i];
+          const { address, abiKey } = contracts[i];
+          const abi = abiMap[abiKey];
 
-          for (const c of calls) {
-            let argsArray: any[];
+          if (!abi) {
+            throw new Error(`ABI not found for key: ${abiKey}`);
+          }
 
-            if (c.args === "shared" || c.args === undefined) {
-              argsArray = [];
+          const iface = new ethers.utils.Interface(abi);
+
+          for (const call of calls) {
+            let args: MethodArgs = [];
+
+            if (call.args === undefined) {
+              args = [];
+            } else if (Array.isArray(call.args[0])) {
+              // Per-contract args
+              const matrix = call.args as MethodArgs[];
+              if (matrix.length !== contracts.length) {
+                throw new Error(
+                  `Call "${call.fn}" args length (${matrix.length}) must match contracts length (${contracts.length})`
+                );
+              }
+              args = matrix[i] ?? [];
             } else {
-              argsArray = c.args[i] ?? [];
+              // Same args for all contracts
+              args = call.args as MethodArgs;
             }
 
-            const encoded = iface.encodeFunctionData(c.fn, argsArray);
+            const callData = iface.encodeFunctionData(call.fn, args);
 
             callStructs.push({
               target: address,
               allowFailure: true,
-              callData: encoded,
-              meta: { contractIndex: i, callDef: c },
+              callData,
+              meta: { call, iface, contractIndex: i },
             });
           }
         }
 
-        // 2. Execute aggregated multicall
-        const mc = new ethers.Contract(
+        // ----------------------------
+        // Execute multicall3
+        // ----------------------------
+        const multicallContract = new ethers.Contract(
           multicall3,
-          [
-            "function tryAggregate(bool requireSuccess, tuple(address target, bool allowFailure, bytes callData)[] calls) public returns (tuple(bool success, bytes returnData)[])"
-          ],
+          MULTICALL3_ABI,
           provider
         );
 
-        const response = await mc.tryAggregate(false, callStructs);
+        const response: { success: boolean; returnData: string }[] =
+          await multicallContract.callStatic.tryAggregate(false, callStructs);
 
-        // 3. Decode results into typed objects
+        // ----------------------------
+        // Decode results
+        // ----------------------------
         const result: any[] = contracts.map(() => ({}));
-
         let rIndex = 0;
+
         for (let i = 0; i < contracts.length; i++) {
-          for (const c of calls) {
+          for (const _ of calls) {
+            const { meta } = callStructs[rIndex];
             const { success, returnData } = response[rIndex];
 
             if (success) {
-              const decoded = iface.decodeFunctionResult(c.fn, returnData);
-              result[i][c.as] = decoded.length === 1 ? decoded[0] : decoded;
+              const decoded = meta.iface.decodeFunctionResult(
+                meta.call.fn,
+                returnData
+              );
+              result[i][meta.call.as] =
+                decoded.length === 1 ? decoded[0] : decoded;
             } else {
-              result[i][c.as] = null;
+              result[i][meta.call.as] = null;
             }
 
             rIndex++;
@@ -114,7 +155,7 @@ export function useMultiContractMultiCall<T>({
     return () => {
       cancelled = true;
     };
-  }, [...deps, provider, contracts.join(","), JSON.stringify(calls)]);
+  }, [provider, multicall3, abiMap, contracts, calls, ...deps]);
 
   return { data, loading };
 }
