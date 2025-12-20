@@ -24,14 +24,15 @@ export function useReceiveCurrencyCallback(
 ) {
   const receiveCurrencyCallback = useCallback(
     async (args: ReceiveCurrencyArgs, opts?: TxOpts) => {
-
+      const { assetType, amount, decimals, tokenAddress, tokenSymbol } = args;
+      const symbol = assetType === AssetType.NATIVE ? 'ETH' : `${tokenSymbol ?? "???"}`
+      const completeMessage = `Depositing ${amount} ${symbol} → ${diamondAddress}`;
+      
       return executeTx(() => {
         const signer = requireSigner(provider);
-        const { assetType, amount, decimals, tokenAddress, tokenSymbol } = args;
 
         const txSenderPromise = signer.getAddress(); 
-        const symbol = assetType === AssetType.NATIVE ? 'ETH' : `${tokenSymbol ?? "???"}`
-        opts?.onLog?.(`Depositing ${amount} ${symbol} → ${diamondAddress}`);
+        opts?.onLog?.(completeMessage);
 
         return assetType === AssetType.NATIVE
           ? buildNativeDeposit(signer, amount, diamondAddress, txSenderPromise)
@@ -44,7 +45,7 @@ export function useReceiveCurrencyCallback(
               tokenSymbol,
               txSenderPromise
             );
-      }, opts);
+      }, opts, completeMessage);
 
     },
     [provider, diamondAddress]

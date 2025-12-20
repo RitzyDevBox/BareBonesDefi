@@ -20,26 +20,22 @@ function useWrapInternal(
 ) {
   return useCallback(
     async (args: WrapArgs, opts?: TxOpts) => {
+
+      const { amount, wethAddress } = args;
+      const completeMessage = mode === WrapMode.WRAP ? `Wrapping ${amount} ETH → WETH` : `Unwrapping ${amount} WETH → ETH`
+        
       return executeTx(() => {
         const signer = requireSigner(provider);
         const contract = new ethers.Contract(diamondAddress, BASIC_WALLET_FACET_ABI, signer);
-
-        const { amount, wethAddress } = args;
         const value = parseNative(amount);
-
-        // Logs
-        if (mode === WrapMode.WRAP) {
-          opts?.onLog?.(`Wrapping ${amount} ETH → WETH`);
-        } else {
-          opts?.onLog?.(`Unwrapping ${amount} WETH → ETH`);
-        }
-
+        opts?.onLog?.(completeMessage);
+        
         // Build tx
         return mode === WrapMode.WRAP
           ? () => contract.wrapETH(wethAddress, value)
           : () => contract.unwrapETH(wethAddress, value);
 
-      }, opts);
+      }, opts, completeMessage);
     },
     [provider, diamondAddress, mode]
   );

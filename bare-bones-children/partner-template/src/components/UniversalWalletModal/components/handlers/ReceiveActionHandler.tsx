@@ -7,13 +7,13 @@ import { ZERO_ADDRESS } from "../../../../constants/misc";
 import { ActionHandlerProps } from "./models";
 
 interface Props extends ActionHandlerProps<ReceiveModalResponse> {}
-function ReceiveActionHandler({ values, walletAddress, onDone }: Props) {
+function ReceiveActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
   const { provider } = useShimWallet();
   const { receiveCurrencyCallback } =
     useReceiveCurrencyCallback(provider, walletAddress);
 
   useEffect(() => {
-    if (!provider) return;   // ✅ prevent premature execution
+    if (!provider) return;   // ✅ prevent premature execution,
 
     async function run() {
       const assetType =
@@ -27,13 +27,13 @@ function ReceiveActionHandler({ values, walletAddress, onDone }: Props) {
         decimals: values.assetInfo.decimals,
         tokenSymbol: values.assetInfo.symbol,
         tokenAddress: values.asset,
-      });
+      }, lifeCycle);
 
       onDone();
     }
 
     run();
-  }, [provider, values, receiveCurrencyCallback, onDone, walletAddress]);
+  }, [provider, values, receiveCurrencyCallback, onDone, walletAddress, lifeCycle]);
 
   return null;
 }

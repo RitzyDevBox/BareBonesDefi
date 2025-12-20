@@ -10,7 +10,7 @@ import BASIC_WALLET_FACET_ABI from "../abis/diamond/facets/basicWalletFacet.abi.
 
 import { getSelectorsFromABI } from "../utils/getSelectorsFromAbi";
 
-import { UniversalWalletActionForm } from "../components/UniversalWalletModal/UniversalWalletModal";
+import { UniversalWalletActionForm } from "../components/UniversalWalletModal/UniversalWalletActionForm";
 import { ActionHandlerRouter } from "../components/UniversalWalletModal/components/ActionHandlerRouter";
 import { UniversalActionType } from "../components/UniversalWalletModal/models";
 

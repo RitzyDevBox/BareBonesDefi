@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Contract, providers, Wallet } from "ethers";
+import { Contract, providers } from "ethers";
 import { DutchOrder } from "@uniswap/uniswapx-sdk";
 import MINT_EXECUTOR_ABI from "../abis/MintExecutor.abi.json"; // make sure you have ABI
 const MintExecutorAddress = "0x2aF2E4A2708058C1252788A0E3cc5b42B0aE336F";

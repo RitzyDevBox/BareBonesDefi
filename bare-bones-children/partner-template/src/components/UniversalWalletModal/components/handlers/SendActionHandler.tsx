@@ -7,7 +7,7 @@ import { ZERO_ADDRESS } from "../../../../constants/misc";
 import { ActionHandlerProps } from "./models";
 
 interface Props extends ActionHandlerProps<SendModalResponse> {}
-function SendActionHandler({ values, walletAddress, onDone }: Props) {
+function SendActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
   const { provider } = useShimWallet();
   const { sendCurrencyCallback } = useSendCurrencyCallback(provider, walletAddress);
 
@@ -25,13 +25,13 @@ function SendActionHandler({ values, walletAddress, onDone }: Props) {
         decimals: values.assetInfo.decimals,
         tokenSymbol: values.assetInfo.symbol,
         tokenAddress: values.asset,
-      });
+      }, lifeCycle);
 
       onDone();
     }
 
     run();
-  }, [provider, values, sendCurrencyCallback, onDone, walletAddress]);
+  }, [provider, values, sendCurrencyCallback, onDone, walletAddress, lifeCycle]);
 
   return null;
 }

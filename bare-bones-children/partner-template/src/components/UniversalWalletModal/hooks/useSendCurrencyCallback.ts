@@ -19,19 +19,19 @@ export function useSendCurrencyCallback(
 ) {
   const sendCurrencyCallback = useCallback(
     async (args: SendCurrencyArgs, opts?: TxOpts) => {
+      const { assetType, amount, recipient, decimals, tokenAddress, tokenSymbol } = args;
+      const symbol = assetType === AssetType.NATIVE ? 'ETH' : `${tokenSymbol ?? "???"}`
+      const completeMessage = `Withdrawing ${amount} ${symbol} to ${recipient}` 
       return executeTx(() => {
         const signer = requireSigner(provider);
         const contract = new ethers.Contract(diamondAddress, BASIC_WALLET_FACET_ABI, signer);
 
-        const { assetType, amount, recipient, decimals, tokenAddress, tokenSymbol } = args;
-
-        const symbol = assetType === AssetType.NATIVE ? 'ETH' : `${tokenSymbol ?? "???"}`
-        opts?.onLog?.(`Withdrawing ${amount} ${symbol} to ${recipient}`);
+        opts?.onLog?.(completeMessage);
         
         return assetType === AssetType.NATIVE
           ? buildNativeSend(contract, amount, recipient)
           : buildTokenSend(contract, tokenAddress!, amount, recipient, decimals);
-      }, opts);
+      }, opts, completeMessage);
     },
     [provider, diamondAddress]
   );

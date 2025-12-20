@@ -7,7 +7,7 @@ import { UnwrapModalResponse } from "../../schemas/unwrap.schema";
 
 
 interface Props extends ActionHandlerProps<UnwrapModalResponse>{}
-function UnwrapActionHandler({ values, walletAddress, onDone }: Props) {
+function UnwrapActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
   const { provider } = useShimWallet();
   const { unwrapCallback } = useUnwrapCallback(provider, walletAddress);
 
@@ -20,12 +20,12 @@ function UnwrapActionHandler({ values, walletAddress, onDone }: Props) {
         wethAddress: WETH_BY_CHAIN[DEFAULT_CHAIN_ID],
       };
 
-      await unwrapCallback(args);
+      await unwrapCallback(args, lifeCycle);
       onDone();
     }
 
     run();
-  }, [provider, values, unwrapCallback, onDone, walletAddress]);
+  }, [provider, values, unwrapCallback, onDone, walletAddress, lifeCycle]);
 
   return null;
 }

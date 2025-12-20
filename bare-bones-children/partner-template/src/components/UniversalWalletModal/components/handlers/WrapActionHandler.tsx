@@ -8,7 +8,7 @@ import { ActionHandlerProps } from "./models";
 
 interface Props extends ActionHandlerProps<WrapModalResponse>{}
 
-function WrapActionHandler({ values, walletAddress, onDone }: Props) {
+function WrapActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
   const { provider } = useShimWallet();
   const { wrapCallback } = useWrapCallback(provider, walletAddress);
 
@@ -21,12 +21,12 @@ function WrapActionHandler({ values, walletAddress, onDone }: Props) {
         wethAddress: WETH_BY_CHAIN[DEFAULT_CHAIN_ID],
       };
 
-      await wrapCallback(args);
+      await wrapCallback(args, lifeCycle);
       onDone();
     }
 
     run();
-  }, [provider, values, wrapCallback, onDone, walletAddress]);
+  }, [provider, values, wrapCallback, onDone, walletAddress, lifeCycle]);
 
   return null;
 }
