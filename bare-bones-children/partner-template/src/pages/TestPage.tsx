@@ -20,9 +20,7 @@ import {
   ToastPosition,
   ToastType,
 } from "../components/Toasts/toast.types";
-
-import { useToasts } from "../components/Toasts/useToasts";
-import { ToastContainer } from "../components/Toasts/ToastContainer";
+import { toastStore } from "../components/Toasts/toast.store";
 
 
 const TOKEN_ADDRESSES = [
@@ -38,8 +36,6 @@ export function TestPage() {
   // grid state
   const [rows, setRows] = useState(2);
   const [cols, setCols] = useState(2);
-
-  const { toasts, showToast, closeToast } = useToasts();
 
   const [toastType, setToastType] = useState<ToastType>(ToastType.Success);
   const [toastBehavior, setToastBehavior] = useState<ToastBehavior>(
@@ -81,17 +77,6 @@ export function TestPage() {
   });
 
   return (<>
-    <ToastContainer
-      toasts={toasts.filter(t => t.position === ToastPosition.Top)}
-      position={ToastPosition.Top}
-      onClose={closeToast}
-    />
-    <ToastContainer
-      toasts={toasts.filter(t => t.position === ToastPosition.Bottom)}
-      position={ToastPosition.Bottom}
-      onClose={closeToast}
-    />
-
     <Card style={{ maxWidth: "min(90vw, 600px)", margin: "0 auto" }}>
       <CardContent>
         <Text.Title>Modal Resize Test</Text.Title>
@@ -165,7 +150,7 @@ export function TestPage() {
 
         <ButtonPrimary
           onClick={() =>
-            showToast({
+            toastStore.show({
               id: crypto.randomUUID(),
               title: "Test Toast",
               message: "Configured from TestPage",

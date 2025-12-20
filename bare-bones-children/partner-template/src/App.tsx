@@ -3,12 +3,16 @@ import { Outlet } from "react-router-dom";
 
 import "./styles/modal.css";
 import { ThemeToggle } from "./themes/ThemeToggle";
+import { ToastHost } from "./components/Toasts/ToastHost";
 
 export default function App() {
   const { account, chainId, connect } = useShimWallet();
 
   return (
     <div style={{ padding: "16px" }}>
+      {/* GLOBAL TOASTS */}
+      <ToastHost />
+
       <ThemeToggle />
 
       {!account ? (
