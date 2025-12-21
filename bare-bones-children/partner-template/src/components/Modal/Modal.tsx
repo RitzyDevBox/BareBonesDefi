@@ -1,6 +1,23 @@
 import React, { useEffect, useRef } from "react";
 import { Card, Text } from "../BasicComponents";
 
+/**
+ * UXMode
+ *
+ * Default:
+ * - Modal expands based on content
+ * - Modal body scrolls if content exceeds maxHeight
+ *
+ * FixedBody:
+ * - Modal height is constrained by maxHeight
+ * - Modal body does NOT scroll
+ * - Child components must manage their own scrolling
+ */
+export enum UXMode {
+  Default = "default",
+  FixedBody = "fixed-body",
+}
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -12,6 +29,8 @@ interface ModalProps {
 
   height?: number | string;
   maxHeight?: number | string;
+
+  uxMode?: UXMode;
 }
 
 function toCss(val: number | string): string {
@@ -38,14 +57,13 @@ export function CloseButton({
         cursor: "pointer",
         color: "var(--colors-text-main)",
         zIndex: 2,
-        ...style, // allow overrides
+        ...style,
       }}
     >
       ✕
     </button>
   );
 }
-
 
 export function Modal({
   isOpen,
@@ -57,10 +75,12 @@ export function Modal({
   maxWidth = "90vw",
   height = "auto",
   maxHeight = "90vh",
+
+  uxMode = UXMode.Default,
 }: ModalProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Close when clicking outside the modal card
+  // Close when clicking outside modal
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (!wrapperRef.current) return;
@@ -80,6 +100,8 @@ export function Modal({
   const resolvedMaxHeight = toCss(maxHeight);
   const resolvedHeight =
     height === "auto" ? "auto" : toCss(height as number | string);
+
+  const isFixedBody = uxMode === UXMode.FixedBody;
 
   return (
     <div
@@ -104,8 +126,8 @@ export function Modal({
         <Card
           style={{
             width: "100%",
-            height: resolvedHeight,      // "auto" or explicit height
-            maxHeight: resolvedMaxHeight, // cap at 90vh by default
+            height: uxMode === UXMode.FixedBody ? resolvedMaxHeight : resolvedHeight,
+            maxHeight: resolvedMaxHeight,
             boxSizing: "border-box",
             display: "flex",
             flexDirection: "column",
@@ -114,28 +136,34 @@ export function Modal({
           }}
         >
           <CloseButton onClick={onClose} />
-          
-          {/* Title (static header area) */}
+
+          {/* Header */}
           {title && (
             <Text.Title
               style={{
                 marginBottom: "var(--spacing-lg)",
                 textAlign: "left",
+                flexShrink: 0,
               }}
             >
               {title}
             </Text.Title>
           )}
 
-          {/* Scrollable body */}
+          {/* Body */}
           <div
             style={{
               flex: 1,
               minHeight: 0,
-              overflow: "auto",
-              scrollbarGutter: "stable",
-              marginRight: "-8px",
-              paddingRight: "8px",
+
+              // 🔑 Scroll ownership
+              overflowX: "hidden",
+              overflowY: isFixedBody ? "hidden" : "auto",
+
+              // Only apply scrollbar hacks in default mode
+              scrollbarGutter: isFixedBody ? undefined : "stable",
+              marginRight: isFixedBody ? undefined : "-8px",
+              paddingRight: isFixedBody ? undefined : "8px",
             }}
           >
             {children}

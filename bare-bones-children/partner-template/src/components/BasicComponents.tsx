@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React from "react";
-
+import React, { forwardRef } from "react";
 
 // Utility for CSS var fallback
 const cssVar = (name: string) => `var(--${name})`;
@@ -8,23 +7,25 @@ const cssVar = (name: string) => `var(--${name})`;
 // ----------------------
 // BOX
 // ----------------------
-export function Box({
-  children,
-  style,
-  ...rest
-}: React.HTMLAttributes<HTMLDivElement>) {
+
+export const Box = forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(function Box({ children, style, ...rest }, ref) {
   const combined: React.CSSProperties = {
-    background: cssVar("colors-surface"),
-    color: cssVar("colors-text-main"),
-    borderRadius: cssVar("radius-md"),
+    background: "var(--colors-surface)",
+    color: "var(--colors-text-main)",
+    borderRadius: "var(--radius-md)",
     ...style,
   };
+
   return (
-    <div style={combined} {...rest}>
+    <div ref={ref} style={combined} {...rest}>
       {children}
     </div>
   );
-}
+});
+
 
 // ----------------------
 // CARD
