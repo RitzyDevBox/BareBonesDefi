@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { useShimWallet } from "../hooks/useShimWallet";
-
-const MapChainIdToSlug: Record<number, string> = {
-  1: "ethereum",
-  137: "polygon-pos",
-  10: "optimistic-ethereum",
-  999: "hyperevm",
-};
+import { MapChainIdToSlug } from "../constants/misc";
 
 export interface TokenInfo {
   chainId?: number;

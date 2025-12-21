@@ -10,3 +10,10 @@ export const WETH_BY_CHAIN: Record<number, string> = {
 };
 
 export const DEFAULT_CHAIN_ID = 999;
+
+export const MapChainIdToSlug: Record<number, string> = {
+  1: "ethereum",
+  137: "polygon-pos",
+  10: "optimistic-ethereum",
+  999: "hyperevm",
+};

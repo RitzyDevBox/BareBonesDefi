@@ -2,13 +2,12 @@ import { useState } from "react";
 import { ethers } from "ethers";
 import { useShimWallet } from "../hooks/useShimWallet";
 
-import { Modal, UXMode } from "../components/Modal/Modal";
+import { Modal } from "../components/Modal/Modal";
 import {
   ButtonPrimary,
   Card,
   CardContent,
   Text,
-  Box
 } from "../components/BasicComponents";
 
 import { useMultiContractMultiCall } from "../hooks/useMultiContractMultiCall";
@@ -23,96 +22,12 @@ import {
 } from "../components/Toasts/toast.types";
 import { toastStore } from "../components/Toasts/toast.store";
 
-import { VirtualizedList } from "../components/VirtualizedList/VirtualizedList";
+import { TokenSelect } from "../components/TokenSelect/TokenSelect";
 
 const TOKEN_ADDRESSES = [
   "0x5555555555555555555555555555555555555555",
   "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c",
 ];
-
-interface FakeToken {
-  id: number;
-  symbol: string;
-  name: string;
-}
-
-const FAKE_TOKENS: FakeToken[] = Array.from({ length: 500 }, (_, i) => ({
-  id: i,
-  symbol: `TOK${i}`,
-  name: `Fake Token ${i}`,
-}));
-
-export function TokenRow({
-  token,
-  onSelect,
-}: {
-  token: FakeToken;
-  onSelect: (token: FakeToken) => void;
-}) {
-  return (
-    <Box
-      onClick={() => onSelect(token)}
-      style={{
-        width: "100%",
-        boxSizing: "border-box",
-        padding: "var(--spacing-md)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        cursor: "pointer",
-        borderBottom: "1px solid var(--colors-border)",
-        background: "transparent",
-      }}
-    >
-      {/* Left */}
-      <div
-        style={{
-          minWidth: 0, // 🔑 prevents flex overflow
-          display: "flex",
-          flexDirection: "column",
-          gap: "2px",
-        }}
-      >
-        <div
-          style={{
-            fontWeight: 600,
-            color: "var(--colors-text-main)",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {token.symbol}
-        </div>
-
-        <div
-          style={{
-            color: "var(--colors-text-muted)",
-            fontSize: "0.9em",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {token.name}
-        </div>
-      </div>
-
-      {/* Right (reserved for balance / actions later) */}
-      <div
-        style={{
-          marginLeft: "var(--spacing-md)",
-          flexShrink: 0,
-          color: "var(--colors-text-muted)",
-          fontSize: "0.9em",
-        }}
-      >
-        {/* empty for now */}
-      </div>
-    </Box>
-  );
-}
-
 
 
 export function TestPage() {
@@ -325,30 +240,15 @@ export function TestPage() {
           </ButtonPrimary>
         </div>
       </Modal>
-      <Modal
+      <TokenSelect
         isOpen={tokenModalOpen}
-        title="Token Select (Virtualized)"
+        chainId={999}
         onClose={() => setTokenModalOpen(false)}
-        uxMode={UXMode.FixedBody}
-      >
-        <VirtualizedList
-          items={FAKE_TOKENS}
-          estimateItemHeight={64}
-          filterFn={(t, q) =>
-            t.symbol.toLowerCase().includes(q) ||
-            t.name.toLowerCase().includes(q)
-          }
-          renderRow={(token) => (
-            <TokenRow
-              token={token}
-              onSelect={(t) => {
-                console.log("Selected token:", t);
-                setTokenModalOpen(false);
-              }}
-            />
-          )}
-        />
-      </Modal>
+        onSelect={(token) => {
+          console.log("Selected token:", token);
+          setTokenModalOpen(false);
+        }}
+      />
     </Card>
     </>
   );
