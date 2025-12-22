@@ -2,6 +2,8 @@
 // Universal Modal Models
 // =======================
 
+import { TokenInfo } from "../TokenPicker";
+
 // What KIND of asset the user is interacting with
 export enum AssetType {
   NATIVE = "NATIVE",
@@ -19,7 +21,6 @@ export enum FieldComponent {
   PERCENT = "PERCENT",
   NUMBER = "NUMBER",
   TEXT = "TEXT",
-  USE_TOKEN_INFO = "USE_TOKEN_INFO",
 }
 
 export enum ActionNodeType {
@@ -41,13 +42,12 @@ export interface ActionNode {
 // --------------------
 
 type ValueForComponent<C extends FieldComponent> =
-  C extends FieldComponent.TOKEN_PICKER ? string :
+  C extends FieldComponent.TOKEN_PICKER ? TokenInfo :
   C extends FieldComponent.AMOUNT ? string :
   C extends FieldComponent.PERCENT ? number :
   C extends FieldComponent.ADDRESS ? string :
   C extends FieldComponent.TEXT ? string :
   C extends FieldComponent.NUMBER ? number :
-  C extends FieldComponent.USE_TOKEN_INFO ? { decimals: number; tokenSymbol: string } :
   unknown;
 
 type ValueForResolverNode<N extends ActionNode> =

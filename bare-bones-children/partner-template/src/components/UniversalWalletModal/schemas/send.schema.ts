@@ -24,12 +24,12 @@ export const SEND_SCHEMA = {
       component: FieldComponent.ADDRESS,
       label: "Recipient Address",
     },
-    {
-      id: "assetInfo",
-      type: ActionNodeType.Resolver,
-      component: FieldComponent.USE_TOKEN_INFO,
-      deps: ["asset"],
-    },
+    // {
+    //   id: "assetInfo",
+    //   type: ActionNodeType.Resolver,
+    //   component: FieldComponent.USE_TOKEN_INFO,
+    //   deps: ["asset"],
+    // },
   ],
 } as const satisfies ActionSchema;
 

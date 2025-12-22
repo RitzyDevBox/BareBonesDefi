@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { TokenInfoResolver } from "../../DynamicResolvers/TokenInfoResolver";
+// import { TokenInfoResolver } from "../../DynamicResolvers/TokenInfoResolver";
 import { ActionNode, FieldComponent } from "../models";
 import { Input } from "../../BasicComponents";
 import { FormField } from "../../FormField";
+import { TokenSelectField } from "../../TokenSelect/TokenSelectField";
 
 export function RenderFieldComponent({
   field,
@@ -21,17 +22,10 @@ export function RenderFieldComponent({
     case FieldComponent.TOKEN_PICKER:
       return (
         <FormField label={field.label ?? ""}>
-          <Input
-            type="text"
-            maxLength={42}
-            placeholder={placeholder}
-            value={value ?? ""}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (/^(0x)?[0-9a-fA-F]*$/.test(v)) {
-                onChange(v);
-              }
-            }}
+          <TokenSelectField
+            value={value}
+            chainId={999}
+            onChange={onChange}
           />
         </FormField>
       );
@@ -90,15 +84,15 @@ export function RenderFieldComponent({
         </FormField>
       );
 
-    case FieldComponent.USE_TOKEN_INFO: {
-      if (!field.deps) return null;
+    // case FieldComponent.USE_TOKEN_INFO: {
+    //   if (!field.deps) return null;
 
-      const [tokenAddress] = field.deps.map((d) => allValues[d]);
+    //   const [tokenAddress] = field.deps.map((d) => allValues[d]);
 
-      if (!tokenAddress) return null;
+    //   if (!tokenAddress) return null;
 
-      return <TokenInfoResolver tokenAddress={tokenAddress} onChange={onChange} />;
-    }
+    //   return <TokenInfoResolver tokenAddress={tokenAddress} onChange={onChange} />;
+    // }
 
     default:
       return null;

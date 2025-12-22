@@ -17,16 +17,16 @@ function ReceiveActionHandler({ values, walletAddress, onDone, lifeCycle }: Prop
 
     async function run() {
       const assetType =
-        values.asset === ZERO_ADDRESS
+        values.asset.address === ZERO_ADDRESS
           ? AssetType.NATIVE
           : AssetType.ERC20;
 
       await receiveCurrencyCallback({
         assetType,
         amount: values.amount,
-        decimals: values.assetInfo.decimals,
-        tokenSymbol: values.assetInfo.symbol,
-        tokenAddress: values.asset,
+        decimals: values.asset.decimals,
+        tokenSymbol: values.asset.symbol,
+        tokenAddress: values.asset.address,
       }, lifeCycle);
 
       onDone();
