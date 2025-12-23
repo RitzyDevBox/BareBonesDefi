@@ -1,6 +1,8 @@
 import { Box, Text } from "../BasicComponents";
 import { IconButton } from "../IconButton";
 import { TokenInfo } from "./types";
+import { useTokenBalance } from "../../hooks/useTokenBalance";
+import { formatBalance } from "../../utils/formatUtils";
 
 interface TokenPickerFieldProps {
   token?: TokenInfo | null;
@@ -13,9 +15,19 @@ export function TokenSelectFieldDisplay({
   placeholder = "Select token",
   onChangeClick,
 }: TokenPickerFieldProps) {
+  const balance = useTokenBalance(token);
+
   return (
     <Box
+      role="button"
+      tabIndex={0}
       onClick={onChangeClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onChangeClick();
+        }
+      }}
       style={{
         display: "flex",
         alignItems: "center",
@@ -25,9 +37,10 @@ export function TokenSelectFieldDisplay({
         border: "1px solid var(--colors-border)",
         borderRadius: "var(--radius-md)",
         background: "var(--colors-background)",
-        cursor: "pointer", 
+        cursor: "pointer",
       }}
     >
+      {/* LEFT */}
       <Box
         style={{
           display: "flex",
@@ -35,8 +48,7 @@ export function TokenSelectFieldDisplay({
           gap: "var(--spacing-md)",
           minWidth: 0,
           flex: 1,
-          background: "transparent",
-          pointerEvents: "none", // 🔑 prevents accidental text selection
+          pointerEvents: "none",
         }}
       >
         {token?.logoURI ? (
@@ -76,17 +88,18 @@ export function TokenSelectFieldDisplay({
               >
                 {token.symbol}
               </Text.Body>
+
               <Text.Body
                 style={{
                   margin: 0,
                   fontSize: "0.85em",
                   color: "var(--colors-text-muted)",
                   whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
                 }}
               >
-                {token.name}
+                {balance !== null
+                  ? `Balance: ${formatBalance(balance)}`
+                  : "Balance: —"}
               </Text.Body>
             </>
           ) : (
@@ -102,14 +115,12 @@ export function TokenSelectFieldDisplay({
         </Box>
       </Box>
 
-      {/* RIGHT: action */}
+      {/* RIGHT (visual only) */}
       <IconButton
         type="button"
-        aria-label={token ? "Change token" : "Select token"}
-        onClick={(e) => {
-          e.stopPropagation(); // 🔑 prevent double fire
-          onChangeClick();
-        }}
+        aria-hidden
+        tabIndex={-1}
+        style={{ pointerEvents: "none" }}
       >
         ▾
       </IconButton>
