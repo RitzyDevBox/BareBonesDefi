@@ -11,6 +11,7 @@ import { useTokenList } from "./useTokenList";
 import { useCustomTokens } from "./useCustomTokens";
 import { TokenRow } from "./TokenRow";
 import { TokenInfo } from "./types";
+import { CHAIN_NATIVE_SYMBOL } from "../../constants/misc";
 
 interface TokenSelectProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ interface TokenSelectProps {
   chainId?: number;
   onSelect: (t: TokenInfo) => void;
 }
+
 
 export function TokenSelect({
   isOpen,
@@ -40,14 +42,42 @@ export function TokenSelect({
     normalizedQuery.length === 42 &&
     ethers.utils.isAddress(normalizedQuery);
 
+  const nativeToken: TokenInfo | null = useMemo(() => {
+    if (!chainId) return null;
+
+    return {
+        chainId,
+        address: ethers.constants.AddressZero,
+        symbol: CHAIN_NATIVE_SYMBOL[chainId] ?? "NATIVE",
+        name: "Native Token",
+        decimals: 18,
+        logoURI: undefined,
+    };
+  }, [chainId]);
+
+
   const allTokens = useMemo(() => {
-    return [...customTokens, ...tokens].sort((a, b) => {
-      const aCustom = customTokens.includes(a);
-      const bCustom = customTokens.includes(b);
-      if (aCustom !== bCustom) return aCustom ? -1 : 1;
-      return a.symbol.localeCompare(b.symbol);
+    const list: TokenInfo[] = [];
+
+    if (nativeToken) {
+        list.push(nativeToken);
+    }
+
+    list.push(...customTokens, ...tokens);
+
+    return list.sort((a, b) => {
+        // native token always first
+        if (a.address === ethers.constants.AddressZero) return -1;
+        if (b.address === ethers.constants.AddressZero) return 1;
+
+        const aCustom = customTokens.includes(a);
+        const bCustom = customTokens.includes(b);
+
+        if (aCustom !== bCustom) return aCustom ? -1 : 1;
+        return a.symbol.localeCompare(b.symbol);
     });
-  }, [tokens, customTokens]);
+  }, [nativeToken, customTokens, tokens]);
+
 
   const filteredTokens = useMemo(() => {
     if (!normalizedQuery) return allTokens;

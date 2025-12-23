@@ -17,3 +17,8 @@ export const MapChainIdToSlug: Record<number, string> = {
   10: "optimistic-ethereum",
   999: "hyperevm",
 };
+
+export const CHAIN_NATIVE_SYMBOL: Record<number, string> = {
+  1: "ETH",
+  999: "HYPE",
+};

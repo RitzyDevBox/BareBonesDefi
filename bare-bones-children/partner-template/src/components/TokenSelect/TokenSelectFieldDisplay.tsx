@@ -15,6 +15,7 @@ export function TokenSelectFieldDisplay({
 }: TokenPickerFieldProps) {
   return (
     <Box
+      onClick={onChangeClick}
       style={{
         display: "flex",
         alignItems: "center",
@@ -24,9 +25,9 @@ export function TokenSelectFieldDisplay({
         border: "1px solid var(--colors-border)",
         borderRadius: "var(--radius-md)",
         background: "var(--colors-background)",
+        cursor: "pointer", 
       }}
     >
-      {/* LEFT: token display */}
       <Box
         style={{
           display: "flex",
@@ -35,6 +36,7 @@ export function TokenSelectFieldDisplay({
           minWidth: 0,
           flex: 1,
           background: "transparent",
+          pointerEvents: "none", // 🔑 prevents accidental text selection
         }}
       >
         {token?.logoURI ? (
@@ -103,12 +105,14 @@ export function TokenSelectFieldDisplay({
       {/* RIGHT: action */}
       <IconButton
         type="button"
-        onClick={onChangeClick}
         aria-label={token ? "Change token" : "Select token"}
+        onClick={(e) => {
+          e.stopPropagation(); // 🔑 prevent double fire
+          onChangeClick();
+        }}
       >
         ▾
       </IconButton>
-
     </Box>
   );
 }

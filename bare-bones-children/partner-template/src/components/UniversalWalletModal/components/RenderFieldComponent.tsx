@@ -8,7 +8,7 @@ import { TokenSelectField } from "../../TokenSelect/TokenSelectField";
 export function RenderFieldComponent({
   field,
   value,
-  allValues,
+  /*allValues,*/
   onChange,
 }: {
   field: ActionNode;
