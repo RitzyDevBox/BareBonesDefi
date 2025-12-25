@@ -1,3 +1,4 @@
+import { UserScope } from "../../TokenSelect/TokenSelectFieldDisplay";
 import {
   FieldComponent,
   ActionNodeType,
@@ -13,6 +14,7 @@ export const SEND_SCHEMA = {
       id: "asset",
       component: FieldComponent.TOKEN_PICKER,
       label: "Asset",
+      options: { userScope: UserScope.SmartWallet }
     },
     {
       id: "amount",

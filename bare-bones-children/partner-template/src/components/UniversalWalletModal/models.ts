@@ -35,6 +35,8 @@ export interface ActionNode {
   deps?: readonly string[];
   label?: string;
   optional?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  options?: any;
 }
 
 // --------------------

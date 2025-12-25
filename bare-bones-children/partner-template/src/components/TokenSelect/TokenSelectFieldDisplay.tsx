@@ -3,19 +3,38 @@ import { IconButton } from "../IconButton";
 import { TokenInfo } from "./types";
 import { useTokenBalance } from "../../hooks/useTokenBalance";
 import { formatBalance } from "../../utils/formatUtils";
+import { useShimWallet } from "../../hooks/useShimWallet";
+import { walletAddress } from "../../constants/misc";
+
+export enum UserScope
+{
+  Account,
+  SmartWallet
+}
+
+export interface TokenPickerFieldOptions {
+  userScope: UserScope
+}
 
 interface TokenPickerFieldProps {
   token?: TokenInfo | null;
   placeholder?: string;
   onChangeClick: () => void;
+  options: TokenPickerFieldOptions 
 }
 
 export function TokenSelectFieldDisplay({
   token,
   placeholder = "Select token",
   onChangeClick,
+  options
 }: TokenPickerFieldProps) {
-  const balance = useTokenBalance(token);
+  const { account } = useShimWallet()
+  //TODO: Make a hook to resolve the smart wallet
+
+  const targetUser = options.userScope === UserScope.Account ? account : walletAddress;
+
+  const balance = useTokenBalance(targetUser, token);
 
   return (
     <Box

@@ -10,11 +10,13 @@ export function RenderFieldComponent({
   value,
   /*allValues,*/
   onChange,
+  options
 }: {
   field: ActionNode;
   value: any;
   allValues: Record<string, any>;
   onChange: (value: any) => void;
+  options: any
 }) {
   const placeholder = ""; // remove label duplication
 
@@ -26,6 +28,7 @@ export function RenderFieldComponent({
             value={value}
             chainId={999}
             onChange={onChange}
+            options={options}
           />
         </FormField>
       );

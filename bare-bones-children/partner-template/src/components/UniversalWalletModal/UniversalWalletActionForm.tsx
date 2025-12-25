@@ -42,6 +42,7 @@ export function UniversalWalletActionForm({
             value={formValues[field.id]}
             allValues={formValues}
             onChange={(v) => updateField(field.id, v)}
+            options={field.options}
           />
         ))}
 

@@ -1,3 +1,4 @@
+import { UserScope } from "../../TokenSelect/TokenSelectFieldDisplay";
 import { ActionSchema, FieldComponent, ValuesFromSchema } from "../models";
 
 
@@ -7,6 +8,7 @@ export const RECEIVE_SCHEMA = {
       id: "asset",
       component: FieldComponent.TOKEN_PICKER,
       label: "Asset",
+      options: { userScope: UserScope.Account }
     },
     {
       id: "amount",

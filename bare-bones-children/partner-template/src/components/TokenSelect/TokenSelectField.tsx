@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { TokenSelect } from "./TokenSelect";
-import { TokenSelectFieldDisplay } from "./TokenSelectFieldDisplay";
+import { TokenPickerFieldOptions, TokenSelectFieldDisplay } from "./TokenSelectFieldDisplay";
 import { TokenInfo } from "./types";
 
 export function TokenSelectField({
   value,
   onChange,
   chainId,
+  options,
 }: {
   value?: TokenInfo | null;
   onChange: (tokenInfo: TokenInfo) => void;
   chainId: number;
+  options: TokenPickerFieldOptions
 }) {
   const [open, setOpen] = useState(false);
 
@@ -19,6 +21,7 @@ export function TokenSelectField({
       <TokenSelectFieldDisplay
         token={value ?? null}
         onChangeClick={() => setOpen(true)}
+        options={options}
       />
 
       <TokenSelect
@@ -26,7 +29,7 @@ export function TokenSelectField({
         chainId={chainId}
         onClose={() => setOpen(false)}
         onSelect={(token) => {
-          onChange(token);   // ✅ TokenInfo directly
+          onChange(token);
           setOpen(false);
         }}
       />

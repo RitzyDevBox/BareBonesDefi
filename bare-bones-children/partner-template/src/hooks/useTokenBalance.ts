@@ -5,8 +5,8 @@ import ERC20_ABI from "../abis/ERC20.json";
 import { useShimWallet } from "../hooks/useShimWallet";
 import { TokenInfo } from "../components/TokenSelect/types";
 
-export function useTokenBalance(token?: TokenInfo | null) {
-  const { provider, account } = useShimWallet();
+export function useTokenBalance(account?: string | null, token?: TokenInfo | null) {
+  const { provider } = useShimWallet();
   const [balance, setBalance] = useState<string | null>(null);
   const tokenAddressDep = token?.address;
   const decimalDep = token?.decimals;
