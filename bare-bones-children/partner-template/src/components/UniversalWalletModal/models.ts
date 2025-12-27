@@ -87,8 +87,8 @@ export type ValuesFromSchema<S extends { fields: readonly ActionNode[] }> =
 // --------------------
 
 export enum UniversalActionType {
-  SEND = "SEND",
-  RECEIVE = "RECEIVE",
+  WITHDRAW = "WITHDRAW",
+  DEPOSIT = "DEPOSIT",
   WRAP = "WRAP",
   UNWRAP = "UNWRAP",
   SWAP = "SWAP",

@@ -55,8 +55,8 @@ function BasicWallet({ diamondAddress }: { diamondAddress: string }) {
             onChange={(v) => setAction(v as UniversalActionType)}
             placeholder="Select Action"
           >
-            <SelectOption value={UniversalActionType.SEND} label="Send" />
-            <SelectOption value={UniversalActionType.RECEIVE} label="Deposit" />
+            <SelectOption value={UniversalActionType.WITHDRAW} label="Withdraw" />
+            <SelectOption value={UniversalActionType.DEPOSIT} label="Deposit" />
             <SelectOption value={UniversalActionType.WRAP} label="Wrap ETH" />
             <SelectOption value={UniversalActionType.UNWRAP} label="Unwrap WETH" />
           </Select>

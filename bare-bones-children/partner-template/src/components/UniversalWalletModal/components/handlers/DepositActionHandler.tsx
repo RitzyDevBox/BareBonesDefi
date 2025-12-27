@@ -1,16 +1,16 @@
 import { useEffect } from "react";
 import { useShimWallet } from "../../../../hooks/useShimWallet";
-import { useReceiveCurrencyCallback } from "../../hooks/useReceiveCurrencyCallback";
-import { ReceiveModalResponse } from "../../schemas/receive.schema";
+
+import { DepositModalResponse } from "../../schemas/deposit.schema";
 import { AssetType } from "../../models";
 import { ZERO_ADDRESS } from "../../../../constants/misc";
 import { ActionHandlerProps } from "./models";
+import { useDepositCurrencyCallback } from "../../hooks/useDepositCurrencyCallback";
 
-interface Props extends ActionHandlerProps<ReceiveModalResponse> {}
-function ReceiveActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
+interface Props extends ActionHandlerProps<DepositModalResponse> {}
+function DepositActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
   const { provider } = useShimWallet();
-  const { receiveCurrencyCallback } =
-    useReceiveCurrencyCallback(provider, walletAddress);
+  const { deposit } = useDepositCurrencyCallback(provider);
 
   useEffect(() => {
     if (!provider) return;   // ✅ prevent premature execution,
@@ -21,21 +21,22 @@ function ReceiveActionHandler({ values, walletAddress, onDone, lifeCycle }: Prop
           ? AssetType.NATIVE
           : AssetType.ERC20;
 
-      await receiveCurrencyCallback({
+      await deposit({
         assetType,
         amount: values.amount,
         decimals: values.asset.decimals,
         tokenSymbol: values.asset.symbol,
         tokenAddress: values.asset.address,
+        recipient: walletAddress
       }, lifeCycle);
 
       onDone();
     }
 
     run();
-  }, [provider, values, receiveCurrencyCallback, onDone, walletAddress, lifeCycle]);
+  }, [provider, values, deposit, onDone, walletAddress, lifeCycle]);
 
   return null;
 }
 
-export default ReceiveActionHandler;
+export default DepositActionHandler;

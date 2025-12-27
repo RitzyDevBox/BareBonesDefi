@@ -1,15 +1,16 @@
 import { useEffect } from "react";
 import { useShimWallet } from "../../../../hooks/useShimWallet";
-import { SendModalResponse } from "../../schemas/send.schema";
-import { useSendCurrencyCallback } from "../../hooks/useSendCurrencyCallback";
+import { WithdrawModalResponse } from "../../schemas/withdraw.schema";
+
 import { AssetType } from "../../models";
 import { ZERO_ADDRESS } from "../../../../constants/misc";
 import { ActionHandlerProps } from "./models";
+import { useWalletWithdrawCallback } from "../../hooks/useWithdrawCurrencyCallback";
 
-interface Props extends ActionHandlerProps<SendModalResponse> {}
-function SendActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
+interface Props extends ActionHandlerProps<WithdrawModalResponse> {}
+function WithdrawActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
   const { provider } = useShimWallet();
-  const { sendCurrencyCallback } = useSendCurrencyCallback(provider, walletAddress);
+  const { withdraw } = useWalletWithdrawCallback(provider, walletAddress);
 
   useEffect(() => {
     if (!provider) return;   // ✅ Prevent early effect execution
@@ -18,7 +19,7 @@ function SendActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) 
       const assetType =
         values.asset.address === ZERO_ADDRESS ? AssetType.NATIVE : AssetType.ERC20;
 
-      await sendCurrencyCallback({
+      await withdraw({
         assetType,
         amount: values.amount,
         recipient: values.recipient,
@@ -31,9 +32,9 @@ function SendActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) 
     }
 
     run();
-  }, [provider, values, sendCurrencyCallback, onDone, walletAddress, lifeCycle]);
+  }, [provider, values, withdraw, onDone, walletAddress, lifeCycle]);
 
   return null;
 }
 
-export default SendActionHandler;
+export default WithdrawActionHandler;

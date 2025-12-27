@@ -11,8 +11,8 @@ export type ActionHandlerComponent = LazyExoticComponent<
 export const LazyActionHandlerRegistry: Partial<
   Record<UniversalActionType, ActionHandlerComponent>
 > = {
-  [UniversalActionType.SEND]: lazy(() => import("./SendActionHandler")),
-  [UniversalActionType.RECEIVE]: lazy(() => import("./ReceiveActionHandler")),
+  [UniversalActionType.WITHDRAW]: lazy(() => import("./WithdrawActionHandler")),
+  [UniversalActionType.DEPOSIT]: lazy(() => import("./DepositActionHandler")),
   [UniversalActionType.WRAP]: lazy(() => import("./WrapActionHandler")),
   [UniversalActionType.UNWRAP]: lazy(() => import("./UnwrapActionHandler")),
 };

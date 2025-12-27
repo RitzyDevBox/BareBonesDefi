@@ -11,8 +11,7 @@ export function WalletSelector({
   onSelect: (address: string, index: number) => void;
 }) {
   const { account } = useShimWallet();
-  let walletCount = useUserWalletCount();
-  walletCount = 10;
+  const walletCount = useUserWalletCount();
   if (!account) {
     return <Text.Body>Please connect your wallet.</Text.Body>;
   }

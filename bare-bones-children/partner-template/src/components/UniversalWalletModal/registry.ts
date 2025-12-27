@@ -11,8 +11,8 @@ export type LazySchemaImport = () => Promise<{
 export const LazyActionSchemaRegistry: Partial<
   Record<UniversalActionType, LazySchemaImport>
 > = {
-  [UniversalActionType.SEND]: () => import("./schemas/send.schema"),
-  [UniversalActionType.RECEIVE]: () => import("./schemas/receive.schema"),
+  [UniversalActionType.WITHDRAW]: () => import("./schemas/withdraw.schema"),
+  [UniversalActionType.DEPOSIT]: () => import("./schemas/deposit.schema"),
   [UniversalActionType.WRAP]: () => import("./schemas/wrap.schema"),
   [UniversalActionType.UNWRAP]: () => import("./schemas/unwrap.schema"),
   [UniversalActionType.SWAP]: () => import("./schemas/swap.schema"),

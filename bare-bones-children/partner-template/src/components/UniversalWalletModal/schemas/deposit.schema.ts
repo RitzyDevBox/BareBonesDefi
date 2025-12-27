@@ -2,7 +2,7 @@ import { UserScope } from "../../TokenSelect/TokenSelectFieldDisplay";
 import { ActionSchema, FieldComponent, ValuesFromSchema } from "../models";
 
 
-export const RECEIVE_SCHEMA = {
+export const DEPOSIT_SCHEMA = {
   fields: [
     {
       id: "asset",
@@ -24,5 +24,5 @@ export const RECEIVE_SCHEMA = {
   ],
 } as const satisfies ActionSchema;
 
-export type ReceiveModalResponse = ValuesFromSchema<typeof RECEIVE_SCHEMA>;
-export default RECEIVE_SCHEMA;
+export type DepositModalResponse = ValuesFromSchema<typeof DEPOSIT_SCHEMA>;
+export default DEPOSIT_SCHEMA;

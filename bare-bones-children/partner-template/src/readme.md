@@ -3,8 +3,8 @@
 ## 1. Add new enum value to UniversalActionType
 ```ts
 export enum UniversalActionType {
-  SEND = "SEND",
-  RECEIVE = "RECEIVE",
+  WITHDRAW = "WITHDRAW",
+  DEPOSIT = "DEPOSIT",
   WRAP = "WRAP",
   UNWRAP = "UNWRAP",
   SWAP = "SWAP",
@@ -35,8 +35,8 @@ export default NewActionSchema;
 ## 3. Register schema in LazyActionSchemaRegistry
 ```ts
 export const LazyActionSchemaRegistry = {
-  [UniversalActionType.SEND]: () => import("./schemas/send.schema"),
-  [UniversalActionType.RECEIVE]: () => import("./schemas/receive.schema"),
+  [UniversalActionType.WITHDRAW]: () => import("./schemas/withdraw.schema"),
+  [UniversalActionType.DEPOSIT]: () => import("./schemas/deposit.schema"),
   [UniversalActionType.WRAP]: () => import("./schemas/wrap.schema"),
   [UniversalActionType.UNWRAP]: () => import("./schemas/unwrap.schema"),
   [UniversalActionType.SWAP]: () => import("./schemas/swap.schema"),
@@ -63,8 +63,8 @@ export default function NewActionHandler({ values, walletAddress, onDone }) {
 
 ```ts
 export const LazyActionHandlerRegistry = {
-  [UniversalActionType.SEND]: lazy(() => import("./SendActionHandler")),
-  [UniversalActionType.RECEIVE]: lazy(() => import("./ReceiveActionHandler")),
+  [UniversalActionType.WITHDRAW]: lazy(() => import("./WithdrawActionHandler")),
+  [UniversalActionType.DEPOSIT]: lazy(() => import("./DepositActionHandler")),
 
   [UniversalActionType.NEW_ACTION]: lazy(
     () => import("./NewActionHandler")     // ← add this

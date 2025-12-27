@@ -6,9 +6,7 @@ import {
   ValuesFromSchema,
 } from "../models";
 
-
-
-export const SEND_SCHEMA = {
+export const WITHDRAW_SCHEMA = {
   fields: [
     {
       id: "asset",
@@ -35,6 +33,6 @@ export const SEND_SCHEMA = {
   ],
 } as const satisfies ActionSchema;
 
-export type SendModalResponse = ValuesFromSchema<typeof SEND_SCHEMA>;
+export type WithdrawModalResponse = ValuesFromSchema<typeof WITHDRAW_SCHEMA>;
 
-export default SEND_SCHEMA;
+export default WITHDRAW_SCHEMA;
