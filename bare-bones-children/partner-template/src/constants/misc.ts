@@ -1,8 +1,13 @@
 export const SwapRouter02ExecutorAddress = '0xBe6d02FD9335C2e1e33bBC174ad7ee36764C8EE7'
-export const walletAddress = "0x6dc2f30d8d2b1683617aaecd98941d7e56ca61a1";
+export const walletAddress_old = "0x6dc2f30d8d2b1683617aaecd98941d7e56ca61a1";
+export const walletAddress = "0x2b94f955813532cdcf5bf77c4242fa762c132a79"
 export const testTokenAddress = "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c";
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const MULTICALL3_ADDRESS = '0xca11bde05977b3631167028862be2a173976ca11';
+export const OWNER_AUTHORITY_RESOLVER = "0x7E2a43DD6b95c518a5248fD5a2A57315D767499b";
+export const NFT_AUTHORITY_RESOLVER = "0xFA565823BF266B26F7cA44C2C305BB303C89b63a";
+export const DIAMOND_FACTORY_ADDRESS = "0x270EEF348212855eCb43374cEAfE012FA8c12B4e";
+export const DIAMOND_INIT_HASH = "0x7f1c1485b422e93d1bde9f6b74e6092d4a69bff10c8ab93283c707f843ec44ff";
 
 export const WETH_BY_CHAIN: Record<number, string> = {
   1: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // mainnet

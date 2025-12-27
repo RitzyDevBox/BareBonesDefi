@@ -18,7 +18,7 @@ export const router = createBrowserRouter([
 
       // Other pages
       { path: "deploy-wallet", element: <DeployDiamondPage /> },
-      { path: "basic-wallet-facet/:diamondAddress", element: <BasicWalletFacetPage /> },
+      { path: "basic-wallet-facet/:diamondAddress?", element: <BasicWalletFacetPage /> },
       { path: "test-page", element: <TestPage />},
       // Catch-all fallback → /deploy-wallet
       { path: "*", element: <Navigate to="/deploy-wallet" replace /> },

@@ -9,3 +9,7 @@ export function formatBalance(value: string): string {
     maximumFractionDigits: 4,
   });
 }
+
+export function shortAddress(addr: string) {
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}

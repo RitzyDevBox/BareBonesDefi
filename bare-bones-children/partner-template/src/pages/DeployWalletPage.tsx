@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { useShimWallet } from "../hooks/useShimWallet";
 
@@ -7,64 +7,47 @@ import {
   Card,
   CardContent,
   Text,
-  Input,
   ButtonPrimary,
   Box,
 } from "../components/BasicComponents";
 
-const FACTORY_ADDRESS = "0xC95776A97661A21d86FA1Bb9b9fF6934E15BF1AF";
-
-const FACTORY_ABI = [
-  {
-    name: "deployDiamond",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "seed", type: "uint256" }],
-    outputs: [{ name: "diamond", type: "address" }],
-  },
-  {
-    anonymous: false,
-    type: "event",
-    name: "DiamondDeployed",
-    inputs: [
-      { indexed: true, name: "user", type: "address" },
-      { indexed: true, name: "seed", type: "uint256" },
-      { indexed: false, name: "diamond", type: "address" },
-    ],
-  },
-];
+import DIAMOND_FACTORY_ABI from "../abis/diamond/DiamondFactory.abi.json";
+import { DIAMOND_FACTORY_ADDRESS, OWNER_AUTHORITY_RESOLVER } from "../constants/misc";
 
 export function DeployDiamondPage() {
-  const { provider } = useShimWallet();
+  const { provider, account } = useShimWallet();
 
-  const [seed, setSeed] = useState("");
   const [log, setLog] = useState("");
   const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
+  const [walletIndex, setWalletIndex] = useState<number | null>(null);
 
   const appendLog = (msg: any) =>
     setLog((l) =>
       l +
-      (typeof msg === "string"
-        ? msg
-        : JSON.stringify(msg, null, 2)) +
+      (typeof msg === "string" ? msg : JSON.stringify(msg, null, 2)) +
       "\n"
     );
 
   async function deploy() {
     try {
-      if (!provider) throw new Error("No provider found");
+      if (!provider || !account) throw new Error("No wallet connected");
 
       const signer = provider.getSigner();
       const factory = new ethers.Contract(
-        FACTORY_ADDRESS,
-        FACTORY_ABI,
+        DIAMOND_FACTORY_ADDRESS,
+        DIAMOND_FACTORY_ABI,
         signer
       );
 
-      const finalSeed = seed || "0";
-      appendLog(`Deploying diamond with seed: ${finalSeed}`);
+      appendLog("Deploying new Diamond wallet…");
 
-      const tx = await factory.deployDiamond(finalSeed);
+      // example: EOA owner authorizer, options = abi.encode(owner)
+      const options = ethers.utils.defaultAbiCoder.encode(
+        ["address"],
+        [account]
+      );
+
+      const tx = await factory.deployDiamond(OWNER_AUTHORITY_RESOLVER, options);
       appendLog(`Tx sent: ${tx.hash}`);
 
       const receipt = await tx.wait();
@@ -78,11 +61,14 @@ export function DeployDiamondPage() {
             return null;
           }
         })
-        .find((x: any) => x && x.name === "DiamondDeployed");
+        .find((x: any) => x?.name === "DiamondDeployed");
 
       if (event) {
         setDeployedAddress(event.args.diamond);
-        appendLog(`New Diamond: ${event.args.diamond}`);
+        setWalletIndex(event.args.seed.toString()); // index
+        appendLog(
+          `New Diamond #${event.args.seed}: ${event.args.diamond}`
+        );
       }
     } catch (e: any) {
       appendLog("Error: " + e.message);
@@ -96,22 +82,10 @@ export function DeployDiamondPage() {
           Deploy Diamond Wallet
         </Text.Title>
 
-        {/* Seed input */}
-        <Box>
-          <Text.Label>Seed (any number)</Text.Label>
-          <Input
-            type="number"
-            placeholder="123"
-            value={seed}
-            onChange={(e) => setSeed(e.target.value)}
-          />
-        </Box>
-
         <ButtonPrimary onClick={deploy}>
-          Deploy Diamond
+          Deploy Wallet
         </ButtonPrimary>
 
-        {/* Result */}
         {deployedAddress && (
           <Box
             style={{
@@ -120,7 +94,9 @@ export function DeployDiamondPage() {
               background: "var(--colors-background)",
             }}
           >
-            <Text.Label>Deployed Diamond Address</Text.Label>
+            <Text.Label>
+              Wallet #{walletIndex}
+            </Text.Label>
 
             <Box
               onClick={() =>
@@ -129,7 +105,6 @@ export function DeployDiamondPage() {
               style={{
                 marginTop: "var(--spacing-sm)",
                 padding: "var(--spacing-sm)",
-                borderRadius: "var(--radius-sm)",
                 background: "var(--colors-surface)",
                 cursor: "pointer",
                 wordBreak: "break-all",
@@ -139,29 +114,15 @@ export function DeployDiamondPage() {
                 {deployedAddress}
               </Text.Body>
             </Box>
-
-            <a
-              href={`/basic-wallet-facet/${deployedAddress}`}
-              style={{
-                display: "block",
-                marginTop: "var(--spacing-sm)",
-                color: "var(--colors-primary)",
-                textDecoration: "underline",
-              }}
-            >
-              Install Basic Wallet Module →
-            </a>
           </Box>
         )}
 
-        {/* Log */}
         <Box
           style={{
             maxHeight: 240,
             overflowY: "auto",
             background: "var(--colors-background)",
             padding: "var(--spacing-sm)",
-            borderRadius: "var(--radius-sm)",
             fontSize: "0.85em",
             whiteSpace: "pre-wrap",
           }}
