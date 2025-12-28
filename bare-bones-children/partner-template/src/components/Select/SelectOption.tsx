@@ -8,6 +8,7 @@ export function SelectOption<T extends string | number>({
   label?: string;
   onSelect?: (v: T) => void;
   highlighted?: boolean;
+  [key: string]: unknown;
 }) {
   return (
     <div

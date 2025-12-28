@@ -58,7 +58,7 @@ export function ChainSelector({
           key={c.chainId}
           value={c.chainId}
           label={c.chainName}
-          //logoUrl={c.logoUrl}
+          logoUrl={c.logoUrl}
         />
       ))}
     </Select>
