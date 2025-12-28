@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ethers } from "ethers";
 import { useShimWallet } from "../hooks/useShimWallet";
 

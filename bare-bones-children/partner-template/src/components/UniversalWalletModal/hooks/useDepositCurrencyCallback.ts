@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import { ethers } from "ethers";
 import {
   executeTx,
-  requireSigner,
   TxOpts,
 } from "../../../utils/transactionUtils";
 import { buildSendCurrencyRawTx, SendCurrencyArgs } from "../../../utils/basicWalletUtils";

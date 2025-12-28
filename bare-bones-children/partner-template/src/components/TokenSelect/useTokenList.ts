@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { TokenInfo } from "./types";
-import { MapChainIdToSlug } from "../../constants/misc";
+import { CHAIN_INFO_MAP } from "../../constants/misc";
 
 export function useTokenList(chainId?: number) {
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
@@ -8,7 +8,7 @@ export function useTokenList(chainId?: number) {
 
   useEffect(() => {
     async function loadTokenList(cid: number) {
-      const slug = MapChainIdToSlug[cid];
+      const slug = CHAIN_INFO_MAP[cid].coinGeckoSlug;
       if (!slug) return;
 
       try {

@@ -1,7 +1,7 @@
 import { UserScope } from "../../TokenSelect/TokenSelectFieldDisplay";
 import {
   FieldComponent,
-  ActionNodeType,
+  //ActionNodeType,
   ActionSchema,
   ValuesFromSchema,
 } from "../models";

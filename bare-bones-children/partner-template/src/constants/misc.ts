@@ -11,19 +11,55 @@ export const DIAMOND_INIT_HASH = "0x7f1c1485b422e93d1bde9f6b74e6092d4a69bff10c8a
 
 export const WETH_BY_CHAIN: Record<number, string> = {
   1: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // mainnet
-  999: "0x5555555555555555555555555555555555555555", // WHYPE
+  999: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // WHYPE
 };
 
 export const DEFAULT_CHAIN_ID = 999;
 
-export const MapChainIdToSlug: Record<number, string> = {
-  1: "ethereum",
-  137: "polygon-pos",
-  10: "optimistic-ethereum",
-  999: "hyperevm",
-};
+export interface ChainInfo {
+  chainId: number;
+  chainName: string,
+  wethAddress: string,
+  nativeCurrency: {
+    name: string;
+    symbol: string;
+    decimals: number;
+  }
+  rpcUrls: string[];
+  blockExplorerUrls?: string[];
+  logoUrl?: string;
+  coinGeckoSlug: string,
+}
 
-export const CHAIN_NATIVE_SYMBOL: Record<number, string> = {
-  1: "ETH",
-  999: "HYPE",
-};
+
+
+export const CHAIN_INFO_MAP: Record<number, ChainInfo> ={
+  1: {
+    chainId: 1,
+    chainName: "Ethereum",
+    wethAddress: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    nativeCurrency: {
+      name: "ETHER",
+      symbol: "ETH",
+      decimals: 18
+    },
+    logoUrl: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png",
+    rpcUrls: ["https://eth.llamarpc.com"],
+    blockExplorerUrls: ["https://etherscan.io"],
+    coinGeckoSlug: "ethereum",
+  },
+  
+  999: {
+    chainId: 999,
+    chainName: "Hyperliquid",
+    wethAddress: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    nativeCurrency: {
+      name: "HYPE",
+      symbol: "HYPE",
+      decimals: 18
+    },
+    rpcUrls:["https://rpc.hyperliquid.xyz/evm", "https://hyperliquid.drpc.org"],
+    blockExplorerUrls: ["https://hyperevmscan.io/"],
+    coinGeckoSlug: "hyperevm",
+  }
+}

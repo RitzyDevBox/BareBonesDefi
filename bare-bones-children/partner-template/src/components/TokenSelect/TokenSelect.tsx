@@ -11,7 +11,7 @@ import { useTokenList } from "./useTokenList";
 import { useCustomTokens } from "./useCustomTokens";
 import { TokenRow } from "./TokenRow";
 import { TokenInfo } from "./types";
-import { CHAIN_NATIVE_SYMBOL } from "../../constants/misc";
+import { CHAIN_INFO_MAP } from "../../constants/misc";
 
 interface TokenSelectProps {
   isOpen: boolean;
@@ -48,7 +48,7 @@ export function TokenSelect({
     return {
         chainId,
         address: ethers.constants.AddressZero,
-        symbol: CHAIN_NATIVE_SYMBOL[chainId] ?? "NATIVE",
+        symbol: CHAIN_INFO_MAP[chainId].nativeCurrency.symbol ?? "NATIVE",
         name: "Native Token",
         decimals: 18,
         logoURI: undefined,

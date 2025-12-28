@@ -1,29 +1,29 @@
-import { useShimWallet } from "./hooks/useShimWallet";
 import { Outlet } from "react-router-dom";
-
-import "./styles/modal.css";
-import { ThemeToggle } from "./themes/ThemeToggle";
+import { useShimWallet } from "./hooks/useShimWallet";
+import { switchEvmChain } from "./utils/chainUtils";
 import { ToastHost } from "./components/Toasts/ToastHost";
+import { Header } from "./components/PageWrapper/Header";
 
 export default function App() {
-  const { account, chainId, connect } = useShimWallet();
+  const { account, chainId, connect, provider } = useShimWallet();
 
   return (
-    <div style={{ padding: "16px" }}>
-      {/* GLOBAL TOASTS */}
+    <>
       <ToastHost />
 
-      <ThemeToggle />
+      <Header
+        account={account}
+        chainId={chainId}
+        onConnectWallet={connect}
+        onChainChange={(chainId) => {
+          if (!provider) return;
+          switchEvmChain(provider, chainId);
+        }}
+      />
 
-      {!account ? (
-        <button onClick={connect}>Connect Wallet</button>
-      ) : (
-        <p>
-          Connected: <strong>{account}</strong> (Chain {chainId})
-        </p>
-      )}
-
-      <Outlet />
-    </div>
+      <main style={{ padding: "var(--spacing-lg)" }}>
+        <Outlet />
+      </main>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { useShimWallet } from "../hooks/useShimWallet";
-import { MapChainIdToSlug } from "../constants/misc";
+import { CHAIN_INFO_MAP } from "../constants/misc";
 
 export interface TokenInfo {
   chainId?: number;
@@ -28,7 +28,7 @@ export function TokenPicker({ chainId, label, onSelect }: Props) {
 
   useEffect(() => {
     async function loadTokenList(cid: number) {
-      const slug = MapChainIdToSlug[cid];
+      const slug = CHAIN_INFO_MAP[cid].coinGeckoSlug;
       if (!slug) return;
       try {
         setLoading(true);
@@ -88,7 +88,7 @@ export function TokenPicker({ chainId, label, onSelect }: Props) {
           disabled={!chainId || loading}
           onChange={(e) => {
             if (e.target.value === "native") {
-              const slug = chainId ? MapChainIdToSlug[chainId] : "unknown";
+              const slug = chainId ? CHAIN_INFO_MAP[chainId].coinGeckoSlug : "unknown";
               onSelect({ type: "native", symbol: `Native (${slug})`, decimals: 18 });
               setCustomAddress("");
               setCustomToken(null);
@@ -106,7 +106,7 @@ export function TokenPicker({ chainId, label, onSelect }: Props) {
         >
           <option value="">-- Select Token --</option>
           {chainId && (
-            <option value="native">Native ({MapChainIdToSlug[chainId]})</option>
+            <option value="native">Native ({CHAIN_INFO_MAP[chainId].coinGeckoSlug})</option>
           )}
           <option value="custom">➕ Custom token…</option>
           {tokens.map((t) => (
