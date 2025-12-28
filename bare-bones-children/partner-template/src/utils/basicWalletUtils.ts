@@ -2,6 +2,18 @@ import { ethers } from "ethers";
 import ERC20_ABI from "../abis/ERC20.json";
 import { parseErc20, parseNative } from "../utils/transactionUtils";
 import { AssetType } from "../components/UniversalWalletModal/models";
+import WETH_ABI from "../abis/WETH.json";
+
+export enum WrapMode {
+  WRAP = "WRAP",
+  UNWRAP = "UNWRAP",
+}
+
+export interface WrapArgs {
+  amount: string;
+  wethAddress: string;
+}
+
 
 export interface RawTx {
   to: string;
@@ -66,3 +78,26 @@ export function buildSendCurrencyRawTx(args: SendCurrencyArgs) {
   );
 }
 
+export function buildWrapRawTx(
+  args: WrapArgs,
+  mode: WrapMode
+) {
+  const iface = new ethers.utils.Interface(WETH_ABI);
+  const value = parseNative(args.amount);
+
+  if (mode === WrapMode.WRAP) {
+    // WETH.deposit() — value sent
+    return {
+      to: args.wethAddress,
+      value,
+      data: iface.encodeFunctionData("deposit", []),
+    };
+  }
+
+  // WETH.withdraw(uint256)
+  return {
+    to: args.wethAddress,
+    value: 0,
+    data: iface.encodeFunctionData("withdraw", [value]),
+  };
+}
