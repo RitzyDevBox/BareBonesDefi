@@ -1,4 +1,5 @@
 import { ThemeToggle } from "../../themes/ThemeToggle";
+import { shortAddress } from "../../utils/formatUtils";
 import { ButtonPrimary, Text } from "../BasicComponents";
 import { ChainSelector } from "./ChainSelector";
 
@@ -70,7 +71,7 @@ export function Header({
             </ButtonPrimary>
           ) : (
             <Text.Label>
-              {account.slice(0, 6)}…{account.slice(-4)}
+              {shortAddress(account)}
             </Text.Label>
           )}
         </div>

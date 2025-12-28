@@ -1,5 +1,6 @@
 import { CHAIN_INFO_MAP } from "../../constants/misc";
-import { Select, SelectOption } from "../Select";
+import { ImageWithFallback } from "../ImageWithFallback";
+import { DropdownAlignment, Select, SelectOption } from "../Select";
 
 
 interface ChainSelectorProps {
@@ -11,21 +12,53 @@ export function ChainSelector({
   chainId,
   onChainChange,
 }: ChainSelectorProps) {
-  
-  const selected = Object.values(CHAIN_INFO_MAP).find((c) => c.chainId === chainId) ?? null;
+  const chains = Object.values(CHAIN_INFO_MAP);
+
+  const isUnknownChain =
+    chainId !== null && !CHAIN_INFO_MAP[chainId];
 
   return (
     <Select
-      value={selected?.chainId ?? null}
+      value={isUnknownChain ? null : chainId}
       onChange={onChainChange}
       placeholder="Select chain"
-      style={{ width: 180 }}
+      style={{ width: 56 }}
+      dropdownAlignment={DropdownAlignment.RIGHT}
+      renderValue={(opt) => {
+        // ----------------
+        // Unknown chain
+        // ----------------
+        if (isUnknownChain) {
+          return (
+            <ImageWithFallback
+              fallbackText="!"
+              title="Unknown network"
+            />
+          );
+        }
+
+        if (!opt) return null;
+
+        const { label, logoUrl } = opt.props as {
+          label?: string;
+          logoUrl?: string;
+        };
+
+        return (
+          <ImageWithFallback
+            src={logoUrl}
+            fallbackText={label ?? "?"}
+            title={label}
+          />
+        );
+      }}
     >
-      {Object.values(CHAIN_INFO_MAP).map((c) => (
+      {chains.map((c) => (
         <SelectOption
           key={c.chainId}
           value={c.chainId}
           label={c.chainName}
+          //logoUrl={c.logoUrl}
         />
       ))}
     </Select>
