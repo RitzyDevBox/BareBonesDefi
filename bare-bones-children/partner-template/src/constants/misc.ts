@@ -1,3 +1,7 @@
+import ethereumLogo from "../assets/chains/eth-logo.png";
+import hyperliquidLogo from "../assets/chains/hyperliquid-logo.png";
+
+
 export const SwapRouter02ExecutorAddress = '0xBe6d02FD9335C2e1e33bBC174ad7ee36764C8EE7'
 export const walletAddress_old = "0x6dc2f30d8d2b1683617aaecd98941d7e56ca61a1";
 export const walletAddress = "0x2b94f955813532cdcf5bf77c4242fa762c132a79"
@@ -43,7 +47,7 @@ export const CHAIN_INFO_MAP: Record<number, ChainInfo> ={
       symbol: "ETH",
       decimals: 18
     },
-    logoUrl: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png",
+    logoUrl: ethereumLogo,
     rpcUrls: ["https://eth.llamarpc.com"],
     blockExplorerUrls: ["https://etherscan.io"],
     coinGeckoSlug: "ethereum",
@@ -58,6 +62,7 @@ export const CHAIN_INFO_MAP: Record<number, ChainInfo> ={
       symbol: "HYPE",
       decimals: 18
     },
+    logoUrl: hyperliquidLogo,
     rpcUrls:["https://rpc.hyperliquid.xyz/evm", "https://hyperliquid.drpc.org"],
     blockExplorerUrls: ["https://hyperevmscan.io/"],
     coinGeckoSlug: "hyperevm",

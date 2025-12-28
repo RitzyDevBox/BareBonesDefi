@@ -2,10 +2,39 @@ import { CHAIN_INFO_MAP } from "../../constants/misc";
 import { ImageWithFallback } from "../ImageWithFallback";
 import { DropdownAlignment, Select, SelectOption } from "../Select";
 
-
 interface ChainSelectorProps {
   chainId: number | null;
   onChainChange: (chainId: number) => void;
+}
+
+function getChainIconProps(
+  chainId: number | null,
+  opt: React.ReactElement | null
+): {
+  src?: string;
+  fallbackText: string;
+  title?: string;
+} | null {
+  // Unknown chain
+  if (chainId !== null && !CHAIN_INFO_MAP[chainId]) {
+    return {
+      fallbackText: "!",
+      title: "Unknown network",
+    };
+  }
+
+  if (!opt) return null;
+
+  const { label, logoUrl } = opt.props as {
+    label?: string;
+    logoUrl?: string;
+  };
+
+  return {
+    src: logoUrl,
+    fallbackText: label ?? "?",
+    title: label,
+  };
 }
 
 export function ChainSelector({
@@ -25,32 +54,10 @@ export function ChainSelector({
       style={{ width: 56 }}
       dropdownAlignment={DropdownAlignment.RIGHT}
       renderValue={(opt) => {
-        // ----------------
-        // Unknown chain
-        // ----------------
-        if (isUnknownChain) {
-          return (
-            <ImageWithFallback
-              fallbackText="!"
-              title="Unknown network"
-            />
-          );
-        }
+        const iconProps = getChainIconProps(chainId, opt);
+        if (!iconProps) return null;
 
-        if (!opt) return null;
-
-        const { label, logoUrl } = opt.props as {
-          label?: string;
-          logoUrl?: string;
-        };
-
-        return (
-          <ImageWithFallback
-            src={logoUrl}
-            fallbackText={label ?? "?"}
-            title={label}
-          />
-        );
+        return <ImageWithFallback {...iconProps} />;
       }}
     >
       {chains.map((c) => (
