@@ -1,4 +1,9 @@
 export const baseTheme = {
+
+  appBackground: {
+    color: "#faf8f7ff",
+  },
+
   spacing: {
     xs: "4px",
     sm: "8px",

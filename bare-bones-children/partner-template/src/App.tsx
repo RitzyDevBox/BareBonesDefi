@@ -3,27 +3,29 @@ import { useShimWallet } from "./hooks/useShimWallet";
 import { switchEvmChain } from "./utils/chainUtils";
 import { ToastHost } from "./components/Toasts/ToastHost";
 import { Header } from "./components/PageWrapper/Header";
+import { AppBackground } from "./components/PageWrapper/AppBackground";
 
 export default function App() {
   const { account, chainId, connect, provider } = useShimWallet();
 
   return (
     <>
-      <ToastHost />
+      <AppBackground>
+        <ToastHost />
+        <Header
+          account={account}
+          chainId={chainId}
+          onConnectWallet={connect}
+          onChainChange={(chainId) => {
+            if (!provider) return;
+            switchEvmChain(provider, chainId);
+          }}
+        />
 
-      <Header
-        account={account}
-        chainId={chainId}
-        onConnectWallet={connect}
-        onChainChange={(chainId) => {
-          if (!provider) return;
-          switchEvmChain(provider, chainId);
-        }}
-      />
-
-      <main style={{ padding: "var(--spacing-lg)" }}>
-        <Outlet />
-      </main>
+        <main style={{ padding: "var(--spacing-lg)" }}>
+          <Outlet />
+        </main>
+      </AppBackground>
     </>
   );
 }

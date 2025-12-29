@@ -28,6 +28,13 @@ export interface AppTheme {
     };
   };
 
+  appBackground: {
+    color: string;
+    leftImage?: string;
+    rightImage?: string;
+    imageOpacity?: number;
+  };
+
   spacing: {
     xs: string;
     sm: string;

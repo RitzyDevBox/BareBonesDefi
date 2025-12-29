@@ -1,5 +1,7 @@
 import { baseTheme } from "./baseTheme";
 import { AppTheme, ThemeMode } from "./theme";
+import leftImg from "../assets/background/bear-bone-left-light.png"
+import rightImg from "../assets/background/bear-bone-right-light.png"
 
 export const lightTheme: AppTheme = {
   mode: ThemeMode.LIGHT,
@@ -20,4 +22,9 @@ export const lightTheme: AppTheme = {
       label: "#374151",
     },
   },
+  appBackground: {
+    ...baseTheme.appBackground,
+     leftImage: leftImg,
+     rightImage: rightImg
+  }
 };
