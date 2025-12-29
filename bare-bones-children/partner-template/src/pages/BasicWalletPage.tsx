@@ -17,6 +17,7 @@ import { Select } from "../components/Select";
 import { SelectOption } from "../components/Select/SelectOption";
 import { WalletSelectorModal } from "../components/Wallet/WalletSelectorModal";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
+import { APP_NAME } from "../constants/misc";
 
 export function BasicWalletPage() {
   const { diamondAddress } = useParams<{ diamondAddress?: string }>();
@@ -50,7 +51,7 @@ function BasicWallet({ diamondAddress }: { diamondAddress: string }) {
     <PageContainer>
       <Card>
         <CardContent>
-          <Text.Title>Bare Bones Wallet</Text.Title>
+          <Text.Title>{APP_NAME} Wallet</Text.Title>
           <Box style={{ marginTop: "var(--spacing-md)" }}>
             <Select
               value={action}

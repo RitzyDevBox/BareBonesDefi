@@ -15,7 +15,7 @@ export async function executeTx(
   provider: ethers.providers.Web3Provider | undefined,
   build: () => Promise<RawTx>,
   opts?: TxOpts,
-  onCompleteMessage?: string
+  onCompleteMessage?: (receipt: ethers.providers.TransactionReceipt) => string
 ): Promise<ethers.providers.TransactionResponse | undefined> {
   try {
     const signer = requireSigner(provider);
@@ -30,13 +30,9 @@ export async function executeTx(
       value: rawTx.value ?? 0,
     });
 
-    opts?.onLog?.(`Tx: ${tx.hash}`);
-
-    await tx.wait();
-
-    opts?.onLog?.("Transaction complete!");
-    opts?.onComplete?.(onCompleteMessage ?? "Transaction Complete");
-
+    const receipt = await tx.wait();
+    const message = onCompleteMessage ? onCompleteMessage(receipt) : "Transaction Complete";
+    opts?.onComplete?.(message);
     return tx;
   } catch (err) {
     opts?.onError?.(err);

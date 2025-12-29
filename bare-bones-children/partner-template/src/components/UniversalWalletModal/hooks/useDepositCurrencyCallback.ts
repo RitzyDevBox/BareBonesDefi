@@ -25,7 +25,7 @@ export function useDepositCurrencyCallback(
       const symbol = args.assetType === AssetType.NATIVE ? "Native": args.tokenSymbol ?? "<Unknown Token>";
       const message = `Depositing ${args.amount} ${symbol} → ${args.recipient}`;
 
-      return executeTx(provider, async () => rawTx, opts, message);
+      return executeTx(provider, async () => rawTx, opts, () => message);
     },
     [provider]
   );

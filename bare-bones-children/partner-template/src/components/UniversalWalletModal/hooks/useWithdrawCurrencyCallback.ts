@@ -24,7 +24,7 @@ export function useWalletWithdrawCallback(
       const symbol = args.assetType === AssetType.NATIVE ? "Native" : args.tokenSymbol ?? "<Unknown Token>";
       const message = `Withdrawing ${args.amount} ${symbol} to ${args.recipient}`;
 
-      executeTx(provider, wrapWithExecute(provider, diamondAddress, rawTx), opts, message);
+      executeTx(provider, wrapWithExecute(provider, diamondAddress, rawTx), opts, () => message);
     },
     [provider, diamondAddress]
   );

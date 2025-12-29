@@ -3,6 +3,7 @@ import { computeDiamondAddress } from "../../utils/computeDiamondAddress";
 import { useUserWalletCount } from "../../hooks/wallet/useUserWalletCount";
 import { useShimWallet } from "../../hooks/useShimWallet";
 import { shortAddress } from "../../utils/formatUtils";
+import { DeployDiamondWidget } from "../DeployWalletWidget";
 
 
 export function WalletSelector({
@@ -21,7 +22,11 @@ export function WalletSelector({
   }
 
   if (walletCount === 0) {
-    return <Text.Body>No wallets deployed yet.</Text.Body>;
+    return ( 
+    <>
+        <Text.Body>No wallets deployed yet.</Text.Body>
+        <DeployDiamondWidget onDeployed={(address, index ) => console.log(`Deployed Wallet ${index} at address: ${address}`) }></DeployDiamondWidget>
+    </>)
   }
 
   return (

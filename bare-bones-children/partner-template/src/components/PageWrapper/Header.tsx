@@ -1,3 +1,4 @@
+import { APP_NAME } from "../../constants/misc";
 import { ThemeToggle } from "../../themes/ThemeToggle";
 import { shortAddress } from "../../utils/formatUtils";
 import { ButtonPrimary, Text } from "../BasicComponents";
@@ -40,7 +41,7 @@ export function Header({
         {/* Left */}
         <div style={{ flex: "1 1 auto" }}>
           <Text.Title style={{ textAlign: "left" }}>
-            My App
+            {APP_NAME}
           </Text.Title>
         </div>
 

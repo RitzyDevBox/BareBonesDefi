@@ -22,7 +22,7 @@ export function useWrapCallback(
         provider,
         wrapWithExecute(provider, diamondAddress, rawTx),
         opts,
-        message
+        () => message
       );
     },
     [provider, diamondAddress]
@@ -44,7 +44,7 @@ export function useUnwrapCallback(
         provider,
         wrapWithExecute(provider, diamondAddress, rawTx),
         opts,
-        message
+        () => message
       );
     },
     [provider, diamondAddress]
