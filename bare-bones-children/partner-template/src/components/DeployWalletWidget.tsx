@@ -7,8 +7,9 @@ import {
   CardContent,
   Text,
   ButtonPrimary,
-  Box,
 } from "./BasicComponents";
+
+import { Stack, Surface, ClickableSurface } from "./Primitives";
 
 import {
   buildDeployEOAOwnerBasedDiamondRawTx,
@@ -41,10 +42,13 @@ export function DeployDiamondWidget({
     try {
       await executeTx(
         provider,
-        async () => buildDeployEOAOwnerBasedDiamondRawTx({ owner: account }),
+        async () =>
+          buildDeployEOAOwnerBasedDiamondRawTx({ owner: account }),
         lifecycle,
         (receipt) => {
-          const { diamondAddress, index } = parseDiamondDeployedFromReceipt(receipt);
+          const { diamondAddress, index } =
+            parseDiamondDeployedFromReceipt(receipt);
+
           setDeployedAddress(diamondAddress);
           setWalletIndex(index);
           onDeployed?.(diamondAddress, index);
@@ -60,47 +64,36 @@ export function DeployDiamondWidget({
   return (
     <Card>
       <CardContent>
-        <Text.Title style={{ textAlign: "left" }}>
-          Deploy Diamond Wallet
-        </Text.Title>
+        <Stack gap="md">
+          <Text.Title style={{ textAlign: "left" }}>
+            Deploy Diamond Wallet
+          </Text.Title>
 
-        <ButtonPrimary
-          onClick={deploy}
-          disabled={isDeploying}
-        >
-          {isDeploying ? "Deploying…" : "Deploy Wallet"}
-        </ButtonPrimary>
+          <ButtonPrimary onClick={deploy} disabled={isDeploying}>
+            {isDeploying ? "Deploying…" : "Deploy Wallet"}
+          </ButtonPrimary>
 
-        {deployedAddress && (
-          <Box
-            style={{
-              padding: "var(--spacing-md)",
-              border: "1px solid var(--colors-border)",
-              background: "var(--colors-background)",
-            }}
-          >
-            <Text.Label>
-              Wallet #{walletIndex}
-            </Text.Label>
+          {deployedAddress && (
+            <Surface>
+              <Stack gap="sm">
+                <Text.Label>
+                  Wallet #{walletIndex}
+                </Text.Label>
 
-            <Box
-              onClick={() =>
-                navigator.clipboard.writeText(deployedAddress)
-              }
-              style={{
-                marginTop: "var(--spacing-sm)",
-                padding: "var(--spacing-sm)",
-                background: "var(--colors-surface)",
-                cursor: "pointer",
-                wordBreak: "break-all",
-              }}
-            >
-              <Text.Body style={{ margin: 0 }}>
-                {deployedAddress}
-              </Text.Body>
-            </Box>
-          </Box>
-        )}
+                <ClickableSurface
+                  onClick={() =>
+                    navigator.clipboard.writeText(deployedAddress)
+                  }
+                  style={{ wordBreak: "break-all" }}
+                >
+                  <Text.Body style={{ margin: 0 }}>
+                    {deployedAddress}
+                  </Text.Body>
+                </ClickableSurface>
+              </Stack>
+            </Surface>
+          )}
+        </Stack>
       </CardContent>
     </Card>
   );
