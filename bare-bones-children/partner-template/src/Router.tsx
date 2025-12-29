@@ -2,7 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import App from "./App";
 import { SwapPage } from "./pages/SwapPage";
 import { DeployDiamondPage } from "./pages/DeployWalletPage";
-import { BasicWalletFacetPage } from "./pages/BasicWalletFacetPage";
+import { BasicWalletPage } from "./pages/BasicWalletPage";
 import { TestPage } from "./pages/TestPage";
 
 export const router = createBrowserRouter([
@@ -18,7 +18,7 @@ export const router = createBrowserRouter([
 
       // Other pages
       { path: "deploy-wallet", element: <DeployDiamondPage /> },
-      { path: "basic-wallet-facet/:diamondAddress?", element: <BasicWalletFacetPage /> },
+      { path: "basic-wallet-facet/:diamondAddress?", element: <BasicWalletPage /> },
       { path: "test-page", element: <TestPage />},
       // Catch-all fallback → /deploy-wallet
       { path: "*", element: <Navigate to="/deploy-wallet" replace /> },
