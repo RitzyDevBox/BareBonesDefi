@@ -1,7 +1,6 @@
 import { baseTheme } from "./baseTheme";
 import { AppTheme, ThemeMode } from "./theme";
-import leftImg from "../assets/background/bear-bone-left-dark.png"
-import rightImg from "../assets/background/bear-bone-right-dark.png"
+import fullImg from "../assets/background/bear-bone-full-dark.png"
 
 export const darkTheme: AppTheme = {
   mode: ThemeMode.DARK,
@@ -23,10 +22,7 @@ export const darkTheme: AppTheme = {
     },
   },
   appBackground: {
-
     ...baseTheme.appBackground,
-     color: "#323c4eff",
-     leftImage: leftImg,
-     rightImage: rightImg
+     fullImage: fullImg
   }
 };

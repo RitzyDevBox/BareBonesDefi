@@ -31,6 +31,7 @@ export interface AppTheme {
   appBackground: {
     color: string;
     leftImage?: string;
+    fullImage?: string;
     rightImage?: string;
     imageOpacity?: number;
   };
