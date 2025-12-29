@@ -2,6 +2,7 @@
 import { ethers } from "ethers";
 import EXECUTE_FACET_ABI from "../abis/diamond/facets/ExecuteFacet.abi.json";
 import { RawTx } from "./basicWalletUtils";
+import { handleCommonTxError } from "./txErrorUtils";
 
 
 export interface TxOpts {
@@ -35,12 +36,11 @@ export async function executeTx(
     opts?.onComplete?.(message);
     return tx;
   } catch (err) {
-    opts?.onError?.(err);
+    const handled = handleCommonTxError(err);
+    opts?.onError?.(handled);
     return undefined;
-  }
 }
-
-
+}
 
 
 export function requireSigner(provider?: ethers.providers.Web3Provider) {

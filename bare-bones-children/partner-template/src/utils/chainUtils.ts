@@ -1,23 +1,10 @@
 import { providers } from "ethers";
 import { CHAIN_INFO_MAP } from "../constants/misc";
+import { handleCommonTxError, NormalizedTxError, normalizeEip1193Error } from "./txErrorUtils";
 
 function toHexChainId(chainId: number): string {
   return `0x${chainId.toString(16)}`;
 }
-
-interface Eip1193Error extends Error {
-  code?: number;
-  data?: unknown;
-}
-
-function isEip1193Error(error: unknown): error is Eip1193Error {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error
-  );
-}
-
 
 export async function switchEthereumChain(
   provider: providers.Web3Provider,
@@ -49,28 +36,29 @@ export async function addEthereumChain(
   ]);
 }
 
+
+
 export async function switchEvmChain(
   provider: providers.Web3Provider,
   chainId: number
 ): Promise<void> {
   try {
     await switchEthereumChain(provider, chainId);
-  } catch (error: unknown) {
-    if (!isEip1193Error(error)) {
-      throw error;
-    }
+  } catch (err) {
+    const normalized = normalizeEip1193Error(err);
 
-    if (error.code === 4001) {
-      // user rejected
+    // User explicitly rejected → silent exit
+    if (normalized === NormalizedTxError.USER_REJECTED) {
       return;
     }
 
-    if (error.code !== 4902) {
-      throw error;
+    // Chain missing → add then retry
+    if (normalized === NormalizedTxError.CHAIN_NOT_ADDED) {
+      await addEthereumChain(provider, chainId);
+      await switchEthereumChain(provider, chainId);
+      return;
     }
 
-    await addEthereumChain(provider, chainId);
-    await switchEthereumChain(provider, chainId);
+    throw handleCommonTxError(err);
   }
 }
-

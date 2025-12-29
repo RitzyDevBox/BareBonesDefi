@@ -5,7 +5,6 @@ import { useShimWallet } from "../hooks/useShimWallet";
 import { UniversalWalletActionForm } from "../components/UniversalWalletModal/UniversalWalletActionForm";
 import { ActionHandlerRouter } from "../components/UniversalWalletModal/components/ActionHandlerRouter";
 import { UniversalActionType } from "../components/UniversalWalletModal/models";
-import { useNavigate } from "react-router-dom";
 
 import {
   Card,
@@ -15,22 +14,14 @@ import {
 } from "../components/BasicComponents";
 import { Select } from "../components/Select";
 import { SelectOption } from "../components/Select/SelectOption";
-import { WalletSelectorModal } from "../components/Wallet/WalletSelectorModal";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { APP_NAME } from "../constants/misc";
+import { WalletSelectorPage } from "./WalletSelectorPage";
 
 export function BasicWalletPage() {
   const { diamondAddress } = useParams<{ diamondAddress?: string }>();
-  const [open, setOpen] = useState(!diamondAddress);
-  const navigate = useNavigate();
   if (!diamondAddress) {
-    return (<WalletSelectorModal 
-      isOpen={open} 
-      onClose={() => setOpen(false)}
-      onSelect={(address) => {
-        navigate(`/basic-wallet-facet/${address}`);
-      }}
-    />);
+    return <WalletSelectorPage />;
   }
 
   return <BasicWallet diamondAddress={diamondAddress} />;

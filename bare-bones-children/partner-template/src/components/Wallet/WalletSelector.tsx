@@ -1,41 +1,34 @@
 import { Box, Text } from "../../components/BasicComponents";
 import { computeDiamondAddress } from "../../utils/computeDiamondAddress";
-import { useUserWalletCount } from "../../hooks/wallet/useUserWalletCount";
 import { useShimWallet } from "../../hooks/useShimWallet";
 import { shortAddress } from "../../utils/formatUtils";
-import { DeployDiamondWidget } from "../DeployWalletWidget";
 
+interface WalletSelectorProps {
+  walletCount: number;
+  onSelect: (address: string, index: number) => void;
+}
 
 export function WalletSelector({
+  walletCount,
   onSelect,
-}: {
-  onSelect: (address: string, index: number) => void;
-}) {
+}: WalletSelectorProps) {
   const { account } = useShimWallet();
-  const walletCount = useUserWalletCount();
+
   if (!account) {
     return <Text.Body>Please connect your wallet.</Text.Body>;
   }
 
-  if (walletCount === null) {
-    return <Text.Body>Loading wallets…</Text.Body>;
-  }
-
   if (walletCount === 0) {
-    return ( 
-    <>
-        <Text.Body>No wallets deployed yet.</Text.Body>
-        <DeployDiamondWidget onDeployed={(address, index ) => console.log(`Deployed Wallet ${index} at address: ${address}`) }></DeployDiamondWidget>
-    </>)
+    // Selector should NOT render anything if there is nothing to select
+    return null;
   }
 
   return (
     <Box
       style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))",
-          gap: "var(--spacing-md)",
-          maxWidth: "min(90vw, 420px)",
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))",
+        gap: "var(--spacing-md)",
       }}
     >
       {Array.from({ length: walletCount }).map((_, index) => {
@@ -50,6 +43,7 @@ export function WalletSelector({
               border: "1px solid var(--colors-border)",
               cursor: "pointer",
               textAlign: "center",
+              borderRadius: "var(--radius-md)",
             }}
           >
             <Text.Title style={{ fontSize: "1.1rem" }}>
