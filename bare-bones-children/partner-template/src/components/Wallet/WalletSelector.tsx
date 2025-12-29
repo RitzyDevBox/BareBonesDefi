@@ -27,8 +27,9 @@ export function WalletSelector({
     <Box
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))",
+        gridTemplateColumns: "repeat(3, 96px)",
         gap: "var(--spacing-md)",
+        justifyContent: "flex-start",
       }}
     >
       {Array.from({ length: walletCount }).map((_, index) => {

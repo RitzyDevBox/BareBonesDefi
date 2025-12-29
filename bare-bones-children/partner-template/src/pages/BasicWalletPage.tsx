@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useShimWallet } from "../hooks/useShimWallet";
 import { UniversalWalletActionForm } from "../components/UniversalWalletModal/UniversalWalletActionForm";
 import { ActionHandlerRouter } from "../components/UniversalWalletModal/components/ActionHandlerRouter";
@@ -17,6 +17,7 @@ import { SelectOption } from "../components/Select/SelectOption";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { APP_NAME } from "../constants/misc";
 import { WalletSelectorPage } from "./WalletSelectorPage";
+import { WalletSelectorModalWithDisplay } from "../components/Wallet/WalletSelectorModalWithDisplay";
 
 export function BasicWalletPage() {
   const { diamondAddress } = useParams<{ diamondAddress?: string }>();
@@ -32,6 +33,8 @@ function BasicWallet({ diamondAddress }: { diamondAddress: string }) {
 
   const [action, setAction] = useState<UniversalActionType | null>(null);
   const [submittedValues, setSubmittedValues] = useState<any | null>(null);
+  const navigate = useNavigate();
+
   
 
   if (!provider) {
@@ -42,7 +45,25 @@ function BasicWallet({ diamondAddress }: { diamondAddress: string }) {
     <PageContainer>
       <Card>
         <CardContent>
-          <Text.Title>{APP_NAME} Wallet</Text.Title>
+          <Box
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "var(--spacing-md)",
+            }}
+          >
+            <Text.Title>{APP_NAME} Wallet</Text.Title>
+
+            <WalletSelectorModalWithDisplay
+              address={diamondAddress}
+              onSelect={(address) => {
+                setAction(null);
+                setSubmittedValues(null);
+                navigate(`/basic-wallet-facet/${address}`);
+              }}
+            />
+          </Box>
           <Box style={{ marginTop: "var(--spacing-md)" }}>
             <Select
               value={action}
