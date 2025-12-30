@@ -19,7 +19,7 @@ export function TokenAmountField({
 }: TokenAmountFieldProps) {
   const [open, setOpen] = useState(false);
 
-  const token = value ?? null;
+  const token = value?.token ?? null;
   const amount = value?.amount ?? "";
 
   return (
@@ -29,8 +29,10 @@ export function TokenAmountField({
         amount={amount}
         userScope={options.userScope}
         onAmountChange={(nextAmount) => {
-          if (!value) return;
-          onChange({ ...value, amount: nextAmount });
+          onChange({
+            token,
+            amount: nextAmount,
+          });
         }}
         onTokenClick={() => setOpen(true)}
       />
@@ -40,11 +42,11 @@ export function TokenAmountField({
         chainId={chainId}
         onClose={() => setOpen(false)}
         onSelect={(selectedToken: TokenInfo) => {
-          onChange({
-            ...selectedToken,
+            onChange({
+            token: selectedToken,
             amount,
-          });
-          setOpen(false);
+            });
+            setOpen(false);
         }}
       />
     </>

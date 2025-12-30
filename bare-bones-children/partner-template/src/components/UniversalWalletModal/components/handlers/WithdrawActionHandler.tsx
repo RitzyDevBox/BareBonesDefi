@@ -13,19 +13,19 @@ function WithdrawActionHandler({ values, walletAddress, onDone, lifeCycle }: Pro
   const { withdraw } = useWalletWithdrawCallback(provider, walletAddress);
 
   useEffect(() => {
-    if (!provider) return;   // ✅ Prevent early effect execution
 
     async function run() {
+      if (!provider || values.asset.token === null) return;  
       const assetType =
-        values.asset.address === ZERO_ADDRESS ? AssetType.NATIVE : AssetType.ERC20;
+        values.asset.token.address === ZERO_ADDRESS ? AssetType.NATIVE : AssetType.ERC20;
 
       await withdraw({
         assetType,
         amount: values.asset.amount,
         recipient: values.recipient,
-        decimals: values.asset.decimals,
-        tokenSymbol: values.asset.symbol,
-        tokenAddress: values.asset.address,
+        decimals: values.asset.token.decimals,
+        tokenSymbol: values.asset.token.symbol,
+        tokenAddress: values.asset.token.address,
       }, lifeCycle);
 
       onDone();

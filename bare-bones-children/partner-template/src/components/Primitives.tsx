@@ -142,3 +142,48 @@ export function Center({
     </div>
   );
 }
+
+interface AmountInputProps
+  extends Omit<
+    React.InputHTMLAttributes<HTMLInputElement>,
+    "value" | "onChange"
+  > {
+  value: string;
+  onChange: (value: string) => void;
+  decimals?: number; // optional token decimals
+  align?: "left" | "right";
+  placeholder?: string;
+}
+
+export function AmountInput({
+  value,
+  onChange,
+  placeholder = "0",
+  align = "left",
+}: AmountInputProps) {
+  return (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      inputMode="decimal"
+      style={{
+        border: "none",
+        outline: "none",
+        background: "transparent",
+        color: "var(--colors-text-main)",
+
+        fontSize: "1.25rem",
+        fontWeight: 600,
+
+        // 🔑 layout knobs
+        textAlign: align,
+        flex: 1,
+        minWidth: 0,
+
+        appearance: "textfield",
+      }}
+    />
+  );
+}
+

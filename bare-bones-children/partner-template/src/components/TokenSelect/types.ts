@@ -7,10 +7,6 @@ export interface TokenInfo {
   logoURI?: string;
 }
 
-export type TokenAmountInfo = TokenInfo & {
-  amount: string;
-};
-
 export enum UserScope
 {
   Account,
@@ -19,4 +15,9 @@ export enum UserScope
 
 export interface TokenPickerFieldOptions {
   userScope: UserScope
+}
+
+export interface TokenAmountInfo {
+  token: TokenInfo | null;
+  amount: string;
 }

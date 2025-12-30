@@ -13,20 +13,19 @@ function DepositActionHandler({ values, walletAddress, onDone, lifeCycle }: Prop
   const { deposit } = useDepositCurrencyCallback(provider);
 
   useEffect(() => {
-    if (!provider) return;   // ✅ prevent premature execution,
-
     async function run() {
+      if (!provider || values.asset.token === null) return; 
       const assetType =
-        values.asset.address === ZERO_ADDRESS
+        values.asset.token.address === ZERO_ADDRESS
           ? AssetType.NATIVE
           : AssetType.ERC20;
 
       await deposit({
         assetType,
         amount: values.asset.amount,
-        decimals: values.asset.decimals,
-        tokenSymbol: values.asset.symbol,
-        tokenAddress: values.asset.address,
+        decimals: values.asset.token.decimals,
+        tokenSymbol: values.asset.token.symbol,
+        tokenAddress: values.asset.token.address,
         recipient: walletAddress
       }, lifeCycle);
 

@@ -1,17 +1,23 @@
-
 import { Text } from "../BasicComponents";
 import { IconButton } from "../IconButton";
-import { useShimWallet } from "../../hooks/useShimWallet";
+import {
+  AmountInput,
+  Row,
+  Stack,
+  Surface,
+  ClickableSurface,
+} from "../Primitives";
+
+import { TokenInfo, UserScope } from "../TokenSelect/types";
 import { useTokenBalance } from "../../hooks/useTokenBalance";
 import { formatBalance } from "../../utils/formatUtils";
+import { useShimWallet } from "../../hooks/useShimWallet";
 import { walletAddress } from "../../constants/misc";
-import { TokenInfo, UserScope } from "../TokenSelect/types";
-import { ClickableSurface, Row, Stack, Surface } from "../Primitives";
 
-export interface TokenAmountDisplayProps {
+interface TokenAmountDisplayProps {
   token: TokenInfo | null;
   amount: string;
-  onAmountChange: (value: string) => void;
+  onAmountChange: (amount: string) => void;
   onTokenClick: () => void;
   userScope: UserScope;
 }
@@ -24,55 +30,31 @@ export function TokenAmountDisplay({
   userScope,
 }: TokenAmountDisplayProps) {
   const { account } = useShimWallet();
-  const targetUser =
+
+  const target =
     userScope === UserScope.Account ? account : walletAddress;
 
-  const balance = useTokenBalance(targetUser, token);
+  const balance = useTokenBalance(target, token);
 
   return (
     <Surface>
-      <Stack gap="sm">
-        {/* Header */}
-        <Row justify="between">
-          <Text.Label>Amount</Text.Label>
-          <Text.Body
-            style={{
-              fontSize: "0.85em",
-              color: "var(--colors-text-muted)",
-            }}
-          >
-            {balance !== null
-              ? `Balance: ${formatBalance(balance)}`
-              : "Balance: —"}
-          </Text.Body>
-        </Row>
-
-        {/* Main row */}
-        <Row align="center" gap="sm">
-          {/* Amount input */}
-          <input
+      <Stack gap="xs">
+        {/* TOP ROW */}
+        <Row justify="between" align="center">
+          {/* AMOUNT — LEFT */}
+          <AmountInput
             value={amount}
-            onChange={(e) => onAmountChange(e.target.value)}
-            placeholder="0"
-            inputMode="decimal"
-            style={{
-              flex: 1,
-              fontSize: 28,
-              fontWeight: 600,
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              color: "var(--colors-text-main)",
-              minWidth: 0,
-            }}
+            decimals={token?.decimals}
+            onChange={onAmountChange}
+            align="left"
           />
 
-          {/* Token pill */}
+          {/* TOKEN SELECTOR — RIGHT */}
           <ClickableSurface
             onClick={onTokenClick}
             style={{
-              padding: "6px 10px",
-              borderRadius: 999,
+              padding: "var(--spacing-xs)",
+              borderRadius: "999px",
             }}
           >
             <Row gap="xs" align="center">
@@ -99,11 +81,42 @@ export function TokenAmountDisplay({
                 {token?.symbol ?? "Select"}
               </Text.Body>
 
-              <IconButton tabIndex={-1} aria-hidden>
+              <IconButton
+                type="button"
+                aria-hidden
+                tabIndex={-1}
+                style={{ pointerEvents: "none" }}
+              >
                 ▾
               </IconButton>
             </Row>
           </ClickableSurface>
+        </Row>
+
+        {/* BOTTOM ROW */}
+        <Row justify="between" align="center">
+          {/* FIAT PLACEHOLDER — LEFT */}
+          <Text.Body
+            style={{
+              fontSize: "0.75em",
+              color: "var(--colors-text-muted)",
+            }}
+          >
+            $0.00
+          </Text.Body>
+
+          {/* BALANCE — RIGHT */}
+          <Text.Body
+            style={{
+              fontSize: "0.75em",
+              color: "var(--colors-text-muted)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {balance !== null
+              ? `Balance: ${formatBalance(balance)}`
+              : "Balance: —"}
+          </Text.Body>
         </Row>
       </Stack>
     </Surface>
