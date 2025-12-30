@@ -6,3 +6,17 @@ export interface TokenInfo {
   decimals: number;
   logoURI?: string;
 }
+
+export type TokenAmountInfo = TokenInfo & {
+  amount: string;
+};
+
+export enum UserScope
+{
+  Account,
+  SmartWallet
+}
+
+export interface TokenPickerFieldOptions {
+  userScope: UserScope
+}

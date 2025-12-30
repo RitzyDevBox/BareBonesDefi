@@ -5,7 +5,7 @@ export const ADD_V2_LP_SCHEMA = {
   fields: [
     {
       id: "tokenA",
-      component: FieldComponent.TOKEN_PICKER,
+      component: FieldComponent.TOKEN_AMOUNT_PICKER,
       label: "Token A",
     },
     {
@@ -15,7 +15,7 @@ export const ADD_V2_LP_SCHEMA = {
     },
     {
       id: "tokenB",
-      component: FieldComponent.TOKEN_PICKER,
+      component: FieldComponent.TOKEN_AMOUNT_PICKER,
       label: "Token B",
     },
     {

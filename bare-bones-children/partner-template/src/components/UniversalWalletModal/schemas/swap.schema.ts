@@ -4,12 +4,12 @@ export const SWAP_SCHEMA = {
   fields: [
     {
       id: "tokenA",
-      component: FieldComponent.TOKEN_PICKER,
+      component: FieldComponent.TOKEN_AMOUNT_PICKER,
       label: "From Token",
     },
     {
       id: "tokenB",
-      component: FieldComponent.TOKEN_PICKER,
+      component: FieldComponent.TOKEN_AMOUNT_PICKER,
       label: "To Token",
     },
     {

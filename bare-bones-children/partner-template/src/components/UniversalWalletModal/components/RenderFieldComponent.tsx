@@ -3,7 +3,7 @@
 import { ActionNode, FieldComponent } from "../models";
 import { Input } from "../../BasicComponents";
 import { FormField } from "../../FormField";
-import { TokenSelectField } from "../../TokenSelect/TokenSelectField";
+import { TokenAmountField } from "../../TokenAmount/TokenAmountField";
 
 export function RenderFieldComponent({
   field,
@@ -21,10 +21,10 @@ export function RenderFieldComponent({
   const placeholder = ""; // remove label duplication
 
   switch (field.component) {
-    case FieldComponent.TOKEN_PICKER:
+    case FieldComponent.TOKEN_AMOUNT_PICKER:
       return (
         <FormField label={field.label ?? ""}>
-          <TokenSelectField
+          <TokenAmountField
             value={value}
             chainId={999}
             onChange={onChange}

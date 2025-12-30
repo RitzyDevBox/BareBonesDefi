@@ -21,7 +21,7 @@ function WithdrawActionHandler({ values, walletAddress, onDone, lifeCycle }: Pro
 
       await withdraw({
         assetType,
-        amount: values.amount,
+        amount: values.asset.amount,
         recipient: values.recipient,
         decimals: values.asset.decimals,
         tokenSymbol: values.asset.symbol,

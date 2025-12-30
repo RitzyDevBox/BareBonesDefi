@@ -1,4 +1,5 @@
-import { UserScope } from "../../TokenSelect/TokenSelectFieldDisplay";
+
+import { UserScope } from "../../TokenSelect/types";
 import {
   FieldComponent,
   //ActionNodeType,
@@ -10,14 +11,9 @@ export const WITHDRAW_SCHEMA = {
   fields: [
     {
       id: "asset",
-      component: FieldComponent.TOKEN_PICKER,
+      component: FieldComponent.TOKEN_AMOUNT_PICKER,
       label: "Asset",
       options: { userScope: UserScope.SmartWallet }
-    },
-    {
-      id: "amount",
-      component: FieldComponent.AMOUNT,
-      label: "Amount",
     },
     {
       id: "recipient",

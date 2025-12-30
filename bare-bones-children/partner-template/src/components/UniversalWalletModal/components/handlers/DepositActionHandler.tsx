@@ -23,7 +23,7 @@ function DepositActionHandler({ values, walletAddress, onDone, lifeCycle }: Prop
 
       await deposit({
         assetType,
-        amount: values.amount,
+        amount: values.asset.amount,
         decimals: values.asset.decimals,
         tokenSymbol: values.asset.symbol,
         tokenAddress: values.asset.address,

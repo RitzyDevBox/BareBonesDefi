@@ -2,7 +2,7 @@
 // Universal Modal Models
 // =======================
 
-import { TokenInfo } from "../TokenPicker";
+import { TokenAmountInfo } from "../TokenSelect/types";
 
 // What KIND of asset the user is interacting with
 export enum AssetType {
@@ -14,7 +14,7 @@ export enum AssetType {
 
 // What KIND of UI input should render
 export enum FieldComponent {
-  TOKEN_PICKER = "TOKEN_PICKER",
+  TOKEN_AMOUNT_PICKER = "TOKEN_AMOUNT_PICKER",
   NFT_PICKER = "NFT_PICKER",
   ADDRESS = "ADDRESS",
   AMOUNT = "AMOUNT",
@@ -44,7 +44,7 @@ export interface ActionNode {
 // --------------------
 
 type ValueForComponent<C extends FieldComponent> =
-  C extends FieldComponent.TOKEN_PICKER ? TokenInfo :
+  C extends FieldComponent.TOKEN_AMOUNT_PICKER ? TokenAmountInfo :
   C extends FieldComponent.AMOUNT ? string :
   C extends FieldComponent.PERCENT ? number :
   C extends FieldComponent.ADDRESS ? string :
