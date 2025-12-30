@@ -5,7 +5,7 @@ function storageKey(chainId: number) {
   return `custom-tokens:${chainId}`;
 }
 
-export function useCustomTokens(chainId?: number) {
+export function useCustomTokens(chainId: number | null) {
   const [customTokens, setCustomTokens] = useState<TokenInfo[]>([]);
 
   useEffect(() => {

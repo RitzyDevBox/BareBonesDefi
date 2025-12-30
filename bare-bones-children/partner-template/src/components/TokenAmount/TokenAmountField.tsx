@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { TokenAmountDisplay } from "./TokenAmountDisplay";
 import { TokenSelect } from "../TokenSelect/TokenSelect";
-import { TokenAmountInfo, TokenInfo, TokenPickerFieldOptions } from "../TokenSelect/types";
+import { TokenAmountInfo, TokenInfo, TokenAmountDisplayFieldOptions } from "../TokenSelect/types";
 
 
 interface TokenAmountFieldProps {
   value: TokenAmountInfo | null;
   onChange: (value: TokenAmountInfo) => void;
   chainId: number;
-  options: TokenPickerFieldOptions;
+  options: TokenAmountDisplayFieldOptions;
 }
 
 export function TokenAmountField({
@@ -27,11 +27,17 @@ export function TokenAmountField({
       <TokenAmountDisplay
         token={token}
         amount={amount}
-        userScope={options.userScope}
+        options={options}
         onAmountChange={(nextAmount) => {
           onChange({
             token,
             amount: nextAmount,
+          });
+        }}
+        onDefaultTokenSelect={(defaultToken) => {
+          onChange({
+            token: defaultToken,
+            amount,
           });
         }}
         onTokenClick={() => setOpen(true)}
@@ -42,11 +48,11 @@ export function TokenAmountField({
         chainId={chainId}
         onClose={() => setOpen(false)}
         onSelect={(selectedToken: TokenInfo) => {
-            onChange({
+          onChange({
             token: selectedToken,
             amount,
-            });
-            setOpen(false);
+          });
+          setOpen(false);
         }}
       />
     </>

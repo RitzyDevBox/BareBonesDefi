@@ -11,15 +11,14 @@ import { useTokenList } from "./useTokenList";
 import { useCustomTokens } from "./useCustomTokens";
 import { TokenRow } from "./TokenRow";
 import { TokenInfo } from "./types";
-import { CHAIN_INFO_MAP } from "../../constants/misc";
+import { NATIVE_TOKENS_BY_CHAIN } from "../../constants/misc";
 
 interface TokenSelectProps {
   isOpen: boolean;
   onClose: () => void;
-  chainId?: number;
+  chainId: number | null;
   onSelect: (t: TokenInfo) => void;
 }
-
 
 export function TokenSelect({
   isOpen,
@@ -29,7 +28,8 @@ export function TokenSelect({
 }: TokenSelectProps) {
   const { provider } = useShimWallet();
   const { tokens, loading } = useTokenList(chainId);
-  const { customTokens, addCustomToken, removeCustomToken } = useCustomTokens(chainId);
+  const { customTokens, addCustomToken, removeCustomToken } =
+    useCustomTokens(chainId);
 
   const [query, setQuery] = useState("");
   const [importLoading, setImportLoading] = useState(false);
@@ -44,56 +44,52 @@ export function TokenSelect({
 
   const nativeToken: TokenInfo | null = useMemo(() => {
     if (!chainId) return null;
+    return NATIVE_TOKENS_BY_CHAIN[chainId]
 
-    return {
-        chainId,
-        address: ethers.constants.AddressZero,
-        symbol: CHAIN_INFO_MAP[chainId].nativeCurrency.symbol ?? "NATIVE",
-        name: "Native Token",
-        decimals: 18,
-        logoURI: undefined,
-    };
   }, [chainId]);
-
 
   const allTokens = useMemo(() => {
     const list: TokenInfo[] = [];
 
-    if (nativeToken) {
-        list.push(nativeToken);
-    }
-
+    if (nativeToken) list.push(nativeToken);
     list.push(...customTokens, ...tokens);
 
     return list.sort((a, b) => {
-        // native token always first
-        if (a.address === ethers.constants.AddressZero) return -1;
-        if (b.address === ethers.constants.AddressZero) return 1;
+      if (a.address === ethers.constants.AddressZero) return -1;
+      if (b.address === ethers.constants.AddressZero) return 1;
 
-        const aCustom = customTokens.includes(a);
-        const bCustom = customTokens.includes(b);
+      const aIsCustom = customTokens.some(
+        (t) =>
+          t.address.toLowerCase() ===
+          a.address.toLowerCase()
+      );
+      const bIsCustom = customTokens.some(
+        (t) =>
+          t.address.toLowerCase() ===
+          b.address.toLowerCase()
+      );
 
-        if (aCustom !== bCustom) return aCustom ? -1 : 1;
-        return a.symbol.localeCompare(b.symbol);
+      if (aIsCustom !== bIsCustom) return aIsCustom ? -1 : 1;
+      return a.symbol.localeCompare(b.symbol);
     });
   }, [nativeToken, customTokens, tokens]);
-
 
   const filteredTokens = useMemo(() => {
     if (!normalizedQuery) return allTokens;
 
-    return allTokens.filter((t) =>
+    return allTokens.filter(
+      (t) =>
         t.symbol.toLowerCase().includes(normalizedQuery) ||
         t.name.toLowerCase().includes(normalizedQuery) ||
         t.address.toLowerCase().includes(normalizedQuery)
     );
   }, [allTokens, normalizedQuery]);
 
-
   const tokenExists =
     isAddressSearch &&
     allTokens.some(
-      (t) => t.address.toLowerCase() === normalizedQuery
+      (t) =>
+        t.address.toLowerCase() === normalizedQuery
     );
 
   async function importCustomToken(address: string) {
@@ -103,7 +99,11 @@ export function TokenSelect({
     setImportError(null);
 
     try {
-      const erc20 = new ethers.Contract(address, ERC20_ABI, provider);
+      const erc20 = new ethers.Contract(
+        address,
+        ERC20_ABI,
+        provider
+      );
 
       const [symbol, decimals] = await Promise.all([
         erc20.symbol(),
@@ -117,8 +117,7 @@ export function TokenSelect({
         name: symbol,
         decimals,
       });
-    } catch (err) {
-      console.error("Failed to import token:", err);
+    } catch {
       setImportError("Failed to fetch token metadata");
     } finally {
       setImportLoading(false);
@@ -147,15 +146,17 @@ export function TokenSelect({
           <input
             placeholder="Search by name, symbol, or address"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) =>
+              setQuery(e.target.value)
+            }
             style={{
-                width: "100%",
-                boxSizing: "border-box", // 🔑 FIX
-                padding: "var(--spacing-md)",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--colors-border)",
-                background: "var(--colors-background)",
-                color: "var(--colors-text-main)",
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "var(--spacing-md)",
+              borderRadius: "var(--radius-md)",
+              border: "1px solid var(--colors-border)",
+              background: "var(--colors-background)",
+              color: "var(--colors-text-main)",
             }}
           />
         </Box>
@@ -171,7 +172,9 @@ export function TokenSelect({
               padding: "var(--spacing-md)",
               border: "1px dashed var(--colors-border)",
               borderRadius: "var(--radius-md)",
-              cursor: importLoading ? "default" : "pointer",
+              cursor: importLoading
+                ? "default"
+                : "pointer",
               opacity: importLoading ? 0.6 : 1,
             }}
           >
@@ -180,6 +183,7 @@ export function TokenSelect({
                 ? "Importing token…"
                 : `Import token at ${normalizedQuery}`}
             </Text.Body>
+
             {importError && (
               <Text.Body
                 style={{
@@ -210,27 +214,34 @@ export function TokenSelect({
         ) : (
           <Box style={{ flex: 1, minHeight: 0 }}>
             <VirtualizedList
-            items={filteredTokens}
-            estimateItemHeight={72}
-            showSearch={false}
-            renderRow={(token) => {
-              const isCustom = customTokens.some(
-                (t) => t.address.toLowerCase() === token.address.toLowerCase()
-              );
+              items={filteredTokens}
+              estimateItemHeight={72}
+              showSearch={false}
+              renderRow={(token) => {
+                const isCustom =
+                  customTokens.some(
+                    (t) =>
+                      t.address.toLowerCase() ===
+                      token.address.toLowerCase()
+                  );
 
-              return (
-                <TokenRow
+                return (
+                  <TokenRow
                     token={token}
                     isCustom={isCustom}
-                    onRemoveCustom={() => removeCustomToken(token.address)}
+                    onRemoveCustom={() =>
+                      removeCustomToken(
+                        token.address
+                      )
+                    }
                     onSelect={(t) => {
-                    onSelect(t);
-                    onClose();
-                  }}
-                />
-              );
-            }}
-          />
+                      onSelect(t);
+                      onClose();
+                    }}
+                  />
+                );
+              }}
+            />
           </Box>
         )}
       </Box>

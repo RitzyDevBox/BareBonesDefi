@@ -8,33 +8,62 @@ import {
   ClickableSurface,
 } from "../Primitives";
 
-import { TokenInfo, UserScope } from "../TokenSelect/types";
+import {
+  TokenAmountDisplayFieldOptions,
+  TokenInfo,
+  UserScope,
+} from "../TokenSelect/types";
 import { useTokenBalance } from "../../hooks/useTokenBalance";
 import { formatBalance } from "../../utils/formatUtils";
 import { useShimWallet } from "../../hooks/useShimWallet";
-import { walletAddress } from "../../constants/misc";
+import { NATIVE_TOKENS_BY_CHAIN, walletAddress } from "../../constants/misc";
+import { useEffect } from "react";
+import { useTokenList } from "../TokenSelect/useTokenList";
 
 interface TokenAmountDisplayProps {
   token: TokenInfo | null;
   amount: string;
   onAmountChange: (amount: string) => void;
+  onDefaultTokenSelect: (token: TokenInfo) => void;
   onTokenClick: () => void;
-  userScope: UserScope;
+  options: TokenAmountDisplayFieldOptions;
 }
 
 export function TokenAmountDisplay({
   token,
   amount,
   onAmountChange,
+  onDefaultTokenSelect,
   onTokenClick,
-  userScope,
+  options,
 }: TokenAmountDisplayProps) {
-  const { account } = useShimWallet();
+  const { account, chainId } = useShimWallet();
+  const { tokens, loading } = useTokenList(chainId);
 
-  const target =
-    userScope === UserScope.Account ? account : walletAddress;
+  useEffect(() => {
+    if (token) return;
+    if (!options.defaultTokenAddressResolver) return;
+    if (loading || !chainId) return;
 
+    const defaultAddress = options.defaultTokenAddressResolver(chainId);
+    if (!defaultAddress) return;
+
+    const native = NATIVE_TOKENS_BY_CHAIN[chainId]
+
+    const resolved = tokens.concat(native).find(
+      (t) =>
+        t.address.toLowerCase() ===
+        defaultAddress.toLowerCase()
+    );
+
+    if (!resolved) return;
+
+    onDefaultTokenSelect(resolved);
+  }, [token, chainId, loading, tokens, options.defaultTokenAddressResolver, onDefaultTokenSelect, options]);
+
+  const target = options.userScope === UserScope.Account ? account : walletAddress;
   const balance = useTokenBalance(target, token);
+  const tokenChangeDisabled = options.preventTokenChange === true;
 
   return (
     <Surface>
@@ -51,10 +80,12 @@ export function TokenAmountDisplay({
 
           {/* TOKEN SELECTOR — RIGHT */}
           <ClickableSurface
-            onClick={onTokenClick}
+            onClick={!tokenChangeDisabled ? onTokenClick : undefined}
             style={{
               padding: "var(--spacing-xs)",
               borderRadius: "999px",
+              cursor: tokenChangeDisabled ? "default" : "pointer",
+              opacity: tokenChangeDisabled ? 0.7 : 1,
             }}
           >
             <Row gap="xs" align="center">
@@ -81,14 +112,16 @@ export function TokenAmountDisplay({
                 {token?.symbol ?? "Select"}
               </Text.Body>
 
-              <IconButton
-                type="button"
-                aria-hidden
-                tabIndex={-1}
-                style={{ pointerEvents: "none" }}
-              >
-                ▾
-              </IconButton>
+              {!tokenChangeDisabled && (
+                <IconButton
+                  type="button"
+                  aria-hidden
+                  tabIndex={-1}
+                  style={{ pointerEvents: "none" }}
+                >
+                  ▾
+                </IconButton>
+              )}
             </Row>
           </ClickableSurface>
         </Row>

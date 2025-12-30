@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { useShimWallet } from "../../../../hooks/useShimWallet";
 import { useUnwrapCallback } from "../../hooks/useWrapCallback";
-import { WETH_BY_CHAIN } from "../../../../constants/misc";
 import { ActionHandlerProps } from "./models";
 import { UnwrapModalResponse } from "../../schemas/unwrap.schema";
+import { CHAIN_INFO_MAP } from "../../../../constants/misc";
 
 
 interface Props extends ActionHandlerProps<UnwrapModalResponse>{}
@@ -17,8 +17,8 @@ function UnwrapActionHandler({ values, walletAddress, onDone, lifeCycle }: Props
       if (!provider || !chainId) return; 
       
       const args = {
-        amount: values.amount,
-        wethAddress: WETH_BY_CHAIN[chainId],
+        amount: values.asset.amount,
+        wethAddress: CHAIN_INFO_MAP[chainId].wethAddress,
       };
 
       await unwrap(args, lifeCycle);

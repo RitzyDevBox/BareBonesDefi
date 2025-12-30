@@ -79,6 +79,8 @@ function BasicWallet({ diamondAddress }: { diamondAddress: string }) {
 
           {action && (
             <UniversalWalletActionForm
+              //!!Important!!: we need this key so the state of the internal fields does not persist when switch the action
+              key={`${diamondAddress}-${action}`}
               action={action}
               onConfirm={(formValues) => setSubmittedValues(formValues)}
             />

@@ -13,8 +13,10 @@ export enum UserScope
   SmartWallet
 }
 
-export interface TokenPickerFieldOptions {
+export interface TokenAmountDisplayFieldOptions {
   userScope: UserScope
+  defaultTokenAddressResolver?: (chainId?: number | null) => string,
+  preventTokenChange?: boolean
 }
 
 export interface TokenAmountInfo {
