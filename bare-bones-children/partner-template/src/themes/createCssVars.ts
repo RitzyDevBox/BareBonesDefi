@@ -22,6 +22,8 @@ export function themeToCssVars(theme: AppTheme): Record<string, string> {
   return vars;
 }
 
+let interactionStyleEl: HTMLStyleElement | null = null;
+
 export function applyThemeToDocument(theme: AppTheme) {
   const root = document.documentElement;
   const cssVars = themeToCssVars(theme);
@@ -29,4 +31,34 @@ export function applyThemeToDocument(theme: AppTheme) {
   Object.entries(cssVars).forEach(([key, val]) => {
     root.style.setProperty(key, val);
   });
+
+  // 👇 Inject interaction styles once
+  if (!interactionStyleEl) {
+    interactionStyleEl = document.createElement("style");
+    interactionStyleEl.innerHTML = `
+      [data-clickable="true"] {
+        --surface-bg: var(--colors-surface);
+        --surface-border: var(--colors-border);
+      }
+
+      /* default hover → border only */
+      [data-clickable="true"]:hover {
+        --surface-border: var(--colors-borderHover);
+      }
+
+      /* optional background hover */
+      [data-clickable="true"][data-hover-bg="true"]:hover {
+        --surface-bg: var(--colors-surfaceHover);
+      }
+
+      [data-clickable="true"]:active {
+        transform: scale(0.98);
+      }
+    `;
+
+
+    document.head.appendChild(interactionStyleEl);
+  }
 }
+
+

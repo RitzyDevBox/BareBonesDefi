@@ -4,7 +4,8 @@ import { UniversalActionType } from "./models";
 import { useActionSchema } from "./hooks/useActionSchema";
 import { RenderFieldComponent } from "./components/RenderFieldComponent";
 
-import { Card, Text, ButtonPrimary, CardContent } from "../BasicComponents";
+import { ButtonPrimary } from "../BasicComponents";
+import { Stack } from "../Primitives";
 
 interface UniversalWalletActionFormProps {
   action: UniversalActionType;
@@ -26,29 +27,22 @@ export function UniversalWalletActionForm({
     setFormValues((prev) => ({ ...prev, [fieldId]: fieldValue }));
   }
 
-  function handleConfirm() {
-    onConfirm(formValues);
-  }
-
   return (
-    <Card style={{ marginTop: "var(--spacing-md)" }}>
-      <CardContent>
-        <Text.Title>{action.replace(/_/g, " ")}</Text.Title>
+    <Stack gap="md">
+      {fields.map((field) => (
+        <RenderFieldComponent
+          key={field.id}
+          field={field}
+          value={formValues[field.id]}
+          allValues={formValues}
+          onChange={(v) => updateField(field.id, v)}
+          options={field.options}
+        />
+      ))}
 
-        {fields.map((field) => (
-          <RenderFieldComponent
-            key={field.id}
-            field={field}
-            value={formValues[field.id]}
-            allValues={formValues}
-            onChange={(v) => updateField(field.id, v)}
-            options={field.options}
-          />
-        ))}
-
-        <ButtonPrimary onClick={handleConfirm}>Confirm</ButtonPrimary>
-      </CardContent>
-    </Card>
-
+      <ButtonPrimary onClick={() => onConfirm(formValues)}>
+        Confirm
+      </ButtonPrimary>
+    </Stack>
   );
 }

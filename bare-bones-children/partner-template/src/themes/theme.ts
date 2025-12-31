@@ -10,7 +10,10 @@ export interface AppTheme {
   colors: {
     background: string;
     surface: string;
+    surfaceHover: string;
+    
     border: string;
+    borderHover: string;
 
     primary: string;
     primaryHover: string;
@@ -19,6 +22,7 @@ export interface AppTheme {
     secondaryHover: string;
 
     success: string;
+    warn: string;
     error: string;
 
     text: {

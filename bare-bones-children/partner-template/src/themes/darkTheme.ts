@@ -1,6 +1,6 @@
 import { baseTheme } from "./baseTheme";
 import { AppTheme, ThemeMode } from "./theme";
-import fullImg from "../assets/background/bear-bone-full-dark.png"
+import fullImg from "../assets/background/bear-bone-full-dark.png";
 
 export const darkTheme: AppTheme = {
   mode: ThemeMode.DARK,
@@ -8,13 +8,21 @@ export const darkTheme: AppTheme = {
   colors: {
     background: "#0f121a",
     surface: "#1a1e29",
+    surfaceHover: "rgba(255, 255, 255, 0.04)",
+
     border: "#2d323f",
+    borderHover: "rgba(255, 255, 255, 0.2)",
+
     primary: "#2563eb",
     primaryHover: "#1d4ed8",
+
     secondary: "#475569",
     secondaryHover: "#364152",
+
     success: "#6ee7b7",
+    warn: "#fbbf24",
     error: "#ef4444",
+
     text: {
       main: "#e5e7eb",
       muted: "#9ca3af",
@@ -23,6 +31,6 @@ export const darkTheme: AppTheme = {
   },
   appBackground: {
     ...baseTheme.appBackground,
-     fullImage: fullImg
-  }
+    fullImage: fullImg,
+  },
 };

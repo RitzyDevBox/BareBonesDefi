@@ -1,5 +1,6 @@
 import React from "react";
 
+
 /**
  * --------------------------------------
  * Stack — vertical layout primitive
@@ -76,11 +77,6 @@ export function Row({
   );
 }
 
-/**
- * --------------------------------------
- * Surface — bordered background box
- * --------------------------------------
- */
 export function Surface({
   children,
   clickable = false,
@@ -92,12 +88,17 @@ export function Surface({
   return (
     <div
       {...rest}
+      data-clickable={clickable ? "true" : undefined}
       style={{
         padding: "var(--spacing-md)",
-        border: "1px solid var(--colors-border)",
-        background: "var(--colors-background)",
+        background: "var(--surface-bg)",
+        border: "1px solid var(--surface-border)",
         borderRadius: "var(--radius-md)",
         cursor: clickable ? "pointer" : undefined,
+        transition:
+          clickable
+            ? "background-color 120ms ease, border-color 120ms ease, transform 80ms ease"
+            : undefined,
         ...style,
       }}
     >
@@ -105,6 +106,7 @@ export function Surface({
     </div>
   );
 }
+
 
 /**
  * --------------------------------------
@@ -116,6 +118,7 @@ export function ClickableSurface(
 ) {
   return <Surface clickable {...props} />;
 }
+
 
 /**
  * --------------------------------------
