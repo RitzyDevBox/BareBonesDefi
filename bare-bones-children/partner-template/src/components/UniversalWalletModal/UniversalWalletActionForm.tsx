@@ -3,9 +3,8 @@ import { useState } from "react";
 import { UniversalActionType } from "./models";
 import { useActionSchema } from "./hooks/useActionSchema";
 import { RenderFieldComponent } from "./components/RenderFieldComponent";
-
-import { ButtonPrimary } from "../BasicComponents";
 import { Stack } from "../Primitives";
+import { ButtonPrimary } from "../Button/ButtonPrimary";
 
 interface UniversalWalletActionFormProps {
   action: UniversalActionType;

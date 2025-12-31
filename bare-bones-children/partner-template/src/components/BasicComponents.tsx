@@ -141,28 +141,3 @@ export function Input({
   };
   return <input style={s} {...rest} />;
 }
-
-// ----------------------
-// BUTTON
-// ----------------------
-export function ButtonPrimary({
-  children,
-  style,
-  ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  const s: React.CSSProperties = {
-    width: "100%",
-    padding: cssVar("spacing-md"),
-    borderRadius: cssVar("radius-md"),
-    background: cssVar("colors-primary"),
-    color: "#fff",
-    border: "none",
-    cursor: "pointer",
-    ...style,
-  };
-  return (
-    <button style={s} {...rest}>
-      {children}
-    </button>
-  );
-}

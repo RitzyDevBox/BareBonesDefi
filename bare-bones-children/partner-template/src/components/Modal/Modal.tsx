@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Card, Text } from "../BasicComponents";
+import { IconButton } from "../Button/IconButton";
 
 /**
  * UXMode
@@ -45,23 +46,21 @@ export function CloseButton({
   style?: React.CSSProperties;
 }) {
   return (
-    <button
+    <IconButton
       onClick={onClick}
+      aria-label="Close"
+      size="lg"
+      shape="square"
       style={{
         position: "absolute",
         top: "var(--spacing-md)",
         right: "var(--spacing-md)",
-        background: "none",
-        border: "none",
-        fontSize: 20,
-        cursor: "pointer",
-        color: "var(--colors-text-main)",
         zIndex: 2,
         ...style,
       }}
     >
       ✕
-    </button>
+    </IconButton>
   );
 }
 
@@ -92,6 +91,21 @@ export function Modal({
     if (isOpen) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
 
   if (!isOpen) return null;
 

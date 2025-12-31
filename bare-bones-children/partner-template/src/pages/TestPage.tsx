@@ -4,7 +4,6 @@ import { useShimWallet } from "../hooks/useShimWallet";
 
 import { Modal } from "../components/Modal/Modal";
 import {
-  ButtonPrimary,
   Card,
   CardContent,
   Text,
@@ -23,6 +22,7 @@ import {
 import { toastStore } from "../components/Toasts/toast.store";
 
 import { TokenSelect } from "../components/TokenSelect/TokenSelect";
+import { ButtonPrimary } from "../components/Button/ButtonPrimary";
 
 const TOKEN_ADDRESSES = [
   "0x5555555555555555555555555555555555555555",

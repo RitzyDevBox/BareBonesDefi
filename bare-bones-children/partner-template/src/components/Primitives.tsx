@@ -77,16 +77,24 @@ export function Row({
   );
 }
 
-export function Surface({
-  children,
+type SurfaceProps<E extends React.ElementType = "div"> = {
+  as?: E;
+  clickable?: boolean;
+  style?: React.CSSProperties;
+  children?: React.ReactNode;
+} & Omit<React.ComponentPropsWithoutRef<E>, "as" | "style" | "children">;
+
+export function Surface<E extends React.ElementType = "div">({
+  as,
   clickable = false,
   style,
+  children,
   ...rest
-}: React.HTMLAttributes<HTMLDivElement> & {
-  clickable?: boolean;
-}) {
+}: SurfaceProps<E>) {
+  const Component = as ?? "div";
+
   return (
-    <div
+    <Component
       {...rest}
       data-clickable={clickable ? "true" : undefined}
       style={{
@@ -99,22 +107,21 @@ export function Surface({
           clickable
             ? "background-color 120ms ease, border-color 120ms ease, transform 80ms ease"
             : undefined,
-        ...style,
+        ...style, // caller wins
       }}
     >
       {children}
-    </div>
+    </Component>
   );
 }
-
 
 /**
  * --------------------------------------
  * ClickableSurface — specialization
  * --------------------------------------
  */
-export function ClickableSurface(
-  props: React.HTMLAttributes<HTMLDivElement>
+export function ClickableSurface<E extends React.ElementType = "div">(
+  props: SurfaceProps<E>
 ) {
   return <Surface clickable {...props} />;
 }
@@ -164,29 +171,40 @@ export function AmountInput({
   placeholder = "0",
   align = "left",
 }: AmountInputProps) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value;
+
+    // Allow:
+    // - empty
+    // - digits
+    // - one optional decimal point
+    // - decimals after the point
+    if (/^\d*\.?\d*$/.test(raw)) {
+      onChange(raw);
+    }
+  }
+
   return (
     <input
+      type="text"
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={handleChange}
       placeholder={placeholder}
       inputMode="decimal"
+      autoComplete="off"
+      spellCheck={false}
       style={{
         border: "none",
         outline: "none",
         background: "transparent",
         color: "var(--colors-text-main)",
-
         fontSize: "1.25rem",
         fontWeight: 600,
-
-        // 🔑 layout knobs
         textAlign: align,
         flex: 1,
         minWidth: 0,
-
         appearance: "textfield",
       }}
     />
   );
 }
-

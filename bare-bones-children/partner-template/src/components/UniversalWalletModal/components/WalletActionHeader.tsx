@@ -3,7 +3,7 @@ import { Select } from "../../Select";
 import { SelectOption } from "../../Select/SelectOption";
 import { WalletSelectorModalWithDisplay } from "../../Wallet/WalletSelectorModalWithDisplay";
 import { UniversalActionType } from "../models";
-import { IconButton } from "../../IconButton";
+import { IconButton } from "../../Button/IconButton";
 
 interface WalletActionHeaderProps {
   walletAddress: string;
@@ -46,9 +46,9 @@ export function WalletActionHeader({
       <IconButton
         aria-label="Settings"
         style={{
-          width: 36,
-          height: 36,
-          fontSize: 22,
+          width: 56,
+          height: 56,
+          fontSize: 28,
         }}
       >
         ⚙

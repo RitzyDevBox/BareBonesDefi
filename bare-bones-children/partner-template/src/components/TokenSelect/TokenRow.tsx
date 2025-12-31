@@ -1,5 +1,5 @@
 import { Box, Text } from "../BasicComponents";
-import { IconButton } from "../IconButton";
+import { IconButton } from "../Button/IconButton";
 import { TokenInfo } from "./types";
 
 export function TokenRow({

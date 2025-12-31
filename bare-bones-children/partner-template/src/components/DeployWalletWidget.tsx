@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Text,
-  ButtonPrimary,
 } from "./BasicComponents";
 
 import { Stack, Surface, ClickableSurface } from "./Primitives";
@@ -18,6 +17,7 @@ import {
 
 import { executeTx } from "../utils/transactionUtils";
 import { useToastActionLifecycle } from "./UniversalWalletModal/hooks/useToastActionLifeCycle";
+import { ButtonPrimary } from "./Button/ButtonPrimary";
 
 interface DeployDiamondWidgetProps {
   onDeployed?: (address: string, index: number) => void;

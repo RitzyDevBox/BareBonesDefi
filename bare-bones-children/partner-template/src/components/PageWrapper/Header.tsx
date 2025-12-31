@@ -1,7 +1,8 @@
 import { APP_NAME } from "../../constants/misc";
 import { ThemeToggle } from "../../themes/ThemeToggle";
 import { shortAddress } from "../../utils/formatUtils";
-import { ButtonPrimary, Text } from "../BasicComponents";
+import { Text } from "../BasicComponents";
+import { ButtonPrimary } from "../Button/ButtonPrimary";
 import { ChainSelector } from "./ChainSelector";
 
 interface HeaderProps {

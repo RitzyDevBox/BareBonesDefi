@@ -1,5 +1,5 @@
 import { Text } from "../BasicComponents";
-import { IconButton } from "../IconButton";
+import { IconButton } from "../Button/IconButton";
 import {
   AmountInput,
   Row,
@@ -79,7 +79,7 @@ export function TokenAmountDisplay({
           />
 
           {/* TOKEN SELECTOR — RIGHT */}
-          <ClickableSurface
+          <ClickableSurface as="button" type="button"
             onClick={!tokenChangeDisabled ? onTokenClick : undefined}
             style={{
               padding: "var(--spacing-xs)",
