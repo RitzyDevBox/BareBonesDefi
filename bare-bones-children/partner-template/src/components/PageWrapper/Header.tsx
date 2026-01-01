@@ -4,6 +4,7 @@ import { shortAddress } from "../../utils/formatUtils";
 import { Text } from "../BasicComponents";
 import { ButtonPrimary } from "../Button/ButtonPrimary";
 import { ChainSelector } from "./ChainSelector";
+import { Row, Surface } from "../Primitives";
 
 interface HeaderProps {
   account: string | null;
@@ -19,42 +20,36 @@ export function Header({
   onChainChange,
 }: HeaderProps) {
   return (
-    <header
+    <Surface
+      as="header"
       style={{
         position: "sticky",
         top: 0,
         zIndex: 100,
-        background: "var(--colors-surface)",
         borderBottom: "1px solid var(--colors-border)",
-        padding: "var(--spacing-md)",
+        padding: "var(--spacing-sm) var(--spacing-md)", // 👈 slimmer
       }}
     >
-      <div
+      <Row
+        justify="between"
+        align="center"
         style={{
           maxWidth: 1200,
           margin: "0 auto",
-          display: "flex",
-          alignItems: "center",
-          gap: "var(--spacing-md)",
-          flexWrap: "wrap",
         }}
       >
-        {/* Left */}
-        <div style={{ flex: "1 1 auto" }}>
-          <Text.Title style={{ textAlign: "left" }}>
-            {APP_NAME}
-          </Text.Title>
-        </div>
-
-        {/* Right */}
-        <div
+        {/* LEFT — brand */}
+        <Text.Body
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "var(--spacing-sm)",
-            flex: "0 0 auto",
+            fontWeight: 600,
+            letterSpacing: "0.2px",
           }}
         >
+          {APP_NAME}
+        </Text.Body>
+
+        {/* RIGHT — controls */}
+        <Row gap="sm" align="center">
           {account && chainId !== null && (
             <ChainSelector
               chainId={chainId}
@@ -66,17 +61,23 @@ export function Header({
 
           {!account ? (
             <ButtonPrimary
+              size="sm"          // 👈 assume ButtonPrimary supports size
               onClick={onConnectWallet}
             >
-              Connect Wallet
+              Connect
             </ButtonPrimary>
           ) : (
-            <Text.Label>
+            <Text.Body
+              style={{
+                fontSize: "0.85em",
+                color: "var(--colors-text-muted)",
+              }}
+            >
               {shortAddress(account)}
-            </Text.Label>
+            </Text.Body>
           )}
-        </div>
-      </div>
-    </header>
+        </Row>
+      </Row>
+    </Surface>
   );
 }

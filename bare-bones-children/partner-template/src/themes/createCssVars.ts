@@ -36,17 +36,17 @@ export function applyThemeToDocument(theme: AppTheme) {
   if (!interactionStyleEl) {
     interactionStyleEl = document.createElement("style");
     interactionStyleEl.innerHTML = `
-      [data-clickable="true"] {
+      /* Base surface defaults (ALL surfaces) */
+      :root {
         --surface-bg: var(--colors-surface);
         --surface-border: var(--colors-border);
       }
 
-      /* default hover → border only */
+      /* Clickable surfaces override on interaction */
       [data-clickable="true"]:hover {
         --surface-border: var(--colors-borderHover);
       }
 
-      /* optional background hover */
       [data-clickable="true"][data-hover-bg="true"]:hover {
         --surface-bg: var(--colors-surfaceHover);
       }
@@ -55,6 +55,7 @@ export function applyThemeToDocument(theme: AppTheme) {
         transform: scale(0.98);
       }
     `;
+
 
 
     document.head.appendChild(interactionStyleEl);
