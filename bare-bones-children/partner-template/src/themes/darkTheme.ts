@@ -32,5 +32,15 @@ export const darkTheme: AppTheme = {
   appBackground: {
     ...baseTheme.appBackground,
     fullImage: fullImg,
+    honeycomb: {
+      enabled: true,
+      hexSize: 40,
+      opacity: 0.12,
+      animationSpeed: 0.8,
+      backgroundColor: "#1a1410",  // Deep brown/black
+      hue: 35,         // Warm golden honey
+      saturation: 70,
+      lightness: 60
+    }
   },
 };

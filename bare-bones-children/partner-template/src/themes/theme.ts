@@ -38,7 +38,20 @@ export interface AppTheme {
     fullImage?: string;
     rightImage?: string;
     imageOpacity?: number;
+
+    honeycomb?: {
+      enabled: boolean;           // Default on/off (user can override)
+      hexSize?: number;          // Default: 40
+      opacity?: number;          // Base opacity, default: 0.1
+      animationSpeed?: number;   // Multiplier, default: 1
+      backgroundColor?: string;  // Defaults to appBackground.color
+      hue?: number;             // Color hue (0-360), default: 35 (golden)
+      saturation?: number;      // 0-100, default: 70
+      lightness?: number;       // 0-100, default: 60
+    }
   };
+
+  
 
   spacing: {
     xs: string;

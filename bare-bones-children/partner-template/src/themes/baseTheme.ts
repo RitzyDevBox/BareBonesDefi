@@ -2,6 +2,15 @@ export const baseTheme = {
 
   appBackground: {
     color: "#faf8f7ff",
+    honeycomb: {
+      enabled: true,
+      hexSize: 40,
+      opacity: 0.12,
+      animationSpeed: 0.8,
+      hue: 35,
+      saturation: 70,
+      lightness: 60
+    }
   },
 
   spacing: {

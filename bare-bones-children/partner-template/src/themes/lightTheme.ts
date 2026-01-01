@@ -34,5 +34,15 @@ export const lightTheme: AppTheme = {
     ...baseTheme.appBackground,
     leftImage: leftImg,
     rightImage: rightImg,
+    honeycomb: {
+      enabled: true,
+      hexSize: 40,
+      opacity: 0.08,
+      animationSpeed: 0.8,
+      backgroundColor: "#faf7f2",
+      hue: 38,
+      saturation: 45,
+      lightness: 50
+    }
   },
 };
