@@ -1,5 +1,4 @@
 import { Text } from "../BasicComponents";
-import { IconButton } from "../Button/IconButton";
 import {
   AmountInput,
   Row,
@@ -19,6 +18,7 @@ import { useShimWallet } from "../../hooks/useShimWallet";
 import { NATIVE_TOKENS_BY_CHAIN, walletAddress } from "../../constants/misc";
 import { useEffect } from "react";
 import { useTokenList } from "../TokenSelect/useTokenList";
+import { TokenAvatar } from "./TokenAvatar";
 
 interface TokenAmountDisplayProps {
   token: TokenInfo | null;
@@ -89,39 +89,11 @@ export function TokenAmountDisplay({
             }}
           >
             <Row gap="xs" align="center">
-              {token?.logoURI ? (
-                <img
-                  src={token.logoURI}
-                  alt={token.symbol}
-                  width={28}
-                  height={28}
-                  style={{ borderRadius: "50%" }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background: "var(--colors-border)",
-                  }}
-                />
-              )}
-
+              <TokenAvatar src={token?.logoURI} alt={token?.symbol} size={28} />
               <Text.Body style={{ fontWeight: 600 }}>
                 {token?.symbol ?? "Select"}
               </Text.Body>
-
-              {!tokenChangeDisabled && (
-                <IconButton
-                  type="button"
-                  aria-hidden
-                  tabIndex={-1}
-                  style={{ pointerEvents: "none" }}
-                >
-                  ▾
-                </IconButton>
-              )}
+              <Text.Label>▼</Text.Label>
             </Row>
           </ClickableSurface>
         </Row>

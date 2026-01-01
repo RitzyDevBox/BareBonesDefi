@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect } from "react";
 import { useListNavigation } from "../../hooks/useListNavigation";
+import { Text } from "../BasicComponents";
 
 export enum DropdownAlignment {
   RIGHT = "RIGHT",
@@ -129,7 +130,7 @@ export function Select<T extends string | number>({
         </div>
 
         {/* Chevron */}
-        <span
+        <Text.Label
           style={{
             fontSize: 12,
             opacity: 0.6,
@@ -138,7 +139,7 @@ export function Select<T extends string | number>({
           }}
         >
           ▼
-        </span>
+        </Text.Label>
       </div>
 
       {/* Dropdown */}

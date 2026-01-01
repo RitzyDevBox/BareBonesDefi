@@ -11,7 +11,6 @@ import {
   CardContent,
 } from "../components/BasicComponents";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
-import { APP_NAME } from "../constants/misc";
 import { WalletSelectorPage } from "./WalletSelectorPage";
 import { Stack } from "../components/Primitives";
 import { WalletActionHeader } from "../components/UniversalWalletModal/components/WalletActionHeader";

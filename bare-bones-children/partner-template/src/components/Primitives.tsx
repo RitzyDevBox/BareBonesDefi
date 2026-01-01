@@ -1,6 +1,5 @@
 import React from "react";
 
-
 /**
  * --------------------------------------
  * Stack — vertical layout primitive
@@ -77,12 +76,15 @@ export function Row({
   );
 }
 
-type SurfaceProps<E extends React.ElementType = "div"> = {
+type PolymorphicProps<E extends React.ElementType> = {
   as?: E;
   clickable?: boolean;
   style?: React.CSSProperties;
   children?: React.ReactNode;
-} & Omit<React.ComponentPropsWithoutRef<E>, "as" | "style" | "children">;
+} & Omit<
+  React.ComponentPropsWithoutRef<E>,
+  "as" | "style" | "children"
+>;
 
 export function Surface<E extends React.ElementType = "div">({
   as,
@@ -90,7 +92,7 @@ export function Surface<E extends React.ElementType = "div">({
   style,
   children,
   ...rest
-}: SurfaceProps<E>) {
+}: PolymorphicProps<E>) {
   const Component = as ?? "div";
 
   return (
@@ -102,11 +104,10 @@ export function Surface<E extends React.ElementType = "div">({
         border: "1px solid var(--surface-border)",
         borderRadius: "var(--radius-md)",
         cursor: clickable ? "pointer" : undefined,
-        transition:
-          clickable
-            ? "background-color 120ms ease, border-color 120ms ease, transform 80ms ease"
-            : undefined,
-        ...style, // caller wins
+        transition: clickable
+          ? "background-color 120ms ease, border-color 120ms ease, transform 80ms ease"
+          : undefined,
+        ...style,
       }}
     >
       {children}
@@ -120,10 +121,11 @@ export function Surface<E extends React.ElementType = "div">({
  * --------------------------------------
  */
 export function ClickableSurface<E extends React.ElementType = "div">(
-  props: SurfaceProps<E>
+  props: PolymorphicProps<E>
 ) {
   return <Surface clickable {...props} />;
 }
+
 
 
 /**
