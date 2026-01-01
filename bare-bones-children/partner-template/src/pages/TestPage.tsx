@@ -91,9 +91,7 @@ export function TestPage() {
           Open Token Select Test
         </ButtonPrimary>
 
-        <ButtonPrimary
-          style={{ width: "auto" }}
-          disabled={!account || loading}
+        <ButtonPrimary disabled={!account || loading}
           onClick={() => {
             console.log("Multicall results:", data);
           }}

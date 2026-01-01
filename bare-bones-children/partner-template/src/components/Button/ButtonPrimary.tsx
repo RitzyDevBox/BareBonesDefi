@@ -1,18 +1,30 @@
-import React from "react";
-import { ButtonBase } from "./ButtonBase";
+import { ButtonBase, ButtonShape, ButtonSize } from "./ButtonBase";
 
-export function ButtonPrimary(
-  props: React.ButtonHTMLAttributes<HTMLButtonElement>
-) {
+interface ButtonPrimaryProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  size?: ButtonSize;
+  shape?: ButtonShape;
+  fullWidth?: boolean;
+}
+
+export function ButtonPrimary({
+  size = "md",
+  shape = "rounded",
+  fullWidth = true,
+  style,
+  ...rest
+}: ButtonPrimaryProps) {
   return (
     <ButtonBase
-      {...props}
-      fullWidth
+      {...rest}
+      size={size}
+      shape={shape}
+      fullWidth={fullWidth}
       style={{
         background: "var(--colors-primary)",
         color: "#fff",
         border: "none",
-        ...props.style,
+        ...style,
       }}
     />
   );

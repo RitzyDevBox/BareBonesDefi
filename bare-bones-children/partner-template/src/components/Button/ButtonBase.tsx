@@ -37,13 +37,11 @@ export function ButtonBase({
     circle: "50%",
   };
 
-  const isIconSized = typeof style?.width !== "undefined" || typeof style?.height !== "undefined";
-
   return (
     <ClickableSurface as="button"
       {...rest}
       style={{
-        padding: isIconSized ? 0 : paddingBySize[size],
+        padding: paddingBySize[size],
         borderRadius: radiusByShape[shape],
         width: fullWidth ? "100%" : undefined,
         display: "inline-flex",

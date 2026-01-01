@@ -98,7 +98,6 @@ export function Surface<E extends React.ElementType = "div">({
       {...rest}
       data-clickable={clickable ? "true" : undefined}
       style={{
-        padding: "var(--spacing-md)",
         background: "var(--surface-bg)",
         border: "1px solid var(--surface-border)",
         borderRadius: "var(--radius-md)",

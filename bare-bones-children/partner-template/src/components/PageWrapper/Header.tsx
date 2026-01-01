@@ -67,7 +67,6 @@ export function Header({
           {!account ? (
             <ButtonPrimary
               onClick={onConnectWallet}
-              style={{ width: "auto" }}
             >
               Connect Wallet
             </ButtonPrimary>
