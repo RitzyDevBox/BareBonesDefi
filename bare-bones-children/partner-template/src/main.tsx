@@ -5,6 +5,7 @@ import { router } from "./Router";
 
 import { ThemeModeProvider } from "./themes/ThemeModeContext";
 import { AppThemeProvider } from "./themes/AppThemeProvider";
+import "./app.css";
 
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

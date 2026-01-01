@@ -1,0 +1,23 @@
+/* ----------------------------------------
+   Global baseline resets (intentional)
+   ---------------------------------------- */
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+/* Prevent layout width drift */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Avoid accidental horizontal scroll */
+body {
+  overflow-x: hidden;
+}
