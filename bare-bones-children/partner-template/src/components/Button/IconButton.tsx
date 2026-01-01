@@ -1,7 +1,7 @@
 import React from "react";
 import { ButtonBase, ButtonShape } from "./ButtonBase";
 
-type IconButtonSize = "sm" | "md" | "lg";
+export type IconButtonSize = "sm" | "md" | "lg";
 
 const ICON_SIZE: Record<IconButtonSize, string> = {
   sm: "var(--spacing-md)",

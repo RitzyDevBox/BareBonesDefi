@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Card, Text } from "../BasicComponents";
-import { IconButton } from "../Button/IconButton";
+import { IconButton, IconButtonSize } from "../Button/IconButton";
 
 /**
  * UXMode
@@ -41,15 +41,17 @@ function toCss(val: number | string): string {
 export function CloseButton({
   onClick,
   style,
+  size
 }: {
   onClick: () => void;
   style?: React.CSSProperties;
+  size?: IconButtonSize;
 }) {
   return (
     <IconButton
       onClick={onClick}
       aria-label="Close"
-      size="lg"
+      size={size}
       shape="square"
       style={{
         position: "absolute",
@@ -149,7 +151,7 @@ export function Modal({
             minHeight: 0,
           }}
         >
-          <CloseButton onClick={onClose} />
+          <CloseButton size="lg" onClick={onClose} />
 
           {/* Header */}
           {title && (

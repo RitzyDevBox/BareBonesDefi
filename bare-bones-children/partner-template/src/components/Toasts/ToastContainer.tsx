@@ -1,5 +1,6 @@
 import { Toast } from "./Toast";
 import { ToastConfig, ToastPosition } from "./toast.types";
+import { Stack } from "../Primitives";
 
 interface ToastContainerProps {
   toasts: ToastConfig[];
@@ -18,20 +19,32 @@ export function ToastContainer({
     <div
       style={{
         position: "fixed",
-        left: "50%",
-        transform: "translateX(-50%)",
+
+        // 🔑 Mobile-safe clamping
+        left: "var(--spacing-md)",
+        right: "var(--spacing-md)",
+
         top: isTop ? "var(--spacing-lg)" : undefined,
         bottom: !isTop ? "var(--spacing-lg)" : undefined,
-        width: "min(90vw, 520px)",
+
         display: "flex",
-        flexDirection: "column",
-        gap: "var(--spacing-md)",
+        justifyContent: "center",
         zIndex: 1000,
+        pointerEvents: "none", // container doesn't steal clicks
       }}
     >
-      {toasts.map((t) => (
-        <Toast key={t.id} toast={t} onClose={onClose} />
-      ))}
+      <Stack
+        gap="md"
+        style={{
+          width: "100%",
+          maxWidth: "520px",
+          pointerEvents: "auto", // toasts ARE clickable
+        }}
+      >
+        {toasts.map((t) => (
+          <Toast key={t.id} toast={t} onClose={onClose} />
+        ))}
+      </Stack>
     </div>
   );
 }

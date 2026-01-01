@@ -1,6 +1,7 @@
 // toast.types.ts
 export enum ToastType {
   Success = "Success",
+  Warn = "Warn",
   Error = "Error",
   Info = "Info",
 }
