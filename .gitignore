@@ -9,9 +9,14 @@ Thumbs.db
 # Logs
 *.log
 
-# Env files (if you add any later)
+# Env files (secrets only)
 .env
-.env.*
+.env.local
+.env.production
+.env.development
 
+# Any nested env secrets
 **/.env
-**/.env.*
+**/.env.local
+**/.env.production
+**/.env.development
