@@ -94,7 +94,7 @@ export function Surface<E extends React.ElementType = "div">({
   ...rest
 }: PolymorphicProps<E>) {
   const Component = as ?? "div";
-
+  const isButton = Component === "button";
   return (
     <Component
       {...rest}
@@ -107,6 +107,7 @@ export function Surface<E extends React.ElementType = "div">({
         transition: clickable
           ? "background-color 120ms ease, border-color 120ms ease, transform 80ms ease"
           : undefined,
+        ...(isButton && { margin: 0 }),
         ...style,
       }}
     >

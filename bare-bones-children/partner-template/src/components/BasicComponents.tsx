@@ -37,12 +37,12 @@ export function Card({
 }: React.HTMLAttributes<HTMLDivElement>) {
   const combined: React.CSSProperties = {
     background: cssVar("colors-surface"),
-    padding: cssVar("spacing-lg"),
-    borderRadius: cssVar("radius-lg"),
+    borderRadius: "var(--card-radius)",
     border: `1px solid ${cssVar("colors-border")}`,
     boxShadow: cssVar("shadows-medium"),
     ...style,
   };
+
   return (
     <div style={combined} {...rest}>
       {children}
@@ -58,7 +58,7 @@ export function CardContent({
   return (
     <div
       style={{
-        padding: "var(--spacing-lg)",
+        padding: "var(--card-padding)",
         display: "flex",
         flexDirection: "column",
         gap: "var(--spacing-md)",

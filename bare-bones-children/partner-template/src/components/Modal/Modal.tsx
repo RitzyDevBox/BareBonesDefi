@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Card, Text } from "../BasicComponents";
+import { Card, CardContent, Text } from "../BasicComponents";
 import { IconButton, IconButtonSize } from "../Button/IconButton";
 
 /**
@@ -149,42 +149,34 @@ export function Modal({
             flexDirection: "column",
             position: "relative",
             minHeight: 0,
+            padding: 0, // 🔑 Card becomes a shell
           }}
         >
           <CloseButton size="lg" onClick={onClose} />
-
-          {/* Header */}
           {title && (
-            <Text.Title
+            <div
               style={{
-                marginBottom: "var(--spacing-lg)",
-                textAlign: "left",
-                flexShrink: 0,
+                padding: "var(--spacing-md)",
+                paddingBottom: "var(--spacing-sm)",
               }}
             >
-              {title}
-            </Text.Title>
+              <Text.Title>{title}</Text.Title>
+            </div>
           )}
 
-          {/* Body */}
           <div
             style={{
               flex: 1,
               minHeight: 0,
-
-              // 🔑 Scroll ownership
               overflowX: "hidden",
               overflowY: isFixedBody ? "hidden" : "auto",
-
-              // Only apply scrollbar hacks in default mode
-              scrollbarGutter: isFixedBody ? undefined : "stable",
-              marginRight: isFixedBody ? undefined : "-8px",
-              paddingRight: isFixedBody ? undefined : "8px",
+              padding: "var(--modal-padding)",
             }}
           >
             {children}
           </div>
         </Card>
+
       </div>
     </div>
   );

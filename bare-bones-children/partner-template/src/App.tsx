@@ -22,7 +22,13 @@ export default function App() {
           }}
         />
 
-        <main style={{ padding: "var(--spacing-lg)" }}>
+        <main
+          style={{
+            padding: "var(--page-padding)",
+            paddingTop: "var(--spacing-md)",
+            boxSizing: "border-box",
+          }}
+        >
           <Outlet />
         </main>
       </AppBackground>

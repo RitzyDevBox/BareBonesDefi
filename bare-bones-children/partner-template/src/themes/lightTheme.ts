@@ -1,7 +1,6 @@
 import { baseTheme } from "./baseTheme";
 import { AppTheme, ThemeMode } from "./theme";
-import leftImg from "../assets/background/bear-bone-left-light.png";
-import rightImg from "../assets/background/bear-bone-right-light.png";
+import fullImg from "../assets/background/bear-bone-full-dark.png";
 
 export const lightTheme: AppTheme = {
   mode: ThemeMode.LIGHT,
@@ -32,8 +31,7 @@ export const lightTheme: AppTheme = {
   },
   appBackground: {
     ...baseTheme.appBackground,
-    leftImage: leftImg,
-    rightImage: rightImg,
+    fullImage: fullImg,
     honeycomb: {
       enabled: true,
       hexSize: 40,

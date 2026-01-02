@@ -21,3 +21,22 @@ body,
 body {
   overflow-x: hidden;
 }
+
+/* ----------------------------------------
+   Responsive layout variables
+   ---------------------------------------- */
+
+:root {
+  --page-padding: var(--spacing-lg);          
+  --card-padding: var(--spacing-lg);
+  --card-radius: var(--radius-lg);
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  :root {
+    --page-padding: 0px;
+    --card-padding: var(--spacing-md);
+    --card-radius: var(--radius-md);
+  }
+}

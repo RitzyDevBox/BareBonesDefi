@@ -3,7 +3,6 @@ import { Select } from "../../Select";
 import { SelectOption } from "../../Select/SelectOption";
 import { WalletSelectorModalWithDisplay } from "../../Wallet/WalletSelectorModalWithDisplay";
 import { UniversalActionType } from "../models";
-import { IconButton } from "../../Button/IconButton";
 
 interface WalletActionHeaderProps {
   walletAddress: string;
