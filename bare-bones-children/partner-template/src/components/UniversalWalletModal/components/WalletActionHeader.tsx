@@ -19,15 +19,30 @@ export function WalletActionHeader({
   onWalletChange,
 }: WalletActionHeaderProps) {
   return (
-    <Row justify="between" align="center" gap="md">
-      {/* LEFT — wallet */}
-      <WalletSelectorModalWithDisplay
-        address={walletAddress}
-        onSelect={onWalletChange}
-      />
+    <Row
+      align="center"
+      gap="md"
+      style={{
+        width: "100%",
+      }}
+    >
+      {/* LEFT — wallet (natural width) */}
+      <div style={{ flexShrink: 0 }}>
+        <WalletSelectorModalWithDisplay
+          address={walletAddress}
+          onSelect={onWalletChange}
+        />
+      </div>
 
-      {/* CENTER — action */}
-      <Row style={{ flex: 1 }} justify="center">
+      {/* CENTER — action (flex, constrained) */}
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,              // 🔑 allow shrinking
+          maxWidth: 420,            // 🔑 prevent runaway width
+          margin: "0 auto",         // center it
+        }}
+      >
         <Select
           value={action}
           onChange={(v) =>
@@ -40,19 +55,7 @@ export function WalletActionHeader({
           <SelectOption value={UniversalActionType.WRAP} label="Wrap ETH" />
           <SelectOption value={UniversalActionType.UNWRAP} label="Unwrap WETH" />
         </Select>
-      </Row>
-
-      {/* RIGHT — settings */}
-      <IconButton
-        aria-label="Settings"
-        style={{
-          width: 56,
-          height: 56,
-          fontSize: 28,
-        }}
-      >
-        ⚙
-      </IconButton>
+      </div>
     </Row>
   );
 }
