@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "arweave:estimate": "node scripts/estimate-deploy-arweave.mjs",
+    "arweave:fund-bundlr": "node scripts/fund-bundlr.mjs",
     "arweave:deploy": "node scripts/deploy-arweave.mjs",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"

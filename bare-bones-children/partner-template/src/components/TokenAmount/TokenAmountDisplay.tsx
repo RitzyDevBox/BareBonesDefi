@@ -15,7 +15,7 @@ import {
 import { useTokenBalance } from "../../hooks/useTokenBalance";
 import { formatBalance } from "../../utils/formatUtils";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
-import { NATIVE_TOKENS_BY_CHAIN, walletAddress } from "../../constants/misc";
+import { NATIVE_TOKENS_BY_CHAIN } from "../../constants/misc";
 import { useEffect } from "react";
 import { useTokenList } from "../TokenSelect/useTokenList";
 import { TokenAvatar } from "./TokenAvatar";

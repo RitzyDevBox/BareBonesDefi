@@ -44,14 +44,25 @@ async function estimateDeployCost() {
 
   const bytes = getDirSize(DIST);
 
-  // Bundlr-native pricing (atomic units)
+  // Price for this upload (atomic units)
   const atomicPrice = await bundlr.getPrice(bytes);
   const nativePrice = bundlr.utils.unitConverter(atomicPrice);
+
+  // Current Bundlr balance
+  const atomicBalance = await bundlr.getLoadedBalance();
+  const nativeBalance = bundlr.utils.unitConverter(atomicBalance);
 
   console.log("\n📦 Arweave Deploy Cost Estimate");
   console.log("─────────────────────────────");
   console.log(`Build size : ${bytes.toLocaleString()} bytes`);
   console.log(`Cost       : ${nativePrice} ${process.env.BUNDLR_CHAIN}`);
+  console.log(`Balance    : ${nativeBalance} ${process.env.BUNDLR_CHAIN}`);
+
+  if (atomicBalance.lt(atomicPrice)) {
+    console.log("\n⚠️  Not enough Bundlr balance to deploy");
+  } else {
+    console.log("\n✅ Sufficient Bundlr balance to deploy");
+  }
 }
 
 estimateDeployCost().catch(err => {
