@@ -139,7 +139,6 @@ export function TokenSelect({
           display: "flex",
           flexDirection: "column",
           gap: "var(--spacing-sm)",
-          padding: "var(--spacing-sm)"
         }}
       >
         {/* SEARCH */}

@@ -30,6 +30,7 @@ body {
   --page-padding: var(--spacing-lg);          
   --card-padding: var(--spacing-lg);
   --card-radius: var(--radius-lg);
+  --modal-padding: var(--spacing-lg);
 }
 
 /* Small phones */
@@ -38,5 +39,6 @@ body {
     --page-padding: 0px;
     --card-padding: var(--spacing-md);
     --card-radius: var(--radius-md);
+    --modal-padding: var(--spacing-md);
   }
 }
