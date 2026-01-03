@@ -19,6 +19,7 @@ import { NATIVE_TOKENS_BY_CHAIN, walletAddress } from "../../constants/misc";
 import { useEffect } from "react";
 import { useTokenList } from "../TokenSelect/useTokenList";
 import { TokenAvatar } from "./TokenAvatar";
+import { useParams } from "react-router-dom";
 
 interface TokenAmountDisplayProps {
   token: TokenInfo | null;
@@ -39,7 +40,7 @@ export function TokenAmountDisplay({
 }: TokenAmountDisplayProps) {
   const { account, chainId } = useWalletProvider();
   const { tokens, loading } = useTokenList(chainId);
-
+  const { diamondAddress } = useParams<{ diamondAddress?: string }>();
   useEffect(() => {
     if (token) return;
     if (!options.defaultTokenAddressResolver) return;
@@ -61,7 +62,7 @@ export function TokenAmountDisplay({
     onDefaultTokenSelect(resolved);
   }, [token, chainId, loading, tokens, options.defaultTokenAddressResolver, onDefaultTokenSelect, options]);
 
-  const target = options.userScope === UserScope.Account ? account : walletAddress;
+  const target = options.userScope === UserScope.Account ? account : diamondAddress;
   const balance = useTokenBalance(target, token);
   const tokenChangeDisabled = options.preventTokenChange === true;
 
