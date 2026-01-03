@@ -24,41 +24,39 @@ export const logoConfig = {
 
 const BONE_SCALE = 1.25;
 
-// Shaft bounds
 const SHAFT_LEFT_X = 52;
 const SHAFT_RIGHT_X = 76;
 const SHAFT_TOP_Y = 36;
 const SHAFT_BOTTOM_Y = 67;
 
 // Colors
-const BONE_COLOR = "#f5f5f5";
-const PAW_COLOR = "#E6C35C";
-const FINGER_COLOR = "#E6C35C";
+const BONE_COLOR   = "#ECEBE6"; // soft bone / porcelain
+const BONE_STROKE  = "#B9B7AF"; // warm graphite
+
+const PAW_COLOR    = "#4C5D73"; // slate blue-gray
+const FINGER_COLOR = "#2F3A4A"; // deep charcoal-blue
+
 
 /**
- * Fracture offsets RELATIVE to SHAFT_BOTTOM_Y
- * Positive = deeper break
- * Negative = slight chip upward
- * Order: right → left
+ * Cleaner, more intentional fracture
+ * Symmetric, shallow, readable at small sizes
  */
 const FRACTURE_OFFSETS = [
-  { x: SHAFT_RIGHT_X, dx: 0, dy: 0 },   // right anchor
-  { dx: -3, dy: 6 },
-  { dx: -7, dy: 2 },
-  { dx: -12, dy: 8 },                   // center dip
-  { dx: -17, dy: 3 },
-  { dx: -21, dy: 6 },
-  { x: SHAFT_LEFT_X, dx: 0, dy: 0 },    // left anchor
+  { x: SHAFT_RIGHT_X, dy: 0 },
+  { dx: -4, dy: 4 },
+  { dx: -9, dy: 2 },
+  { dx: -12, dy: 6 }, // center dip
+  { dx: -15, dy: 2 },
+  { dx: -20, dy: 4 },
+  { x: SHAFT_LEFT_X, dy: 0 },
 ];
 
-// Build fracture points from offsets
-const FRACTURE_POINTS = FRACTURE_OFFSETS.map((p, i) => {
+const FRACTURE_POINTS = FRACTURE_OFFSETS.map(p => {
   if ("x" in p) {
     return { x: p.x, y: SHAFT_BOTTOM_Y };
   }
-
   return {
-    x: SHAFT_RIGHT_X + p.dx,
+    x: SHAFT_RIGHT_X + p.dx!,
     y: SHAFT_BOTTOM_Y + p.dy,
   };
 });
@@ -86,6 +84,8 @@ export function Logo() {
       {/* ================= BONE ================= */}
       <g
         fill={BONE_COLOR}
+        stroke={BONE_STROKE}
+        strokeWidth={0.75}
         transform={`
           translate(64 64)
           translate(${bone.x} ${bone.y})
@@ -97,9 +97,9 @@ export function Logo() {
           d={`
             M${SHAFT_LEFT_X} ${SHAFT_TOP_Y}
             L${SHAFT_RIGHT_X} ${SHAFT_TOP_Y}
-            L${SHAFT_RIGHT_X} ${SHAFT_BOTTOM_Y}
+            L${SHAFT_RIGHT_X + 1} ${SHAFT_BOTTOM_Y}
             ${FRACTURE_POINTS.map(p => `L${p.x} ${p.y}`).join(" ")}
-            L${SHAFT_LEFT_X} ${SHAFT_BOTTOM_Y}
+            L${SHAFT_LEFT_X - 1} ${SHAFT_BOTTOM_Y}
             Z
           `}
         />
