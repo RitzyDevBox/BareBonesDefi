@@ -1,4 +1,5 @@
 /* eslint-disable no-undef */
+import "dotenv/config";
 import Bundlr from "@bundlr-network/client";
 import fs from "fs-extra";
 import path from "path";

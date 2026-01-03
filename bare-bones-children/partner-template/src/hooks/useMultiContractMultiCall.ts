@@ -27,7 +27,7 @@ export interface ContractConfig {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export interface MultiCallConfig<T> {
+export interface MultiCallConfig {
   contracts: ContractConfig[];
   abiMap: Record<string, any[]>;
   calls: MultiCallRequest[];
@@ -47,7 +47,7 @@ export function useMultiContractMultiCall<T>({
   provider,
   multicall3 = '0xca11bde05977b3631167028862be2a173976ca11',
   deps = [],
-}: MultiCallConfig<T>) {
+}: MultiCallConfig) {
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState(false);
 

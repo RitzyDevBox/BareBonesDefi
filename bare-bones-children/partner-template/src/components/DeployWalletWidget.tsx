@@ -2,11 +2,6 @@
 import { useState, useCallback } from "react";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 
-import {
-  Card,
-  CardContent,
-} from "./BasicComponents";
-
 import { Stack, Surface, ClickableSurface } from "./Primitives";
 import { Text } from "./Primitives/Text"
 
