@@ -6,7 +6,6 @@ import { Modal } from "../components/Modal/Modal";
 import {
   Card,
   CardContent,
-  Text,
 } from "../components/BasicComponents";
 
 import { useMultiContractMultiCall } from "../hooks/useMultiContractMultiCall";
@@ -14,6 +13,7 @@ import ERC20_ABI from "../abis/ERC20.json";
 import { getAddress } from "ethers/lib/utils";
 import { MULTICALL3_ADDRESS } from "../constants/misc";
 import { Input } from "../components/BasicComponents";
+import { Text } from "../components/Primitives/Text";
 import {
   ToastBehavior,
   ToastPosition,

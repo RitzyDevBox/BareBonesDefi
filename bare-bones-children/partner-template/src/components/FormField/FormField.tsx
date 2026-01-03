@@ -1,5 +1,6 @@
 import React from "react";
-import { Box, Text } from "../BasicComponents";
+import { Box } from "../BasicComponents";
+import { Text } from "../Primitives/Text"
 
 interface FormFieldProps {
   label: string;

@@ -5,10 +5,10 @@ import { useWalletProvider } from "../hooks/useWalletProvider";
 import {
   Card,
   CardContent,
-  Text,
 } from "./BasicComponents";
 
 import { Stack, Surface, ClickableSurface } from "./Primitives";
+import { Text } from "./Primitives/Text"
 
 import {
   buildDeployEOAOwnerBasedDiamondRawTx,

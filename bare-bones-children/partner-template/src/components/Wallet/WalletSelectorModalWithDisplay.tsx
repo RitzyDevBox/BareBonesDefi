@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Text } from "../BasicComponents";
+import { Text } from "../Primitives/Text"
 import { Row, ClickableSurface } from "../Primitives";
 import { shortAddress } from "../../utils/formatUtils";
 import { WalletSelectorModal } from "./WalletSelectorModal";

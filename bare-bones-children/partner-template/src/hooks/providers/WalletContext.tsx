@@ -1,5 +1,6 @@
-import React, { createContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ethers } from "ethers";
+import { WalletContext } from "./models";
 
 /* ================= TYPES ================= */
 
@@ -29,10 +30,6 @@ function normalizeChainId(id: unknown): number | null {
   return null;
 }
 
-/* ================= CONTEXT ================= */
-
-export const WalletContext =
-  createContext<WalletContextValue | null>(null);
 
 /* ================= PROVIDER ================= */
 
@@ -90,19 +87,20 @@ export function WalletProvider({
       if (parsed !== null) setChainId(parsed);
     };
 
-    window.ethereum.on("accountsChanged", handleAccountsChanged);
-    window.ethereum.on("chainChanged", handleChainChanged);
+    window.ethereum?.on?.("accountsChanged", handleAccountsChanged);
+    window.ethereum?.on?.("chainChanged", handleChainChanged);
 
     return () => {
-      window.ethereum.removeListener(
-        "accountsChanged",
-        handleAccountsChanged
-      );
-      window.ethereum.removeListener(
-        "chainChanged",
-        handleChainChanged
-      );
+        window.ethereum?.removeListener?.(
+            "accountsChanged",
+            handleAccountsChanged
+        );
+        window.ethereum?.removeListener?.(
+            "chainChanged",
+            handleChainChanged
+        );
     };
+
   }, []);
 
   async function connect() {

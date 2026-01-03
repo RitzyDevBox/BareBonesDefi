@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, Text } from "../components/BasicComponents";
+import { Card, CardContent } from "../components/BasicComponents";
+import { Text } from "../components/Primitives/Text"
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { WalletSelector } from "../components/Wallet/WalletSelector";
 import { DeployDiamondWidget } from "../components/DeployWalletWidget";

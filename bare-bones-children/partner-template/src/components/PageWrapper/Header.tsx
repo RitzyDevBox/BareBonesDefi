@@ -1,11 +1,11 @@
 import { APP_NAME } from "../../constants/misc";
 import { ThemeToggle } from "../../themes/ThemeToggle";
 import { shortAddress } from "../../utils/formatUtils";
-import { Text } from "../BasicComponents";
 import { ButtonPrimary } from "../Button/ButtonPrimary";
 import { ChainSelector } from "./ChainSelector";
 import { Row, Surface } from "../Primitives";
 import { Logo } from "./Logo";
+import { Text } from "../Primitives/Text"
 
 interface HeaderProps {
   account: string | null;

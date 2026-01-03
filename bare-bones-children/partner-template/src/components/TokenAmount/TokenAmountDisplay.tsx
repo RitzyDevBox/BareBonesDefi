@@ -1,4 +1,4 @@
-import { Text } from "../BasicComponents";
+import { Text } from "../Primitives/Text"
 import {
   AmountInput,
   Row,

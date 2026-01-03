@@ -1,4 +1,5 @@
-import { Box, Text } from "../BasicComponents";
+import { Box } from "../BasicComponents";
+import { Text } from "../Primitives/Text"
 import { IconButton } from "../Button/IconButton";
 import { TokenInfo } from "./types";
 

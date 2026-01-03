@@ -2,16 +2,17 @@ import { useMemo, useState } from "react";
 import { ethers } from "ethers";
 import ERC20_ABI from "../../abis/ERC20.json";
 
-import { Modal, UXMode } from "../Modal/Modal";
+import { Modal } from "../Modal/Modal";
 import { VirtualizedList } from "../VirtualizedList/VirtualizedList";
-import { Box, Text } from "../BasicComponents";
-
+import { Box } from "../BasicComponents";
+import { Text } from "../Primitives/Text"
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useTokenList } from "./useTokenList";
 import { useCustomTokens } from "./useCustomTokens";
 import { TokenRow } from "./TokenRow";
 import { TokenInfo } from "./types";
 import { NATIVE_TOKENS_BY_CHAIN } from "../../constants/misc";
+import { UXMode } from "../Modal/models";
 
 interface TokenSelectProps {
   isOpen: boolean;

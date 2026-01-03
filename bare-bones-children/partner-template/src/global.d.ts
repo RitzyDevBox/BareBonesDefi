@@ -2,6 +2,13 @@ import { ExternalProvider } from "@ethersproject/providers";
 
 type EthereumEvent = "connect" | "accountsChanged" | "chainChanged";
 
+type EthereumEventMap = {
+  connect: { chainId: string };
+  accountsChanged: string[];
+  chainChanged: string;
+};
+
+
 type EthereumRequest =
   | {
       method: "wallet_watchAsset";
@@ -25,15 +32,15 @@ interface EthereumProvider extends ExternalProvider {
   selectedAddress?: string;
   chainId?: string;
 
-  on?: (
-    event: EthereumEvent,
-    handler: (data: unknown) => void
-  ) => void;
+  on?<E extends keyof EthereumEventMap>(
+    event: E,
+    handler: (data: EthereumEventMap[E]) => void
+  ): void;
 
-  removeListener?: (
-    event: EthereumEvent,
-    handler: (data: unknown) => void
-  ) => void;
+  removeListener?<E extends keyof EthereumEventMap>(
+    event: E,
+    handler: (data: EthereumEventMap[E]) => void
+  ): void;
 
   request?: (args: EthereumRequest) => Promise<unknown>;
 }

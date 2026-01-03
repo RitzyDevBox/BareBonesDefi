@@ -157,6 +157,7 @@ export function useMultiContractMultiCall<T>({
     return () => {
       cancelled = true;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [provider, multicall3, abiMap, contracts, calls, ...deps]);
 
   return { data, loading };

@@ -1,12 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect } from "react";
 import { useListNavigation } from "../../hooks/useListNavigation";
-import { Text } from "../BasicComponents";
+import { DropdownAlignment } from "./models";
+import { Text } from "../Primitives/Text"
 
-export enum DropdownAlignment {
-  RIGHT = "RIGHT",
-  LEFT = "LEFT"
-}
 
 export function Select<T extends string | number>({
   value,

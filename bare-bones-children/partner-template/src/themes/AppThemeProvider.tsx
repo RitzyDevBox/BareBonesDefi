@@ -4,7 +4,8 @@ import { ThemeMode } from "../themes/theme";
 import { lightTheme } from "../themes/lightTheme";
 import { darkTheme } from "../themes/darkTheme";
 import { applyThemeToDocument } from "../themes/createCssVars";
-import { useThemeMode } from "../themes/ThemeModeContext";
+import { useThemeMode } from "./useThemeMode";
+
 
 const ThemeContext = createContext<AppTheme>(darkTheme);
 

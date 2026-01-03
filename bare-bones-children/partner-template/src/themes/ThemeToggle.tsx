@@ -1,6 +1,6 @@
 import { IconButton } from "../components/Button/IconButton";
-import { useThemeMode } from "../themes/ThemeModeContext";
 import { ThemeMode } from "../themes/theme";
+import { useThemeMode } from "./useThemeMode";
 
 
 export function ThemeToggle() {

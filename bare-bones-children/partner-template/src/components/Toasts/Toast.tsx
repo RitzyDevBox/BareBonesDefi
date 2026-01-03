@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ToastConfig, ToastBehavior, ToastType } from "./toast.types";
-import { Text } from "../BasicComponents";
+import { Text } from "../Primitives/Text"
 import { ClickableSurface, Stack } from "../Primitives";
 import { CloseButton } from "../Modal/Modal";
 

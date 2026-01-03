@@ -1,15 +1,6 @@
-import { createContext, useContext, useState } from "react";
+import { useState } from "react";
 import { ThemeMode } from "./theme";
-
-interface ThemeModeState {
-  mode: ThemeMode;
-  toggle: () => void;
-}
-
-const ThemeModeContext = createContext<ThemeModeState>({
-  mode: ThemeMode.DARK,
-  toggle: () => {},
-});
+import { ThemeModeContext } from "./useThemeMode";
 
 export function ThemeModeProvider({
   children,
@@ -29,8 +20,4 @@ export function ThemeModeProvider({
       {children}
     </ThemeModeContext.Provider>
   );
-}
-
-export function useThemeMode() {
-  return useContext(ThemeModeContext);
 }

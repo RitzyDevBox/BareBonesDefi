@@ -1,28 +1,4 @@
-import React from "react";
-
-/* ================= TYPES ================= */
-
-export interface PartMeta {
-  x: number;
-  y: number;
-  scale: number;
-}
-
-export interface LogoProps {
-  size?: number | string; // 👈 NEW
-}
-
-/* ================= CONFIG ================= */
-
-export const logoConfig = {
-  bone: { x: 0, y: 0, scale: 1 } satisfies PartMeta,
-  paw: { x: 0, y: 0, scale: 1 } satisfies PartMeta,
-  fingers: [
-    { x: 0, y: 0, scale: 1 },
-    { x: 0, y: 0, scale: 1 },
-    { x: 0, y: 0, scale: 1 },
-  ] satisfies PartMeta[],
-};
+import { logoConfig, LogoProps } from "./models";
 
 /* ================= BONE GEOMETRY ================= */
 

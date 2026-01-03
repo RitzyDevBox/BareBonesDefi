@@ -1,4 +1,5 @@
-import { Box, Text } from "../../components/BasicComponents";
+import { Box } from "../../components/BasicComponents";
+import { Text } from "../Primitives/Text"
 import { computeDiamondAddress } from "../../utils/computeDiamondAddress";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { shortAddress } from "../../utils/formatUtils";

@@ -1,38 +1,8 @@
 import React, { useEffect, useRef } from "react";
-import { Card, Text } from "../BasicComponents";
+import { Card } from "../BasicComponents";
 import { IconButton, IconButtonSize } from "../Button/IconButton";
-
-/**
- * UXMode
- *
- * Default:
- * - Modal expands based on content
- * - Modal body scrolls if content exceeds maxHeight
- *
- * FixedBody:
- * - Modal height is constrained by maxHeight
- * - Modal body does NOT scroll
- * - Child components must manage their own scrolling
- */
-export enum UXMode {
-  Default = "default",
-  FixedBody = "fixed-body",
-}
-
-interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title?: string;
-  children?: React.ReactNode;
-
-  width?: number | string;
-  maxWidth?: number | string;
-
-  height?: number | string;
-  maxHeight?: number | string;
-
-  uxMode?: UXMode;
-}
+import { ModalProps, UXMode } from "./models";
+import { Text } from "../Primitives/Text"
 
 function toCss(val: number | string): string {
   return typeof val === "number" ? `${val}px` : val;
