@@ -5,15 +5,18 @@ import { router } from "./Router";
 
 import { ThemeModeProvider } from "./themes/ThemeModeContext";
 import { AppThemeProvider } from "./themes/AppThemeProvider";
-import "./app.css";
 
+import "./app.css";
+import { WalletProvider } from "./hooks/providers/WalletContext";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThemeModeProvider>
-      <AppThemeProvider>
-        <RouterProvider router={router} />
-      </AppThemeProvider>
-    </ThemeModeProvider>
+    <WalletProvider>
+      <ThemeModeProvider>
+        <AppThemeProvider>
+          <RouterProvider router={router} />
+        </AppThemeProvider>
+      </ThemeModeProvider>
+    </WalletProvider>
   </React.StrictMode>
 );

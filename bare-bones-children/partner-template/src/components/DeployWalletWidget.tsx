@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback } from "react";
-import { useShimWallet } from "../hooks/useShimWallet";
+import { useWalletProvider } from "../hooks/useWalletProvider";
 
 import {
   Card,
@@ -26,7 +26,7 @@ interface DeployDiamondWidgetProps {
 export function DeployDiamondWidget({
   onDeployed,
 }: DeployDiamondWidgetProps) {
-  const { provider, account } = useShimWallet();
+  const { provider, account } = useWalletProvider();
 
   const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
   const [walletIndex, setWalletIndex] = useState<number | null>(null);

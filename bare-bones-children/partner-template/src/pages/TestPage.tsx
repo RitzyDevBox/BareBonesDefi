@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ethers } from "ethers";
-import { useShimWallet } from "../hooks/useShimWallet";
+import { useWalletProvider } from "../hooks/useWalletProvider";
 
 import { Modal } from "../components/Modal/Modal";
 import {
@@ -31,7 +31,7 @@ const TOKEN_ADDRESSES = [
 
 
 export function TestPage() {
-  const { provider, account } = useShimWallet();
+  const { provider, account } = useWalletProvider();
 
   const [open, setOpen] = useState(false);
 

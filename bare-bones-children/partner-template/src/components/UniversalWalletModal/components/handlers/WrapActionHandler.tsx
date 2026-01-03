@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useShimWallet } from "../../../../hooks/useShimWallet";
+import { useWalletProvider } from "../../../../hooks/useWalletProvider";
 import { WrapModalResponse } from "../../schemas/wrap.schema";
 import { useWrapCallback, } from "../../hooks/useWrapCallback";
 import { ActionHandlerProps } from "./models";
@@ -9,7 +9,7 @@ import { CHAIN_INFO_MAP } from "../../../../constants/misc";
 interface Props extends ActionHandlerProps<WrapModalResponse>{}
 
 function WrapActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
-  const { provider, chainId } = useShimWallet();
+  const { provider, chainId } = useWalletProvider();
   const { wrap } = useWrapCallback(provider, walletAddress);
 
   useEffect(() => {

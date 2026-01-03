@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useShimWallet } from "../../../../hooks/useShimWallet";
+import { useWalletProvider } from "../../../../hooks/useWalletProvider";
 import { WithdrawModalResponse } from "../../schemas/withdraw.schema";
 
 import { AssetType } from "../../models";
@@ -9,7 +9,7 @@ import { useWalletWithdrawCallback } from "../../hooks/useWithdrawCurrencyCallba
 
 interface Props extends ActionHandlerProps<WithdrawModalResponse> {}
 function WithdrawActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
-  const { provider } = useShimWallet();
+  const { provider } = useWalletProvider();
   const { withdraw } = useWalletWithdrawCallback(provider, walletAddress);
 
   useEffect(() => {

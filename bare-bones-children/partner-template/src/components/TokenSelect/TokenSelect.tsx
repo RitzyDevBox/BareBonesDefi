@@ -6,7 +6,7 @@ import { Modal, UXMode } from "../Modal/Modal";
 import { VirtualizedList } from "../VirtualizedList/VirtualizedList";
 import { Box, Text } from "../BasicComponents";
 
-import { useShimWallet } from "../../hooks/useShimWallet";
+import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useTokenList } from "./useTokenList";
 import { useCustomTokens } from "./useCustomTokens";
 import { TokenRow } from "./TokenRow";
@@ -26,7 +26,7 @@ export function TokenSelect({
   chainId,
   onSelect,
 }: TokenSelectProps) {
-  const { provider } = useShimWallet();
+  const { provider } = useWalletProvider();
   const { tokens, loading } = useTokenList(chainId);
   const { customTokens, addCustomToken, removeCustomToken } =
     useCustomTokens(chainId);

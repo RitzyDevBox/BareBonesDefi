@@ -1,6 +1,6 @@
 import { Box, Text } from "../../components/BasicComponents";
 import { computeDiamondAddress } from "../../utils/computeDiamondAddress";
-import { useShimWallet } from "../../hooks/useShimWallet";
+import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { shortAddress } from "../../utils/formatUtils";
 
 interface WalletSelectorProps {
@@ -12,7 +12,7 @@ export function WalletSelector({
   walletCount,
   onSelect,
 }: WalletSelectorProps) {
-  const { account } = useShimWallet();
+  const { account } = useWalletProvider();
 
   if (!account) {
     return <Text.Body>Please connect your wallet.</Text.Body>;

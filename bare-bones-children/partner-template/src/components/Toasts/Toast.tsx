@@ -51,6 +51,10 @@ export function Toast({ toast, onClose }: ToastProps) {
       style={{
         background: `var(--${typeColorVar[toast.type]})`,
         color: "#fff",
+
+        // ✅ ADD THIS BACK
+        padding: "var(--spacing-sm)",
+
         opacity: visible ? 1 : 0,
         transform: visible ? "translateY(0)" : "translateY(-8px)",
         transition: `opacity ${FADE_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -59,7 +63,7 @@ export function Toast({ toast, onClose }: ToastProps) {
         cursor: toast.onClick ? "pointer" : "default",
         position: "relative",
       }}
-    >      
+    >
       <CloseButton
         onClick={handleClose}
         size="sm"

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useShimWallet } from "../../../../hooks/useShimWallet";
+import { useWalletProvider } from "../../../../hooks/useWalletProvider";
 import { useUnwrapCallback } from "../../hooks/useWrapCallback";
 import { ActionHandlerProps } from "./models";
 import { UnwrapModalResponse } from "../../schemas/unwrap.schema";
@@ -8,7 +8,7 @@ import { CHAIN_INFO_MAP } from "../../../../constants/misc";
 
 interface Props extends ActionHandlerProps<UnwrapModalResponse>{}
 function UnwrapActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
-  const { provider, chainId } = useShimWallet();
+  const { provider, chainId } = useWalletProvider();
   const { unwrap } = useUnwrapCallback(provider, walletAddress);
 
   useEffect(() => {

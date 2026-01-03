@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useShimWallet } from "../../../../hooks/useShimWallet";
+import { useWalletProvider } from "../../../../hooks/useWalletProvider";
 
 import { DepositModalResponse } from "../../schemas/deposit.schema";
 import { AssetType } from "../../models";
@@ -9,7 +9,7 @@ import { useDepositCurrencyCallback } from "../../hooks/useDepositCurrencyCallba
 
 interface Props extends ActionHandlerProps<DepositModalResponse> {}
 function DepositActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
-  const { provider } = useShimWallet();
+  const { provider } = useWalletProvider();
   const { deposit } = useDepositCurrencyCallback(provider);
 
   useEffect(() => {

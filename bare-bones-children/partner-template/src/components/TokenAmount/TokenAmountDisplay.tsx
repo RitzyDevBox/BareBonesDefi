@@ -14,7 +14,7 @@ import {
 } from "../TokenSelect/types";
 import { useTokenBalance } from "../../hooks/useTokenBalance";
 import { formatBalance } from "../../utils/formatUtils";
-import { useShimWallet } from "../../hooks/useShimWallet";
+import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { NATIVE_TOKENS_BY_CHAIN, walletAddress } from "../../constants/misc";
 import { useEffect } from "react";
 import { useTokenList } from "../TokenSelect/useTokenList";
@@ -37,7 +37,7 @@ export function TokenAmountDisplay({
   onTokenClick,
   options,
 }: TokenAmountDisplayProps) {
-  const { account, chainId } = useShimWallet();
+  const { account, chainId } = useWalletProvider();
   const { tokens, loading } = useTokenList(chainId);
 
   useEffect(() => {

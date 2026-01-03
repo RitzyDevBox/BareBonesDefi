@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// import { TokenInfoResolver } from "../../DynamicResolvers/TokenInfoResolver";
 import { ActionNode, FieldComponent } from "../models";
 import { Input } from "../../BasicComponents";
 import { FormField } from "../../FormField";
@@ -86,16 +85,6 @@ export function RenderFieldComponent({
           />
         </FormField>
       );
-
-    // case FieldComponent.USE_TOKEN_INFO: {
-    //   if (!field.deps) return null;
-
-    //   const [tokenAddress] = field.deps.map((d) => allValues[d]);
-
-    //   if (!tokenAddress) return null;
-
-    //   return <TokenInfoResolver tokenAddress={tokenAddress} onChange={onChange} />;
-    // }
 
     default:
       return null;

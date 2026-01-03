@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useShimWallet } from "../hooks/useShimWallet";
+import { useWalletProvider } from "../hooks/useWalletProvider";
 import { UniversalWalletActionForm } from "../components/UniversalWalletModal/UniversalWalletActionForm";
 import { ActionHandlerRouter } from "../components/UniversalWalletModal/components/ActionHandlerRouter";
 import { UniversalActionType } from "../components/UniversalWalletModal/models";
@@ -25,7 +25,7 @@ export function BasicWalletPage() {
 }
 
 function BasicWallet({ diamondAddress }: { diamondAddress: string }) {
-  const { provider } = useShimWallet();
+  const { provider } = useWalletProvider();
   const [action, setAction] = useState<UniversalActionType | null>(UniversalActionType.DEPOSIT);
   const [submittedValues, setSubmittedValues] = useState<any | null>(null);
   const navigate = useNavigate();
