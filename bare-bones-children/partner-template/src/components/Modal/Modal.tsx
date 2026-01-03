@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Card, CardContent, Text } from "../BasicComponents";
+import { Card, Text } from "../BasicComponents";
 import { IconButton, IconButtonSize } from "../Button/IconButton";
 
 /**

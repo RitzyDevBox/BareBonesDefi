@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import App from "./App";
-import { SwapPage } from "./pages/SwapPage";
 import { DeployDiamondPage } from "./pages/DeployWalletPage";
 import { BasicWalletPage } from "./pages/BasicWalletPage";
 import { TestPage } from "./pages/TestPage";
@@ -12,9 +11,6 @@ export const router = createBrowserRouter([
     children: [
       // / → /swap
       { index: true, element: <Navigate to="/deploy-wallet" replace /> },
-
-      // Default route
-      { path: "swap", element: <SwapPage /> },
 
       // Other pages
       { path: "deploy-wallet", element: <DeployDiamondPage /> },

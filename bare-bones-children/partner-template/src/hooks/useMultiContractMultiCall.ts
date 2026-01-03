@@ -26,6 +26,7 @@ export interface ContractConfig {
   abiKey: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export interface MultiCallConfig<T> {
   contracts: ContractConfig[];
   abiMap: Record<string, any[]>;
@@ -123,6 +124,7 @@ export function useMultiContractMultiCall<T>({
         let rIndex = 0;
 
         for (let i = 0; i < contracts.length; i++) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           for (const _ of calls) {
             const { meta } = callStructs[rIndex];
             const { success, returnData } = response[rIndex];

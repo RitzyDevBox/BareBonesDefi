@@ -1,12 +1,19 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
-export default defineConfig(({ command }) => {
-  return {
-    plugins: [react()],
-    server: {
-      // only affects "vite dev"
-      cors: command === "serve" ? true : false,
-    },
-  };
-});
+export default defineConfig(({ command }) => ({
+  plugins: [react()],
+
+  // REQUIRED for Arweave (relative asset paths)
+  base: "./",
+
+  server: {
+    // Only affects `vite dev`
+    cors: command === "serve"
+  },
+
+  build: {
+    // Explicitly lock prod behavior
+    sourcemap: false
+  }
+}));

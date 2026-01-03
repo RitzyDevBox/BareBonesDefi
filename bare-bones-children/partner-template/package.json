@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "deploy:arweave": "npm run build && ts-node scripts/deploy-arweave.ts",
+    "arweave:estimate": "node scripts/estimate-deploy-arweave.mjs",
+    "arweave:deploy": "node scripts/deploy-arweave.mjs",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
