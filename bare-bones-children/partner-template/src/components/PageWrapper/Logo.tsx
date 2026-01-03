@@ -29,23 +29,21 @@ const SHAFT_RIGHT_X = 76;
 const SHAFT_TOP_Y = 36;
 const SHAFT_BOTTOM_Y = 67;
 
-// Colors
-const BONE_COLOR   = "#ECEBE6"; // soft bone / porcelain
-const BONE_STROKE  = "#B9B7AF"; // warm graphite
+/* ===== modern neutral palette ===== */
 
-const PAW_COLOR    = "#4C5D73"; // slate blue-gray
-const FINGER_COLOR = "#2F3A4A"; // deep charcoal-blue
+const BONE_COLOR   = "#ECEBE6";
+const BONE_STROKE  = "#B9B7AF";
 
+const PAW_COLOR    = "#4C5D73";
+const FINGER_COLOR = "#2F3A4A";
 
-/**
- * Cleaner, more intentional fracture
- * Symmetric, shallow, readable at small sizes
- */
+/* ================= FRACTURE ================= */
+
 const FRACTURE_OFFSETS = [
   { x: SHAFT_RIGHT_X, dy: 0 },
   { dx: -4, dy: 4 },
   { dx: -9, dy: 2 },
-  { dx: -12, dy: 6 }, // center dip
+  { dx: -12, dy: 6 },
   { dx: -15, dy: 2 },
   { dx: -20, dy: 4 },
   { x: SHAFT_LEFT_X, dy: 0 },
@@ -80,7 +78,12 @@ export function Logo() {
   const { bone, paw, fingers } = logoConfig;
 
   return (
-    <svg width="100%" height="100%" viewBox="0 0 128 128">
+    <svg
+      width="128"
+      height="128"
+      viewBox="34 10 60 74"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       {/* ================= BONE ================= */}
       <g
         fill={BONE_COLOR}
@@ -104,7 +107,6 @@ export function Logo() {
           `}
         />
 
-        {/* Top bone flares */}
         <circle cx={SHAFT_LEFT_X} cy={SHAFT_TOP_Y} r="14" />
         <circle cx={SHAFT_RIGHT_X} cy={SHAFT_TOP_Y} r="14" />
       </g>
@@ -137,20 +139,5 @@ export function Logo() {
 /* ================= TEST PAGE ================= */
 
 export default function LogoTest() {
-  return (
-    <div
-      style={{
-        width: "100vw",
-        height: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#111",
-      }}
-    >
-      <div style={{ width: "80vmin", height: "80vmin" }}>
-        <Logo />
-      </div>
-    </div>
-  );
+  return (<Logo />);
 }

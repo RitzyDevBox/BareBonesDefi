@@ -1,0 +1,45 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="128"
+  height="128"
+  viewBox="34 10 60 74"
+>
+  <!-- BONE -->
+  <g
+    fill="#ECEBE6"
+    stroke="#B9B7AF"
+    stroke-width="0.75"
+    transform="translate(64 64) scale(1.25) translate(-64 -64)"
+  >
+    <path
+      d="
+        M52 36
+        L76 36
+        L77 67
+        L76 67
+        L72 71
+        L67 69
+        L64 73
+        L61 69
+        L56 71
+        L52 67
+        Z
+      "
+    />
+    <circle cx="52" cy="36" r="14" />
+    <circle cx="76" cy="36" r="14" />
+  </g>
+
+  <!-- PAW PAD -->
+  <circle
+    cx="64"
+    cy="52"
+    r="13.5"
+    fill="#4C5D73"
+  />
+
+  <!-- FINGERS -->
+  <circle cx="47" cy="34" r="7.5" fill="#2F3A4A" />
+  <circle cx="64" cy="29" r="7.5" fill="#2F3A4A" />
+  <circle cx="81" cy="34" r="7.5" fill="#2F3A4A" />
+</svg>
