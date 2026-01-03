@@ -61,40 +61,31 @@ export function DeployDiamondWidget({
     }
   }, [provider, account, lifecycle, onDeployed]);
 
-  return (
-    <Card>
-      <CardContent>
-        <Stack gap="md">
-          <Text.Title style={{ textAlign: "left" }}>
-            Deploy Diamond Wallet
-          </Text.Title>
+  return (<>
+    <ButtonPrimary onClick={deploy} disabled={isDeploying}>
+        {isDeploying ? "Deploying…" : "Deploy Wallet"}
+    </ButtonPrimary>
 
-          <ButtonPrimary onClick={deploy} disabled={isDeploying}>
-            {isDeploying ? "Deploying…" : "Deploy Wallet"}
-          </ButtonPrimary>
+    {deployedAddress && (
+        <Surface>
+            <Stack gap="sm">
+            <Text.Label>
+                Wallet #{walletIndex}
+            </Text.Label>
 
-          {deployedAddress && (
-            <Surface>
-              <Stack gap="sm">
-                <Text.Label>
-                  Wallet #{walletIndex}
-                </Text.Label>
-
-                <ClickableSurface
-                  onClick={() =>
-                    navigator.clipboard.writeText(deployedAddress)
-                  }
-                  style={{ wordBreak: "break-all" }}
-                >
-                  <Text.Body style={{ margin: 0 }}>
-                    {deployedAddress}
-                  </Text.Body>
-                </ClickableSurface>
-              </Stack>
-            </Surface>
-          )}
-        </Stack>
-      </CardContent>
-    </Card>
+            <ClickableSurface
+                onClick={() =>
+                navigator.clipboard.writeText(deployedAddress)
+                }
+                style={{ wordBreak: "break-all" }}
+            >
+                <Text.Body style={{ margin: 0 }}>
+                {deployedAddress}
+                </Text.Body>
+            </ClickableSurface>
+            </Stack>
+        </Surface>
+        )}
+    </>
   );
 }
