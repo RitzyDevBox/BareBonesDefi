@@ -23,7 +23,6 @@ import { toastStore } from "../components/Toasts/toast.store";
 
 import { TokenSelect } from "../components/TokenSelect/TokenSelect";
 import { ButtonPrimary } from "../components/Button/ButtonPrimary";
-import LogoTest from "../components/PageWrapper/Logo";
 
 const TOKEN_ADDRESSES = [
   "0x5555555555555555555555555555555555555555",
@@ -83,8 +82,6 @@ export function TestPage() {
     <Card style={{ maxWidth: "min(90vw, 600px)", margin: "0 auto" }}>
       <CardContent>
         <Text.Title>Modal Resize Test</Text.Title>
-
-        <LogoTest/>
 
         <ButtonPrimary onClick={() => setOpen(true)}>
           Open Modal

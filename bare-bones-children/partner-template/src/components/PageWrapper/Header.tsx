@@ -5,6 +5,7 @@ import { Text } from "../BasicComponents";
 import { ButtonPrimary } from "../Button/ButtonPrimary";
 import { ChainSelector } from "./ChainSelector";
 import { Row, Surface } from "../Primitives";
+import { Logo } from "./Logo";
 
 interface HeaderProps {
   account: string | null;
@@ -38,15 +39,26 @@ export function Header({
           margin: "0 auto",
         }}
       >
-        {/* LEFT — brand */}
+      <Surface
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          padding: "6px 10px",
+        }}
+      >
+        <Logo size={28} />
+
         <Text.Body
           style={{
             fontWeight: 600,
             letterSpacing: "0.2px",
+            lineHeight: 1,
           }}
         >
           {APP_NAME}
         </Text.Body>
+      </Surface>
 
         {/* RIGHT — controls */}
         <Row gap="sm" align="center">

@@ -8,6 +8,10 @@ export interface PartMeta {
   scale: number;
 }
 
+export interface LogoProps {
+  size?: number | string; // 👈 NEW
+}
+
 /* ================= CONFIG ================= */
 
 export const logoConfig = {
@@ -29,7 +33,7 @@ const SHAFT_RIGHT_X = 76;
 const SHAFT_TOP_Y = 36;
 const SHAFT_BOTTOM_Y = 67;
 
-/* ===== modern neutral palette ===== */
+/* ===== palette ===== */
 
 const BONE_COLOR   = "#ECEBE6";
 const BONE_STROKE  = "#B9B7AF";
@@ -74,13 +78,13 @@ const FINGER_RADIUS = 7.5;
 
 /* ================= LOGO ================= */
 
-export function Logo() {
+export function Logo({ size = 128 }: LogoProps) {
   const { bone, paw, fingers } = logoConfig;
 
   return (
     <svg
-      width="128"
-      height="128"
+      width={size}
+      height={size}
       viewBox="34 10 60 74"
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -136,8 +140,3 @@ export function Logo() {
   );
 }
 
-/* ================= TEST PAGE ================= */
-
-export default function LogoTest() {
-  return (<Logo />);
-}
