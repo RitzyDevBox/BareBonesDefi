@@ -6,6 +6,7 @@ import { ChainSelector } from "./ChainSelector";
 import { Row, Surface } from "../Primitives";
 import { Logo } from "./Logo";
 import { Text } from "../Primitives/Text"
+import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
   account: string | null;
@@ -20,6 +21,8 @@ export function Header({
   onConnectWallet,
   onChainChange,
 }: HeaderProps) {
+  const navigate = useNavigate();
+
   return (
     <Surface
       as="header"
@@ -39,27 +42,28 @@ export function Header({
           margin: "0 auto",
         }}
       >
-      <Surface
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 4,
-          padding: "6px 10px",
-        }}
-      >
-        <Logo size={28} />
-
-        <Text.Body
+        <Surface
+          clickable
+          onClick={() => navigate("/basic-wallet-facet")}
           style={{
-            fontWeight: 600,
-            letterSpacing: "0.2px",
-            lineHeight: 1,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "6px 10px",
+            cursor: "pointer",
           }}
         >
-          {APP_NAME}
-        </Text.Body>
-      </Surface>
-
+          <Logo size={28} />
+          <Text.Body
+            style={{
+              fontWeight: 600,
+              letterSpacing: "0.2px",
+              lineHeight: 1,
+            }}
+          >
+            {APP_NAME}
+          </Text.Body>
+        </Surface>
         {/* RIGHT — controls */}
         <Row gap="sm" align="center">
           {account && chainId !== null && (
@@ -72,10 +76,7 @@ export function Header({
           <ThemeToggle />
 
           {!account ? (
-            <ButtonPrimary
-              size="sm"          // 👈 assume ButtonPrimary supports size
-              onClick={onConnectWallet}
-            >
+            <ButtonPrimary size="sm" onClick={onConnectWallet}>
               Connect
             </ButtonPrimary>
           ) : (

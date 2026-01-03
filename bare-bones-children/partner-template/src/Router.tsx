@@ -4,19 +4,26 @@ import { DeployDiamondPage } from "./pages/DeployWalletPage";
 import { BasicWalletPage } from "./pages/BasicWalletPage";
 import { TestPage } from "./pages/TestPage";
 
+const devOnlyRoutes = import.meta.env.DEV
+  ? [{ path: "test-page", element: <TestPage /> }]
+  : [];
+
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
     children: [
-      // / → /swap
+      // / → /deploy-wallet
       { index: true, element: <Navigate to="/deploy-wallet" replace /> },
 
-      // Other pages
+      // Main pages
       { path: "deploy-wallet", element: <DeployDiamondPage /> },
       { path: "basic-wallet-facet/:diamondAddress?", element: <BasicWalletPage /> },
-      { path: "test-page", element: <TestPage />},
-      // Catch-all fallback → /deploy-wallet
+
+      // 👇 dev-only routes (NOT bundled in prod)
+      ...devOnlyRoutes,
+
+      // Catch-all fallback
       { path: "*", element: <Navigate to="/deploy-wallet" replace /> },
     ],
   },
