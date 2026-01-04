@@ -3,13 +3,15 @@
 import { CSSProperties, PropsWithChildren } from "react";
 import { cssVar } from "../../utils/themeUtils";
 
+type TextAlign = "left" | "center" | "right";
+
 type TextProps = PropsWithChildren<{
   style?: CSSProperties;
+  align?: TextAlign;
 }>;
 
-// ----------------------
 export const Text = {
-  Title({ children, style }: TextProps) {
+  Title({ children, style, align = "center" }: TextProps) {
     return (
       <h3
         style={{
@@ -17,7 +19,7 @@ export const Text = {
           fontWeight: cssVar("textStyles-title-fontWeight"),
           margin: 0,
           color: cssVar("colors-text-main"),
-          textAlign: "center",
+          textAlign: align,
           ...style,
         }}
       >
@@ -26,13 +28,14 @@ export const Text = {
     );
   },
 
-  Label({ children, style }: TextProps) {
+  Label({ children, style, align = "left" }: TextProps) {
     return (
       <label
         style={{
           fontSize: cssVar("textStyles-label-fontSize"),
           fontWeight: cssVar("textStyles-label-fontWeight"),
           color: cssVar("colors-text-label"),
+          textAlign: align,
           ...style,
         }}
       >
@@ -41,12 +44,13 @@ export const Text = {
     );
   },
 
-  Body({ children, style }: TextProps) {
+  Body({ children, style, align = "left" }: TextProps) {
     return (
       <p
         style={{
           fontSize: cssVar("textStyles-body-fontSize"),
           color: cssVar("colors-text-main"),
+          textAlign: align,
           ...style,
         }}
       >

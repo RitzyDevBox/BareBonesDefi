@@ -7,9 +7,13 @@ import { DeployDiamondWidget } from "../components/DeployWalletWidget";
 import { useUserWalletCount } from "../hooks/wallet/useUserWalletCount";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { ButtonPrimary } from "../components/Button/ButtonPrimary";
+import { ROUTES } from "../routes";
 
 export function WalletSelectorPage() {
   const navigate = useNavigate();
+  const navigateToWallet = (address: string) => {
+    navigate(ROUTES.BASIC_WALLET_WITH_ADDRESS(address));
+  };
   const { count: walletCount, loading, connected } = useUserWalletCount();
   const { connect } = useWalletProvider();
 
@@ -46,9 +50,7 @@ export function WalletSelectorPage() {
       <PageContainer>
         <Card>
           <CardContent>
-            <DeployDiamondWidget onDeployed={(address) => {
-              navigate(`/basic-wallet-facet/${address}`);
-            }}/>
+            <DeployDiamondWidget onDeployed={navigateToWallet}/>
           </CardContent>
         </Card>
       </PageContainer>
@@ -65,9 +67,7 @@ export function WalletSelectorPage() {
 
           <WalletSelector
             walletCount={walletCount!}
-            onSelect={(address) => {
-            navigate(`/basic-wallet-facet/${address}`);
-          }}/>
+            onSelect={navigateToWallet}/>
         </CardContent>
       </Card>
     </PageContainer>

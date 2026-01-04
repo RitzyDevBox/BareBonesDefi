@@ -14,6 +14,7 @@ import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { WalletSelectorPage } from "./WalletSelectorPage";
 import { Stack } from "../components/Primitives";
 import { WalletActionHeader } from "../components/UniversalWalletModal/components/WalletActionHeader";
+import { ROUTES } from "../routes";
 
 export function BasicWalletPage() {
   const { diamondAddress } = useParams<{ diamondAddress?: string }>();
@@ -29,6 +30,9 @@ function BasicWallet({ diamondAddress }: { diamondAddress: string }) {
   const [action, setAction] = useState<UniversalActionType | null>(UniversalActionType.DEPOSIT);
   const [submittedValues, setSubmittedValues] = useState<any | null>(null);
   const navigate = useNavigate();
+  const navigateToWallet = (address: string) => {
+    navigate(ROUTES.BASIC_WALLET_WITH_ADDRESS(address));
+  };
 
   if (!provider) {
     return <div>No wallet connected</div>;
@@ -49,7 +53,7 @@ function BasicWallet({ diamondAddress }: { diamondAddress: string }) {
               onWalletChange={(address) => {
                 setAction(null);
                 setSubmittedValues(null);
-                navigate(`/basic-wallet-facet/${address}`);
+                navigateToWallet(address);
               }}
             />
 
