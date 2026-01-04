@@ -44,7 +44,7 @@ export function Header({
       >
         <Surface
           clickable
-          onClick={() => navigate("/basic-wallet-facet")}
+          onClick={() => navigate("/")}
           style={{
             display: "inline-flex",
             alignItems: "center",

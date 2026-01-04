@@ -2,28 +2,28 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import App from "./App";
 import { BasicWalletPage } from "./pages/BasicWalletPage";
 import { TestPage } from "./pages/TestPage";
+import { LandingPage } from "./pages/LandingPage";
+import { ROUTES } from "./routes";
 
-// Dev-only routes (not bundled in production)
 const devOnlyRoutes = import.meta.env.DEV
   ? [{ path: "test-page", element: <TestPage /> }]
   : [];
 
 export const router = createBrowserRouter([
   {
-    path: "/",
+    path: ROUTES.ROOT,
     element: <App />,
     children: [
-      // / → /basic-wallet-facet (always redirect here)
-      { index: true, element: <Navigate to="/basic-wallet-facet" replace /> },
+      { index: true, element: <LandingPage /> },
 
-      // Main pages
-      { path: "basic-wallet-facet/:diamondAddress?", element: <BasicWalletPage /> },
+      {
+        path: `${ROUTES.BASIC_WALLET}/:diamondAddress?`,
+        element: <BasicWalletPage />,
+      },
 
-      // 👇 dev-only routes (NOT bundled in prod)
       ...devOnlyRoutes,
 
-      // Catch-all fallback → /basic-wallet-facet
-      { path: "*", element: <Navigate to="/basic-wallet-facet" replace /> },
+      { path: "*", element: <Navigate to={ROUTES.ROOT} replace /> },
     ],
   },
 ]);
