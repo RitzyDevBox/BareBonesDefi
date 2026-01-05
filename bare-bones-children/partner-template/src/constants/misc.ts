@@ -16,6 +16,7 @@ export const NFT_AUTHORITY_RESOLVER = "0xFA565823BF266B26F7cA44C2C305BB303C89b63
 export const DIAMOND_FACTORY_ADDRESS = "0x270EEF348212855eCb43374cEAfE012FA8c12B4e";
 export const DIAMOND_INIT_HASH = "0x7f1c1485b422e93d1bde9f6b74e6092d4a69bff10c8ab93283c707f843ec44ff";
 export const APP_NAME = import.meta.env.VITE_APP_NAME
+export const WALLECT_CONNECT_WALLET_NAME = APP_NAME
 
 
 export const DEFAULT_CHAIN_ID = 999;
@@ -68,6 +69,10 @@ export const CHAIN_INFO_MAP: Record<number, ChainInfo> ={
     coinGeckoSlug: "hyperevm",
   }
 }
+
+export const SUPPORTED_CHAIN_IDS = Object.freeze(
+  Object.keys(CHAIN_INFO_MAP).map(Number)
+) as readonly number[];
 
 // Ethereum
 export const NATIVE_ETH: TokenInfo = {

@@ -3,6 +3,7 @@ import App from "./App";
 import { BasicWalletPage } from "./pages/BasicWalletPage";
 import { TestPage } from "./pages/TestPage";
 import { LandingPage } from "./pages/LandingPage";
+import { DappBrowserPage } from "./pages/DappBrowserPage";
 import { ROUTES } from "./routes";
 
 const devOnlyRoutes = import.meta.env.DEV
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
         path: `${ROUTES.BASIC_WALLET}/:diamondAddress?`,
         element: <BasicWalletPage />,
       },
+      {path: `${ROUTES.DAPP_BROWSER}`, element: <DappBrowserPage/> },
 
       ...devOnlyRoutes,
 
