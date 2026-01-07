@@ -14,7 +14,7 @@ export function WalletSelector({
   walletCount,
   onSelect,
 }: WalletSelectorProps) {
-  const { account } = useWalletProvider();
+  const { account, chainId } = useWalletProvider();
 
   if (!account) {
     return <Text.Body>Please connect your wallet.</Text.Body>;
@@ -33,7 +33,7 @@ export function WalletSelector({
           }}
         >
           {Array.from({ length: walletCount }).map((_, index) => {
-            const address = computeDiamondAddress(account, index);
+            const address = computeDiamondAddress(account, index, chainId);
 
             return (
               <Box

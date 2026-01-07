@@ -5,7 +5,7 @@ import { WalletConnectUriInput } from "../components/WalletConnect/WalletConnect
 import { useWalletConnectSession } from "../hooks/wallet-connect/useWalletConnectSession";
 import { useWalletConnectWallet } from "../hooks/wallet-connect/useWalletConnectWallet";
 import { useUserWalletCount } from "../hooks/wallet/useUserWalletCount";
-import { computeDiamondAddress } from "../utils/computeDiamondAddress";
+import { getUserDiamondAddresses } from "../utils/computeDiamondAddress";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { SUPPORTED_CHAIN_IDS } from "../constants/misc";
 import { switchEvmChain } from "../utils/chainUtils";
@@ -14,7 +14,7 @@ const APP_HEADER_HEIGHT = 64;        // your existing header
 const BROWSER_HEADER_HEIGHT = 56;    // new temporary header
 
 export function DappBrowserPage() {
-  const { account, provider } = useWalletProvider();
+  const { account, provider, chainId } = useWalletProvider();
   const sessionUi = useWalletConnectSession();
   const walletCount = useUserWalletCount();
 
@@ -22,12 +22,10 @@ export function DappBrowserPage() {
   const [inputUrl, setInputUrl] = useState(url);
 
   const accounts = useMemo<string[]>(() => {
-    if (!walletCount.count || !account) return [];
-    return Array.from(
-      { length: walletCount.count },
-      (_, index) => computeDiamondAddress(account, index)
-    );
-  }, [walletCount.count, account]);
+    if (!walletCount.count || !account || !chainId) return [];
+
+    return getUserDiamondAddresses(account, walletCount.count, chainId)
+  }, [walletCount.count, account, chainId]);
 
   const wallet = useWalletConnectWallet({
     projectId: import.meta.env.VITE_APP_WALLET_CONNECT_PROJECT_ID,

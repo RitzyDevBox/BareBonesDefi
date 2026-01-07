@@ -3,15 +3,15 @@ import { ethers } from "ethers";
 import { useWalletProvider } from "../useWalletProvider";
 
 import DIAMOND_FACTORY_ABI from "../../abis/diamond/DiamondFactory.abi.json";
-import { DIAMOND_FACTORY_ADDRESS } from "../../constants/misc";
+import { getBareBonesConfiguration } from "../../constants/misc";
 
 export function useUserWalletCount() {
-  const { provider, account } = useWalletProvider();
+  const { provider, account, chainId } = useWalletProvider();
 
   const [count, setCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const connected = !!provider && !!account;
+  const connected = !!provider && !!account && chainId != null;
 
   useEffect(() => {
     if (!connected) {
@@ -25,8 +25,14 @@ export function useUserWalletCount() {
 
     async function load() {
       try {
+        if (chainId == null) {
+          throw new Error("chainId is required");
+        }
+
+        const config = getBareBonesConfiguration(chainId);
+
         const factory = new ethers.Contract(
-          DIAMOND_FACTORY_ADDRESS,
+          config.diamondFactoryAddress,
           DIAMOND_FACTORY_ABI,
           provider
         );
@@ -36,6 +42,10 @@ export function useUserWalletCount() {
 
         if (!cancelled) {
           setCount(nextIndex.toNumber());
+        }
+      } catch {
+        if (!cancelled) {
+          setCount(null);
         }
       } finally {
         if (!cancelled) {
@@ -49,7 +59,7 @@ export function useUserWalletCount() {
     return () => {
       cancelled = true;
     };
-  }, [connected, provider, account]);
+  }, [connected, provider, account, chainId]);
 
   return { count, loading, connected };
 }

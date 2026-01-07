@@ -1,20 +1,17 @@
 import { ethers } from "ethers";
 import DIAMOND_FACTORY_ABI from "../abis/diamond/DiamondFactory.abi.json";
-import {
-  DIAMOND_FACTORY_ADDRESS,
-  OWNER_AUTHORITY_RESOLVER,
-} from "../constants/misc";
+import { getBareBonesConfiguration } from "../constants/misc";
 import { RawTx } from "./basicWalletUtils";
 
 export interface DeployDiamondArgs {
   owner: string;
+  chainId: number | null;
 }
 
 export interface DiamondDeployedResult {
   diamondAddress: string;
   index: number;
 }
-
 
 /**
  * Builds a raw tx for deploying a Diamond wallet via the factory.
@@ -23,14 +20,20 @@ export interface DiamondDeployedResult {
 export function buildDeployEOAOwnerBasedDiamondRawTx(
   args: DeployDiamondArgs
 ): RawTx {
+  if (args.chainId == null) {
+    throw new Error("chainId is required to deploy Diamond");
+  }
+
+  const config = getBareBonesConfiguration(args.chainId);
+
   const iface = new ethers.utils.Interface(DIAMOND_FACTORY_ABI);
   const options = ethers.utils.defaultAbiCoder.encode(["address"],[args.owner]);
 
   return {
-    to: DIAMOND_FACTORY_ADDRESS,
+    to: config.diamondFactoryAddress,
     value: 0,
     data: iface.encodeFunctionData("deployDiamond", [
-      OWNER_AUTHORITY_RESOLVER,
+      config.ownerAuthorityResolverAddress,
       options,
     ]),
   };

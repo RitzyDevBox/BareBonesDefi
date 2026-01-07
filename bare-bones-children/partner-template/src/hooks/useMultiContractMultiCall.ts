@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ethers, BigNumber } from "ethers";
 import MULTICALL3_ABI from "../abis/Multicall3.json";
+import { DEFAULT_CHAIN_ID, getBareBonesConfiguration } from "../constants/misc";
 
 // ----------------------------
 // Types
@@ -32,7 +33,7 @@ export interface MultiCallConfig {
   abiMap: Record<string, any[]>;
   calls: MultiCallRequest[];
   provider: ethers.providers.Provider | undefined;
-  multicall3: string;
+  chainId: number | null;
   deps?: any[];
 }
 
@@ -45,14 +46,22 @@ export function useMultiContractMultiCall<T>({
   abiMap,
   calls,
   provider,
-  multicall3 = '0xca11bde05977b3631167028862be2a173976ca11',
+  chainId,
   deps = [],
 }: MultiCallConfig) {
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const multicallAddress = useMemo(() => {
+    const readChain = chainId ?? DEFAULT_CHAIN_ID
+    return getBareBonesConfiguration(readChain).multicall3Address
+  }, [chainId])
 
   useEffect(() => {
-    if (!provider || contracts.length === 0 || calls.length === 0) return;
+    if (!provider || contracts.length === 0 || calls.length === 0) { 
+      setData(null);
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
 
@@ -109,7 +118,7 @@ export function useMultiContractMultiCall<T>({
         // Execute multicall3
         // ----------------------------
         const multicallContract = new ethers.Contract(
-          multicall3,
+          multicallAddress,
           MULTICALL3_ABI,
           provider
         );
@@ -146,7 +155,10 @@ export function useMultiContractMultiCall<T>({
 
         if (!cancelled) setData(result);
       } catch (err) {
-        console.error("Multicall error:", err);
+        if (process.env.NODE_ENV === "development") {
+          console.error("Multicall error:", err);
+        }
+
         if (!cancelled) setData(null);
       } finally {
         if (!cancelled) setLoading(false);
@@ -158,7 +170,7 @@ export function useMultiContractMultiCall<T>({
       cancelled = true;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, multicall3, abiMap, contracts, calls, ...deps]);
+  }, [provider, multicallAddress, abiMap, contracts, calls, ...deps]);
 
   return { data, loading };
 }

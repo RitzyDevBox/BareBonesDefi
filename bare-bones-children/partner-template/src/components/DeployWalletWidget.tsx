@@ -21,7 +21,7 @@ interface DeployDiamondWidgetProps {
 export function DeployDiamondWidget({
   onDeployed,
 }: DeployDiamondWidgetProps) {
-  const { provider, account } = useWalletProvider();
+  const { provider, account, chainId } = useWalletProvider();
 
   const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
   const [walletIndex, setWalletIndex] = useState<number | null>(null);
@@ -38,7 +38,7 @@ export function DeployDiamondWidget({
       await executeTx(
         provider,
         async () =>
-          buildDeployEOAOwnerBasedDiamondRawTx({ owner: account }),
+          buildDeployEOAOwnerBasedDiamondRawTx({ owner: account, chainId: chainId }),
         lifecycle,
         (receipt) => {
           const { diamondAddress, index } =
@@ -54,7 +54,7 @@ export function DeployDiamondWidget({
     } finally {
       setIsDeploying(false);
     }
-  }, [provider, account, lifecycle, onDeployed]);
+  }, [provider, account, lifecycle, onDeployed, chainId]);
 
   return (<>
     <ButtonPrimary onClick={deploy} disabled={isDeploying}>

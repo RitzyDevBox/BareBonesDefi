@@ -10,16 +10,39 @@ export const walletAddress = "0x2b94f955813532cdcf5bf77c4242fa762c132a79"
 export const testTokenAddress = "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c";
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const NATIVE_ADDRESS = ZERO_ADDRESS
-export const MULTICALL3_ADDRESS = '0xca11bde05977b3631167028862be2a173976ca11';
-export const OWNER_AUTHORITY_RESOLVER = "0x7E2a43DD6b95c518a5248fD5a2A57315D767499b";
-export const NFT_AUTHORITY_RESOLVER = "0xFA565823BF266B26F7cA44C2C305BB303C89b63a";
-export const DIAMOND_FACTORY_ADDRESS = "0x270EEF348212855eCb43374cEAfE012FA8c12B4e";
-export const DIAMOND_INIT_HASH = "0x7f1c1485b422e93d1bde9f6b74e6092d4a69bff10c8ab93283c707f843ec44ff";
 export const APP_NAME = import.meta.env.VITE_APP_NAME
 export const WALLECT_CONNECT_WALLET_NAME = APP_NAME
 
 
 export const DEFAULT_CHAIN_ID = 999;
+
+
+
+export interface BareBonesConfiguration {
+  diamondFactoryAddress: string;
+  diamondFactoryInitHash: string;
+  ownerAuthorityResolverAddress: string;
+  nftAuthorityResolverAddress: string;
+  multicall3Address: string,
+}
+
+export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
+  diamondFactoryAddress: "0x270EEF348212855eCb43374cEAfE012FA8c12B4e",
+  diamondFactoryInitHash: "0x7f1c1485b422e93d1bde9f6b74e6092d4a69bff10c8ab93283c707f843ec44ff",
+  ownerAuthorityResolverAddress: "0x7E2a43DD6b95c518a5248fD5a2A57315D767499b",
+  nftAuthorityResolverAddress: "0xFA565823BF266B26F7cA44C2C305BB303C89b63a",
+  multicall3Address: "0xca11bde05977b3631167028862be2a173976ca11",
+} as const;
+
+export const BARE_BONES_CHAIN_OVERRIDES: Partial<
+  Record<number, Partial<BareBonesConfiguration>>
+> = {
+  // example:
+  // 1: {
+  //   diamondFactoryAddress: "0x...",
+  // },
+};
+
 
 export interface ChainInfo {
   chainId: number;
@@ -98,3 +121,15 @@ export const NATIVE_TOKENS_BY_CHAIN: Record<number, TokenInfo> = {
   1: NATIVE_ETH,
   999: NATIVE_HYPE,
 };
+
+
+export function getBareBonesConfiguration(
+  chainId: number,
+  overrides?: Partial<BareBonesConfiguration>
+): BareBonesConfiguration {
+  return {
+    ...DEFAULT_BARE_BONES_CONFIG,
+    ...BARE_BONES_CHAIN_OVERRIDES[chainId],
+    ...overrides,
+  };
+}

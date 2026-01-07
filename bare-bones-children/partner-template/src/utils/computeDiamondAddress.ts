@@ -1,12 +1,17 @@
 import { ethers } from "ethers";
-import { DIAMOND_FACTORY_ADDRESS, DIAMOND_INIT_HASH } from "../constants/misc";
+import { getBareBonesConfiguration } from "../constants/misc";
 
 export function computeDiamondAddress(
-    user: string,
-    index: number,
-    factory: string = DIAMOND_FACTORY_ADDRESS,
-    initCodeHash: string = DIAMOND_INIT_HASH) {
-        
+  user: string,
+  index: number,
+  chainId: number | null
+): string {
+  if (chainId == null) {
+    throw new Error("chainId is required to compute Diamond address");
+  }
+
+  const config = getBareBonesConfiguration(chainId);
+
   const salt = ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
       ["address", "uint256"],
@@ -15,23 +20,27 @@ export function computeDiamondAddress(
   );
 
   return ethers.utils.getCreate2Address(
-    factory,
+    config.diamondFactoryAddress,
     salt,
-    initCodeHash
+    config.diamondFactoryInitHash
   );
 }
 
-
 export function getUserDiamondAddresses(
-    user: string,
-    count: number,
-    factory: string = DIAMOND_FACTORY_ADDRESS,
-    initCodeHash: string = DIAMOND_INIT_HASH) {
-
-  const addrs: string[] = [];
-  for (let i = 0; i < count; i++) {
-    addrs.push(computeDiamondAddress(user, i, factory, initCodeHash));
+  user: string,
+  count: number,
+  chainId: number | null
+): string[] {
+  if (chainId == null) {
+    throw new Error("chainId is required to compute Diamond addresses");
   }
 
-  return addrs;
+  const addresses: string[] = [];
+  for (let i = 0; i < count; i++) {
+    addresses.push(
+      computeDiamondAddress(user, i, chainId)
+    );
+  }
+
+  return addresses;
 }
