@@ -15,6 +15,7 @@ import { WalletSelectorPage } from "./WalletSelectorPage";
 import { Stack } from "../components/Primitives";
 import { WalletActionHeader } from "../components/UniversalWalletModal/components/WalletActionHeader";
 import { ROUTES } from "../routes";
+import { ButtonPrimary } from "../components/Button/ButtonPrimary";
 
 export function BasicWalletPage() {
   const { diamondAddress } = useParams<{ diamondAddress?: string }>();
@@ -61,21 +62,11 @@ function BasicWallet({ diamondAddress }: { diamondAddress: string }) {
               <UniversalWalletActionForm
                 key={`${diamondAddress}-${action}`}
                 action={action}
-                onConfirm={(formValues) =>
-                  setSubmittedValues(formValues)
-                }
-              />
-            )}
-
-            {action && submittedValues && (
-              <ActionHandlerRouter
-                action={action}
-                values={submittedValues}
                 walletAddress={diamondAddress}
                 onDone={() => {
                   setAction(null);
                   setSubmittedValues(null);
-                }}
+                 }}
               />
             )}
           </Stack>

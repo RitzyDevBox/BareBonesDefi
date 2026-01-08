@@ -1,40 +1,43 @@
-import { useEffect } from "react";
+import { useCallback } from "react";
 import { useWalletProvider } from "../../../../hooks/useWalletProvider";
 import { WithdrawModalResponse } from "../../schemas/withdraw.schema";
-
 import { AssetType } from "../../models";
 import { ZERO_ADDRESS } from "../../../../constants/misc";
 import { ActionHandlerProps } from "./models";
 import { useWalletWithdrawCallback } from "../../hooks/useWithdrawCurrencyCallback";
 
-interface Props extends ActionHandlerProps<WithdrawModalResponse> {}
-function WithdrawActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
+function WithdrawActionHandler({
+  values,
+  walletAddress,
+  lifeCycle,
+  children,
+}: ActionHandlerProps<WithdrawModalResponse>) {
   const { provider } = useWalletProvider();
   const { withdraw } = useWalletWithdrawCallback(provider, walletAddress);
 
-  useEffect(() => {
+  const execute = useCallback(async () => {
+    if (!provider || values.asset.token === null) {
+      throw new Error("Wallet not ready");
+    }
 
-    async function run() {
-      if (!provider || values.asset.token === null) return;  
-      const assetType =
-        values.asset.token.address === ZERO_ADDRESS ? AssetType.NATIVE : AssetType.ERC20;
+    const assetType = values.asset.token.address === ZERO_ADDRESS
+        ? AssetType.NATIVE
+        : AssetType.ERC20;
 
-      await withdraw({
+    await withdraw(
+      {
         assetType,
         amount: values.asset.amount,
         recipient: values.recipient,
         decimals: values.asset.token.decimals,
         tokenSymbol: values.asset.token.symbol,
         tokenAddress: values.asset.token.address,
-      }, lifeCycle);
+      },
+      lifeCycle
+    );
+  }, [provider, withdraw, values, lifeCycle]);
 
-      onDone();
-    }
-
-    run();
-  }, [provider, values, withdraw, onDone, walletAddress, lifeCycle]);
-
-  return null;
+  return <>{children(execute)}</>;
 }
 
 export default WithdrawActionHandler;

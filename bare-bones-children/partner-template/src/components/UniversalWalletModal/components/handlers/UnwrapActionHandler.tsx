@@ -1,34 +1,33 @@
-import { useEffect } from "react";
+import { useCallback } from "react";
 import { useWalletProvider } from "../../../../hooks/useWalletProvider";
 import { useUnwrapCallback } from "../../hooks/useWrapCallback";
 import { ActionHandlerProps } from "./models";
 import { UnwrapModalResponse } from "../../schemas/unwrap.schema";
 import { CHAIN_INFO_MAP } from "../../../../constants/misc";
 
-
-interface Props extends ActionHandlerProps<UnwrapModalResponse>{}
-function UnwrapActionHandler({ values, walletAddress, onDone, lifeCycle }: Props) {
+function UnwrapActionHandler({
+  values,
+  walletAddress,
+  lifeCycle,
+  children,
+}: ActionHandlerProps<UnwrapModalResponse>) {
   const { provider, chainId } = useWalletProvider();
   const { unwrap } = useUnwrapCallback(provider, walletAddress);
 
-  useEffect(() => {
-
-    async function run() {
-      if (!provider || !chainId) return; 
-      
-      const args = {
-        amount: values.asset.amount,
-        wethAddress: CHAIN_INFO_MAP[chainId].wethAddress,
-      };
-
-      await unwrap(args, lifeCycle);
-      onDone();
+  const execute = useCallback(async () => {
+    if (!provider || !chainId) {
+      throw new Error("Wallet not ready");
     }
 
-    run();
-  }, [provider, values, unwrap, onDone, walletAddress, lifeCycle, chainId]);
+    const args = {
+      amount: values.asset.amount,
+      wethAddress: CHAIN_INFO_MAP[chainId].wethAddress,
+    };
 
-  return null;
+    await unwrap(args, lifeCycle);
+  }, [provider, chainId, unwrap, values, lifeCycle]);
+
+  return <>{children(execute)}</>;
 }
 
-export default UnwrapActionHandler
+export default UnwrapActionHandler;

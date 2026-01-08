@@ -5,15 +5,18 @@ import { useActionSchema } from "./hooks/useActionSchema";
 import { RenderFieldComponent } from "./components/RenderFieldComponent";
 import { Stack } from "../Primitives";
 import { ButtonPrimary } from "../Button/ButtonPrimary";
+import { ActionHandlerRouter } from "./components/ActionHandlerRouter";
 
 interface UniversalWalletActionFormProps {
   action: UniversalActionType;
-  onConfirm: (values: Record<string, any>) => void;
+  walletAddress: string;
+  onDone: () => void;
 }
 
 export function UniversalWalletActionForm({
   action,
-  onConfirm,
+  walletAddress,
+  onDone,
 }: UniversalWalletActionFormProps) {
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const schema = useActionSchema(action);
@@ -39,9 +42,23 @@ export function UniversalWalletActionForm({
         />
       ))}
 
-      <ButtonPrimary onClick={() => onConfirm(formValues)}>
-        Confirm
-      </ButtonPrimary>
+      <ActionHandlerRouter
+        action={action}
+        values={formValues}
+        walletAddress={walletAddress}
+        onDone={onDone}
+      >
+        {(execute) => (
+          <ButtonPrimary
+            onClick={async () => {
+              await execute();
+              onDone();
+            }}
+          >
+            Confirm
+          </ButtonPrimary>
+        )}
+      </ActionHandlerRouter>
     </Stack>
   );
 }
