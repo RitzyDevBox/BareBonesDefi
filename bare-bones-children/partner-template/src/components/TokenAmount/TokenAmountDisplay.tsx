@@ -67,7 +67,7 @@ export function TokenAmountDisplay({
   const tokenChangeDisabled = options.preventTokenChange === true;
 
   return (
-    <Surface style={{ padding: "var(--spacing-md) var(--spacing-sm) 0px var(--spacing-sm)" }}>
+    <Surface style={{ padding: "var(--spacing-md) var(--spacing-sm) var(--spacing-sm) var(--spacing-sm)" }}>
       <Stack gap="xs">
         {/* TOP ROW */}
         <Row justify="between" align="center">
@@ -98,7 +98,7 @@ export function TokenAmountDisplay({
           </ClickableSurface>
         </Row>
 
-        <Row justify="between" align="center" style={{ fontSize: "0.75rem", lineHeight: 1.2, opacity: 0.85 }}>
+        <Row justify="between" align="center" style={{ fontSize: "0.75rem", lineHeight: 1.5, opacity: 0.85 }}>
           <Text.Body
             style={{
               fontSize: "0.75em",
