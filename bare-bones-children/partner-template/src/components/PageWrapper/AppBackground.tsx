@@ -187,7 +187,7 @@ export function AppBackground({ children }: AppBackgroundProps) {
       </div>
 
       {/* Toggle Button */}
-      {bg.honeycomb && (
+      {/* {bg.honeycomb && (
         <button
           onClick={toggleHoneycomb}
           style={{
@@ -208,7 +208,7 @@ export function AppBackground({ children }: AppBackgroundProps) {
         >
           {honeycombEnabled ? "🐝 Disable Animation" : "🐝 Enable Animation"}
         </button>
-      )}
+      )} */}
 
       {/* APP CONTENT */}
       <div

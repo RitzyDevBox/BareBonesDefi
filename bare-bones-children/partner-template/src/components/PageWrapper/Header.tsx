@@ -6,11 +6,10 @@ import { ChainSelector } from "./ChainSelector";
 import { Row, Surface } from "../Primitives";
 import { Logo } from "./Logo";
 import { Text } from "../Primitives/Text";
-import { Select } from "../Select/Select";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMediaQuery, ScreenSize } from "../../hooks/useMediaQuery";
 import { NAV_ITEMS } from "./navConfig";
-import { SelectOption } from "../Select";
+import { HamburgerMenu } from "./HamburgerMenu";
 
 
 interface HeaderProps {
@@ -20,7 +19,60 @@ interface HeaderProps {
   onChainChange: (chainId: number) => void;
 }
 
-export function Header({
+const headerStyle = {
+  position: "sticky" as const,
+  top: 0,
+  zIndex: 100,
+  borderBottom: "1px solid var(--colors-border)",
+  padding: "var(--spacing-sm) var(--spacing-md)",
+};
+
+const containerStyle = {
+  maxWidth: 1200,
+  margin: "0 auto",
+  gap: "var(--spacing-md)",
+};
+
+const logoStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "6px 10px",
+};
+
+export function Header(props: HeaderProps) {
+  const screen = useMediaQuery();
+
+  const isCompact =
+    screen === ScreenSize.Phone || screen === ScreenSize.Tablet;
+
+  return isCompact ? (
+    <MobileHeader {...props} />
+  ) : (
+    <FullHeader {...props} />
+  );
+}
+
+function WalletStatus({
+  account,
+  onConnectWallet,
+}: {
+  account: string | null;
+  onConnectWallet: () => void;
+}) {
+  return !account ? (
+    <ButtonPrimary size="sm" onClick={onConnectWallet}>
+      Connect
+    </ButtonPrimary>
+  ) : (
+    <Text.Body style={{ fontSize: "0.85em" }}>
+      {shortAddress(account)}
+    </Text.Body>
+  );
+}
+
+
+function FullHeader({
   account,
   chainId,
   onConnectWallet,
@@ -28,95 +80,43 @@ export function Header({
 }: HeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const screen = useMediaQuery();
-
-  const isCompact =
-    screen === ScreenSize.Phone || screen === ScreenSize.Tablet;
 
   return (
-    <Surface
-      as="header"
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-        borderBottom: "1px solid var(--colors-border)",
-        padding: "var(--spacing-sm) var(--spacing-md)",
-      }}
-    >
-      <Row
-        justify="between"
-        align="center"
-        style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          gap: "var(--spacing-md)",
-        }}
-      >
+    <Surface as="header" style={headerStyle}>
+      <Row justify="between" align="center" style={containerStyle}>
         {/* LEFT */}
         <Row gap="md" align="center">
-          <Surface
-            clickable
-            onClick={() => navigate("/")}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "6px 10px",
-            }}
-          >
+          <Surface clickable onClick={() => navigate("/")} style={logoStyle}>
             <Logo size={28} />
             <Text.Body style={{ fontWeight: 600 }}>
               {APP_NAME}
             </Text.Body>
           </Surface>
 
-          {/* NAV */}
-          {isCompact ? (
-            <Select
-              value={location.pathname}
-              onChange={(v) => navigate(v)}
-              placeholder="Navigate"
-              style={{ minWidth: 160 }}
-            >
-              {NAV_ITEMS.map((item) => (
-                  <SelectOption
-                    key={item.id}
-                    value={item.path}
-                    label={item.label}
-                 />
-              ))}
-            </Select>
-          ) : (
-            <Row gap="sm">
-              {NAV_ITEMS.map((item) => {
-                const active = location.pathname === item.path;
+          <Row gap="sm">
+            {NAV_ITEMS.map((item) => {
+              const active = location.pathname === item.path;
 
-                return (
-                  <Surface
-                    key={item.id}
-                    clickable
-                    onClick={() => navigate(item.path)}
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: "var(--radius-md)",
-                      background: active
-                        ? "var(--colors-surfaceHover)"
-                        : "transparent",
-                    }}
-                  >
-                    <Text.Body
-                      style={{
-                        fontWeight: active ? 600 : 500,
-                      }}
-                    >
-                      {item.label}
-                    </Text.Body>
-                  </Surface>
-                );
-              })}
-            </Row>
-          )}
+              return (
+                <Surface
+                  key={item.id}
+                  clickable
+                  onClick={() => navigate(item.path)}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "var(--radius-md)",
+                    background: active
+                      ? "var(--colors-surfaceHover)"
+                      : "transparent",
+                  }}
+                >
+                  <Text.Body style={{ fontWeight: active ? 600 : 500 }}>
+                    {item.label}
+                  </Text.Body>
+                </Surface>
+              );
+            })}
+          </Row>
         </Row>
 
         {/* RIGHT */}
@@ -129,21 +129,31 @@ export function Header({
           )}
 
           <ThemeToggle />
+          <WalletStatus account={account} onConnectWallet={onConnectWallet} />
+        </Row>
+      </Row>
+    </Surface>
+  );
+}
 
-          {!account ? (
-            <ButtonPrimary size="sm" onClick={onConnectWallet}>
-              Connect
-            </ButtonPrimary>
-          ) : (
-            <Text.Body
-              style={{
-                fontSize: "0.85em",
-                color: "var(--colors-text-muted)",
-              }}
-            >
-              {shortAddress(account)}
-            </Text.Body>
-          )}
+function MobileHeader({
+  account,
+  onConnectWallet,
+}: HeaderProps) {
+  const navigate = useNavigate();
+
+  return (
+    <Surface as="header" style={headerStyle}>
+      <Row justify="between" align="center" style={containerStyle}>
+        {/* LEFT */}
+        <Surface clickable onClick={() => navigate("/")} style={logoStyle}>
+          <Logo size={28} />
+        </Surface>
+
+        {/* RIGHT */}
+        <Row gap="sm" align="center">
+          <WalletStatus account={account} onConnectWallet={onConnectWallet} />
+          <HamburgerMenu account={account} />
         </Row>
       </Row>
     </Surface>

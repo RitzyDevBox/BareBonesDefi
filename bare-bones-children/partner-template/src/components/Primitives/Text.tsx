@@ -3,11 +3,13 @@ import { cssVar } from "../../utils/themeUtils";
 
 type TextAlign = "left" | "center" | "right";
 type TextColor = "main" | "secondary" | "label" | "muted";
+type FontWeight = CSSProperties["fontWeight"];
 
 type TextProps = PropsWithChildren<{
   style?: CSSProperties;
   align?: TextAlign;
   color?: TextColor;
+  weight?: FontWeight;
 }>;
 
 function resolveColor(color?: TextColor) {
@@ -25,12 +27,18 @@ function resolveColor(color?: TextColor) {
 }
 
 export const Text = {
-  Title({ children, style, align = "center", color = "main" }: TextProps) {
+  Title({
+    children,
+    style,
+    align = "center",
+    color = "main",
+    weight,
+  }: TextProps) {
     return (
       <h3
         style={{
           fontSize: cssVar("textStyles-title-fontSize"),
-          fontWeight: cssVar("textStyles-title-fontWeight"),
+          fontWeight: weight ?? cssVar("textStyles-title-fontWeight"),
           margin: 0,
           color: resolveColor(color),
           textAlign: align,
@@ -42,12 +50,18 @@ export const Text = {
     );
   },
 
-  Label({ children, style, align = "left", color = "label" }: TextProps) {
+  Label({
+    children,
+    style,
+    align = "left",
+    color = "label",
+    weight,
+  }: TextProps) {
     return (
       <label
         style={{
           fontSize: cssVar("textStyles-label-fontSize"),
-          fontWeight: cssVar("textStyles-label-fontWeight"),
+          fontWeight: weight ?? cssVar("textStyles-label-fontWeight"),
           color: resolveColor(color),
           textAlign: align,
           ...style,
@@ -58,11 +72,18 @@ export const Text = {
     );
   },
 
-  Body({ children, style, align = "left", color = "main" }: TextProps) {
+  Body({
+    children,
+    style,
+    align = "left",
+    color = "main",
+    weight,
+  }: TextProps) {
     return (
       <p
         style={{
           fontSize: cssVar("textStyles-body-fontSize"),
+          fontWeight: weight ?? cssVar("textStyles-body-fontWeight"),
           color: resolveColor(color),
           textAlign: align,
           margin: 0,
