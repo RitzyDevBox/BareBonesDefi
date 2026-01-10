@@ -128,8 +128,8 @@ function FullHeader({
             />
           )}
 
-          <ThemeToggle />
           <WalletStatus account={account} onConnectWallet={onConnectWallet} />
+          <ThemeToggle />
         </Row>
       </Row>
     </Surface>

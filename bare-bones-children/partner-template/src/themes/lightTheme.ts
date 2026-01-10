@@ -8,7 +8,7 @@ export const lightTheme: AppTheme = {
   colors: {
     // Soft bone / parchment background
     background: "#f4f5f3",
-    surface: "#ffffff",
+    surface: "#f8f9fa",
     surfaceHover: "rgba(0, 0, 0, 0.035)",
 
     // Borders softened (less contrast than before)

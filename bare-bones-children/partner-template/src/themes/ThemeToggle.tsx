@@ -13,6 +13,10 @@ export function ThemeToggle() {
       shape='rounded'
       aria-label="Toggle theme"
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      style={{
+        background: "transparent",
+        border: "none",
+      }}
     >
       {isDark ? "☀️" : "🌙"}
     </IconButton>
