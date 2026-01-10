@@ -35,7 +35,7 @@ export function WalletSelectorModalWithDisplay({
             <WalletIcon />
             ) : (
             <Row align="center" gap="xs">
-                <Text.Body
+              <Text.Body
                 style={{
                     fontSize: "0.75em",
                     color: "var(--colors-text-muted)",
@@ -43,9 +43,9 @@ export function WalletSelectorModalWithDisplay({
                 }}
                 >
                 Wallet:
-                </Text.Body>
+              </Text.Body>
 
-                <Text.Body
+              <Text.Body
                 style={{
                     fontSize: "0.8em",
                     fontWeight: 500,
@@ -53,7 +53,7 @@ export function WalletSelectorModalWithDisplay({
                 }}
                 >
                 {shortAddress(address)}
-                </Text.Body>
+              </Text.Body>
             </Row>
             )}
         </Tooltip>
