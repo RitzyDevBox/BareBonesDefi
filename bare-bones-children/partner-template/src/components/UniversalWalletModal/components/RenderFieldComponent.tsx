@@ -3,6 +3,7 @@ import { ActionNode, FieldComponent } from "../models";
 import { Input } from "../../BasicComponents";
 import { FormField } from "../../FormField";
 import { TokenAmountField } from "../../TokenAmount/TokenAmountField";
+import { useWalletProvider } from "../../../hooks/useWalletProvider";
 
 export function RenderFieldComponent({
   field,
@@ -18,14 +19,14 @@ export function RenderFieldComponent({
   options: any
 }) {
   const placeholder = ""; // remove label duplication
-
+  const { chainId } = useWalletProvider()
   switch (field.component) {
     case FieldComponent.TOKEN_AMOUNT_PICKER:
       return (
         <FormField label={field.label ?? ""}>
           <TokenAmountField
             value={value}
-            chainId={999}
+            chainId={chainId}
             onChange={onChange}
             options={options}
           />

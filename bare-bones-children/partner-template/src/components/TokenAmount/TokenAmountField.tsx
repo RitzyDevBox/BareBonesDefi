@@ -7,7 +7,7 @@ import { TokenAmountInfo, TokenInfo, TokenAmountDisplayFieldOptions } from "../T
 interface TokenAmountFieldProps {
   value: TokenAmountInfo | null;
   onChange: (value: TokenAmountInfo) => void;
-  chainId: number;
+  chainId: number | null;
   options: TokenAmountDisplayFieldOptions;
 }
 

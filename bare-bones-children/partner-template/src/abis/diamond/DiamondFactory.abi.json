@@ -21,6 +21,11 @@
         "name": "_executeFacet",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_walletCallbackFacet",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -60,6 +65,40 @@
       },
       {
         "name": "options",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "diamondAddr",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "deployDiamondWithPostInstaller",
+    "inputs": [
+      {
+        "name": "defaultAuthorizer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "options",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "postInitializer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "postInitOptions",
         "type": "bytes",
         "internalType": "bytes"
       }
@@ -118,19 +157,22 @@
     "anonymous": false
   },
   {
-    "type": "error",
-    "name": "InvalidWalletIndex",
+    "type": "event",
+    "name": "DiamondPostInitialized",
     "inputs": [
       {
-        "name": "requested",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "diamond",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
-        "name": "nextAvailable",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "initializer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
-    ]
+    ],
+    "anonymous": false
   }
 ]
