@@ -5,11 +5,12 @@ import { WalletConnectUriInput } from "../components/WalletConnect/WalletConnect
 import { useWalletConnectSession } from "../hooks/wallet-connect/useWalletConnectSession";
 import { useWalletConnectWallet } from "../hooks/wallet-connect/useWalletConnectWallet";
 import { useUserWalletCount } from "../hooks/wallet/useUserWalletCount";
-import { getUserDiamondAddresses } from "../utils/computeDiamondAddress";
+import { computeDiamondAddressOrDefault, getUserDiamondAddresses } from "../utils/computeDiamondAddress";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { SUPPORTED_CHAIN_IDS } from "../constants/misc";
 import { switchOrAddEvmChain } from "../utils/chainUtils";
 import { useOnSendTransaction } from "../hooks/wallet-connect/provider-methods/useOnSendTransaction";
+import { useOnSignTypedData } from "../hooks/wallet-connect/provider-methods/useOnSignTypedData";
 
 const APP_HEADER_HEIGHT = 64;        // your existing header
 const BROWSER_HEADER_HEIGHT = 56;    // new temporary header
@@ -18,8 +19,10 @@ export function DappBrowserPage() {
   const { account, provider, chainId } = useWalletProvider();
   const sessionUi = useWalletConnectSession();
   const walletCount = useUserWalletCount();
+  const walletAddress = computeDiamondAddressOrDefault(account, 0, chainId)
 
   const onSendTransactionCallback =  useOnSendTransaction()
+  const onSignTypedDataCallback = useOnSignTypedData(walletAddress)
 
   const [url, setUrl] = useState("https://app.uniswap.org");
   const [inputUrl, setInputUrl] = useState(url);
@@ -39,12 +42,11 @@ export function DappBrowserPage() {
 
     onSendTransaction: onSendTransactionCallback,
 
-    onSignMessage: async () => {
+    onSignMessage: async (msg) => {
+      console.log(msg)
       throw new Error("not implemented");
     },
-    onSignTypedData: async () => {
-      throw new Error("not implemented");
-    },
+    onSignTypedData: onSignTypedDataCallback,
     onSwitchChain: async chainId => {
         if (!provider) throw new Error("Provider disconnected");
         await switchOrAddEvmChain(provider, chainId);

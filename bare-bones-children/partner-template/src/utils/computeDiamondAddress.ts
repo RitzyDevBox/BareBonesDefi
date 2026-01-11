@@ -1,6 +1,14 @@
 import { ethers } from "ethers";
 import { getBareBonesConfiguration } from "../constants/misc";
 
+export function computeDiamondAddressOrDefault(user: string | null, index: number, chainId: number | null) {
+  if(chainId == null || !user) {
+    return null;
+  }
+
+  return computeDiamondAddress(user, index, chainId);
+}
+
 export function computeDiamondAddress(
   user: string,
   index: number,

@@ -4,6 +4,7 @@ import type SignClient from "@walletconnect/sign-client";
 import { getWalletConnectClient } from "./walletConnectClient";
 import { TransactionRequest } from "@ethersproject/providers";
 import { useWalletProvider } from "../useWalletProvider";
+import { TypedDataDomain, TypedDataField } from "ethers";
 
 
 /* -----------------------------
@@ -39,6 +40,13 @@ export type SessionRequestEvent = {
   };
 };
 
+export type TypedDataPayload = {
+  domain: TypedDataDomain;
+  types: Record<string, TypedDataField[]>;
+  primaryType: string;
+  message: Record<string, any>;
+};
+
 /* -----------------------------
  * Hook options
  * ---------------------------- */
@@ -49,7 +57,7 @@ type UseWalletConnectWalletOptions = {
 
   onSendTransaction: (tx: TransactionRequest) => Promise<string>;
   onSignMessage: (msg: string) => Promise<string>;
-  onSignTypedData: (typedData: unknown) => Promise<string>;
+  onSignTypedData: (user:string, typedData: TypedDataPayload) => Promise<string>;
   onSwitchChain: (chainId: number) => Promise<void>;
   onSessionProposal: (proposal: SessionProposalEvent) => void;
 };
@@ -222,7 +230,15 @@ export function useWalletConnectWallet(
         return options.onSignMessage(request.params?.[0] as string);
 
       case Eip1193Method.EthSignTypedDataV4:
-        return options.onSignTypedData(request.params?.[1]);
+        {
+            const [user, raw] = request.params as [string, string];
+            if (typeof raw !== "string") {
+              throw new Error("Invalid typed data payload");
+            }
+
+            const msg = JSON.parse(raw) as TypedDataPayload;
+            return options.onSignTypedData(user, msg);
+        }
 
       case Eip1193Method.WalletSwitchEthereumChain:
         await options.onSwitchChain(
