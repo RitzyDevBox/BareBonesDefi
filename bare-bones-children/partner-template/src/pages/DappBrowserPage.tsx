@@ -8,7 +8,8 @@ import { useUserWalletCount } from "../hooks/wallet/useUserWalletCount";
 import { getUserDiamondAddresses } from "../utils/computeDiamondAddress";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { SUPPORTED_CHAIN_IDS } from "../constants/misc";
-import { switchEvmChain } from "../utils/chainUtils";
+import { switchOrAddEvmChain } from "../utils/chainUtils";
+import { useOnSendTransaction } from "../hooks/wallet-connect/provider-methods/useOnSendTransaction";
 
 const APP_HEADER_HEIGHT = 64;        // your existing header
 const BROWSER_HEADER_HEIGHT = 56;    // new temporary header
@@ -17,6 +18,8 @@ export function DappBrowserPage() {
   const { account, provider, chainId } = useWalletProvider();
   const sessionUi = useWalletConnectSession();
   const walletCount = useUserWalletCount();
+
+  const onSendTransactionCallback =  useOnSendTransaction()
 
   const [url, setUrl] = useState("https://app.uniswap.org");
   const [inputUrl, setInputUrl] = useState(url);
@@ -29,12 +32,13 @@ export function DappBrowserPage() {
 
   const wallet = useWalletConnectWallet({
     projectId: import.meta.env.VITE_APP_WALLET_CONNECT_PROJECT_ID,
-    chains: SUPPORTED_CHAIN_IDS,
+    // WARNING: We spoof chain 1:Ethereum chain even though its not supported
+    // We need to add chain 1 because websites like uniswap will disconnect if we dont claim to support it
+    chains: [1, ...SUPPORTED_CHAIN_IDS] ,
     accounts,
 
-    onSendTransaction: async () => {
-      throw new Error("not implemented");
-    },
+    onSendTransaction: onSendTransactionCallback,
+
     onSignMessage: async () => {
       throw new Error("not implemented");
     },
@@ -42,8 +46,9 @@ export function DappBrowserPage() {
       throw new Error("not implemented");
     },
     onSwitchChain: async chainId => {
-      if (!provider) throw new Error("Provider disconnected");
-      await switchEvmChain(provider, chainId);
+        if (!provider) throw new Error("Provider disconnected");
+        await switchOrAddEvmChain(provider, chainId);
+        return
     },
 
     onSessionProposal: sessionUi.onSessionProposal,

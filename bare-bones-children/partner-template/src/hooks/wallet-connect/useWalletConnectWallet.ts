@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ProposalTypes } from "@walletconnect/types";
 import type SignClient from "@walletconnect/sign-client";
 import { getWalletConnectClient } from "./walletConnectClient";
+import { TransactionRequest } from "@ethersproject/providers";
+import { useWalletProvider } from "../useWalletProvider";
 
 
 /* -----------------------------
@@ -45,11 +47,10 @@ type UseWalletConnectWalletOptions = {
   chains: readonly number[];
   accounts: readonly string[];
 
-  onSendTransaction: (tx: unknown) => Promise<string>;
+  onSendTransaction: (tx: TransactionRequest) => Promise<string>;
   onSignMessage: (msg: string) => Promise<string>;
   onSignTypedData: (typedData: unknown) => Promise<string>;
   onSwitchChain: (chainId: number) => Promise<void>;
-
   onSessionProposal: (proposal: SessionProposalEvent) => void;
 };
 
@@ -215,7 +216,7 @@ export function useWalletConnectWallet(
         return options.accounts;
 
       case Eip1193Method.EthSendTransaction:
-        return options.onSendTransaction(request.params?.[0]);
+        return options.onSendTransaction(request.params?.[0] as TransactionRequest);
 
       case Eip1193Method.PersonalSign:
         return options.onSignMessage(request.params?.[0] as string);

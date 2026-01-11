@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+import { BytesLike, ethers } from "ethers";
 import ERC20_ABI from "../abis/ERC20.json";
 import { parseErc20, parseNative } from "../utils/transactionUtils";
 import { AssetType } from "../components/UniversalWalletModal/models";
@@ -17,8 +17,8 @@ export interface WrapArgs {
 
 export interface RawTx {
   to: string;
-  value: ethers.BigNumberish;
-  data: string;
+  value: ethers.BigNumberish | undefined;
+  data: BytesLike;
 }
 
 export interface SendNativeArgs {

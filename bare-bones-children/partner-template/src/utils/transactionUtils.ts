@@ -39,7 +39,7 @@ export async function executeTx(
     const handled = handleCommonTxError(err);
     opts?.onError?.(handled);
     return undefined;
-}
+  }
 }
 
 

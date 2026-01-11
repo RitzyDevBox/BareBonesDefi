@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { useWalletProvider } from "./hooks/useWalletProvider";
-import { switchEvmChain } from "./utils/chainUtils";
+import { switchOrAddEvmChain } from "./utils/chainUtils";
 import { ToastHost } from "./components/Toasts/ToastHost";
 import { Header } from "./components/PageWrapper/Header";
 import { AppBackground } from "./components/PageWrapper/AppBackground";
@@ -18,7 +18,7 @@ export default function App() {
           onConnectWallet={connect}
           onChainChange={(chainId) => {
             if (!provider) return;
-            switchEvmChain(provider, chainId);
+            switchOrAddEvmChain(provider, chainId);
           }}
         />
 

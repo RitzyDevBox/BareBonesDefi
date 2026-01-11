@@ -50,9 +50,7 @@ export function Toast({ toast, onClose }: ToastProps) {
       onClick={toast.onClick}
       style={{
         background: `var(--${typeColorVar[toast.type]})`,
-        color: "#fff",
-
-        // ✅ ADD THIS BACK
+        color: "var(--colors-text-main)",
         padding: "var(--spacing-sm)",
 
         opacity: visible ? 1 : 0,

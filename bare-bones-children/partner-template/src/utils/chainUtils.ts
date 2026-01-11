@@ -38,7 +38,7 @@ export async function addEthereumChain(
 
 
 
-export async function switchEvmChain(
+export async function switchOrAddEvmChain(
   provider: providers.Web3Provider,
   chainId: number
 ): Promise<void> {
