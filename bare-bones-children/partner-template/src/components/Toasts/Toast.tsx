@@ -70,16 +70,16 @@ export function Toast({ toast, onClose }: ToastProps) {
         style={{
           top: "var(--spacing-xs)",
           right: "var(--spacing-xs)",
-          color: "#fff",
+          color: "var(--colors-text-main)",
         }}
       />
       <Stack gap="xs">
-        <Text.Label style={{ color: "#fff" }}>
+        <Text.Label style={{ color: "var(--colors-text-label)" }}>
           {toast.title}
         </Text.Label>
 
         {toast.message && (
-          <Text.Body style={{ margin: 0, color: "#fff" }}>
+          <Text.Body style={{ margin: 0, color: "var(--colors-text-main)" }}>
             {toast.message}
           </Text.Body>
         )}
