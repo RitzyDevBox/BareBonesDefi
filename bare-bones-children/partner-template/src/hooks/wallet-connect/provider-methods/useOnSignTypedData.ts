@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { _TypedDataEncoder, getAddress } from "ethers/lib/utils";
 import { useWalletProvider } from "../../useWalletProvider";
 import { TypedDataPayload } from "../useWalletConnectWallet";
-import { validateChainSupported } from "./providerUtils";
+import { isChainSupported } from "./providerUtils";
 import { useToastActionLifecycle } from "../../../components/UniversalWalletModal/hooks/useToastActionLifeCycle";
 
 export function useOnSignTypedData(walletAddress: string | null) {
@@ -21,7 +21,12 @@ export function useOnSignTypedData(walletAddress: string | null) {
       }
 
       const { domain } = payload;
-      validateChainSupported(domain.chainId);
+      const { isSupported, normalizedChain } = isChainSupported(domain.chainId)
+      if(!isSupported) {
+        txOpts.onWarn?.(`Signature was requested on chain: ${normalizedChain} which not supported by this dapp, 
+          some dapps may improperly use the wrong chain but still work.  
+          Do not sign if you think this is operation may lead to dangerous behavior`)
+      }
       return await provider.send("eth_signTypedData_v4", [
         account,
         JSON.stringify(payload)

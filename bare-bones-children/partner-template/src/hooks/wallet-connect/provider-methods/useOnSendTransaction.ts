@@ -3,7 +3,7 @@ import { useToastActionLifecycle } from "../../../components/UniversalWalletModa
 import { useWalletProvider } from "../../useWalletProvider";
 import { executeTx, wrapWithExecute } from "../../../utils/transactionUtils";
 import { TransactionRequest } from "@ethersproject/providers";
-import { validateChainSupported } from "./providerUtils";
+import { isChainSupported } from "./providerUtils";
 
 export function useOnSendTransaction() {
     const { provider } = useWalletProvider()
@@ -12,10 +12,11 @@ export function useOnSendTransaction() {
     return useCallback(async (tx: TransactionRequest) => {
         if (!provider || !tx.from) throw new Error("Provider disconnected");
         
+        // Note: We'd like to validate the chain but tx's prior to EIP-1559 don't contain chain data
         // We had to spoof support for chainId 1 since uniswap and other websites require it
         // however at the moment we don't support it so if they attempt to perorm a transaction 
         // on that chain then we should throw an error.
-        validateChainSupported(tx.chainId);
+        // validateChainSupported(tx.chainId);
         const rawTx = {
             to: tx.to!,
             data: tx.data ?? "0x",

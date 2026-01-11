@@ -1,11 +1,9 @@
 import { BigNumber } from "ethers";
 import { SUPPORTED_CHAIN_IDS } from "../../../constants/misc";
 
-export function validateChainSupported(chainId: unknown) {
+export function isChainSupported(chainId: unknown) {
   const domainChainId = normalizeChainId(chainId);
-  if (!SUPPORTED_CHAIN_IDS.includes(domainChainId)) {
-    throw new Error(`Chain ${domainChainId} not supported`);
-  }
+  return { isSupported: SUPPORTED_CHAIN_IDS.includes(domainChainId), normalizedChain: domainChainId }
 }
 
 export function normalizeChainId(chainId: unknown): number {
