@@ -11,6 +11,8 @@ import { SUPPORTED_CHAIN_IDS } from "../constants/misc";
 import { switchOrAddEvmChain } from "../utils/chainUtils";
 import { useOnSendTransaction } from "../hooks/wallet-connect/provider-methods/useOnSendTransaction";
 import { useOnSignTypedData } from "../hooks/wallet-connect/provider-methods/useOnSignTypedData";
+import { WalletSelectorModalWithDisplay } from "../components/Wallet/WalletSelectorModalWithDisplay";
+import { IconButton } from "../components/Button/IconButton";
 
 const APP_HEADER_HEIGHT = 64;        // your existing header
 const BROWSER_HEADER_HEIGHT = 56;    // new temporary header
@@ -18,21 +20,26 @@ const BROWSER_HEADER_HEIGHT = 56;    // new temporary header
 export function DappBrowserPage() {
   const { account, provider, chainId } = useWalletProvider();
   const sessionUi = useWalletConnectSession();
-  const walletCount = useUserWalletCount();
-  const walletAddress = computeDiamondAddressOrDefault(account, 0, chainId)
-
-  const onSendTransactionCallback =  useOnSendTransaction()
-  const onSignTypedDataCallback = useOnSignTypedData(walletAddress)
-
   const [url, setUrl] = useState("https://app.uniswap.org");
   const [inputUrl, setInputUrl] = useState(url);
+  const [activeWalletAddress, setActiveWalletAddress] = useState<string | null>(null)
+  useEffect(() => {
+    if (!account || !chainId) return;
 
+    setActiveWalletAddress(
+      computeDiamondAddressOrDefault(account, 0, chainId)
+    );
+  }, [account, chainId]);
+  
+  const walletCount = useUserWalletCount();
   const accounts = useMemo<string[]>(() => {
     if (!walletCount.count || !account || !chainId) return [];
 
     return getUserDiamondAddresses(account, walletCount.count, chainId)
   }, [walletCount.count, account, chainId]);
 
+  const onSendTransactionCallback =  useOnSendTransaction()
+  const onSignTypedDataCallback = useOnSignTypedData(activeWalletAddress)
   const wallet = useWalletConnectWallet({
     projectId: import.meta.env.VITE_APP_WALLET_CONNECT_PROJECT_ID,
     // WARNING: We spoof chain 1:Ethereum chain even though its not supported
@@ -55,6 +62,23 @@ export function DappBrowserPage() {
 
     onSessionProposal: sessionUi.onSessionProposal,
   });
+
+  useEffect(() => {
+    if (!wallet.connected || !activeWalletAddress || !chainId) return;
+    wallet.setActiveAccount(activeWalletAddress);
+    
+  }, [activeWalletAddress, chainId, wallet.connected]);
+
+
+  useEffect(() => {
+    const onUnload = () => {
+      wallet.disconnect();
+    };
+
+    window.addEventListener("beforeunload", onUnload);
+    return () => window.removeEventListener("beforeunload", onUnload);
+  }, []);
+
 
   // Kill WC session if injected provider disconnects
   useEffect(() => {
@@ -97,6 +121,7 @@ export function DappBrowserPage() {
           onKeyDown={e => e.key === "Enter" && navigate()}
           style={{
             flex: 1,
+            minWidth: 0,
             height: 36,
             padding: "0 10px",
             borderRadius: 6,
@@ -105,6 +130,15 @@ export function DappBrowserPage() {
         />
 
         <button onClick={navigate}>Go</button>
+        {wallet.connected && account && chainId && activeWalletAddress != null && (
+          <WalletSelectorModalWithDisplay
+            address={activeWalletAddress}
+            onSelect={(addr) => { 
+              setActiveWalletAddress(addr)
+            }}
+            isDisabled={true}
+          />
+        )}
 
         {/* WalletConnect URI input */}
         {!wallet.connected && (
@@ -112,9 +146,20 @@ export function DappBrowserPage() {
         )}
 
         {wallet.connected && (
-          <button onClick={wallet.disconnect}>
-            Disconnect
-          </button>
+
+          <IconButton
+            onClick={wallet.disconnect}
+            aria-label="Disconnect"
+            size={"lg"}
+            shape="square"
+            style={{
+              top: "var(--spacing-md)",
+              right: "var(--spacing-md)",
+              zIndex: 2,
+            }}
+          >
+            ⎋
+          </IconButton>
         )}
       </div>
 

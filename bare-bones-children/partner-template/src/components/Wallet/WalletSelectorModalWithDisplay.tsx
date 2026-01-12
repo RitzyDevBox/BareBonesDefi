@@ -10,11 +10,13 @@ import { WalletIcon } from "../../assets/icons/WalletIcon";
 interface WalletSelectorModalWithDisplayProps {
   address: string;
   onSelect: (address: string, index: number) => void;
+  isDisabled?: boolean
 }
 
 export function WalletSelectorModalWithDisplay({
   address,
   onSelect,
+  isDisabled = false
 }: WalletSelectorModalWithDisplayProps) {
   const [open, setOpen] = useState(false);
   const screen = useMediaQuery();
@@ -24,7 +26,10 @@ export function WalletSelectorModalWithDisplay({
   return (
     <>
       <ClickableSurface
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          if (isDisabled) return;
+          setOpen(true);
+        }}
         style={{
             padding: "var(--spacing-xs) var(--spacing-sm)",
             borderRadius: "var(--radius-md)",
