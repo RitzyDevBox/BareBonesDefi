@@ -63,11 +63,11 @@ export function DappBrowserPage() {
     onSessionProposal: sessionUi.onSessionProposal,
   });
 
-  useEffect(() => {
-    if (!wallet.connected || !activeWalletAddress || !chainId) return;
-    wallet.setActiveAccount(activeWalletAddress);
+  // useEffect(() => {
+  //   if (!wallet.connected || !activeWalletAddress || !chainId) return;
+  //   wallet.setActiveAccount(activeWalletAddress);
     
-  }, [activeWalletAddress, chainId, wallet.connected]);
+  // }, [activeWalletAddress, chainId, wallet.connected]);
 
 
   useEffect(() => {
