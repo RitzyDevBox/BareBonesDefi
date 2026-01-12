@@ -8,15 +8,18 @@ import { AppThemeProvider } from "./themes/AppThemeProvider";
 
 import "./app.css";
 import { WalletProvider } from "./hooks/providers/WalletContext";
+import { WalletConnectProvider } from "./components/WalletConnect/WalletConnectProvider";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <WalletProvider>
-      <ThemeModeProvider>
-        <AppThemeProvider>
-          <RouterProvider router={router} />
-        </AppThemeProvider>
-      </ThemeModeProvider>
+      <WalletConnectProvider>
+        <ThemeModeProvider>
+          <AppThemeProvider>
+            <RouterProvider router={router} />
+          </AppThemeProvider>
+        </ThemeModeProvider>
+      </WalletConnectProvider>
     </WalletProvider>
   </React.StrictMode>
 );
