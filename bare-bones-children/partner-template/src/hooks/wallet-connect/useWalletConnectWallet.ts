@@ -3,9 +3,8 @@ import type { ProposalTypes } from "@walletconnect/types";
 import type SignClient from "@walletconnect/sign-client";
 import { getWalletConnectClient } from "./walletConnectClient";
 import { TransactionRequest } from "@ethersproject/providers";
-import { useWalletProvider } from "../useWalletProvider";
 import { TypedDataDomain, TypedDataField } from "ethers";
-
+import { useWalletProvider } from "../useWalletProvider"; // 👈 IMPORTANT
 
 /* -----------------------------
  * EIP-1193 methods
@@ -19,6 +18,7 @@ export enum Eip1193Method {
   EthSignTypedDataV4 = "eth_signTypedData_v4",
   WalletSwitchEthereumChain = "wallet_switchEthereumChain",
   WalletAddEthereumChain = "wallet_addEthereumChain",
+  WalletGetCapabilities = "wallet_getCapabilities",
 }
 
 /* -----------------------------
@@ -57,10 +57,24 @@ type UseWalletConnectWalletOptions = {
 
   onSendTransaction: (tx: TransactionRequest) => Promise<string>;
   onSignMessage: (msg: string) => Promise<string>;
-  onSignTypedData: (user:string, typedData: TypedDataPayload) => Promise<string>;
+  onSignTypedData: (user: string, typedData: TypedDataPayload) => Promise<string>;
   onSwitchChain: (chainId: number) => Promise<void>;
   onSessionProposal: (proposal: SessionProposalEvent) => void;
 };
+
+/* -----------------------------
+ * Helpers
+ * ---------------------------- */
+// function cleanupExpiredSessions(client: SignClient) {
+//   client.session.getAll().forEach(session => {
+//     if (session.expiry && session.expiry * 1000 < Date.now()) {
+//       client.disconnect({
+//         topic: session.topic,
+//         reason: { code: 6000, message: "Session expired" },
+//       });
+//     }
+//   });
+// }
 
 /* -----------------------------
  * Hook
@@ -73,11 +87,12 @@ export function useWalletConnectWallet(
   const proposalHandlerRef = useRef(options.onSessionProposal);
   proposalHandlerRef.current = options.onSessionProposal;
 
+  const { chainId: activeChainId } = useWalletProvider();
   const [connected, setConnected] = useState(false);
   const [ready, setReady] = useState(false);
 
   /* -----------------------------
-   * Init (singleton)
+   * Init (singleton + rehydrate)
    * ---------------------------- */
   useEffect(() => {
     let mounted = true;
@@ -100,6 +115,12 @@ export function useWalletConnectWallet(
       client.on("session_proposal", handleProposal);
       client.on("session_request", handleSessionRequest);
       client.on("session_delete", handleSessionDelete);
+
+      // cleanupExpiredSessions(client);
+
+      // if (client.session.getAll().length > 0) {
+      //   setConnected(true);
+      // }
 
       setReady(true);
     });
@@ -148,6 +169,29 @@ export function useWalletConnectWallet(
 
     setConnected(true);
   }
+
+  // function setActiveAccount(account: string, chainId?: number) {
+  //   const newAccounts = [account, ...options.accounts.filter(a => a !== account)];
+  //   // setActiveAccounts(newAccounts);
+    
+  //   // Emit immediately with new accounts (don't wait for state update)
+  //   const client = clientRef.current;
+  //   if (!client) return;
+
+  //   const emitChainId = chainId ?? activeChainId;
+  //   if (!emitChainId) return;
+
+  //   client.session.getAll().forEach(session => {
+  //     client.emit({
+  //       topic: session.topic,
+  //       event: {
+  //         name: "accountsChanged",
+  //         data: newAccounts,  // Use new accounts directly
+  //       },
+  //       chainId: `eip155:${emitChainId}`,
+  //     });
+  //   });
+  // }
 
   /* -----------------------------
    * Disconnect
@@ -217,28 +261,38 @@ export function useWalletConnectWallet(
   }): Promise<unknown> {
     switch (request.method) {
       case Eip1193Method.EthChainId:
-        return `0x${options.chains[0].toString(16)}`;
+        if (!activeChainId) {
+          throw new Error("Wallet not connected to a chain");
+        }
+        return `0x${activeChainId.toString(16)}`;
 
       case Eip1193Method.EthAccounts:
       case Eip1193Method.EthRequestAccounts:
         return options.accounts;
 
       case Eip1193Method.EthSendTransaction:
-        return options.onSendTransaction(request.params?.[0] as TransactionRequest);
+        return options.onSendTransaction(
+          request.params?.[0] as TransactionRequest
+        );
 
       case Eip1193Method.PersonalSign:
         return options.onSignMessage(request.params?.[0] as string);
 
-      case Eip1193Method.EthSignTypedDataV4:
-        {
-            const [user, raw] = request.params as [string, string];
-            if (typeof raw !== "string") {
-              throw new Error("Invalid typed data payload");
-            }
-
-            const msg = JSON.parse(raw) as TypedDataPayload;
-            return options.onSignTypedData(user, msg);
+      case Eip1193Method.EthSignTypedDataV4: {
+        const [user, raw] = request.params as [string, string];
+        if (typeof raw !== "string") {
+          throw new Error("Invalid typed data payload");
         }
+        const msg = JSON.parse(raw) as TypedDataPayload;
+        return options.onSignTypedData(user, msg);
+      }
+      case Eip1193Method.WalletGetCapabilities:
+        return {
+          // minimal, safe set
+          atomicBatch: false,
+          paymasterService: false,
+          sessionKeys: false,
+        };
 
       case Eip1193Method.WalletSwitchEthereumChain:
         await options.onSwitchChain(
@@ -257,6 +311,7 @@ export function useWalletConnectWallet(
 
   return {
     pair,
+    // setActiveAccount,
     approveSession,
     disconnect,
     connected,

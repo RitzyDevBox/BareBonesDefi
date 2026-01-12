@@ -3,7 +3,6 @@ import { useToastActionLifecycle } from "../../../components/UniversalWalletModa
 import { useWalletProvider } from "../../useWalletProvider";
 import { executeTx, wrapWithExecute } from "../../../utils/transactionUtils";
 import { TransactionRequest } from "@ethersproject/providers";
-import { isChainSupported } from "./providerUtils";
 
 export function useOnSendTransaction() {
     const { provider } = useWalletProvider()

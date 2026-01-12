@@ -13,17 +13,17 @@ export function AppBackground({ children }: AppBackgroundProps) {
   const animationRef = useRef<number>();
   
   // Get honeycomb enabled state from localStorage
-  const [honeycombEnabled, setHoneycombEnabled] = useState(() => {
+  const [honeycombEnabled, /*setHoneycombEnabled*/] = useState(() => {
     const saved = localStorage.getItem("honeycombEnabled");
     return saved !== null ? saved === "true" : true;
   });
 
   // Save preference to localStorage
-  const toggleHoneycomb = () => {
-    const newValue = !honeycombEnabled;
-    setHoneycombEnabled(newValue);
-    localStorage.setItem("honeycombEnabled", String(newValue));
-  };
+  // const toggleHoneycomb = () => {
+  //   const newValue = !honeycombEnabled;
+  //   setHoneycombEnabled(newValue);
+  //   localStorage.setItem("honeycombEnabled", String(newValue));
+  // };
 
   useEffect(() => {
     if (!honeycombEnabled || !canvasRef.current || !bg.honeycomb) return;
