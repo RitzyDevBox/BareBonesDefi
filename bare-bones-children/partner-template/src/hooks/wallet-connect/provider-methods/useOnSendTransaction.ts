@@ -3,6 +3,7 @@ import { useToastActionLifecycle } from "../../../components/UniversalWalletModa
 import { useWalletProvider } from "../../useWalletProvider";
 import { executeTx, wrapWithExecute } from "../../../utils/transactionUtils";
 import { TransactionRequest } from "@ethersproject/providers";
+import { RawTx } from "../../../utils/basicWalletUtils";
 
 export function useOnSendTransaction() {
     const { provider } = useWalletProvider()
@@ -16,7 +17,7 @@ export function useOnSendTransaction() {
         // however at the moment we don't support it so if they attempt to perorm a transaction 
         // on that chain then we should throw an error.
         // validateChainSupported(tx.chainId);
-        const rawTx = {
+        const rawTx: RawTx = {
             to: tx.to!,
             data: tx.data ?? "0x",
             value: tx.value,

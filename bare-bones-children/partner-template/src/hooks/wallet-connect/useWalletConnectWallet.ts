@@ -1,60 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import type { ProposalTypes } from "@walletconnect/types";
-import type SignClient from "@walletconnect/sign-client";
 import { TransactionRequest } from "@ethersproject/providers";
-import { TypedDataDomain, TypedDataField } from "ethers";
 import { useWalletProvider } from "../useWalletProvider";
 import { useWalletConnectClient } from "../../components/WalletConnect/WalletConnectContext";
+import {
+  Eip1193Method,
+  SessionProposalEvent,
+  SessionRequestEvent,
+  TypedDataPayload,
+} from "./types";
 
-/* -----------------------------
- * EIP-1193 methods
- * ---------------------------- */
-export enum Eip1193Method {
-  EthChainId = "eth_chainId",
-  EthAccounts = "eth_accounts",
-  EthRequestAccounts = "eth_requestAccounts",
-  EthSendTransaction = "eth_sendTransaction",
-  PersonalSign = "personal_sign",
-  EthSignTypedDataV4 = "eth_signTypedData_v4",
-  WalletSwitchEthereumChain = "wallet_switchEthereumChain",
-  WalletAddEthereumChain = "wallet_addEthereumChain",
-  WalletGetCapabilities = "wallet_getCapabilities",
-}
-
-/* -----------------------------
- * Event envelopes
- * ---------------------------- */
-export type SessionProposalEvent = {
-  id: number;
-  params: ProposalTypes.Struct;
-};
-
-export type SessionRequestEvent = {
-  id: number;
-  topic: string;
-  params: {
-    request: {
-      method: string;
-      params?: unknown[];
-    };
-  };
-};
-
-export type TypedDataPayload = {
-  domain: TypedDataDomain;
-  types: Record<string, TypedDataField[]>;
-  primaryType: string;
-  message: Record<string, any>;
-};
-
-/* -----------------------------
- * Hook options
- * ---------------------------- */
-type UseWalletConnectWalletOptions = {
+export type UseWalletConnectWalletOptions = {
   projectId: string;
   chains: readonly number[];
   accounts: readonly string[];
-
+  onEstimateGas: (tx: TransactionRequest) => Promise<string>;
   onSendTransaction: (tx: TransactionRequest) => Promise<string>;
   onSignMessage: (msg: string) => Promise<string>;
   onSignTypedData: (user: string, typedData: TypedDataPayload) => Promise<string>;
@@ -62,22 +21,45 @@ type UseWalletConnectWalletOptions = {
   onSessionProposal: (proposal: SessionProposalEvent) => void;
 };
 
-/* -----------------------------
- * Hook
- * ---------------------------- */
 export function useWalletConnectWallet(
   options: UseWalletConnectWalletOptions
 ) {
   const client = useWalletConnectClient();
-
-  const proposalHandlerRef = useRef(options.onSessionProposal);
-  proposalHandlerRef.current = options.onSessionProposal;
-
   const { chainId: activeChainId } = useWalletProvider();
   const [connected, setConnected] = useState(false);
 
   /* -----------------------------
-   * Init (singleton + rehydrate)
+   * Live state ref (CRITICAL FIX)
+   * ---------------------------- */
+  const stateRef = useRef({
+    chainId: activeChainId,
+    accounts: options.accounts,
+    onEstimateGas: options.onEstimateGas,
+    onSendTransaction: options.onSendTransaction,
+    onSignMessage: options.onSignMessage,
+    onSignTypedData: options.onSignTypedData,
+    onSwitchChain: options.onSwitchChain,
+  });
+
+  // keep ref up to date every render
+  stateRef.current = {
+    chainId: activeChainId,
+    accounts: options.accounts,
+    onEstimateGas: options.onEstimateGas,
+    onSendTransaction: options.onSendTransaction,
+    onSignMessage: options.onSignMessage,
+    onSignTypedData: options.onSignTypedData,
+    onSwitchChain: options.onSwitchChain,
+  };
+
+  /* -----------------------------
+   * Proposal handler ref (already correct)
+   * ---------------------------- */
+  const proposalHandlerRef = useRef(options.onSessionProposal);
+  proposalHandlerRef.current = options.onSessionProposal;
+
+  /* -----------------------------
+   * Init / listeners
    * ---------------------------- */
   useEffect(() => {
     const handleSessionDelete = () => {
@@ -86,6 +68,31 @@ export function useWalletConnectWallet(
 
     const handleProposal = (event: SessionProposalEvent) => {
       proposalHandlerRef.current(event);
+    };
+
+    const handleSessionRequest = async (event: SessionRequestEvent) => {
+      const { topic, id, params } = event;
+
+      try {
+        const result = await handleEip1193Request(params.request);
+        await client.respond({
+          topic,
+          response: { id, jsonrpc: "2.0", result },
+        });
+      } catch (err) {
+        await client.respond({
+          topic,
+          response: {
+            id,
+            jsonrpc: "2.0",
+            error: {
+              code: -32603,
+              message:
+                err instanceof Error ? err.message : "Internal error",
+            },
+          },
+        });
+      }
     };
 
     client.on("session_proposal", handleProposal);
@@ -145,85 +152,54 @@ export function useWalletConnectWallet(
         })
       )
     );
-
     setConnected(false);
   }
 
   /* -----------------------------
-   * Respond helpers
-   * ---------------------------- */
-  function respondSuccess(topic: string, id: number, result: unknown) {
-    return client.respond({
-      topic,
-      response: { id, jsonrpc: "2.0", result },
-    });
-  }
-
-  function respondError(topic: string, id: number, error: unknown) {
-    return client.respond({
-      topic,
-      response: {
-        id,
-        jsonrpc: "2.0",
-        error: {
-          code: -32603,
-          message:
-            error instanceof Error
-              ? error.message
-              : "Internal error",
-        },
-      },
-    });
-  }
-
-  /* -----------------------------
-   * Session request handler
-   * ---------------------------- */
-  async function handleSessionRequest(event: SessionRequestEvent) {
-    const { topic, id, params } = event;
-
-    try {
-      const result = await handleEip1193Request(params.request);
-      await respondSuccess(topic, id, result);
-    } catch (err) {
-      await respondError(topic, id, err);
-    }
-  }
-
-  /* -----------------------------
-   * EIP-1193 dispatcher
+   * EIP-1193 dispatcher (reads ONLY from ref)
    * ---------------------------- */
   async function handleEip1193Request(request: {
     method: string;
     params?: unknown[];
   }): Promise<unknown> {
+    const state = stateRef.current;
+
     switch (request.method) {
       case Eip1193Method.EthChainId:
-        if (!activeChainId) {
+        if (!state.chainId) {
           throw new Error("Wallet not connected to a chain");
         }
-        return `0x${activeChainId.toString(16)}`;
+        return `0x${state.chainId.toString(16)}`;
 
       case Eip1193Method.EthAccounts:
       case Eip1193Method.EthRequestAccounts:
-        return options.accounts;
+        return state.accounts;
 
+      case Eip1193Method.EthEstimateGas:
+        return options.onEstimateGas(
+          request.params?.[0] as TransactionRequest
+        );
       case Eip1193Method.EthSendTransaction:
-        return options.onSendTransaction(
+        return state.onSendTransaction(
           request.params?.[0] as TransactionRequest
         );
 
       case Eip1193Method.PersonalSign:
-        return options.onSignMessage(request.params?.[0] as string);
+        return state.onSignMessage(request.params?.[0] as string);
 
       case Eip1193Method.EthSignTypedDataV4: {
         const [user, raw] = request.params as [string, string];
         if (typeof raw !== "string") {
           throw new Error("Invalid typed data payload");
         }
-        const msg = JSON.parse(raw) as TypedDataPayload;
-        return options.onSignTypedData(user, msg);
+        return state.onSignTypedData(user, JSON.parse(raw));
       }
+
+      case Eip1193Method.WalletSwitchEthereumChain:
+        await state.onSwitchChain(
+          parseInt((request.params?.[0] as any).chainId, 16)
+        );
+        return null;
 
       case Eip1193Method.WalletGetCapabilities:
         return {
@@ -231,12 +207,6 @@ export function useWalletConnectWallet(
           paymasterService: false,
           sessionKeys: false,
         };
-
-      case Eip1193Method.WalletSwitchEthereumChain:
-        await options.onSwitchChain(
-          parseInt((request.params?.[0] as any).chainId, 16)
-        );
-        return null;
 
       case Eip1193Method.WalletAddEthereumChain:
         return null;

@@ -1,9 +1,9 @@
 import { useCallback } from "react";
 import { _TypedDataEncoder, getAddress } from "ethers/lib/utils";
 import { useWalletProvider } from "../../useWalletProvider";
-import { TypedDataPayload } from "../useWalletConnectWallet";
 import { isChainSupported } from "./providerUtils";
 import { useToastActionLifecycle } from "../../../components/UniversalWalletModal/hooks/useToastActionLifeCycle";
+import { TypedDataPayload } from "../types";
 
 export function useOnSignTypedData(walletAddress: string | null) {
   const { provider, chainId, account } = useWalletProvider();

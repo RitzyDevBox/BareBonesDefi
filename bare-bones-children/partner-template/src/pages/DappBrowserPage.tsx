@@ -13,6 +13,7 @@ import { useOnSendTransaction } from "../hooks/wallet-connect/provider-methods/u
 import { useOnSignTypedData } from "../hooks/wallet-connect/provider-methods/useOnSignTypedData";
 import { WalletSelectorModalWithDisplay } from "../components/Wallet/WalletSelectorModalWithDisplay";
 import { IconButton } from "../components/Button/IconButton";
+import { useOnEstimateGas } from "../hooks/wallet-connect/provider-methods/useOnEstimateGas";
 
 const APP_HEADER_HEIGHT = 64;        // your existing header
 const BROWSER_HEADER_HEIGHT = 56;    // new temporary header
@@ -39,6 +40,7 @@ export function DappBrowserPage() {
   }, [walletCount.count, account, chainId]);
 
   const onSendTransactionCallback =  useOnSendTransaction()
+  const onEstimateGasCallback =  useOnEstimateGas()
   const onSignTypedDataCallback = useOnSignTypedData(activeWalletAddress)
   const wallet = useWalletConnectWallet({
     projectId: import.meta.env.VITE_APP_WALLET_CONNECT_PROJECT_ID,
@@ -46,7 +48,7 @@ export function DappBrowserPage() {
     // We need to add chain 1 because websites like uniswap will disconnect if we dont claim to support it
     chains: [1, ...SUPPORTED_CHAIN_IDS] ,
     accounts,
-
+    onEstimateGas: onEstimateGasCallback,
     onSendTransaction: onSendTransactionCallback,
 
     onSignMessage: async (msg) => {
