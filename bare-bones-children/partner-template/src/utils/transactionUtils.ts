@@ -49,12 +49,19 @@ export async function executeTx(
     // 6. send
     const tx = await signer.sendTransaction(txRequest);
 
-    const receipt = await tx.wait();
-    const message = onCompleteMessage
-      ? onCompleteMessage(receipt)
-      : "Transaction Complete";
+    tx.wait()
+      .then(receipt => {
+        const message = onCompleteMessage
+          ? onCompleteMessage(receipt)
+          : "Transaction Complete";
+        opts?.onComplete?.(message);
+      })
+      .catch(err => {
+        opts?.onError?.(handleCommonTxError(err));
+      });
 
-    opts?.onComplete?.(message);
+    opts?.onLog?.(`initializing tx: ${tx.hash}`);
+
     return tx;
   } catch (err) {
     const handled = handleCommonTxError(err);

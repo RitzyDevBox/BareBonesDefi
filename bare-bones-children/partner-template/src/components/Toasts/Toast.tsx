@@ -3,6 +3,7 @@ import { ToastConfig, ToastBehavior, ToastType } from "./toast.types";
 import { Text } from "../Primitives/Text"
 import { ClickableSurface, Stack } from "../Primitives";
 import { CloseButton } from "../Modal/Modal";
+import { copyToClipboard } from "../../utils/generalUtils";
 
 const typeColorVar: Record<ToastType, string> = {
   [ToastType.Success]: "colors-success",
@@ -20,6 +21,8 @@ interface ToastProps {
 
 export function Toast({ toast, onClose }: ToastProps) {
   const [visible, setVisible] = useState(false);
+  const [copied, setCopied] = useState(false);
+
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
@@ -62,6 +65,30 @@ export function Toast({ toast, onClose }: ToastProps) {
         position: "relative",
       }}
     >
+      {toast.message && (
+        <ClickableSurface
+          onClick={async e => {
+            e.stopPropagation();
+            await copyToClipboard(toast.message!);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          }}
+          style={{
+            position: "absolute",
+            bottom: "var(--spacing-xs)",
+            right: "var(--spacing-xs)",
+            padding: "2px 6px",
+            borderRadius: 4,
+            fontSize: "0.7em",
+            opacity: 0.85,
+          }}
+        >
+          <Text.Label>
+            {copied ? "Copied" : "Copy"}
+          </Text.Label>
+        </ClickableSurface>
+      )}
+
       <CloseButton
         onClick={handleClose}
         size="sm"
