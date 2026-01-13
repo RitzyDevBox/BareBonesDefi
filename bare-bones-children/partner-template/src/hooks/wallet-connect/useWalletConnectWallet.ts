@@ -13,6 +13,7 @@ export type UseWalletConnectWalletOptions = {
   projectId: string;
   chains: readonly number[];
   accounts: readonly string[];
+  onEthCall: (tx: TransactionRequest) => Promise<string>;
   onEstimateGas: (tx: TransactionRequest) => Promise<string>;
   onSendTransaction: (tx: TransactionRequest) => Promise<string>;
   onSignMessage: (msg: string) => Promise<string>;
@@ -34,6 +35,7 @@ export function useWalletConnectWallet(
   const stateRef = useRef({
     chainId: activeChainId,
     accounts: options.accounts,
+    onEthCall: options.onEthCall,
     onEstimateGas: options.onEstimateGas,
     onSendTransaction: options.onSendTransaction,
     onSignMessage: options.onSignMessage,
@@ -45,6 +47,7 @@ export function useWalletConnectWallet(
   stateRef.current = {
     chainId: activeChainId,
     accounts: options.accounts,
+    onEthCall: options.onEthCall,
     onEstimateGas: options.onEstimateGas,
     onSendTransaction: options.onSendTransaction,
     onSignMessage: options.onSignMessage,
@@ -175,6 +178,10 @@ export function useWalletConnectWallet(
       case Eip1193Method.EthRequestAccounts:
         return state.accounts;
 
+      case Eip1193Method.EthCall:
+        return state.onEthCall(
+          request.params?.[0] as TransactionRequest
+        );
       case Eip1193Method.EthEstimateGas:
         return options.onEstimateGas(
           request.params?.[0] as TransactionRequest

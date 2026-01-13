@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import EXECUTE_FACET_ABI from "../abis/diamond/facets/ExecuteFacet.abi.json";
 import { RawTx } from "./basicWalletUtils";
 import { handleCommonTxError } from "./txErrorUtils";
+import { buildFeeParams, buildGasLimit } from "./buildFeeParams";
 
 
 export interface TxOpts {
@@ -20,19 +21,39 @@ export async function executeTx(
 ): Promise<ethers.providers.TransactionResponse | undefined> {
   try {
     const signer = requireSigner(provider);
+    const network = await provider!.getNetwork();
 
-    // build raw tx
+    // 1. build wrapped tx
     const rawTx = await build();
 
-    // send
-    const tx = await signer.sendTransaction({
+    // 2. base tx (immutable)
+    const baseTx: ethers.providers.TransactionRequest = {
       to: rawTx.to,
       data: rawTx.data,
       value: rawTx.value ?? 0,
-    });
+    };
+
+    // 3. gas limit
+    const gasLimit = await buildGasLimit(signer, baseTx);
+
+    // 4. fee params
+    const feeParams = await buildFeeParams(provider!, network.chainId);
+
+    // 5. final tx (explicit composition)
+    const txRequest: ethers.providers.TransactionRequest = {
+      ...baseTx,
+      gasLimit,
+      ...feeParams,
+    };
+
+    // 6. send
+    const tx = await signer.sendTransaction(txRequest);
 
     const receipt = await tx.wait();
-    const message = onCompleteMessage ? onCompleteMessage(receipt) : "Transaction Complete";
+    const message = onCompleteMessage
+      ? onCompleteMessage(receipt)
+      : "Transaction Complete";
+
     opts?.onComplete?.(message);
     return tx;
   } catch (err) {
@@ -41,7 +62,6 @@ export async function executeTx(
     return undefined;
   }
 }
-
 
 export function requireSigner(provider?: ethers.providers.Web3Provider) {
   if (!provider) { 

@@ -66,6 +66,10 @@ export interface ChainInfo {
   blockExplorerUrls?: string[];
   logoUrl?: string;
   coinGeckoSlug: string,
+
+  supportsEip1559: boolean;
+  minPriorityFeeGwei?: number;
+  maxFeeMultiplier?: { numerator: number, denominator: number };
 }
 
 
@@ -83,6 +87,12 @@ export const CHAIN_INFO_MAP: Record<number, ChainInfo> ={
     rpcUrls: ["https://polygon-rpc.com"],
     blockExplorerUrls: ["https://polygonscan.com"],
     coinGeckoSlug: "polygon-pos",
+    supportsEip1559: true,
+    minPriorityFeeGwei: 30,
+    maxFeeMultiplier: {
+      numerator: 125,
+      denominator: 100,
+    },
   },
   
   999: {
@@ -98,6 +108,7 @@ export const CHAIN_INFO_MAP: Record<number, ChainInfo> ={
     rpcUrls:["https://rpc.hyperliquid.xyz/evm", "https://hyperliquid.drpc.org"],
     blockExplorerUrls: ["https://hyperevmscan.io/"],
     coinGeckoSlug: "hyperevm",
+    supportsEip1559: false,
   }
 }
 

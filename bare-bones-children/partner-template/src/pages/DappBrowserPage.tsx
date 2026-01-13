@@ -14,6 +14,7 @@ import { useOnSignTypedData } from "../hooks/wallet-connect/provider-methods/use
 import { WalletSelectorModalWithDisplay } from "../components/Wallet/WalletSelectorModalWithDisplay";
 import { IconButton } from "../components/Button/IconButton";
 import { useOnEstimateGas } from "../hooks/wallet-connect/provider-methods/useOnEstimateGas";
+import { useOnEthCall } from "../hooks/wallet-connect/provider-methods/useOnEthCall";
 
 const APP_HEADER_HEIGHT = 64;        // your existing header
 const BROWSER_HEADER_HEIGHT = 56;    // new temporary header
@@ -39,6 +40,7 @@ export function DappBrowserPage() {
     return getUserDiamondAddresses(account, walletCount.count, chainId)
   }, [walletCount.count, account, chainId]);
 
+  const onEthCallCallback = useOnEthCall()
   const onSendTransactionCallback =  useOnSendTransaction()
   const onEstimateGasCallback =  useOnEstimateGas()
   const onSignTypedDataCallback = useOnSignTypedData(activeWalletAddress)
@@ -48,9 +50,9 @@ export function DappBrowserPage() {
     // We need to add chain 1 because websites like uniswap will disconnect if we dont claim to support it
     chains: [1, ...SUPPORTED_CHAIN_IDS] ,
     accounts,
+    onEthCall: onEthCallCallback,
     onEstimateGas: onEstimateGasCallback,
     onSendTransaction: onSendTransactionCallback,
-
     onSignMessage: async (msg) => {
       console.log(msg)
       throw new Error("not implemented");
