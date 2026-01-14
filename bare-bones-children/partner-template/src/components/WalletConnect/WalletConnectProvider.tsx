@@ -1,7 +1,8 @@
-// WalletConnectProvider.tsx
 import { useEffect, useState } from "react";
 import SignClient from "@walletconnect/sign-client";
 import { WalletConnectContext } from "./WalletConnectContext";
+
+let wcClientPromise: Promise<SignClient> | null = null;
 
 export function WalletConnectProvider({
   children,
@@ -13,15 +14,19 @@ export function WalletConnectProvider({
   useEffect(() => {
     let mounted = true;
 
-    SignClient.init({
-      projectId: import.meta.env.VITE_APP_WALLET_CONNECT_PROJECT_ID,
-      metadata: {
-        name: "Bare Bones",
-        description: "Minimal EIP-1193 Wallet",
-        url: window.location.origin,
-        icons: [],
-      },
-    }).then(c => {
+    if (!wcClientPromise) {
+      wcClientPromise = SignClient.init({
+        projectId: import.meta.env.VITE_APP_WALLET_CONNECT_PROJECT_ID,
+        metadata: {
+          name: "Bare Bones",
+          description: "Minimal EIP-1193 Wallet",
+          url: window.location.origin,
+          icons: [],
+        },
+      });
+    }
+
+    wcClientPromise.then(c => {
       if (mounted) setClient(c);
     });
 
@@ -30,7 +35,7 @@ export function WalletConnectProvider({
     };
   }, []);
 
-  if (!client) return null; // or splash/loading
+  if (!client) return null;
 
   return (
     <WalletConnectContext.Provider value={client}>
