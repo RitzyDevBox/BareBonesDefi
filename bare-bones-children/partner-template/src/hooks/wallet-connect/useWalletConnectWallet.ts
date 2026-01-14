@@ -17,23 +17,28 @@ export type UseWalletConnectWalletOptions = {
   onEstimateGas: (tx: TransactionRequest) => Promise<string>;
   onSendTransaction: (tx: TransactionRequest) => Promise<string>;
   onSignMessage: (msg: string) => Promise<string>;
-  onSignTypedData: (user: string, typedData: TypedDataPayload) => Promise<string>;
+  onSignTypedData: (
+    user: string,
+    typedData: TypedDataPayload
+  ) => Promise<string>;
   onSwitchChain: (chainId: number) => Promise<void>;
-  onSessionProposal: (proposal: SessionProposalEvent) => void;
 };
 
 export function useWalletConnectWallet(
   options: UseWalletConnectWalletOptions
 ) {
   const client = useWalletConnectClient();
-  const { chainId: activeChainId } = useWalletProvider();
+  const { chainId } = useWalletProvider();
+
   const [connected, setConnected] = useState(false);
+  const [pendingProposal, setPendingProposal] =
+    useState<SessionProposalEvent | null>(null);
 
   /* -----------------------------
-   * Live state ref (CRITICAL FIX)
+   * Live state ref (NO STALE CLOSURES)
    * ---------------------------- */
   const stateRef = useRef({
-    chainId: activeChainId,
+    chainId,
     accounts: options.accounts,
     onEthCall: options.onEthCall,
     onEstimateGas: options.onEstimateGas,
@@ -43,9 +48,8 @@ export function useWalletConnectWallet(
     onSwitchChain: options.onSwitchChain,
   });
 
-  // keep ref up to date every render
   stateRef.current = {
-    chainId: activeChainId,
+    chainId,
     accounts: options.accounts,
     onEthCall: options.onEthCall,
     onEstimateGas: options.onEstimateGas,
@@ -56,12 +60,6 @@ export function useWalletConnectWallet(
   };
 
   /* -----------------------------
-   * Proposal handler ref (already correct)
-   * ---------------------------- */
-  const proposalHandlerRef = useRef(options.onSessionProposal);
-  proposalHandlerRef.current = options.onSessionProposal;
-
-  /* -----------------------------
    * Init / listeners
    * ---------------------------- */
   useEffect(() => {
@@ -70,7 +68,7 @@ export function useWalletConnectWallet(
     };
 
     const handleProposal = (event: SessionProposalEvent) => {
-      proposalHandlerRef.current(event);
+      setPendingProposal(event);
     };
 
     const handleSessionRequest = async (event: SessionRequestEvent) => {
@@ -101,11 +99,20 @@ export function useWalletConnectWallet(
     client.on("session_proposal", handleProposal);
     client.on("session_request", handleSessionRequest);
     client.on("session_delete", handleSessionDelete);
+    const existingProposals = client.proposal.getAll();
+
+    if (existingProposals.length > 0) {
+      const proposal = existingProposals[0];
+
+      setPendingProposal({
+        id: proposal.id,
+        params: proposal,
+      });
+    }
 
     if (client.session.getAll().length > 0) {
       setConnected(true);
     }
-
     return () => {
       client.off("session_proposal", handleProposal);
       client.off("session_request", handleSessionRequest);
@@ -141,6 +148,11 @@ export function useWalletConnectWallet(
     });
 
     setConnected(true);
+    setPendingProposal(null);
+  }
+
+  function clearProposal() {
+    setPendingProposal(null);
   }
 
   /* -----------------------------
@@ -156,10 +168,11 @@ export function useWalletConnectWallet(
       )
     );
     setConnected(false);
+    setPendingProposal(null);
   }
 
   /* -----------------------------
-   * EIP-1193 dispatcher (reads ONLY from ref)
+   * EIP-1193 dispatcher
    * ---------------------------- */
   async function handleEip1193Request(request: {
     method: string;
@@ -182,10 +195,12 @@ export function useWalletConnectWallet(
         return state.onEthCall(
           request.params?.[0] as TransactionRequest
         );
+
       case Eip1193Method.EthEstimateGas:
-        return options.onEstimateGas(
+        return state.onEstimateGas(
           request.params?.[0] as TransactionRequest
         );
+
       case Eip1193Method.EthSendTransaction:
         return state.onSendTransaction(
           request.params?.[0] as TransactionRequest
@@ -228,5 +243,7 @@ export function useWalletConnectWallet(
     approveSession,
     disconnect,
     connected,
+    pendingProposal,
+    clearProposal,
   };
 }

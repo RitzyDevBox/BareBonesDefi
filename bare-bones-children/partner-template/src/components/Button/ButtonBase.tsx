@@ -4,7 +4,7 @@ import { ClickableSurface } from "../Primitives";
 export type ButtonSize = "sm" | "md" | "lg";
 export type ButtonShape = "square" | "rounded" | "pill" | "circle";
 
-interface ButtonBaseProps
+export interface ButtonBaseProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: ButtonSize;
   shape?: ButtonShape;
