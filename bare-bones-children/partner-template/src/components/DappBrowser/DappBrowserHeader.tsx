@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Input } from "../BasicComponents";
-import { IconButton } from "../Button/IconButton";
 import { Row } from "../Primitives";
-import { WalletSelectorModalWithDisplay } from "../Wallet/WalletSelectorModalWithDisplay";
+import { WalletAddressDisplay } from "../Wallet/WalletAddressDisplay";
+import { PowerButton } from "../Button/Actions/PowerButton";
+import { NavigateButton } from "../Button/Actions/NavigateButton";
 
 type Props = {
   inputUrl: string;
@@ -69,20 +70,12 @@ export function DappBrowserHeader({
           onKeyDown={e => e.key === "Enter" && onNavigate()}
           placeholder="https://…"
           style={{
-            height: 36,
-            fontSize: 13,
+            height: 32,
+            fontSize: 12,
             padding: "0 8px",
           }}
         />
-
-        <IconButton
-          size="sm"
-          onClick={onNavigate}
-          aria-label="Go"
-          style={{ width: 32, height: 32 }}
-        >
-          →
-        </IconButton>
+        <NavigateButton onNavigate={onNavigate} />
       </div>
 
       {/* ---------- WALLET SLOT ---------- */}
@@ -97,11 +90,7 @@ export function DappBrowserHeader({
         }}
       >
         {walletConnected && activeWalletAddress ? (
-          <WalletSelectorModalWithDisplay
-            address={activeWalletAddress}
-            onSelect={() => {}}
-            isDisabled
-          />
+          <WalletAddressDisplay address={activeWalletAddress} />
         ) : (
           <>
             <Input
@@ -117,27 +106,21 @@ export function DappBrowserHeader({
               }}
             />
 
-            <IconButton
-              size="sm"
-              aria-label="Connect"
+            <PowerButton
+              ariaLabel="Connect"
+              variant="outline"
               onClick={handlePair}
               disabled={pairing}
-              style={{ width: 32, height: 32 }}
-            >
-              ⛓
-            </IconButton>
+            />
           </>
         )}
 
         {walletConnected && (
-          <IconButton
-            size="sm"
-            aria-label="Disconnect"
+          <PowerButton
+            ariaLabel="Disconnect"
+            variant="filled"
             onClick={onDisconnect}
-            style={{ width: 32, height: 32 }}
-          >
-            ⎋
-          </IconButton>
+          />
         )}
       </div>
     </Row>

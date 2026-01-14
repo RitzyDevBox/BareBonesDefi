@@ -18,11 +18,13 @@ const ICON_FONT: Record<IconButtonSize, string> = {
 interface IconButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: IconButtonSize;
+  iconFontSize?: IconButtonSize;
   shape?: ButtonShape;
 }
 
 export function IconButton({
   size = "md",
+  iconFontSize,
   shape = "square",
   style,
   children,
@@ -37,7 +39,7 @@ export function IconButton({
         width: ICON_SIZE[size],
         height: ICON_SIZE[size],
         padding: 0,
-        fontSize: ICON_FONT[size],
+        fontSize: ICON_FONT[iconFontSize ?? size],
         background: "var(--colors-surface)",
         border: "1px solid var(--colors-border)",
         color: "var(--colors-primary)",

@@ -7,37 +7,15 @@ import { useNavigate } from "react-router-dom";
 import { shortAddress } from "../../utils/formatUtils";
 import { Sheet } from "../Primitives/Sheet";
 import { IconButton } from "../Button/IconButton";
+import { CopyButton } from "../Button/Actions/CopyButton";
 
 interface HamburgerMenuProps {
   account: string | null;
 }
 
-function CopyIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="9" y="9" width="13" height="13" rx="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  );
-}
-
 export function HamburgerMenu({ account }: HamburgerMenuProps) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
-
-  const copyAddress = async () => {
-    if (!account) return;
-    await navigator.clipboard.writeText(account);
-  };
 
   return (
     <>
@@ -59,7 +37,6 @@ export function HamburgerMenu({ account }: HamburgerMenuProps) {
               marginBottom: 16,
             }}
           >
-            {/* Address + copy */}
             <div
               style={{
                 display: "flex",
@@ -71,19 +48,7 @@ export function HamburgerMenu({ account }: HamburgerMenuProps) {
                 {shortAddress(account)}
               </Text.Body>
 
-              <IconButton
-                aria-label="Copy address"
-                onClick={copyAddress}
-                size="sm"
-                shape="circle"
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--colors-text-muted)",
-                }}
-              >
-                <CopyIcon />
-              </IconButton>
+              <CopyButton value={account}/>
             </div>
 
             {/* Theme toggle */}
