@@ -138,6 +138,8 @@ function FullHeader({
 
 function MobileHeader({
   account,
+  chainId,
+  onChainChange,
   onConnectWallet,
 }: HeaderProps) {
   const navigate = useNavigate();
@@ -152,6 +154,12 @@ function MobileHeader({
 
         {/* RIGHT */}
         <Row gap="sm" align="center">
+          {account && chainId !== null && (
+            <ChainSelector
+              chainId={chainId}
+              onChainChange={onChainChange}
+            />
+          )}
           <WalletStatus account={account} onConnectWallet={onConnectWallet} />
           <HamburgerMenu account={account} />
         </Row>
