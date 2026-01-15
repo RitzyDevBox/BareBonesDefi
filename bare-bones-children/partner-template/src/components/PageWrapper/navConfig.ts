@@ -21,6 +21,6 @@ export const NAV_ITEMS: NavItem[] = [
   {
     id: "browser",
     label: "Browser",
-    path: `/${ROUTES.DAPP_BROWSER}`,
+    path: ROUTES.DAPP_BROWSER,
   },
 ];

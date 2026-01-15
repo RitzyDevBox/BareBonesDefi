@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createHashRouter, Navigate } from "react-router-dom";
 import App from "./App";
 import { BasicWalletPage } from "./pages/BasicWalletPage";
 import { TestPage } from "./pages/TestPage";
@@ -10,7 +10,7 @@ const devOnlyRoutes = import.meta.env.DEV
   ? [{ path: "test-page", element: <TestPage /> }]
   : [];
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: ROUTES.ROOT,
     element: <App />,
