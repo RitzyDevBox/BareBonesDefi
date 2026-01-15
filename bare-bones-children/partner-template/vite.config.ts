@@ -1,19 +1,25 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 export default defineConfig(({ command }) => ({
-  plugins: [react()],
+  plugins: [
+    react(),
+    nodePolyfills({
+      globals: {
+        Buffer: true,
+      },
+    }),
+  ],
 
-  // REQUIRED for Arweave (relative asset paths)
+  // REQUIRED for Arweave
   base: "./",
 
   server: {
-    // Only affects `vite dev`
-    cors: command === "serve"
+    cors: command === "serve",
   },
 
   build: {
-    // Explicitly lock prod behavior
-    sourcemap: false
-  }
+    sourcemap: false,
+  },
 }));
