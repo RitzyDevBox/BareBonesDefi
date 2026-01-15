@@ -19,10 +19,18 @@ import { DappBrowserHeader } from "../components/DappBrowser/DappBrowserHeader";
 const APP_HEADER_HEIGHT = 64;
 const BROWSER_HEADER_HEIGHT = 56;
 
+function getOrigin(url: string) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
 export function DappBrowserPage() {
   const { account, provider, chainId } = useWalletProvider();
-
   const [url, setUrl] = useState("https://app.uniswap.org");
+  const [lastOrigin, setLastOrigin] = useState<string | null>(getOrigin(url));
   const [inputUrl, setInputUrl] = useState(url);
   const [activeWalletAddress, setActiveWalletAddress] =
     useState<string | null>(null);
@@ -58,9 +66,7 @@ export function DappBrowserPage() {
   });
 
   useEffect(() => {
-    const onUnload = () => wallet.disconnect();
-    window.addEventListener("beforeunload", onUnload);
-    return () => window.removeEventListener("beforeunload", onUnload);
+    wallet.disconnect();
   }, []);
 
   useEffect(() => {
@@ -69,11 +75,20 @@ export function DappBrowserPage() {
     }
   }, [provider, wallet.connected]);
 
+
   function navigate() {
     let next = inputUrl.trim();
     if (!/^https?:\/\//i.test(next)) {
       next = `https://${next}`;
     }
+
+    const nextOrigin = getOrigin(next);
+
+    if (lastOrigin && nextOrigin && lastOrigin !== nextOrigin) {
+      wallet.disconnect();
+    }
+
+    setLastOrigin(nextOrigin);
     setUrl(next);
   }
 
