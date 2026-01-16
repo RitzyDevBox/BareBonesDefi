@@ -13,6 +13,7 @@ export type UseWalletConnectWalletOptions = {
   projectId: string;
   chains: readonly number[];
   accounts: readonly string[];
+  onBlockNumber: () => Promise<number>;
   onEthCall: (tx: TransactionRequest) => Promise<string>;
   onEstimateGas: (tx: TransactionRequest) => Promise<string>;
   onSendTransaction: (tx: TransactionRequest) => Promise<string>;
@@ -40,6 +41,7 @@ export function useWalletConnectWallet(
   const stateRef = useRef({
     chainId,
     accounts: options.accounts,
+    onBlockNumber: options.onBlockNumber,
     onEthCall: options.onEthCall,
     onEstimateGas: options.onEstimateGas,
     onSendTransaction: options.onSendTransaction,
@@ -51,6 +53,7 @@ export function useWalletConnectWallet(
   stateRef.current = {
     chainId,
     accounts: options.accounts,
+    onBlockNumber: options.onBlockNumber,
     onEthCall: options.onEthCall,
     onEstimateGas: options.onEstimateGas,
     onSendTransaction: options.onSendTransaction,
@@ -171,6 +174,44 @@ export function useWalletConnectWallet(
     setPendingProposal(null);
   }
 
+  async function setActiveAccount(address: string) {
+    const state = stateRef.current;
+    if (!state.chainId) return;
+
+    for (const session of client.session.getAll()) {
+      const namespaces = session.namespaces;
+
+      const updatedNamespaces = {
+        ...namespaces,
+        eip155: {
+          ...namespaces.eip155,
+          accounts: options.chains.map(
+            chain => `eip155:${chain}:${address}`
+          ),
+        },
+      };
+
+      const { acknowledged } = await client.update({
+        topic: session.topic,
+        namespaces: updatedNamespaces,
+      });
+
+      // This is the important part — dapps wait for this
+      await acknowledged();
+
+      // Optional but harmless (some dapps listen, some don’t)
+      client.emit({
+        topic: session.topic,
+        event: {
+          name: "accountsChanged",
+          data: [address],
+        },
+        chainId: `eip155:${state.chainId}`,
+      });
+    }
+  }
+
+
   /* -----------------------------
    * EIP-1193 dispatcher
    * ---------------------------- */
@@ -190,6 +231,11 @@ export function useWalletConnectWallet(
       case Eip1193Method.EthAccounts:
       case Eip1193Method.EthRequestAccounts:
         return state.accounts;
+
+      case Eip1193Method.EthBlockNumber: {
+        const block = await state.onBlockNumber();
+        return `0x${block.toString(16)}`;
+      }
 
       case Eip1193Method.EthCall:
         return state.onEthCall(
@@ -241,6 +287,7 @@ export function useWalletConnectWallet(
   return {
     pair,
     approveSession,
+    setActiveAccount,
     disconnect,
     connected,
     pendingProposal,

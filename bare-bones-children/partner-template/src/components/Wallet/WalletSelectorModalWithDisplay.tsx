@@ -10,17 +10,19 @@ interface WalletSelectorModalWithDisplayProps {
   address: string;
   onSelect: (address: string, index: number) => void;
   isDisabled?: boolean;
+  ignoreMediaQuery?: boolean;
 }
 
 export function WalletSelectorModalWithDisplay({
   address,
   onSelect,
   isDisabled = false,
+  ignoreMediaQuery = false,
 }: WalletSelectorModalWithDisplayProps) {
   const [open, setOpen] = useState(false);
   const screen = useMediaQuery();
 
-  const isPhone = screen === ScreenSize.Phone;
+  const isPhone = !ignoreMediaQuery && screen === ScreenSize.Phone;
 
   return (
     <>
@@ -50,3 +52,4 @@ export function WalletSelectorModalWithDisplay({
     </>
   );
 }
+

@@ -15,6 +15,7 @@ import { useOnSignTypedData } from "../hooks/wallet-connect/provider-methods/use
 import { useOnEstimateGas } from "../hooks/wallet-connect/provider-methods/useOnEstimateGas";
 import { useOnEthCall } from "../hooks/wallet-connect/provider-methods/useOnEthCall";
 import { DappBrowserHeader } from "../components/DappBrowser/DappBrowserHeader";
+import { useOnBlockNumber } from "../hooks/wallet-connect/provider-methods/useOnBlockNumber";
 
 const APP_HEADER_HEIGHT = 64;
 const BROWSER_HEADER_HEIGHT = 56;
@@ -52,6 +53,7 @@ export function DappBrowserPage() {
     projectId: import.meta.env.VITE_APP_WALLET_CONNECT_PROJECT_ID,
     chains: [1, ...SUPPORTED_CHAIN_IDS],
     accounts,
+    onBlockNumber: useOnBlockNumber(),
     onEthCall: useOnEthCall(),
     onEstimateGas: useOnEstimateGas(),
     onSendTransaction: useOnSendTransaction(),
@@ -75,6 +77,10 @@ export function DappBrowserPage() {
     }
   }, [provider, wallet.connected]);
 
+  async function handleWalletChange(address: string) {
+    setActiveWalletAddress(address);
+    wallet.setActiveAccount(address);
+  }
 
   function navigate() {
     let next = inputUrl.trim();
@@ -112,6 +118,7 @@ export function DappBrowserPage() {
           onPair={wallet.pair}
           onDisconnect={wallet.disconnect}
           activeWalletAddress={activeWalletAddress}
+          onWalletChange={handleWalletChange}
         />
       </div>
 

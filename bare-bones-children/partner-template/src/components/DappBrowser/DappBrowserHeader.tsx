@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Input } from "../BasicComponents";
 import { Row } from "../Primitives";
-import { WalletAddressDisplay } from "../Wallet/WalletAddressDisplay";
 import { PowerButton } from "../Button/Actions/PowerButton";
 import { NavigateButton } from "../Button/Actions/NavigateButton";
+import { WalletSelectorModalWithDisplay } from "../Wallet/WalletSelectorModalWithDisplay";
 
 type Props = {
   inputUrl: string;
@@ -12,7 +12,7 @@ type Props = {
 
   walletConnected: boolean;
   activeWalletAddress?: string | null;
-
+  onWalletChange: (walletAddress: string, index: number) => Promise<void>;
   onPair: (uri: string) => Promise<void>;
   onDisconnect: () => void;
 };
@@ -23,12 +23,12 @@ export function DappBrowserHeader({
   onNavigate,
   walletConnected,
   activeWalletAddress,
+  onWalletChange,
   onPair,
   onDisconnect,
 }: Props) {
   const [wcUri, setWcUri] = useState("");
   const [pairing, setPairing] = useState(false);
-
   const handlePair = async () => {
     if (!wcUri || pairing) return;
 
@@ -90,7 +90,9 @@ export function DappBrowserHeader({
         }}
       >
         {walletConnected && activeWalletAddress ? (
-          <WalletAddressDisplay address={activeWalletAddress} />
+          
+        <WalletSelectorModalWithDisplay address={activeWalletAddress} onSelect={onWalletChange} ignoreMediaQuery={true} />
+
         ) : (
           <>
             <Input
