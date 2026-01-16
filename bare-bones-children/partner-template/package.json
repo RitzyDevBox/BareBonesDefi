@@ -13,7 +13,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@reown/walletkit": "^1.4.1",
     "@tanstack/react-virtual": "^3.13.13",
+    "@walletconnect/core": "^2.23.3",
     "@walletconnect/sign-client": "^2.23.1",
     "@walletconnect/utils": "^2.23.1",
     "buffer": "^6.0.3",

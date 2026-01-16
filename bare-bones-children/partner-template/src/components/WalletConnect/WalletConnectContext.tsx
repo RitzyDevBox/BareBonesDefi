@@ -1,10 +1,12 @@
-// WalletConnectContext.tsx
 import { createContext, useContext } from "react";
-import type SignClient from "@walletconnect/sign-client";
+import type { WalletKit } from "@reown/walletkit";
 
-export const WalletConnectContext = createContext<SignClient | null>(null);
+type WalletKitInstance = InstanceType<typeof WalletKit>;
 
-export function useWalletConnectClient() {
+export const WalletConnectContext =
+  createContext<WalletKitInstance | null>(null);
+
+export function useWalletConnectClient(): WalletKitInstance {
   const client = useContext(WalletConnectContext);
   if (!client) {
     throw new Error("WalletConnect client not available");

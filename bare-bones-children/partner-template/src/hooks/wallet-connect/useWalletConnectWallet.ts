@@ -13,6 +13,7 @@ export type UseWalletConnectWalletOptions = {
   projectId: string;
   chains: readonly number[];
   accounts: readonly string[];
+  onBlockNumber: () => Promise<number>;
   onEthCall: (tx: TransactionRequest) => Promise<string>;
   onEstimateGas: (tx: TransactionRequest) => Promise<string>;
   onSendTransaction: (tx: TransactionRequest) => Promise<string>;
@@ -27,7 +28,7 @@ export type UseWalletConnectWalletOptions = {
 export function useWalletConnectWallet(
   options: UseWalletConnectWalletOptions
 ) {
-  const client = useWalletConnectClient();
+  const walletKit = useWalletConnectClient();  // WalletKit instance per docs
   const { chainId } = useWalletProvider();
 
   const [connected, setConnected] = useState(false);
@@ -40,6 +41,7 @@ export function useWalletConnectWallet(
   const stateRef = useRef({
     chainId,
     accounts: options.accounts,
+    onBlockNumber: options.onBlockNumber,
     onEthCall: options.onEthCall,
     onEstimateGas: options.onEstimateGas,
     onSendTransaction: options.onSendTransaction,
@@ -51,6 +53,7 @@ export function useWalletConnectWallet(
   stateRef.current = {
     chainId,
     accounts: options.accounts,
+    onBlockNumber: options.onBlockNumber,
     onEthCall: options.onEthCall,
     onEstimateGas: options.onEstimateGas,
     onSendTransaction: options.onSendTransaction,
@@ -60,28 +63,25 @@ export function useWalletConnectWallet(
   };
 
   /* -----------------------------
-   * Init / listeners
+   * Init / listeners (per docs)
    * ---------------------------- */
   useEffect(() => {
-    const handleSessionDelete = () => {
-      setConnected(false);
-    };
-
-    const handleProposal = (event: SessionProposalEvent) => {
+    const onProposal = (event: SessionProposalEvent) => {
       setPendingProposal(event);
     };
 
-    const handleSessionRequest = async (event: SessionRequestEvent) => {
+    const onRequest = async (event: SessionRequestEvent) => {
       const { topic, id, params } = event;
 
       try {
         const result = await handleEip1193Request(params.request);
-        await client.respond({
+
+        await walletKit.respondSessionRequest({
           topic,
           response: { id, jsonrpc: "2.0", result },
         });
       } catch (err) {
-        await client.respond({
+        await walletKit.respondSessionRequest({
           topic,
           response: {
             id,
@@ -96,49 +96,44 @@ export function useWalletConnectWallet(
       }
     };
 
-    client.on("session_proposal", handleProposal);
-    client.on("session_request", handleSessionRequest);
-    client.on("session_delete", handleSessionDelete);
-    const existingProposals = client.proposal.getAll();
+    const onDelete = () => {
+      setConnected(false);
+    };
 
-    if (existingProposals.length > 0) {
-      const proposal = existingProposals[0];
+    walletKit.on("session_proposal", onProposal);
+    walletKit.on("session_request", onRequest);
+    walletKit.on("session_delete", onDelete);
 
-      setPendingProposal({
-        id: proposal.id,
-        params: proposal,
-      });
-    }
-
-    if (client.session.getAll().length > 0) {
+    if (Object.values(walletKit.getActiveSessions()).length > 0) {
       setConnected(true);
     }
+
     return () => {
-      client.off("session_proposal", handleProposal);
-      client.off("session_request", handleSessionRequest);
-      client.off("session_delete", handleSessionDelete);
+      walletKit.off("session_proposal", onProposal);
+      walletKit.off("session_request", onRequest);
+      walletKit.off("session_delete", onDelete);
     };
-  }, [client]);
+  }, [walletKit]);
 
   /* -----------------------------
-   * Pair
+   * Pair (same semantics)
    * ---------------------------- */
   async function pair(uri: string) {
-    await client.pair({ uri });
+    await walletKit.pair({ uri });
   }
 
   /* -----------------------------
    * Approve session
+   * per Wallet SDK web usage
    * ---------------------------- */
   async function approveSession(proposal: SessionProposalEvent) {
-    await client.approve({
+    await walletKit.approveSession({
       id: proposal.id,
-      relayProtocol: proposal.params.relays[0].protocol,
       namespaces: {
         eip155: {
-          accounts: options.chains.flatMap(chainId =>
+          accounts: options.chains.flatMap(chain =>
             options.accounts.map(
-              account => `eip155:${chainId}:${account}`
+              account => `eip155:${chain}:${account}`
             )
           ),
           methods: Object.values(Eip1193Method),
@@ -156,23 +151,61 @@ export function useWalletConnectWallet(
   }
 
   /* -----------------------------
-   * Disconnect
+   * Disconnect (WalletKit)
    * ---------------------------- */
   async function disconnect() {
-    await Promise.all(
-      client.session.getAll().map(session =>
-        client.disconnect({
-          topic: session.topic,
-          reason: { code: 6000, message: "Wallet disconnected" },
-        })
-      )
-    );
+    for (const session of Object.values(walletKit.getActiveSessions())) {
+      await walletKit.disconnectSession({
+        topic: session.topic,
+        reason: { code: 6000, message: "Wallet disconnected" },
+      });
+    }
     setConnected(false);
     setPendingProposal(null);
   }
 
   /* -----------------------------
-   * EIP-1193 dispatcher
+   * Set active account
+   * (emit session event)
+   * ---------------------------- */
+  async function setActiveAccount(address: string) {
+    if (!chainId) return;
+
+    for (const session of Object.values(walletKit.getActiveSessions())) {
+      const namespaces = session.namespaces;
+
+      const updatedNamespaces = {
+        ...namespaces,
+        eip155: {
+          ...namespaces.eip155,
+          accounts: options.chains.map(
+            chain => `eip155:${chain}:${address}`
+          ),
+        },
+      };
+
+      const { acknowledged } = await walletKit.updateSession({
+        topic: session.topic,
+        namespaces: updatedNamespaces,
+      });
+
+      // Wait until the dapp accepts the update
+      await acknowledged();
+
+      // Optional (harmless, sometimes useful)
+      walletKit.emitSessionEvent({
+        topic: session.topic,
+        event: {
+          name: "accountsChanged",
+          data: [address],
+        },
+        chainId: `eip155:${chainId}`,
+      });
+    }
+  }
+
+  /* -----------------------------
+   * EIP-1193 dispatcher (same)
    * ---------------------------- */
   async function handleEip1193Request(request: {
     method: string;
@@ -181,15 +214,21 @@ export function useWalletConnectWallet(
     const state = stateRef.current;
 
     switch (request.method) {
-      case Eip1193Method.EthChainId:
-        if (!state.chainId) {
+      case Eip1193Method.EthChainId: {
+        if (state.chainId == null) {
           throw new Error("Wallet not connected to a chain");
         }
         return `0x${state.chainId.toString(16)}`;
+      }
 
       case Eip1193Method.EthAccounts:
       case Eip1193Method.EthRequestAccounts:
         return state.accounts;
+
+      case Eip1193Method.EthBlockNumber: {
+        const block = await state.onBlockNumber();
+        return `0x${block.toString(16)}`;
+      }
 
       case Eip1193Method.EthCall:
         return state.onEthCall(
@@ -207,7 +246,9 @@ export function useWalletConnectWallet(
         );
 
       case Eip1193Method.PersonalSign:
-        return state.onSignMessage(request.params?.[0] as string);
+        return state.onSignMessage(
+          request.params?.[0] as string
+        );
 
       case Eip1193Method.EthSignTypedDataV4: {
         const [user, raw] = request.params as [string, string];
@@ -241,9 +282,10 @@ export function useWalletConnectWallet(
   return {
     pair,
     approveSession,
+    setActiveAccount,
     disconnect,
     connected,
     pendingProposal,
-    clearProposal,
+    clearProposal
   };
 }
