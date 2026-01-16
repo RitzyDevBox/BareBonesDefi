@@ -8,6 +8,9 @@ import {
   SessionRequestEvent,
   TypedDataPayload,
 } from "./types";
+import { buildApprovedNamespaces } from "@walletconnect/utils";
+import { getSdkError } from "@walletconnect/utils";
+
 
 export type UseWalletConnectWalletOptions = {
   projectId: string;
@@ -127,26 +130,37 @@ export function useWalletConnectWallet(
    * per Wallet SDK web usage
    * ---------------------------- */
   async function approveSession(proposal: SessionProposalEvent) {
-    await walletKit.approveSession({
-      id: proposal.id,
-      namespaces: {
+    const approvedNamespaces = buildApprovedNamespaces({
+      proposal: proposal.params,
+      supportedNamespaces: {
         eip155: {
+          chains: options.chains.map(c => `eip155:${c}`),
+          methods: Object.values(Eip1193Method),
+          events: ["accountsChanged", "chainChanged"],
           accounts: options.chains.flatMap(chain =>
             options.accounts.map(
               account => `eip155:${chain}:${account}`
             )
           ),
-          methods: Object.values(Eip1193Method),
-          events: ["accountsChanged", "chainChanged"],
         },
       },
+    });
+
+    await walletKit.approveSession({
+      id: proposal.id,
+      namespaces: approvedNamespaces,
     });
 
     setConnected(true);
     setPendingProposal(null);
   }
 
-  function clearProposal() {
+  async function rejectSession(proposal: SessionProposalEvent) {
+    await walletKit.rejectSession({
+      id: proposal.id,
+      reason: getSdkError("USER_REJECTED"),
+    });
+
     setPendingProposal(null);
   }
 
@@ -157,13 +171,13 @@ export function useWalletConnectWallet(
     for (const session of Object.values(walletKit.getActiveSessions())) {
       await walletKit.disconnectSession({
         topic: session.topic,
-        reason: { code: 6000, message: "Wallet disconnected" },
+        reason: getSdkError("USER_DISCONNECTED"),
       });
     }
+
     setConnected(false);
     setPendingProposal(null);
   }
-
   /* -----------------------------
    * Set active account
    * (emit session event)
@@ -286,6 +300,6 @@ export function useWalletConnectWallet(
     disconnect,
     connected,
     pendingProposal,
-    clearProposal
+    rejectSession
   };
 }

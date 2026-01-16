@@ -147,7 +147,10 @@ export function DappBrowserPage() {
           if (!wallet.pendingProposal) return;
           await wallet.approveSession(wallet.pendingProposal);
         }}
-        onReject={wallet.clearProposal}
+        onReject={async () => {
+          if (!wallet.pendingProposal) return;
+          await wallet.rejectSession(wallet.pendingProposal);
+        }}
       />
     </PageContainer>
   );
