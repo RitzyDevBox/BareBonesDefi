@@ -75,6 +75,10 @@ export function DappBrowserPage() {
     }
   }, [provider, wallet.connected]);
 
+  async function handleWalletChange(address: string) {
+    setActiveWalletAddress(address);
+    wallet.setActiveAccount(address);
+  }
 
   function navigate() {
     let next = inputUrl.trim();
@@ -112,6 +116,7 @@ export function DappBrowserPage() {
           onPair={wallet.pair}
           onDisconnect={wallet.disconnect}
           activeWalletAddress={activeWalletAddress}
+          onWalletChange={handleWalletChange}
         />
       </div>
 
