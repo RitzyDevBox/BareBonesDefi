@@ -29,12 +29,13 @@ export function DappBrowserHeader({
 }: Props) {
   const [wcUri, setWcUri] = useState("");
   const [pairing, setPairing] = useState(false);
+
   const handlePair = async () => {
     if (!wcUri || pairing) return;
 
     try {
       setPairing(true);
-      await onPair(wcUri);   
+      await onPair(wcUri);
       setWcUri("");
     } catch (err) {
       console.error("WalletConnect pairing failed", err);
@@ -55,11 +56,11 @@ export function DappBrowserHeader({
         borderBottom: "1px solid var(--colors-border)",
       }}
     >
-      {/* ---------- URL SLOT ---------- */}
+      {/* URL SLOT */}
       <div
         style={{
-          flex: "2 1 0",
-          minWidth: 120,
+          flex: "1 1 auto",
+          minWidth: 0,
           display: "flex",
           gap: 6,
         }}
@@ -73,26 +74,34 @@ export function DappBrowserHeader({
             height: 32,
             fontSize: 12,
             padding: "0 8px",
+            flex: "1 1 auto",
+            minWidth: 0,
           }}
         />
         <NavigateButton onNavigate={onNavigate} />
       </div>
 
-      {/* ---------- WALLET SLOT ---------- */}
+      {/* WALLET SLOT */}
       <div
         style={{
-          flex: "1 1 0",
-          minWidth: 100,
+          flex: "0 0 auto",
           display: "flex",
-          justifyContent: "flex-end",
           alignItems: "center",
           gap: 6,
         }}
       >
         {walletConnected && activeWalletAddress ? (
-          
-        <WalletSelectorModalWithDisplay address={activeWalletAddress} onSelect={onWalletChange} ignoreMediaQuery={true} />
-
+          <div
+            style={{
+              flex: "0 0 auto",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <WalletSelectorModalWithDisplay
+              address={activeWalletAddress}
+              onSelect={onWalletChange}
+            />
+          </div>
         ) : (
           <>
             <Input
@@ -100,11 +109,12 @@ export function DappBrowserHeader({
               onChange={e => setWcUri(e.target.value)}
               placeholder="wc:…"
               style={{
-                flex: 1,
-                minWidth: 70,
                 height: 32,
                 fontSize: 12,
                 padding: "0 6px",
+                flex: "1 1 auto",
+                minWidth: 0,
+                maxWidth: 160,
               }}
             />
 

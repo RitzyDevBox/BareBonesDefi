@@ -10,6 +10,8 @@ export function formatBalance(value: string): string {
   });
 }
 
-export function shortAddress(addr: string) {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+export function shortAddress(address: string, chars = 4) {
+  if (!address) return "";
+  return `${address.slice(0, 2 + chars)}…${address.slice(-chars)}`;
 }
+

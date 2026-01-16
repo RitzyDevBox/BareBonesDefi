@@ -7,24 +7,39 @@ export enum ScreenSize {
   Desktop = "desktop",
 }
 
-const PHONE_MAX = 480;
-const TABLET_MAX = 900;
+type MediaQueryOptions = {
+  phoneMax?: number;
+  tabletMax?: number;
+};
 
-function getScreenSize(): ScreenSize {
+const DEFAULT_PHONE_MAX = 480;
+const DEFAULT_TABLET_MAX = 900;
+
+function getScreenSize(
+  phoneMax: number,
+  tabletMax: number
+): ScreenSize {
   const w = window.innerWidth;
-  if (w <= PHONE_MAX) return ScreenSize.Phone;
-  if (w <= TABLET_MAX) return ScreenSize.Tablet;
+  if (w <= phoneMax) return ScreenSize.Phone;
+  if (w <= tabletMax) return ScreenSize.Tablet;
   return ScreenSize.Desktop;
 }
 
-export function useMediaQuery() {
-  const [size, setSize] = useState<ScreenSize>(() => getScreenSize());
+export function useMediaQuery(options?: MediaQueryOptions) {
+  const phoneMax = options?.phoneMax ?? DEFAULT_PHONE_MAX;
+  const tabletMax = options?.tabletMax ?? DEFAULT_TABLET_MAX;
+
+  const [size, setSize] = useState<ScreenSize>(() =>
+    getScreenSize(phoneMax, tabletMax)
+  );
 
   useEffect(() => {
-    const handler = () => setSize(getScreenSize());
+    const handler = () =>
+      setSize(getScreenSize(phoneMax, tabletMax));
+
     window.addEventListener("resize", handler);
     return () => window.removeEventListener("resize", handler);
-  }, []);
+  }, [phoneMax, tabletMax]);
 
   return size;
 }
