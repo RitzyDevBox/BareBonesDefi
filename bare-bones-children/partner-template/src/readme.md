@@ -74,6 +74,4 @@ export const LazyActionHandlerRegistry = {
 
 ### Dev Notes: 
 
-Discovered issues to be fixed:
-
-1. Universal wallet triggers duplicate actions because the ethers event if fire from useEffect instead of properly triggering it with an event.
+release.v2 url: https://ar-io.dev/vRv6niqQYLV6h5tH707yFKekxkqE4kiesyGZmwHKjvk
