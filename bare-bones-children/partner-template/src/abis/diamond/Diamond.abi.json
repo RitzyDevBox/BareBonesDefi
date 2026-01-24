@@ -83,6 +83,81 @@
   },
   {
     "type": "error",
+    "name": "LibDiamond_AddressHasNoCode",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "LibDiamond_FunctionAlreadyExists",
+    "inputs": [
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "LibDiamond_IncorrectFacetCutAction",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LibDiamond_MustBeZeroFacetAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LibDiamond_NoSelectorsProvided",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LibDiamond_RemoveImmutableFunction",
+    "inputs": [
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "LibDiamond_RemoveNonexistentFunction",
+    "inputs": [
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "LibDiamond_ReplaceWithSameFacet",
+    "inputs": [
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "LibDiamond_ZeroFacetAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotAuthorized",
     "inputs": []
   }

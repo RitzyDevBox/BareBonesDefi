@@ -6,6 +6,7 @@ import { RawTx } from "./basicWalletUtils";
 export interface DeployDiamondArgs {
   owner: string;
   chainId: number | null;
+  organizationId?: string; // organization slug e.g bare-bones
 }
 
 export interface DiamondDeployedResult {
@@ -25,16 +26,25 @@ export function buildDeployEOAOwnerBasedDiamondRawTx(
   }
 
   const config = getBareBonesConfiguration(args.chainId);
-
   const iface = new ethers.utils.Interface(DIAMOND_FACTORY_ABI);
-  const options = ethers.utils.defaultAbiCoder.encode(["address"],[args.owner]);
+  const ownerOptions = ethers.utils.defaultAbiCoder.encode(["address"],[args.owner]);
+
+  // Optional initializer data
+  let initData = "0x";
+
+  if (args.organizationId) {
+    const orgId = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(args.organizationId));
+    initData = ethers.utils.defaultAbiCoder.encode(["address", "bytes32"],[config.globalOrganizationRegistry,orgId]);
+  }
 
   return {
     to: config.diamondFactoryAddress,
     value: 0,
     data: iface.encodeFunctionData("deployDiamond", [
-      config.ownerAuthorityResolverAddress,
-      options,
+      config.ownerAuthorityResolverAddress, // resolver
+      ownerOptions,                         // abi.encode(user)
+      config.diamondKernelInitializer,      // initializer
+      initData,                             // optional org install
     ]),
   };
 }

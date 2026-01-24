@@ -3,10 +3,7 @@ import { TokenInfo } from "../components/TokenSelect/types";
 import polygonLogo from "../assets/chains/polygon-logo.webp";
 import hyperliquidLogo from "../assets/chains/hyperliquid-logo.png";
 
-
 export const SwapRouter02ExecutorAddress = '0xBe6d02FD9335C2e1e33bBC174ad7ee36764C8EE7'
-export const walletAddress_old = "0x6dc2f30d8d2b1683617aaecd98941d7e56ca61a1";
-export const walletAddress = "0x2b94f955813532cdcf5bf77c4242fa762c132a79"
 export const testTokenAddress = "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c";
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const NATIVE_ADDRESS = ZERO_ADDRESS
@@ -23,27 +20,39 @@ export interface BareBonesConfiguration {
   diamondFactoryInitHash: string;
   ownerAuthorityResolverAddress: string;
   nftAuthorityResolverAddress: string;
+  facetFallbackFailureHook: string;
+  globalOrganizationRegistry: string;
+  diamondKernelInitializer: string;
   multicall3Address: string,
 }
 
 /**
-  DiamondCutFacet:        0xa023236BB1C1674b3c5F3C35b0e385C396EaFF21
-  DiamondLoupeFacet:      0x9C598b8986B4d3b438cB3Dbc618ba9F52a21C527
-  ValidationFacet:        0xA70278d5f2BbE5144c704c5166B00E6BAa3fe002
-  executeFacet:           0x73F99409be7fc52Cb472e6C408ad38CAC183d616
-  walletCallbackFacet:  0x1F7725a8708CAf75125A24e0F4f96e98a637C9B6
-  DiamondFactory deployed at: 0x21B5B6032137CFe7d186eE1951F9A76e4ddC27CB
 
-  OwnerAuthorityResolver:  0xEdE0607dF418821847b0380BF97b9f59eAFa1e0f
-  NFTAuthorityResolver:  0xf4026fc07Ce667C6caA62F8623c68aD879BCE5c9
+  Deploying: DIAMOND_CUT_FACET_V1 0x147E325F797d398dF2cC208E440Cafa222A7DCa4
+  Deploying: DIAMOND_LOUPE_FACET_V1 0xfC0d8BD9Fe5f585B622AB5d0BBBEB9B07367E152
+  Deploying: VALIDATION_FACET_V1 0x1E7bf1Ed509b169fF3FdEa27677d9D87f12dfF45
+  Deploying: HOOK_FACET_V1 0x703FaBd3eDeE58AbF58F3d13a586A2F7F6926993
+  Deploying: VALIDATION_PRE_HOOK_V1 0x9Dbd8B384EAE1f2Bd0BfBB6c01b8E88F46809582
+  Deploying: DIAMOND_FACTORY_V1 0x7C7681dA9eF0c69287376aFCb546ebf176F96232
+  Deploying: OWNER_AUTHORITY_RESOLVER_V1 0x275E7fF6B915eEfa554Ea1541D5456Bd7FA623F1
+  Deploying: NFT_AUTHORITY_RESOLVER_V1 0x36CF71dC0ddA1cBf6607467e61929ED6E0E2E0C8
+  Deploying: EXECUTE_FACET_V1 0x8D76DE865083f12383994A1A6Bb2d26A53836E4E
+  Deploying: WALLET_CALLBACK_FACET_V1 0x211541b931787070de1C930dBB5e3aE9DBf6513a
+  Deploying: ORG_BEACON_FACET_V1 0xad4A110Fd9D8F1a5Dd99f97eC3f67268BE6BfE1d
+  Deploying: FACET_FALLBACK_FAILURE_HOOK_V1 0xd69475f2caA270aC738bBC2efd0600fC85ED7ED6
+  Deploying: DIAMOND_KERNEL_INITIALIZER_V1 0xa7fC7504a189338813cA136ae531136F17279f03
+  Deploying: GLOBAL_ORG_REGISTRY_V1 0xfb4c3957C7638c3Ec8b777AcF8bD65fd40df42b5
 
-  Diamond init code hash: 0x9166f64381eb4cf19dde2cfe26444b234597dcfda8f950b6a375c299d70a87fd
+  Diamond init code hash: 0xf4cd4ee9ea36c9fcc258dc3c7772ce9feec4379218fc532e2655de505d0557e9
  */
 export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
-  diamondFactoryAddress: "0x21B5B6032137CFe7d186eE1951F9A76e4ddC27CB",
-  diamondFactoryInitHash: "0x9166f64381eb4cf19dde2cfe26444b234597dcfda8f950b6a375c299d70a87fd",
-  ownerAuthorityResolverAddress: "0xEdE0607dF418821847b0380BF97b9f59eAFa1e0f",
-  nftAuthorityResolverAddress: "0xf4026fc07Ce667C6caA62F8623c68aD879BCE5c9",
+  diamondFactoryAddress: "0x7C7681dA9eF0c69287376aFCb546ebf176F96232",
+  diamondFactoryInitHash: "0xf4cd4ee9ea36c9fcc258dc3c7772ce9feec4379218fc532e2655de505d0557e9",
+  ownerAuthorityResolverAddress: "0x275E7fF6B915eEfa554Ea1541D5456Bd7FA623F1",
+  nftAuthorityResolverAddress: "0x36CF71dC0ddA1cBf6607467e61929ED6E0E2E0C8",
+  facetFallbackFailureHook: "0xd69475f2caA270aC738bBC2efd0600fC85ED7ED6",
+  globalOrganizationRegistry: "0xfb4c3957C7638c3Ec8b777AcF8bD65fd40df42b5",
+  diamondKernelInitializer: "0xa7fC7504a189338813cA136ae531136F17279f03",
   multicall3Address: "0xca11bde05977b3631167028862be2a173976ca11",
 } as const;
 

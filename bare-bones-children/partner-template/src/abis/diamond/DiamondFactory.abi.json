@@ -5,27 +5,27 @@
       {
         "name": "_cutFacet",
         "type": "address",
-        "internalType": "address"
+        "internalType": "contract DiamondCutFacet"
       },
       {
         "name": "_loupeFacet",
         "type": "address",
-        "internalType": "address"
+        "internalType": "contract DiamondLoupeFacet"
       },
       {
         "name": "_validationFacet",
         "type": "address",
-        "internalType": "address"
+        "internalType": "contract ValidationFacet"
       },
       {
-        "name": "_executeFacet",
+        "name": "_hookFacet",
         "type": "address",
-        "internalType": "address"
+        "internalType": "contract HookFacet"
       },
       {
-        "name": "_walletCallbackFacet",
+        "name": "_validationPreHook",
         "type": "address",
-        "internalType": "address"
+        "internalType": "contract ValidationPreHook"
       }
     ],
     "stateMutability": "nonpayable"
@@ -67,38 +67,14 @@
         "name": "options",
         "type": "bytes",
         "internalType": "bytes"
-      }
-    ],
-    "outputs": [
+      },
       {
-        "name": "diamondAddr",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "deployDiamondWithPostInstaller",
-    "inputs": [
-      {
-        "name": "defaultAuthorizer",
+        "name": "diamondInitializer",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "options",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "postInitializer",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "postInitOptions",
+        "name": "diamondInitializerOptions",
         "type": "bytes",
         "internalType": "bytes"
       }

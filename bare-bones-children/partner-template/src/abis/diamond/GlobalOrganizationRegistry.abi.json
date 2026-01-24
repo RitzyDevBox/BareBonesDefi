@@ -1,0 +1,252 @@
+[
+  {
+    "type": "function",
+    "name": "createOrganization",
+    "inputs": [
+      {
+        "name": "organizationId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "beacon",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getBeacon",
+    "inputs": [
+      {
+        "name": "organizationId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getFacet",
+    "inputs": [
+      {
+        "name": "organizationId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "facetId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct IOrganizationRegistry.FacetDefinition",
+        "components": [
+          {
+            "name": "facet",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "selectors",
+            "type": "bytes4[]",
+            "internalType": "bytes4[]"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getFacetIds",
+    "inputs": [
+      {
+        "name": "organizationId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getOrganization",
+    "inputs": [
+      {
+        "name": "organizationId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct IOrganizationRegistry.Organization",
+        "components": [
+          {
+            "name": "owner",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "beacon",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "hasFacet",
+    "inputs": [
+      {
+        "name": "organizationId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "facetId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ownerOf",
+    "inputs": [
+      {
+        "name": "organizationId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "publishFacet",
+    "inputs": [
+      {
+        "name": "organizationId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "facetId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "facet",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "selectors",
+        "type": "bytes4[]",
+        "internalType": "bytes4[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transferOrganization",
+    "inputs": [
+      {
+        "name": "organizationId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateBeacon",
+    "inputs": [
+      {
+        "name": "organizationId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newBeacon",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "error",
+    "name": "FacetAlreadyExists",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotOrgOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OrgAlreadyExists",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OrgNotFound",
+    "inputs": []
+  }
+]
