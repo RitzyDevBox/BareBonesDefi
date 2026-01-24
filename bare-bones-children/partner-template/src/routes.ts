@@ -1,7 +1,7 @@
 export const ROUTES = {
   ROOT: "/",
   BASIC_WALLET: "/basic-wallet-facet",
-  BASIC_WALLET_WITH_ADDRESS: (address: string) =>
-    `/basic-wallet-facet/${address}`,
-  DAPP_BROWSER: '/dapp-browser'
+  BASIC_WALLET_WITH_ADDRESS: (address: string) => `/basic-wallet-facet/${address}`,
+  DAPP_BROWSER: '/dapp-browser',
+  ORGANIZATIONS: '/organizations'
 } as const;
