@@ -4,7 +4,7 @@ import { shortAddress } from "../../utils/formatUtils";
 import { ButtonPrimary } from "../Button/ButtonPrimary";
 import { ChainSelector } from "./ChainSelector";
 import { Row, Surface } from "../Primitives";
-import { Logo } from "./Logo";
+import { BareBonesLogo } from "./BareBonesLogo";
 import { Text } from "../Primitives/Text";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMediaQuery, ScreenSize } from "../../hooks/useMediaQuery";
@@ -87,7 +87,7 @@ function FullHeader({
         {/* LEFT */}
         <Row gap="md" align="center">
           <Surface clickable onClick={() => navigate("/")} style={logoStyle}>
-            <Logo size={28} />
+            <BareBonesLogo size={28} />
             <Text.Body style={{ fontWeight: 600 }}>
               {APP_NAME}
             </Text.Body>
@@ -149,7 +149,7 @@ function MobileHeader({
       <Row justify="between" align="center" style={containerStyle}>
         {/* LEFT */}
         <Surface clickable onClick={() => navigate("/")} style={logoStyle}>
-          <Logo size={28} />
+          <BareBonesLogo size={28} />
         </Surface>
 
         {/* RIGHT */}

@@ -54,7 +54,7 @@ const FINGER_RADIUS = 7.5;
 
 /* ================= LOGO ================= */
 
-export function Logo({ size = 128 }: LogoProps) {
+export function BareBonesLogo({ size = 128 }: LogoProps) {
   const { bone, paw, fingers } = logoConfig;
 
   return (
