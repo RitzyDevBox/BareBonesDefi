@@ -9,7 +9,7 @@ import { ROUTES } from "../../routes";
 type OrganizationLinks = Partial<Record<SocialKey, string>>;
 
 export type OrganizationCardProps = {
-  id: string;
+  organizationId: string;
   name: string;
   description?: string;
   logoUrl?: string;
@@ -17,7 +17,7 @@ export type OrganizationCardProps = {
 };
 
 export function OrganizationCard({
-  id,
+  organizationId,
   name,
   description,
   logoUrl,
@@ -27,7 +27,7 @@ export function OrganizationCard({
   const navigate = useNavigate();
 
   function handleNavigate() {
-    navigate(ROUTES.ORGANIZATION_DETAIL(id));
+    navigate(ROUTES.ORGANIZATION_DETAIL(organizationId));
   }
 
   return (

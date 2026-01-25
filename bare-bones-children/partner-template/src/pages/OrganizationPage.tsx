@@ -4,9 +4,12 @@ import { Stack } from "../components/Primitives";
 import { useMediaQuery, ScreenSize } from "../hooks/useMediaQuery";
 import { OrganizationCard, OrganizationCardProps } from "../components/Organizations/OrganizationCard";
 
-export const ORGANIZATION_PAGE_METADATA: OrganizationCardProps[] = [
+type OrganizationMetadata = OrganizationCardProps & { id: string }
+
+export const ORGANIZATION_PAGE_METADATA: OrganizationMetadata[] = [
   {
     id: "bare-bones",
+    organizationId: "barebonesdemo",
     name: "Bare Bones DAO",
     description: "Minimal governance, maximal control.",
     logoUrl: "/logo.svg",
@@ -19,6 +22,7 @@ export const ORGANIZATION_PAGE_METADATA: OrganizationCardProps[] = [
 
   {
     id: "hyper-collective",
+    organizationId: "barebonesdemo",
     name: "Hyper Collective",
     description: "Coordination layer for onchain ops.",
     logoUrl: "/logo.svg",
@@ -29,6 +33,7 @@ export const ORGANIZATION_PAGE_METADATA: OrganizationCardProps[] = [
 
   {
     id: "atlas-protocol",
+    organizationId: "barebonesdemo",
     name: "Atlas Protocol",
     description:
       "A modular execution framework for autonomous onchain agents, designed to scale coordination across DAOs, protocols, and teams.",
@@ -42,6 +47,7 @@ export const ORGANIZATION_PAGE_METADATA: OrganizationCardProps[] = [
 
   {
     id: "ghost-market",
+    organizationId: "barebonesdemo",
     name: "Ghost Market",
     description:
       "Private coordination, public settlement. Ghost Market enables trust-minimized OTC and dark liquidity primitives.",
@@ -54,6 +60,7 @@ export const ORGANIZATION_PAGE_METADATA: OrganizationCardProps[] = [
 
   {
     id: "hex-labs",
+    organizationId: "barebonesdemo",
     name: "Hex Labs",
     description: "Research-driven smart contract engineering collective.",
     logoUrl: "/logo.svg",
@@ -62,6 +69,7 @@ export const ORGANIZATION_PAGE_METADATA: OrganizationCardProps[] = [
 
   {
     id: "sovereign-stack",
+    organizationId: "barebonesdemo",
     name: "Sovereign Stack",
     description:
       "Infrastructure and tooling for fully sovereign organizations operating without centralized points of control.",
@@ -76,6 +84,7 @@ export const ORGANIZATION_PAGE_METADATA: OrganizationCardProps[] = [
 
   {
     id: "delta-syndicate",
+    organizationId: "barebonesdemo",
     name: "Delta Syndicate",
     description:
       "Capital formation and execution syndicate focused on early-stage onchain primitives.",
@@ -111,7 +120,7 @@ export function OrganizationPage() {
               {ORGANIZATION_PAGE_METADATA.map((org) => (
                 <OrganizationCard
                   key={org.id}
-                  id={org.id}
+                  organizationId={org.organizationId}
                   name={org.name}
                   description={org.description}
                   logoUrl={org.logoUrl}

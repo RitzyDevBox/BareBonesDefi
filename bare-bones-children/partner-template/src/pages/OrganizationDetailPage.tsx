@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { ORGANIZATION_PAGE_METADATA } from "./OrganizationPage";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
@@ -7,6 +7,10 @@ import { Card, CardContent } from "../components/BasicComponents";
 import { Stack, Row, Surface } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import { ButtonPrimary } from "../components/Button/ButtonPrimary";
+import { createOrganizationRawTx, DEMO_FALLBACK_BEACONS, updateOrganizationFallbackBeaconRawTx } from "../utils/organizationFallbackDemoUtils";
+import { useWalletProvider } from "../hooks/useWalletProvider";
+import { useToastActionLifecycle } from "../components/UniversalWalletModal/hooks/useToastActionLifeCycle";
+import { executeTx } from "../utils/transactionUtils";
 
 /**
  * Placeholder types — you’ll replace these with real hooks
@@ -16,7 +20,7 @@ type WalletAddress = string;
 export function OrganizationDetailPage() {
   const { organizationId } = useParams<{ organizationId: string }>();
 
-  const organization = ORGANIZATION_PAGE_METADATA.find((o) => o.id === organizationId);
+  const organization = ORGANIZATION_PAGE_METADATA.find((o) => o.organizationId === organizationId);
 
   // --------------------------------------------
   // 1. NOT FOUND
@@ -39,9 +43,72 @@ export function OrganizationDetailPage() {
   // --------------------------------------------
   // Placeholder state
   // --------------------------------------------
-  const isAdmin = false; // ← replace with hook later
-  const [selectedWallet, setSelectedWallet] =
-    useState<WalletAddress | null>(null);
+  const isAdmin = true; // ← replace with hook later
+  const [selectedWallet, setSelectedWallet] = useState<WalletAddress | null>(null);
+
+  const { provider, account, chainId } = useWalletProvider();
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [initializedOrgId, setInitializedOrgId] = useState<string | null>(null);
+  const lifecycle = useToastActionLifecycle();
+
+  const initializeDemo = useCallback(
+  async (organizationId: string, fallbackBeacon: string) => {
+    if (!provider || !account || chainId == null) return;
+
+        setIsInitializing(true);
+
+        try {
+          await executeTx(
+            provider,
+            async () =>
+            createOrganizationRawTx(
+                organizationId,
+                fallbackBeacon,
+                chainId
+            ),
+            lifecycle,
+            () => {
+              setInitializedOrgId(organizationId);
+              return `Organization ${organizationId} initialized`;
+            }
+        );
+        } finally {
+          setIsInitializing(false);
+        }
+    },
+    [provider, account, chainId, lifecycle]
+    );
+
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [updatedOrgId, setUpdatedOrgId] = useState<string | null>(null);
+    const updateDemoFallback = useCallback(
+        async (organizationId: string, newFallbackBeacon: string) => {
+            if (!provider || !account || chainId == null) return;
+
+            setIsUpdating(true);
+
+            try {
+            await executeTx(
+                provider,
+                async () =>
+                updateOrganizationFallbackBeaconRawTx(
+                    organizationId,
+                    newFallbackBeacon,
+                    chainId
+                ),
+                lifecycle,
+                () => {
+                setUpdatedOrgId(organizationId);
+                return `Fallback updated for ${organizationId}`;
+                }
+            );
+            } finally {
+            setIsUpdating(false);
+            }
+        },
+        [provider, account, chainId, lifecycle]
+    );
+
 
   return (
     <PageContainer>
@@ -75,23 +142,12 @@ export function OrganizationDetailPage() {
                 <Surface>
                   <Stack gap="sm">
                     <Text.Label>Organization Beacon</Text.Label>
-
-                    {/* Placeholder input */}
-                    <input
-                      placeholder="0xBeaconAddress"
-                      style={{
-                        width: "100%",
-                        padding: "var(--spacing-sm)",
-                        borderRadius: "var(--radius-sm)",
-                        border: "1px solid var(--colors-border)",
-                        background: "var(--colors-background)",
-                        color: "var(--colors-text-main)",
-                      }}
-                    />
-
                     <Row justify="end">
-                      <ButtonPrimary>
-                        Update Beacon
+                      <ButtonPrimary onClick={() => updateDemoFallback(ORGANIZATION_PAGE_METADATA[0].organizationId, DEMO_FALLBACK_BEACONS["LOGGER_FALLBACK_DEMO_V1"])}>
+                        Update Beacon Fallback Logging
+                      </ButtonPrimary>
+                      <ButtonPrimary onClick={() => updateDemoFallback(ORGANIZATION_PAGE_METADATA[0].organizationId, DEMO_FALLBACK_BEACONS["STATE_MANIPULATOR_DEMO_V1"])}>
+                        Update Beacon State Manipulator
                       </ButtonPrimary>
                     </Row>
                   </Stack>
@@ -182,7 +238,7 @@ export function OrganizationDetailPage() {
 
                       <Row gap="sm">
                         <ButtonPrimary>
-                          Post Event
+                          Log Event
                         </ButtonPrimary>
 
                         <ButtonPrimary>
