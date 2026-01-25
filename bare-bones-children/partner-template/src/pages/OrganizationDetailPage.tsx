@@ -50,8 +50,10 @@ export function OrganizationDetailPage() {
   const isAdmin = true;
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [demoValue, setDemoValue] = useState<string>("");
+  const [readValue, setReadValue] = useState<string | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
 
-  const { chainId, connect } = useWalletProvider();
+  const { chainId, connect, provider } = useWalletProvider();
   const { count: walletCount, loading, connected } = useUserWalletCount();
 
   const initializeDemo = useExecuteRawTx(
@@ -89,7 +91,20 @@ export function OrganizationDetailPage() {
       setDemoStateRawTx(wallet, value, chainId),
     () => `State updated`
   );
-  
+
+  async function readState() {
+    if (!provider || !selectedWallet) return;
+
+    try {
+      const state = await readDemoState(provider, selectedWallet);
+      setReadValue(state.value.toString());
+      setReadError(null);
+    } catch (err: unknown) {
+      console.log((err as any).message);
+      setReadValue(null);
+      setReadError("State not available for current fallback");
+    }
+  }
 
   return (
     <PageContainer>
@@ -121,7 +136,7 @@ export function OrganizationDetailPage() {
                         Use Logging Fallback
                       </ButtonPrimary>
 
-                      <ButtonPrimary onClick={() => updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1) }>
+                      <ButtonPrimary onClick={() => updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1)}>
                         Use State Fallback
                       </ButtonPrimary>
                     </Row>
@@ -153,17 +168,12 @@ export function OrganizationDetailPage() {
               {connected && !loading && !selectedWallet && (
                 <>
                   {walletCount === 0 ? (
-                    <DeployDiamondWidget
-                      onDeployed={(addr) => setSelectedWallet(addr)}
-                    />
+                    <DeployDiamondWidget onDeployed={(addr) => setSelectedWallet(addr)} />
                   ) : (
                     <Surface>
                       <Stack gap="md">
                         <Text.Label>Select Wallet</Text.Label>
-                        <WalletSelector
-                          walletCount={walletCount!}
-                          onSelect={(addr) => setSelectedWallet(addr)}
-                        />
+                        <WalletSelector walletCount={walletCount!} onSelect={(addr) => setSelectedWallet(addr)} />
                       </Stack>
                     </Surface>
                   )}
@@ -178,31 +188,24 @@ export function OrganizationDetailPage() {
                       <Text.Body>{selectedWallet}</Text.Body>
 
                       <Row gap="sm">
-                        <ButtonPrimary onClick={() => setSelectedWallet(null)}>
-                          Change Wallet
-                        </ButtonPrimary>
-
-                        <ButtonPrimary onClick={() => enrollOrganization(chainId!, selectedWallet, organization.organizationId)}>
-                          Enroll
-                        </ButtonPrimary>
-
-                        <ButtonPrimary onClick={() => unenrollOrganization(chainId!, selectedWallet) } >
-                          Unenroll
-                        </ButtonPrimary>
+                        <ButtonPrimary onClick={() => setSelectedWallet(null)}>Change Wallet</ButtonPrimary>
+                        <ButtonPrimary onClick={() => enrollOrganization(chainId!, selectedWallet, organization.organizationId)}>Enroll</ButtonPrimary>
+                        <ButtonPrimary onClick={() => unenrollOrganization(chainId!, selectedWallet)}>Unenroll</ButtonPrimary>
                       </Row>
                     </Stack>
                   </Surface>
 
                   <Surface>
                     <Stack gap="md">
-                       <Text.Title align="left">Custom Actions</Text.Title>
+                        <Text.Title align="left">Store State Value</Text.Title>
 
+                        {/* write */}
                         <Row gap="sm" align="center">
                         <Input
                             value={demoValue}
                             onChange={(e) => setDemoValue(e.target.value)}
                             placeholder="Value"
-                            style={{ maxWidth: 140 }}
+                            style={{ maxWidth: 160 }}
                         />
 
                         <ButtonPrimary
@@ -211,11 +214,38 @@ export function OrganizationDetailPage() {
                         >
                             Store Value
                         </ButtonPrimary>
+                        </Row>
 
+                        {/* read */}
+                        <Row gap="sm">
+                        <ButtonPrimary onClick={readState}>
+                            Read Value
+                        </ButtonPrimary>
+                        </Row>
+
+                      {readValue && (
+                        <Text.Body color="muted">
+                            Current Value: {readValue}
+                        </Text.Body>
+                      )}
+
+                      {readError && (
+                        <Text.Body color="muted">
+                            {readError}
+                        </Text.Body>
+                      )}
+                    </Stack>
+                  </Surface>
+
+                  <Surface>
+                    <Stack gap="md">
+                      <Text.Title align="left">Logger Fallback</Text.Title>
+
+                      <Row gap="sm">
                         <ButtonPrimary onClick={() => logEvent(chainId!, selectedWallet)}>
                             Log Event
                         </ButtonPrimary>
-                        </Row>
+                      </Row>
                     </Stack>
                   </Surface>
                 </Stack>
