@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { ORGANIZATION_PAGE_METADATA } from "./OrganizationPage";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
@@ -11,18 +11,18 @@ import { ButtonPrimary } from "../components/Button/ButtonPrimary";
 import {
   createOrganizationRawTx,
   DEMO_FALLBACK_BEACONS,
+  enrollOrganizationRawTx,
+  unenrollOrganizationRawTx,
   updateOrganizationFallbackBeaconRawTx,
 } from "../utils/organizationFallbackDemoUtils";
 
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useToastActionLifecycle } from "../components/UniversalWalletModal/hooks/useToastActionLifeCycle";
-import { executeTx } from "../utils/transactionUtils";
 
 import { WalletSelector } from "../components/Wallet/WalletSelector";
 import { DeployDiamondWidget } from "../components/DeployWalletWidget";
 import { useUserWalletCount } from "../hooks/wallet/useUserWalletCount";
-
-type WalletAddress = string;
+import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 
 export function OrganizationDetailPage() {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -47,42 +47,23 @@ export function OrganizationDetailPage() {
 
   const isAdmin = true;
   const [selectedWallet, setSelectedWallet] =
-    useState<WalletAddress | null>(null);
+    useState<string | null>(null);
 
   const { provider, account, chainId, connect } = useWalletProvider();
   const { count: walletCount, loading, connected } = useUserWalletCount();
 
-  const lifecycle = useToastActionLifecycle();
-
-  const initializeDemo = useCallback(
-    async (orgId: string, fallbackBeacon: string) => {
-      if (!provider || !account || chainId == null) return;
-
-      await executeTx(
-        provider,
-        async () =>
-          createOrganizationRawTx(orgId, fallbackBeacon, chainId),
-        lifecycle,
-        () => `Organization ${orgId} initialized`
-      );
-    },
-    [provider, account, chainId, lifecycle]
+  const initializeDemo = useExecuteRawTx(
+    (orgId: string, fallbackBeacon: string) =>
+        createOrganizationRawTx(orgId, fallbackBeacon, chainId!),
+    (orgId) => `Organization ${orgId} initialized`
   );
 
-  const updateDemoFallback = useCallback(
-    async (orgId: string, newBeacon: string) => {
-      if (!provider || !account || chainId == null) return;
-
-      await executeTx(
-        provider,
-        async () =>
-          updateOrganizationFallbackBeaconRawTx(orgId, newBeacon, chainId),
-        lifecycle,
-        () => `Fallback updated for ${orgId}`
-      );
-    },
-    [provider, account, chainId, lifecycle]
+  const updateDemoFallback = useExecuteRawTx(
+    (orgId: string, beacon: string) =>
+        updateOrganizationFallbackBeaconRawTx(orgId, beacon, chainId!),
+    (orgId) => `Fallback updated for ${orgId}`
   );
+
 
   return (
     <PageContainer>
