@@ -1,31 +1,39 @@
+import { useNavigate } from "react-router-dom";
 import { SocialKey, SOCIALS } from "../../assets/configs/socials";
 import { Card, CardContent } from "../BasicComponents";
 import { Logo } from "../Logo/Logo";
 import { Stack, Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
+import { ROUTES } from "../../routes";
 
 type OrganizationLinks = Partial<Record<SocialKey, string>>;
 
 export type OrganizationCardProps = {
+  id: string;
   name: string;
   description?: string;
   logoUrl?: string;
   links?: OrganizationLinks;
-  onClick?: () => void;
 };
 
 export function OrganizationCard({
+  id,
   name,
   description,
   logoUrl,
   links,
-  onClick,
 }: OrganizationCardProps) {
+
+  const navigate = useNavigate();
+
+  function handleNavigate() {
+    navigate(ROUTES.ORGANIZATION_DETAIL(id));
+  }
 
   return (
     <Card
-      onClick={onClick}
-      style={{ cursor: onClick ? "pointer" : "default" }}
+      onClick={handleNavigate}
+      style={{ cursor: "pointer" }}
     >
       <CardContent>
         <Stack gap="md">

@@ -4,11 +4,7 @@ import { Stack } from "../components/Primitives";
 import { useMediaQuery, ScreenSize } from "../hooks/useMediaQuery";
 import { OrganizationCard, OrganizationCardProps } from "../components/Organizations/OrganizationCard";
 
-type OrganizationMetadata = OrganizationCardProps & {
-  id: string;
-};
-
-export const ORGANIZATION_PAGE_METADATA: OrganizationMetadata[] = [
+export const ORGANIZATION_PAGE_METADATA: OrganizationCardProps[] = [
   {
     id: "bare-bones",
     name: "Bare Bones DAO",
@@ -115,6 +111,7 @@ export function OrganizationPage() {
               {ORGANIZATION_PAGE_METADATA.map((org) => (
                 <OrganizationCard
                   key={org.id}
+                  id={org.id}
                   name={org.name}
                   description={org.description}
                   logoUrl={org.logoUrl}
