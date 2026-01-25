@@ -3,22 +3,23 @@ import { useState } from "react";
 
 import { ORGANIZATION_PAGE_METADATA } from "./OrganizationPage";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
-import { Card, CardContent } from "../components/BasicComponents";
+import { Card, CardContent, Input } from "../components/BasicComponents";
 import { Stack, Row, Surface } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import { ButtonPrimary } from "../components/Button/ButtonPrimary";
 
 import {
-  createOrganizationRawTx,
   DEMO_FALLBACK_BEACONS,
+  createOrganizationRawTx,
+  updateOrganizationFallbackBeaconRawTx,
   enrollOrganizationRawTx,
   unenrollOrganizationRawTx,
-  updateOrganizationFallbackBeaconRawTx,
+  setDemoStateRawTx,
+  triggerLoggerFallbackRawTx,
+  readDemoState,
 } from "../utils/organizationFallbackDemoUtils";
 
 import { useWalletProvider } from "../hooks/useWalletProvider";
-import { useToastActionLifecycle } from "../components/UniversalWalletModal/hooks/useToastActionLifeCycle";
-
 import { WalletSelector } from "../components/Wallet/WalletSelector";
 import { DeployDiamondWidget } from "../components/DeployWalletWidget";
 import { useUserWalletCount } from "../hooks/wallet/useUserWalletCount";
@@ -26,6 +27,7 @@ import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 
 export function OrganizationDetailPage() {
   const { organizationId } = useParams<{ organizationId: string }>();
+
   const organization = ORGANIZATION_PAGE_METADATA.find(
     (o) => o.organizationId === organizationId
   );
@@ -46,24 +48,48 @@ export function OrganizationDetailPage() {
   }
 
   const isAdmin = true;
-  const [selectedWallet, setSelectedWallet] =
-    useState<string | null>(null);
+  const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
+  const [demoValue, setDemoValue] = useState<string>("");
 
-  const { provider, account, chainId, connect } = useWalletProvider();
+  const { chainId, connect } = useWalletProvider();
   const { count: walletCount, loading, connected } = useUserWalletCount();
 
   const initializeDemo = useExecuteRawTx(
-    (orgId: string, fallbackBeacon: string) =>
-        createOrganizationRawTx(orgId, fallbackBeacon, chainId!),
+    (chainId: number, orgId: string, beacon: string) =>
+      createOrganizationRawTx(orgId, beacon, chainId),
     (orgId) => `Organization ${orgId} initialized`
   );
 
   const updateDemoFallback = useExecuteRawTx(
-    (orgId: string, beacon: string) =>
-        updateOrganizationFallbackBeaconRawTx(orgId, beacon, chainId!),
+    (chainId: number, orgId: string, beacon: string) =>
+      updateOrganizationFallbackBeaconRawTx(orgId, beacon, chainId),
     (orgId) => `Fallback updated for ${orgId}`
   );
 
+  const enrollOrganization = useExecuteRawTx(
+    (chainId: number, wallet: string, orgId: string) =>
+      enrollOrganizationRawTx(wallet, orgId, chainId),
+    (_, __, orgId) => `Wallet enrolled in ${orgId}`
+  );
+
+  const unenrollOrganization = useExecuteRawTx(
+    (chainId: number, wallet: string) =>
+      unenrollOrganizationRawTx(wallet, chainId),
+    () => `Wallet unenrolled`
+  );
+
+  const logEvent = useExecuteRawTx(
+    (chainId: number, wallet: string) =>
+      triggerLoggerFallbackRawTx(wallet, chainId),
+    () => `Fallback event emitted`
+  );
+
+  const storeValue = useExecuteRawTx(
+    (chainId: number, wallet: string, value: number) =>
+      setDemoStateRawTx(wallet, value, chainId),
+    () => `State updated`
+  );
+  
 
   return (
     <PageContainer>
@@ -74,15 +100,13 @@ export function OrganizationDetailPage() {
             <Stack gap="sm">
               <Text.Title align="left">{organization.name}</Text.Title>
               {organization.description && (
-                <Text.Body color="muted">
-                  {organization.description}
-                </Text.Body>
+                <Text.Body color="muted">{organization.description}</Text.Body>
               )}
             </Stack>
           </CardContent>
         </Card>
 
-        {/* ADMIN SECTION */}
+        {/* ADMIN */}
         {isAdmin && (
           <Card>
             <CardContent>
@@ -93,25 +117,11 @@ export function OrganizationDetailPage() {
                   <Stack gap="sm">
                     <Text.Label>Organization Beacon</Text.Label>
                     <Row gap="sm">
-                      <ButtonPrimary
-                        onClick={() =>
-                          updateDemoFallback(
-                            organization.organizationId,
-                            DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1
-                          )
-                        }
-                      >
+                      <ButtonPrimary onClick={() => updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1)}>
                         Use Logging Fallback
                       </ButtonPrimary>
 
-                      <ButtonPrimary
-                        onClick={() =>
-                          updateDemoFallback(
-                            organization.organizationId,
-                            DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1
-                          )
-                        }
-                      >
+                      <ButtonPrimary onClick={() => updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1) }>
                         Use State Fallback
                       </ButtonPrimary>
                     </Row>
@@ -122,19 +132,15 @@ export function OrganizationDetailPage() {
           </Card>
         )}
 
-        {/* USER SECTION */}
+        {/* USER */}
         <Card>
           <CardContent>
             <Stack gap="lg">
-              <Text.Title align="left">
-                Your Organization Wallets
-              </Text.Title>
+              <Text.Title align="left">Your Organization Wallets</Text.Title>
 
               {!connected && (
                 <Surface>
-                  <ButtonPrimary onClick={connect}>
-                    Connect Wallet
-                  </ButtonPrimary>
+                  <ButtonPrimary onClick={connect}>Connect Wallet</ButtonPrimary>
                 </Surface>
               )}
 
@@ -156,9 +162,7 @@ export function OrganizationDetailPage() {
                         <Text.Label>Select Wallet</Text.Label>
                         <WalletSelector
                           walletCount={walletCount!}
-                          onSelect={(addr) =>
-                            setSelectedWallet(addr)
-                          }
+                          onSelect={(addr) => setSelectedWallet(addr)}
                         />
                       </Stack>
                     </Surface>
@@ -174,13 +178,15 @@ export function OrganizationDetailPage() {
                       <Text.Body>{selectedWallet}</Text.Body>
 
                       <Row gap="sm">
-                        <ButtonPrimary
-                          onClick={() => setSelectedWallet(null)}
-                        >
+                        <ButtonPrimary onClick={() => setSelectedWallet(null)}>
                           Change Wallet
                         </ButtonPrimary>
 
-                        <ButtonPrimary>
+                        <ButtonPrimary onClick={() => enrollOrganization(chainId!, selectedWallet, organization.organizationId)}>
+                          Enroll
+                        </ButtonPrimary>
+
+                        <ButtonPrimary onClick={() => unenrollOrganization(chainId!, selectedWallet) } >
                           Unenroll
                         </ButtonPrimary>
                       </Row>
@@ -189,18 +195,27 @@ export function OrganizationDetailPage() {
 
                   <Surface>
                     <Stack gap="md">
-                      <Text.Title align="left">
-                        Custom Actions
-                      </Text.Title>
+                       <Text.Title align="left">Custom Actions</Text.Title>
 
-                      <Row gap="sm">
-                        <ButtonPrimary>
-                          Log Event
+                        <Row gap="sm" align="center">
+                        <Input
+                            value={demoValue}
+                            onChange={(e) => setDemoValue(e.target.value)}
+                            placeholder="Value"
+                            style={{ maxWidth: 140 }}
+                        />
+
+                        <ButtonPrimary
+                            onClick={() => storeValue(chainId!, selectedWallet, Number(demoValue))}
+                            disabled={!demoValue}
+                        >
+                            Store Value
                         </ButtonPrimary>
-                        <ButtonPrimary>
-                          Store Value
+
+                        <ButtonPrimary onClick={() => logEvent(chainId!, selectedWallet)}>
+                            Log Event
                         </ButtonPrimary>
-                      </Row>
+                        </Row>
                     </Stack>
                   </Surface>
                 </Stack>

@@ -2,6 +2,8 @@
 import { ethers } from "ethers";
 import GLOBAL_ORGANIZATION_REGISTRY_ABI from "../abis/diamond/GlobalOrganizationRegistry.abi.json";
 import ORGANIZATION_BEACON_FACET_ABI from "../abis/diamond/facets/OrganizationBeaconFacet.abi.json";
+import STATE_MANIPULATOR_DEMO_ABI from "../abis/diamond/demo/StateManipulatorDemo.abi.json";
+import LOGGER_FALLBACK_DEMO_ABI from "../abis/diamond/demo/LoggerFallbackDemo.abi.json";
 import { getBareBonesConfiguration } from "../constants/misc";
 import { RawTx } from "./basicWalletUtils";
 
@@ -107,6 +109,68 @@ export function unenrollOrganizationRawTx(
     data: iface.encodeFunctionData("unenrollOrganization"),
   };
 }
+
+export function setDemoStateRawTx(
+  walletAddress: string,
+  newValue: number,
+  chainId: number
+): RawTx {
+  if (chainId == null) {
+    throw new Error("chainId is required");
+  }
+
+  const iface = new ethers.utils.Interface(
+    STATE_MANIPULATOR_DEMO_ABI
+  );
+
+  return {
+    to: walletAddress,
+    value: 0,
+    data: iface.encodeFunctionData("setDemoValue", [newValue]),
+  };
+}
+
+export function triggerLoggerFallbackRawTx(
+  walletAddress: string,
+  chainId: number
+): RawTx {
+  if (chainId == null) {
+    throw new Error("chainId is required");
+  }
+
+  // random selector + arbitrary data
+  const fakeSelector = "0xdeadbeef";
+  const fakeData = ethers.utils.hexlify(
+    ethers.utils.randomBytes(16)
+  );
+
+  return {
+    to: walletAddress,
+    value: 0,
+    data: fakeSelector + fakeData.slice(2),
+  };
+}
+
+export async function readDemoState(
+  provider: ethers.providers.Provider,
+  walletAddress: string
+): Promise<{
+  value: ethers.BigNumber;
+  lastCaller: string;
+  lastUpdated: ethers.BigNumber;
+}> {
+  const contract = new ethers.Contract(
+    walletAddress,
+    STATE_MANIPULATOR_DEMO_ABI,
+    provider
+  );
+
+  const [value, lastCaller, lastUpdated] =
+    await contract.getDemoState();
+
+  return { value, lastCaller, lastUpdated };
+}
+
 
 function toOrgId(organizationId: string): string {
   return ethers.utils.keccak256(
