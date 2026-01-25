@@ -17,7 +17,6 @@ export function WalletSelectorPage() {
   const { count: walletCount, loading, connected } = useUserWalletCount();
   const { connect } = useWalletProvider();
 
-  // 🚫 Not connected
   if (!connected) {
     return (
       <PageContainer>

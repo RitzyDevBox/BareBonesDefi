@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 
 import { Stack, Surface, ClickableSurface } from "./Primitives";
-import { Text } from "./Primitives/Text"
+import { Text } from "./Primitives/Text";
+import { ButtonPrimary } from "./Button/ButtonPrimary";
 
 import {
   buildDeployEOAOwnerBasedDiamondRawTx,
@@ -12,22 +13,38 @@ import {
 
 import { executeTx } from "../utils/transactionUtils";
 import { useToastActionLifecycle } from "./UniversalWalletModal/hooks/useToastActionLifeCycle";
-import { ButtonPrimary } from "./Button/ButtonPrimary";
 
-interface DeployDiamondWidgetProps {
-  onDeployed?: (address: string, index: number) => void;
-}
+import { Select, SelectOption } from "./Select";
+import { ORGANIZATION_PAGE_METADATA } from "../pages/OrganizationPage";
 
 export function DeployDiamondWidget({
   onDeployed,
-}: DeployDiamondWidgetProps) {
+}: {
+  onDeployed?: (address: string, index: number) => void;
+}) {
   const { provider, account, chainId } = useWalletProvider();
 
+  const [organizationId, setOrganizationId] = useState<string | undefined>();
   const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
   const [walletIndex, setWalletIndex] = useState<number | null>(null);
   const [isDeploying, setIsDeploying] = useState(false);
 
   const lifecycle = useToastActionLifecycle();
+
+  const organizations = useMemo(() => {
+    const map = new Map<string, { name: string; organizationId: string }>();
+
+    for (const org of ORGANIZATION_PAGE_METADATA) {
+      if (!map.has(org.organizationId)) {
+        map.set(org.organizationId, {
+          name: org.name,
+          organizationId: org.organizationId,
+        });
+      }
+    }
+
+    return Array.from(map.values());
+  }, []);
 
   const deploy = useCallback(async () => {
     if (!provider || !account) return;
@@ -38,7 +55,11 @@ export function DeployDiamondWidget({
       await executeTx(
         provider,
         async () =>
-          buildDeployEOAOwnerBasedDiamondRawTx({ owner: account, chainId: chainId }),
+          buildDeployEOAOwnerBasedDiamondRawTx({
+            owner: account,
+            chainId,
+            organizationId,
+          }),
         lifecycle,
         (receipt) => {
           const { diamondAddress, index } =
@@ -48,39 +69,65 @@ export function DeployDiamondWidget({
           setWalletIndex(index);
           onDeployed?.(diamondAddress, index);
 
-          return `Diamond #${index} deployed`;
+          return organizationId
+            ? `Wallet deployed under ${organizationId}`
+            : `Wallet deployed`;
         }
       );
     } finally {
       setIsDeploying(false);
     }
-  }, [provider, account, lifecycle, onDeployed, chainId]);
+  }, [provider, account, chainId, organizationId, lifecycle, onDeployed]);
 
-  return (<>
-    <ButtonPrimary onClick={deploy} disabled={isDeploying}>
+  return (
+    <Stack gap="md">
+      {/* Organization selector */}
+      <Surface>
+        <Stack gap="xs">
+          <Text.Label>Organization (optional)</Text.Label>
+
+          <Select
+            value={organizationId ?? ""}
+            onChange={(v) =>
+              setOrganizationId(v ? String(v) : undefined)
+            }
+            placeholder="No organization"
+          >
+            <SelectOption value="" label="No organization" />
+
+            {organizations.map((org) => (
+              <SelectOption
+                key={org.organizationId}
+                value={org.organizationId}
+                label={org.name}
+              />
+            ))}
+          </Select>
+        </Stack>
+      </Surface>
+
+      <ButtonPrimary onClick={deploy} disabled={isDeploying}>
         {isDeploying ? "Deploying…" : "Deploy Wallet"}
-    </ButtonPrimary>
+      </ButtonPrimary>
 
-    {deployedAddress && (
+      {deployedAddress && (
         <Surface>
-            <Stack gap="sm">
-            <Text.Label>
-                Wallet #{walletIndex}
-            </Text.Label>
+          <Stack gap="sm">
+            <Text.Label>Wallet #{walletIndex}</Text.Label>
 
             <ClickableSurface
-                onClick={() =>
+              onClick={() =>
                 navigator.clipboard.writeText(deployedAddress)
-                }
-                style={{ wordBreak: "break-all" }}
+              }
+              style={{ wordBreak: "break-all" }}
             >
-                <Text.Body style={{ margin: 0 }}>
+              <Text.Body style={{ margin: 0 }}>
                 {deployedAddress}
-                </Text.Body>
+              </Text.Body>
             </ClickableSurface>
-            </Stack>
+          </Stack>
         </Surface>
-        )}
-    </>
+      )}
+    </Stack>
   );
 }
