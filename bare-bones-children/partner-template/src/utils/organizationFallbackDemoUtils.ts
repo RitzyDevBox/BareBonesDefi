@@ -67,10 +67,31 @@ export function updateOrganizationFallbackBeaconRawTx(
   };
 }
 
+export async function getIsEnrolledInOrganization(
+  provider: ethers.providers.Web3Provider,
+  walletAddress: string,
+  organizationId: string,
+  chainId?: number
+): Promise<boolean> {
+  if (chainId == null) {
+    throw new Error("chainId is required");
+  }
+  const signer = provider.getSigner();
+  const contract = new ethers.Contract(
+    walletAddress,
+    ORGANIZATION_BEACON_FACET_ABI,
+    signer
+  );
+
+  const enrolledOrgId: string = await contract.getOrganizationId();
+  return enrolledOrgId === toOrgId(organizationId);
+}
+
+
 export function enrollOrganizationRawTx(
   walletAddress: string,
   organizationId: string,
-  chainId: number
+  chainId?: number
 ): RawTx {
   if (chainId == null) {
     throw new Error("chainId is required");
@@ -93,7 +114,7 @@ export function enrollOrganizationRawTx(
 
 export function unenrollOrganizationRawTx(
   walletAddress: string,
-  chainId: number
+  chainId?: number
 ): RawTx {
   if (chainId == null) {
     throw new Error("chainId is required");

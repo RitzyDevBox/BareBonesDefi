@@ -18,7 +18,8 @@ import {
   triggerLoggerFallbackRawTx,
   readDemoState,
   getOrganizationBeacon,
-  getOrganizationOwner
+  getOrganizationOwner,
+  getIsEnrolledInOrganization
 } from "../utils/organizationFallbackDemoUtils";
 
 import { useWalletProvider } from "../hooks/useWalletProvider";
@@ -34,21 +35,7 @@ export function OrganizationDetailPage() {
     (o) => o.organizationId === organizationId
   );
 
-  if (!organization) {
-    return (
-      <PageContainer>
-        <Card>
-          <CardContent>
-            <Text.Title align="left">Organization not found</Text.Title>
-            <Text.Body color="muted">
-              The organization you are looking for does not exist.
-            </Text.Body>
-          </CardContent>
-        </Card>
-      </PageContainer>
-    );
-  }
-
+  const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [demoValue, setDemoValue] = useState<string>("");
   const [readValue, setReadValue] = useState<string | null>(null);
@@ -61,34 +48,56 @@ export function OrganizationDetailPage() {
   const isUsingLogger = currentBeacon?.toLowerCase() === DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1.toLowerCase()
   const isUsingStateManipulator =  currentBeacon?.toLowerCase() === DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1.toLowerCase()
 
+  async function refreshOrganizationMeta() {
+    if (!provider || !chainId || !organization) return;
+
+    try {
+      const [owner, beacon] = await Promise.all([
+        getOrganizationOwner(provider, organization.organizationId, chainId),
+        getOrganizationBeacon(provider, organization.organizationId, chainId),
+      ]);
+
+      setOrganizationOwner(owner);
+      setCurrentBeacon(beacon);
+    } catch {
+      setOrganizationOwner(null);
+      setCurrentBeacon(null);
+    }
+  }
+
+
   useEffect(() => {
-    if (!provider || !chainId) return;
+    if (!provider || !selectedWallet || !organization) {
+        setIsEnrolled(null);
+        return;
+    }
 
     let cancelled = false;
 
-    async function loadOrgMeta() {
-      try {
-        const [owner, beacon] = await Promise.all([
-            getOrganizationOwner(provider!, organization!.organizationId, chainId!),
-            getOrganizationBeacon(provider!, organization!.organizationId, chainId!),
-        ]);
+    async function loadEnrollment() {
+        try {
+        const enrolled = await getIsEnrolledInOrganization(
+            provider!,
+            selectedWallet!,
+            organization!.organizationId,
+            chainId!
+        );
 
-        if (cancelled) return;
-
-        setOrganizationOwner(owner);
-        setCurrentBeacon(beacon);
-      } catch {
-        if (cancelled) return;
-
-        setOrganizationOwner(null);
-        setCurrentBeacon(null);
-      }
+        if (!cancelled) setIsEnrolled(enrolled);
+        } catch {
+        if (!cancelled) setIsEnrolled(false);
+        }
     }
 
-    loadOrgMeta();
+    loadEnrollment();
 
     return () => { cancelled = true; };
-  }, [provider, chainId, organization.organizationId]);
+  }, [provider, chainId, selectedWallet, organization?.organizationId]);
+
+
+  useEffect(() => {
+    refreshOrganizationMeta();
+  }, [provider, chainId, organization?.organizationId]);
 
 
   const isAdmin = !!account && !!organizationOwner && account.toLowerCase() === organizationOwner.toLowerCase();
@@ -143,6 +152,21 @@ export function OrganizationDetailPage() {
     }
   }
 
+  if (!organization) {
+    return (
+      <PageContainer>
+        <Card>
+          <CardContent>
+            <Text.Title align="left">Organization not found</Text.Title>
+            <Text.Body color="muted">
+              The organization you are looking for does not exist.
+            </Text.Body>
+          </CardContent>
+        </Card>
+      </PageContainer>
+    );
+  }
+
   return (
     <PageContainer>
       <Stack gap="lg">
@@ -171,14 +195,23 @@ export function OrganizationDetailPage() {
                     <Row gap="sm">
                       { isUsingStateManipulator &&   
                         <ButtonPrimary disabled={currentBeacon?.toLowerCase() === DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1.toLowerCase()}
-                          onClick={() => updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1)}
+                          onClick={async () => {
+                            const tx = await updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1);
+                            await tx?.wait(1)
+                            await refreshOrganizationMeta();
+                          }}
+
                         >
                           Use Logging Fallback
                         </ButtonPrimary>
                       }
                       { isUsingLogger && 
                         <ButtonPrimary disabled={currentBeacon?.toLowerCase() === DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1.toLowerCase()}
-                          onClick={() => updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1)}
+                          onClick={async() => { 
+                            const tx = await updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1)
+                            await tx?.wait(1)
+                            await refreshOrganizationMeta();
+                          }}
                         >
                           Use State Fallback
                         </ButtonPrimary>
@@ -233,12 +266,12 @@ export function OrganizationDetailPage() {
 
                       <Row gap="sm">
                         <ButtonPrimary onClick={() => setSelectedWallet(null)}>Change Wallet</ButtonPrimary>
-                        <ButtonPrimary onClick={() => enrollOrganization(chainId!, selectedWallet, organization.organizationId)}>Enroll</ButtonPrimary>
-                        <ButtonPrimary onClick={() => unenrollOrganization(chainId!, selectedWallet)}>Unenroll</ButtonPrimary>
+                        {isEnrolled === false && <ButtonPrimary onClick={() => enrollOrganization(chainId!, selectedWallet, organization.organizationId)}>Enroll</ButtonPrimary>}
+                        {isEnrolled === true && <ButtonPrimary onClick={() => unenrollOrganization(chainId!, selectedWallet)}>Unenroll</ButtonPrimary>}
                       </Row>
                     </Stack>
                   </Surface>
-                  {isUsingStateManipulator && (
+                  {isEnrolled && isUsingStateManipulator && (
                     <Surface>
                       <Stack gap="md">
                         <Text.Title align="left">Store State Value</Text.Title>
@@ -275,11 +308,10 @@ export function OrganizationDetailPage() {
                       </Stack>
                     </Surface>
                   )}
-                  {isUsingLogger &&  (
+                  {isEnrolled && isUsingLogger &&  (
                     <Surface>
                       <Stack gap="md">
                         <Text.Title align="left">Logger Fallback</Text.Title>
-
                         <Row gap="sm">
                           <ButtonPrimary onClick={() => logEvent(chainId!, selectedWallet)}>
                             Log Event

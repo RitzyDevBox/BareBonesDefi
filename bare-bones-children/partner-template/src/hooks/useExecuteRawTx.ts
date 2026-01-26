@@ -19,7 +19,7 @@ export function useExecuteRawTx<TArgs extends any[]>(
     async (...args: TArgs) => {
       if (!provider || !account || chainId == null) return;
 
-      await executeTx(
+      return await executeTx(
         provider,
         async () => buildRawTx(...args),
         lifecycle,
