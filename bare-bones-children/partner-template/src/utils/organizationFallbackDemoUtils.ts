@@ -151,24 +151,83 @@ export function triggerLoggerFallbackRawTx(
   };
 }
 
+
 export async function readDemoState(
-  provider: ethers.providers.Provider,
+  provider: ethers.providers.Web3Provider,
   walletAddress: string
-): Promise<{
-  value: ethers.BigNumber;
-  lastCaller: string;
-  lastUpdated: ethers.BigNumber;
-}> {
+) {
+  const signer = provider.getSigner();
+  const iface = new ethers.utils.Interface(STATE_MANIPULATOR_DEMO_ABI);
+
+  const data = iface.encodeFunctionData("getDemoState");
+
+  try {
+    const result = await signer.call({
+      to: walletAddress,
+      data,
+    });
+
+    const [value, lastCaller, lastUpdated] =
+      iface.decodeFunctionResult("getDemoState", result);
+
+    return { value, lastCaller, lastUpdated };
+  } catch (err: any) {
+    console.error("Signer call error:", err);
+
+    if (err?.data) {
+      console.error("Revert data:", err.data);
+    }
+
+    if (err?.error?.data) {
+      console.error("Nested revert data:", err.error.data);
+    }
+
+    throw err;
+  }
+}
+
+export async function getOrganizationBeacon(
+  provider: ethers.providers.Provider,
+  organizationId: string,
+  chainId: number
+): Promise<string> {
+  if (chainId == null) {
+    throw new Error("chainId is required");
+  }
+
+  const config = getBareBonesConfiguration(chainId);
+
   const contract = new ethers.Contract(
-    walletAddress,
-    STATE_MANIPULATOR_DEMO_ABI,
+    config.globalOrganizationRegistry,
+    GLOBAL_ORGANIZATION_REGISTRY_ABI,
     provider
   );
 
-  const [value, lastCaller, lastUpdated] =
-    await contract.getDemoState();
+  const orgId = toOrgId(organizationId);
 
-  return { value, lastCaller, lastUpdated };
+  return await contract.getBeacon(orgId);
+}
+
+export async function getOrganizationOwner(
+  provider: ethers.providers.Provider,
+  organizationId: string,
+  chainId: number
+): Promise<string> {
+  if (chainId == null) {
+    throw new Error("chainId is required");
+  }
+
+  const config = getBareBonesConfiguration(chainId);
+
+  const contract = new ethers.Contract(
+    config.globalOrganizationRegistry,
+    GLOBAL_ORGANIZATION_REGISTRY_ABI,
+    provider
+  );
+
+  const orgId = toOrgId(organizationId);
+
+  return await contract.ownerOf(orgId);
 }
 
 

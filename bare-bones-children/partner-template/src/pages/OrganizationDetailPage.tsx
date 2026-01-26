@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { ORGANIZATION_PAGE_METADATA } from "./OrganizationPage";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
@@ -17,6 +17,8 @@ import {
   setDemoStateRawTx,
   triggerLoggerFallbackRawTx,
   readDemoState,
+  getOrganizationBeacon,
+  getOrganizationOwner
 } from "../utils/organizationFallbackDemoUtils";
 
 import { useWalletProvider } from "../hooks/useWalletProvider";
@@ -47,14 +49,49 @@ export function OrganizationDetailPage() {
     );
   }
 
-  const isAdmin = true;
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [demoValue, setDemoValue] = useState<string>("");
   const [readValue, setReadValue] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
-
-  const { chainId, connect, provider } = useWalletProvider();
+  const [organizationOwner, setOrganizationOwner] = useState<string | null>(null);
+  const [currentBeacon, setCurrentBeacon] = useState<string | null>(null);
+  const { chainId, connect, provider, account } = useWalletProvider();
   const { count: walletCount, loading, connected } = useUserWalletCount();
+
+  const isUsingLogger = currentBeacon?.toLowerCase() === DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1.toLowerCase()
+  const isUsingStateManipulator =  currentBeacon?.toLowerCase() === DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1.toLowerCase()
+
+  useEffect(() => {
+    if (!provider || !chainId) return;
+
+    let cancelled = false;
+
+    async function loadOrgMeta() {
+      try {
+        const [owner, beacon] = await Promise.all([
+            getOrganizationOwner(provider!, organization!.organizationId, chainId!),
+            getOrganizationBeacon(provider!, organization!.organizationId, chainId!),
+        ]);
+
+        if (cancelled) return;
+
+        setOrganizationOwner(owner);
+        setCurrentBeacon(beacon);
+      } catch {
+        if (cancelled) return;
+
+        setOrganizationOwner(null);
+        setCurrentBeacon(null);
+      }
+    }
+
+    loadOrgMeta();
+
+    return () => { cancelled = true; };
+  }, [provider, chainId, organization.organizationId]);
+
+
+  const isAdmin = !!account && !!organizationOwner && account.toLowerCase() === organizationOwner.toLowerCase();
 
   const initializeDemo = useExecuteRawTx(
     (chainId: number, orgId: string, beacon: string) =>
@@ -132,13 +169,20 @@ export function OrganizationDetailPage() {
                   <Stack gap="sm">
                     <Text.Label>Organization Beacon</Text.Label>
                     <Row gap="sm">
-                      <ButtonPrimary onClick={() => updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1)}>
-                        Use Logging Fallback
-                      </ButtonPrimary>
-
-                      <ButtonPrimary onClick={() => updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1)}>
-                        Use State Fallback
-                      </ButtonPrimary>
+                      { isUsingStateManipulator &&   
+                        <ButtonPrimary disabled={currentBeacon?.toLowerCase() === DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1.toLowerCase()}
+                          onClick={() => updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1)}
+                        >
+                          Use Logging Fallback
+                        </ButtonPrimary>
+                      }
+                      { isUsingLogger && 
+                        <ButtonPrimary disabled={currentBeacon?.toLowerCase() === DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1.toLowerCase()}
+                          onClick={() => updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1)}
+                        >
+                          Use State Fallback
+                        </ButtonPrimary>
+                      }
                     </Row>
                   </Stack>
                 </Surface>
@@ -194,60 +238,56 @@ export function OrganizationDetailPage() {
                       </Row>
                     </Stack>
                   </Surface>
-
-                  <Surface>
-                    <Stack gap="md">
+                  {isUsingStateManipulator && (
+                    <Surface>
+                      <Stack gap="md">
                         <Text.Title align="left">Store State Value</Text.Title>
+                          <Row gap="sm" align="center">
+                            <Input
+                              value={demoValue}
+                              onChange={(e) => setDemoValue(e.target.value)}
+                              placeholder="Value"
+                              style={{ maxWidth: 160 }}
+                            />
 
-                        {/* write */}
-                        <Row gap="sm" align="center">
-                        <Input
-                            value={demoValue}
-                            onChange={(e) => setDemoValue(e.target.value)}
-                            placeholder="Value"
-                            style={{ maxWidth: 160 }}
-                        />
+                            <ButtonPrimary onClick={() => storeValue(chainId!, selectedWallet, Number(demoValue))} disabled={!demoValue}>
+                              Store Value
+                            </ButtonPrimary>
+                          </Row>
 
-                        <ButtonPrimary
-                            onClick={() => storeValue(chainId!, selectedWallet, Number(demoValue))}
-                            disabled={!demoValue}
-                        >
-                            Store Value
-                        </ButtonPrimary>
-                        </Row>
+                          <Row gap="sm">
+                            <ButtonPrimary onClick={readState}>
+                              Read Value
+                            </ButtonPrimary>
+                          </Row>
 
-                        {/* read */}
-                        <Row gap="sm">
-                        <ButtonPrimary onClick={readState}>
-                            Read Value
-                        </ButtonPrimary>
-                        </Row>
-
-                      {readValue && (
-                        <Text.Body color="muted">
+                        {readValue && (
+                          <Text.Body color="muted">
                             Current Value: {readValue}
-                        </Text.Body>
-                      )}
+                          </Text.Body>
+                        )}
 
-                      {readError && (
-                        <Text.Body color="muted">
+                        {readError && (
+                          <Text.Body color="muted">
                             {readError}
-                        </Text.Body>
-                      )}
-                    </Stack>
-                  </Surface>
+                          </Text.Body>
+                        )}
+                      </Stack>
+                    </Surface>
+                  )}
+                  {isUsingLogger &&  (
+                    <Surface>
+                      <Stack gap="md">
+                        <Text.Title align="left">Logger Fallback</Text.Title>
 
-                  <Surface>
-                    <Stack gap="md">
-                      <Text.Title align="left">Logger Fallback</Text.Title>
-
-                      <Row gap="sm">
-                        <ButtonPrimary onClick={() => logEvent(chainId!, selectedWallet)}>
+                        <Row gap="sm">
+                          <ButtonPrimary onClick={() => logEvent(chainId!, selectedWallet)}>
                             Log Event
-                        </ButtonPrimary>
-                      </Row>
-                    </Stack>
-                  </Surface>
+                          </ButtonPrimary>
+                        </Row>
+                      </Stack>
+                    </Surface>
+                  )}
                 </Stack>
               )}
             </Stack>
