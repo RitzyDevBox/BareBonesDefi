@@ -1,34 +1,24 @@
 import { useCallback } from "react";
 import { ethers } from "ethers";
-import {
-  executeTx,
-  TxOpts,
-} from "../../../utils/transactionUtils";
 import { buildSendCurrencyRawTx, SendCurrencyArgs } from "../../../utils/basicWalletUtils";
 import { AssetType } from "../models";
+import { useExecuteRawTx } from "../../../hooks/useExecuteRawTx";
 
 interface DepositCurrencyArgs extends SendCurrencyArgs {
   tokenSymbol?: string;
 }
 
-export function useDepositCurrencyCallback(
-  provider: ethers.providers.Web3Provider | undefined,
-) {
+export function useDepositCurrencyCallback(provider: ethers.providers.Web3Provider | undefined) {
+  const buildDepositTx = useCallback((args: DepositCurrencyArgs) => {
+    return buildSendCurrencyRawTx({ ...args });
+  }, []);
 
-  const deposit = useCallback(
-    async (args: DepositCurrencyArgs, opts?: TxOpts) => {
+  const depositStatusMessage = useCallback((args: DepositCurrencyArgs) => {
+    const symbol = args.assetType === AssetType.NATIVE ? "Native" : args.tokenSymbol ?? "<Unknown Token>";
+    return `Depositing ${args.amount} ${symbol} → ${args.recipient}`;
+  }, []);
 
-      const rawTx = buildSendCurrencyRawTx({
-        ...args,
-      });
-
-      const symbol = args.assetType === AssetType.NATIVE ? "Native": args.tokenSymbol ?? "<Unknown Token>";
-      const message = `Depositing ${args.amount} ${symbol} → ${args.recipient}`;
-
-      return executeTx(provider, async () => rawTx, opts, () => message);
-    },
-    [provider]
-  );
+  const deposit = useExecuteRawTx(buildDepositTx, depositStatusMessage);
 
   return { deposit };
 }

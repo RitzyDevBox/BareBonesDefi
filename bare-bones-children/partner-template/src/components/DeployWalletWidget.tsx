@@ -16,6 +16,7 @@ import { useToastActionLifecycle } from "./UniversalWalletModal/hooks/useToastAc
 
 import { Select, SelectOption } from "./Select";
 import { ORGANIZATION_PAGE_METADATA } from "../pages/OrganizationPage";
+import { useTxRefresh } from "../providers/TxRefreshProvider";
 
 export function DeployDiamondWidget({
   onDeployed,
@@ -28,9 +29,9 @@ export function DeployDiamondWidget({
   const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
   const [walletIndex, setWalletIndex] = useState<number | null>(null);
   const [isDeploying, setIsDeploying] = useState(false);
-
   const lifecycle = useToastActionLifecycle();
-
+  const { triggerRefresh } = useTxRefresh();
+  
   const organizations = useMemo(() => {
     const map = new Map<string, { name: string; organizationId: string }>();
 
@@ -69,9 +70,16 @@ export function DeployDiamondWidget({
           setWalletIndex(index);
           onDeployed?.(diamondAddress, index);
 
-          return organizationId
+          var message =  organizationId
             ? `Wallet deployed under ${organizationId}`
             : `Wallet deployed`;
+
+          triggerRefresh({
+            hash: receipt.transactionHash,
+            message,
+          });
+
+          return message;
         }
       );
     } finally {

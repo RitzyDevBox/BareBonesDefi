@@ -77,11 +77,7 @@ export function WalletSelector({
         </Box>
       )}
 
-      <DeployDiamondWidget
-        onDeployed={(address, index) => {
-          onSelect(address, index);
-        }}
-      />
+      <DeployDiamondWidget onDeployed={(address, index) => onSelect(address, index) } />
     </Box>
   );
 }

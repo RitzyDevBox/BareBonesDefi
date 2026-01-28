@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 import { ORGANIZATION_PAGE_METADATA } from "./OrganizationPage";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
@@ -27,6 +27,7 @@ import { WalletSelector } from "../components/Wallet/WalletSelector";
 import { DeployDiamondWidget } from "../components/DeployWalletWidget";
 import { useUserWalletCount } from "../hooks/wallet/useUserWalletCount";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
+import { useTxRefresh } from "../providers/TxRefreshProvider";
 
 export function OrganizationDetailPage() {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -47,6 +48,7 @@ export function OrganizationDetailPage() {
 
   const isUsingLogger = currentBeacon?.toLowerCase() === DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1.toLowerCase()
   const isUsingStateManipulator =  currentBeacon?.toLowerCase() === DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1.toLowerCase()
+  const { version } = useTxRefresh()
 
   async function refreshOrganizationMeta() {
     if (!provider || !chainId || !organization) return;
@@ -97,46 +99,35 @@ export function OrganizationDetailPage() {
 
   useEffect(() => {
     refreshOrganizationMeta();
-  }, [provider, chainId, organization?.organizationId]);
+  }, [provider, chainId, organization?.organizationId, version]);
 
 
   const isAdmin = !!account && !!organizationOwner && account.toLowerCase() === organizationOwner.toLowerCase();
 
-  const initializeDemo = useExecuteRawTx(
-    (chainId: number, orgId: string, beacon: string) =>
-      createOrganizationRawTx(orgId, beacon, chainId),
-    (orgId) => `Organization ${orgId} initialized`
-  );
+  const createOrgCallBack = useCallback((chainId: number, orgId: string, beacon: string) => createOrganizationRawTx(orgId, beacon, chainId), [])
+  const createOrgStatusMessage = useCallback((chainId: number, orgId: string, beacon: string) => `Organization ${orgId} initialized`, [])
+  const initializeDemo = useExecuteRawTx(createOrgCallBack, createOrgStatusMessage);
 
-  const updateDemoFallback = useExecuteRawTx(
-    (chainId: number, orgId: string, beacon: string) =>
-      updateOrganizationFallbackBeaconRawTx(orgId, beacon, chainId),
-    (orgId) => `Fallback updated for ${orgId}`
-  );
+  const updateDemoFallbackCallback = useCallback((chainId: number, orgId: string, beacon: string) => updateOrganizationFallbackBeaconRawTx(orgId, beacon, chainId), [])
+  const updateDemoFallbackStatusMessage = useCallback((chainId: number, orgId: string, beacon: string) => `Fallback updated for ${orgId}`, [])
+  const updateDemoFallback = useExecuteRawTx(updateDemoFallbackCallback, updateDemoFallbackStatusMessage)
 
-  const enrollOrganization = useExecuteRawTx(
-    (chainId: number, wallet: string, orgId: string) =>
-      enrollOrganizationRawTx(wallet, orgId, chainId),
-    (_, __, orgId) => `Wallet enrolled in ${orgId}`
-  );
+  const enrollOrganizationCallback = useCallback((chainId: number, wallet: string, orgId: string) => enrollOrganizationRawTx(wallet, orgId, chainId), [])
+  const enrollOrganizationStatusMessage = useCallback((chainId: number, wallet: string, orgId: string) => `Wallet enrolled in ${orgId}`, [])
+  const enrollOrganization = useExecuteRawTx(enrollOrganizationCallback, enrollOrganizationStatusMessage)
 
-  const unenrollOrganization = useExecuteRawTx(
-    (chainId: number, wallet: string) =>
-      unenrollOrganizationRawTx(wallet, chainId),
-    () => `Wallet unenrolled`
-  );
+  const unenrollOrganizationCallback = useCallback((chainId: number, wallet: string) => unenrollOrganizationRawTx(wallet, chainId), [])
+  const unenrollOrganizationStatusMessage = useCallback((chainId: number, wallet: string) => `Wallet unenrolled`, [])
+  const unenrollOrganization = useExecuteRawTx(unenrollOrganizationCallback, unenrollOrganizationStatusMessage)
 
-  const logEvent = useExecuteRawTx(
-    (chainId: number, wallet: string) =>
-      triggerLoggerFallbackRawTx(wallet, chainId),
-    () => `Fallback event emitted`
-  );
+  const logEventCallback = useCallback((chainId: number, wallet: string) => triggerLoggerFallbackRawTx(wallet, chainId), [])
+  const logEventStatusMessage = useCallback((chainId: number, wallet: string) => `Fallback event emitted`, [])
+  const logEvent = useExecuteRawTx(logEventCallback, logEventStatusMessage)
 
-  const storeValue = useExecuteRawTx(
-    (chainId: number, wallet: string, value: number) =>
-      setDemoStateRawTx(wallet, value, chainId),
-    () => `State updated`
-  );
+  const storeValueCallback = useCallback((chainId: number, wallet: string, value: number) => setDemoStateRawTx(wallet, value, chainId), [])
+  const storeValueStatusMessage = useCallback((chainId: number, wallet: string, value: number) => `State updated`, [])
+  const storeValue = useExecuteRawTx(storeValueCallback, storeValueStatusMessage)
+
 
   async function readState() {
     if (!provider || !selectedWallet) return;
@@ -195,23 +186,14 @@ export function OrganizationDetailPage() {
                     <Row gap="sm">
                       { isUsingStateManipulator &&   
                         <ButtonPrimary disabled={currentBeacon?.toLowerCase() === DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1.toLowerCase()}
-                          onClick={async () => {
-                            const tx = await updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1);
-                            await tx?.wait(1)
-                            await refreshOrganizationMeta();
-                          }}
-
+                          onClick={() => updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.LOGGER_FALLBACK_DEMO_V1) }
                         >
                           Use Logging Fallback
                         </ButtonPrimary>
                       }
                       { isUsingLogger && 
                         <ButtonPrimary disabled={currentBeacon?.toLowerCase() === DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1.toLowerCase()}
-                          onClick={async() => { 
-                            const tx = await updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1)
-                            await tx?.wait(1)
-                            await refreshOrganizationMeta();
-                          }}
+                          onClick={() => updateDemoFallback(chainId!, organization.organizationId, DEMO_FALLBACK_BEACONS.STATE_MANIPULATOR_DEMO_V1) }
                         >
                           Use State Fallback
                         </ButtonPrimary>

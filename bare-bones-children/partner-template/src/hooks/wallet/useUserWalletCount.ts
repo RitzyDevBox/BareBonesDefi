@@ -4,13 +4,14 @@ import { useWalletProvider } from "../useWalletProvider";
 
 import DIAMOND_FACTORY_ABI from "../../abis/diamond/DiamondFactory.abi.json";
 import { getBareBonesConfiguration } from "../../constants/misc";
+import { useTxRefresh } from "../../providers/TxRefreshProvider";
 
 export function useUserWalletCount() {
   const { provider, account, chainId } = useWalletProvider();
 
   const [count, setCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-
+  const { version } = useTxRefresh();
   const connected = !!provider && !!account && chainId != null;
 
   useEffect(() => {
@@ -59,7 +60,7 @@ export function useUserWalletCount() {
     return () => {
       cancelled = true;
     };
-  }, [connected, provider, account, chainId]);
+  }, [connected, provider, account, chainId, version]);
 
   return { count, loading, connected };
 }
