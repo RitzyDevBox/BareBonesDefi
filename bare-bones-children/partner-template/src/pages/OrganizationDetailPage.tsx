@@ -10,7 +10,7 @@ import { ButtonPrimary } from "../components/Button/ButtonPrimary";
 
 import {
   DEMO_FALLBACK_BEACONS,
-  createOrganizationRawTx,
+  //createOrganizationRawTx,
   updateOrganizationFallbackBeaconRawTx,
   enrollOrganizationRawTx,
   unenrollOrganizationRawTx,
@@ -104,28 +104,28 @@ export function OrganizationDetailPage() {
 
   const isAdmin = !!account && !!organizationOwner && account.toLowerCase() === organizationOwner.toLowerCase();
 
-  const createOrgCallBack = useCallback((chainId: number, orgId: string, beacon: string) => createOrganizationRawTx(orgId, beacon, chainId), [])
-  const createOrgStatusMessage = useCallback((chainId: number, orgId: string, beacon: string) => `Organization ${orgId} initialized`, [])
-  const initializeDemo = useExecuteRawTx(createOrgCallBack, createOrgStatusMessage);
+  // const createOrgCallBack = useCallback((chainId: number, orgId: string, beacon: string) => createOrganizationRawTx(orgId, beacon, chainId), [])
+  // const createOrgStatusMessage = useCallback((_chainId: number, orgId: string, _beacon: string) => `Organization ${orgId} initialized`, [])
+  // const initializeDemo = useExecuteRawTx(createOrgCallBack, createOrgStatusMessage);
 
   const updateDemoFallbackCallback = useCallback((chainId: number, orgId: string, beacon: string) => updateOrganizationFallbackBeaconRawTx(orgId, beacon, chainId), [])
-  const updateDemoFallbackStatusMessage = useCallback((chainId: number, orgId: string, beacon: string) => `Fallback updated for ${orgId}`, [])
+  const updateDemoFallbackStatusMessage = useCallback((_chainId: number, orgId: string, _beacon: string) => `Fallback updated for ${orgId}`, [])
   const updateDemoFallback = useExecuteRawTx(updateDemoFallbackCallback, updateDemoFallbackStatusMessage)
 
   const enrollOrganizationCallback = useCallback((chainId: number, wallet: string, orgId: string) => enrollOrganizationRawTx(wallet, orgId, chainId), [])
-  const enrollOrganizationStatusMessage = useCallback((chainId: number, wallet: string, orgId: string) => `Wallet enrolled in ${orgId}`, [])
+  const enrollOrganizationStatusMessage = useCallback((_chainId: number, _wallet: string, orgId: string) => `Wallet enrolled in ${orgId}`, [])
   const enrollOrganization = useExecuteRawTx(enrollOrganizationCallback, enrollOrganizationStatusMessage)
 
   const unenrollOrganizationCallback = useCallback((chainId: number, wallet: string) => unenrollOrganizationRawTx(wallet, chainId), [])
-  const unenrollOrganizationStatusMessage = useCallback((chainId: number, wallet: string) => `Wallet unenrolled`, [])
+  const unenrollOrganizationStatusMessage = useCallback((_chainId: number, _wallet: string) => `Wallet unenrolled`, [])
   const unenrollOrganization = useExecuteRawTx(unenrollOrganizationCallback, unenrollOrganizationStatusMessage)
 
   const logEventCallback = useCallback((chainId: number, wallet: string) => triggerLoggerFallbackRawTx(wallet, chainId), [])
-  const logEventStatusMessage = useCallback((chainId: number, wallet: string) => `Fallback event emitted`, [])
+  const logEventStatusMessage = useCallback((_chainId: number, _wallet: string) => `Fallback event emitted`, [])
   const logEvent = useExecuteRawTx(logEventCallback, logEventStatusMessage)
 
   const storeValueCallback = useCallback((chainId: number, wallet: string, value: number) => setDemoStateRawTx(wallet, value, chainId), [])
-  const storeValueStatusMessage = useCallback((chainId: number, wallet: string, value: number) => `State updated`, [])
+  const storeValueStatusMessage = useCallback((_chainId: number, _wallet: string, _value: number) => `State updated`, [])
   const storeValue = useExecuteRawTx(storeValueCallback, storeValueStatusMessage)
 
 

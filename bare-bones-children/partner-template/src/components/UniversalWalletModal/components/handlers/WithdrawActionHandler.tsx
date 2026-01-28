@@ -32,8 +32,7 @@ function WithdrawActionHandler({
         decimals: values.asset.token.decimals,
         tokenSymbol: values.asset.token.symbol,
         tokenAddress: values.asset.token.address,
-      },
-      lifeCycle
+      }
     );
   }, [provider, withdraw, values, lifeCycle]);
 

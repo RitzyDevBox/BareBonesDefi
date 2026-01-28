@@ -24,7 +24,7 @@ function WrapActionHandler({
       wethAddress: CHAIN_INFO_MAP[chainId].wethAddress,
     };
 
-    await wrap(args, lifeCycle);
+    await wrap(args);
   }, [provider, chainId, wrap, values, lifeCycle]);
 
   return <>{children(execute)}</>;

@@ -15,7 +15,7 @@ const TxRefreshContext = createContext<TxRefreshContextValue | null>(null);
 export function TxRefreshProvider({ children }: { children: React.ReactNode }) {
   const [version, setVersion] = useState(0);
 
-  const triggerRefresh = useCallback((meta?: TxMeta) => {
+  const triggerRefresh = useCallback((_meta?: TxMeta) => {
     // intentionally unused for now
     // meta?.hash
     // meta?.message

@@ -8,7 +8,7 @@ interface DepositCurrencyArgs extends SendCurrencyArgs {
   tokenSymbol?: string;
 }
 
-export function useDepositCurrencyCallback(provider: ethers.providers.Web3Provider | undefined) {
+export function useDepositCurrencyCallback(_provider: ethers.providers.Web3Provider | undefined) {
   const buildDepositTx = useCallback((args: DepositCurrencyArgs) => {
     return buildSendCurrencyRawTx({ ...args });
   }, []);

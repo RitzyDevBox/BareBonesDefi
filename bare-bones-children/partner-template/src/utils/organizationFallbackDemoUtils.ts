@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import GLOBAL_ORGANIZATION_REGISTRY_ABI from "../abis/diamond/GlobalOrganizationRegistry.abi.json";
 import ORGANIZATION_BEACON_FACET_ABI from "../abis/diamond/facets/OrganizationBeaconFacet.abi.json";
 import STATE_MANIPULATOR_DEMO_ABI from "../abis/diamond/demo/StateManipulatorDemo.abi.json";
-import LOGGER_FALLBACK_DEMO_ABI from "../abis/diamond/demo/LoggerFallbackDemo.abi.json";
+// import LOGGER_FALLBACK_DEMO_ABI from "../abis/diamond/demo/LoggerFallbackDemo.abi.json";
 import { getBareBonesConfiguration } from "../constants/misc";
 import { RawTx } from "./basicWalletUtils";
 

@@ -25,7 +25,10 @@ if (!Number.isFinite(amount) || amount <= 0) {
 const bundlr = new Bundlr(
   process.env.BUNDLR_NODE,
   process.env.BUNDLR_CHAIN,
-  process.env.BUNDLR_PRIVATE_KEY
+  process.env.BUNDLR_PRIVATE_KEY,
+  {
+    providerUrl: process.env.POLYGON_RPC_URL,
+  }
 );
 
 // ---------------- fund ----------------

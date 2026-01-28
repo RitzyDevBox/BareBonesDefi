@@ -38,8 +38,7 @@ function DepositActionHandler({
         tokenSymbol: values.asset.token.symbol,
         tokenAddress: values.asset.token.address,
         recipient: walletAddress,
-      },
-      lifeCycle
+      }
     );
   }, [
     provider,

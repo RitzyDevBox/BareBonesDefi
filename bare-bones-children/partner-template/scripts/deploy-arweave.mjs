@@ -19,7 +19,10 @@ for (const key of ["BUNDLR_NODE", "BUNDLR_CHAIN", "BUNDLR_PRIVATE_KEY"]) {
 const bundlr = new Bundlr(
   process.env.BUNDLR_NODE,
   process.env.BUNDLR_CHAIN,
-  process.env.BUNDLR_PRIVATE_KEY
+  process.env.BUNDLR_PRIVATE_KEY,
+  {
+    providerUrl: process.env.POLYGON_RPC_URL,
+  }
 );
 
 // ---------------- helpers ----------------
