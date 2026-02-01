@@ -23,6 +23,7 @@ export interface BareBonesConfiguration {
   facetFallbackFailureHook: string;
   globalOrganizationRegistry: string;
   diamondKernelInitializer: string;
+  secureValueReserveFactory: string;
   multicall3Address: string,
 }
 
@@ -53,6 +54,7 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   facetFallbackFailureHook: "0xd69475f2caA270aC738bBC2efd0600fC85ED7ED6",
   globalOrganizationRegistry: "0xfb4c3957C7638c3Ec8b777AcF8bD65fd40df42b5",
   diamondKernelInitializer: "0xa7fC7504a189338813cA136ae531136F17279f03",
+  secureValueReserveFactory: "0x4C04F90f81f13AA66D24ed83a721f94cF4831022",
   multicall3Address: "0xca11bde05977b3631167028862be2a173976ca11",
 } as const;
 
