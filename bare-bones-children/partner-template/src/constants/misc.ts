@@ -13,7 +13,11 @@ export const WALLECT_CONNECT_WALLET_NAME = APP_NAME
 
 export const DEFAULT_CHAIN_ID = 999;
 
+export const TEMPLATE_PROVIDER_OWNER_ADDRESS = '0xfDeDE21f16138e407649eA37Ff166ff910E4a988';
+export const TEMPLATE_PROVIDER_NAMESPACES = {
 
+  SVR_TEMPLATE_PROVIDER_V1: 'SVR_TEMPLATE_PROVIDER_V1'
+}
 
 export interface BareBonesConfiguration {
   diamondFactoryAddress: string;
@@ -23,7 +27,7 @@ export interface BareBonesConfiguration {
   facetFallbackFailureHook: string;
   globalOrganizationRegistry: string;
   diamondKernelInitializer: string;
-  secureValueReserveFactory: string;
+  namespacedCreate3Factory: string;
   multicall3Address: string,
 }
 
@@ -54,7 +58,7 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   facetFallbackFailureHook: "0xd69475f2caA270aC738bBC2efd0600fC85ED7ED6",
   globalOrganizationRegistry: "0xfb4c3957C7638c3Ec8b777AcF8bD65fd40df42b5",
   diamondKernelInitializer: "0xa7fC7504a189338813cA136ae531136F17279f03",
-  secureValueReserveFactory: "0x4C04F90f81f13AA66D24ed83a721f94cF4831022",
+  namespacedCreate3Factory: "0x2EF901902fA6993949dbb32f8807fd2bFfB3D8da",
   multicall3Address: "0xca11bde05977b3631167028862be2a173976ca11",
 } as const;
 

@@ -27,5 +27,10 @@ export const NAV_ITEMS: NavItem[] = [
     id: "organization",
     label: "Organizations",
     path: ROUTES.ORGANIZATIONS,
+  },
+  {
+    id: "vaults",
+    label: "Vaults",
+    path: ROUTES.VAULTS
   }
 ];

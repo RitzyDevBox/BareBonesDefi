@@ -97,10 +97,7 @@ export function enrollOrganizationRawTx(
     throw new Error("chainId is required");
   }
 
-  const iface = new ethers.utils.Interface(
-    ORGANIZATION_BEACON_FACET_ABI
-  );
-
+  const iface = new ethers.utils.Interface(ORGANIZATION_BEACON_FACET_ABI);
   const orgId = toOrgId(organizationId);
 
   return {
@@ -120,9 +117,7 @@ export function unenrollOrganizationRawTx(
     throw new Error("chainId is required");
   }
 
-  const iface = new ethers.utils.Interface(
-    ORGANIZATION_BEACON_FACET_ABI
-  );
+  const iface = new ethers.utils.Interface(ORGANIZATION_BEACON_FACET_ABI);
 
   return {
     to: walletAddress,

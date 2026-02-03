@@ -7,6 +7,8 @@ import { DappBrowserPage } from "./pages/DappBrowserPage";
 import { OrganizationPage } from "./pages/OrganizationPage";
 import { ROUTES } from "./routes";
 import { OrganizationDetailPage } from "./pages/OrganizationDetailPage";
+import { VaultPage } from "./pages/VaultPage";
+import { VaultWalletPage } from "./pages/VaultWalletPage";
 
 const devOnlyRoutes = import.meta.env.DEV
   ? [{ path: "test-page", element: <TestPage /> }]
@@ -22,6 +24,8 @@ export const router = createHashRouter([
       { path: `${ROUTES.DAPP_BROWSER}`, element: <DappBrowserPage/> },
       { path: `${ROUTES.ORGANIZATIONS}`, element: <OrganizationPage/> },
       { path: `${ROUTES.ORGANIZATIONS}/:organizationId`, element: <OrganizationDetailPage /> },
+      { path: `${ROUTES.VAULTS}`, element: <VaultPage/>},
+      { path: `${ROUTES.VAULTS_WITH_WALLET_ADDRESS}/:walletAddress`, element: <VaultWalletPage/>},
       ...devOnlyRoutes,
 
       { path: "*", element: <Navigate to={ROUTES.ROOT} replace /> },
