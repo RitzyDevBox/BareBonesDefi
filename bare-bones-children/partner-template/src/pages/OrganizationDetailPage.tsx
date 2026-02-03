@@ -101,7 +101,6 @@ export function OrganizationDetailPage() {
     refreshOrganizationMeta();
   }, [provider, chainId, organization?.organizationId, version]);
 
-
   const isAdmin = !!account && !!organizationOwner && account.toLowerCase() === organizationOwner.toLowerCase();
 
   // const createOrgCallBack = useCallback((chainId: number, orgId: string, beacon: string) => createOrganizationRawTx(orgId, beacon, chainId), [])
