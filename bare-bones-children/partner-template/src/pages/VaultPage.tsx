@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
-import { Stack } from "../components/Primitives";
+import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
-import { ButtonPrimary } from "../components/Button/ButtonPrimary";
 
 import { WalletSelector } from "../components/Wallet/WalletSelector";
+import { WalletSelectorModalWithDisplay } from "../components/Wallet/WalletSelectorModalWithDisplay";
 
 import { useUserWalletCount } from "../hooks/wallet/useUserWalletCount";
 import { ROUTES } from "../routes";
@@ -21,7 +21,7 @@ export function VaultPage() {
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
 
   /* ────────────────────────────
-      LOADING WALLETS
+      LOADING
      ──────────────────────────── */
   if (loading) {
     return (
@@ -36,7 +36,7 @@ export function VaultPage() {
   }
 
   /* ────────────────────────────
-      STEP 1 — SELECT WALLET
+      STEP 1 — INITIAL WALLET PICK
      ──────────────────────────── */
   if (!selectedWallet) {
     return (
@@ -48,7 +48,9 @@ export function VaultPage() {
 
               <WalletSelector
                 walletCount={walletCount!}
-                onSelect={(walletAddress) => setSelectedWallet(walletAddress)}
+                onSelect={(walletAddress) =>
+                  setSelectedWallet(walletAddress)
+                }
               />
             </Stack>
           </CardContent>
@@ -58,27 +60,33 @@ export function VaultPage() {
   }
 
   /* ────────────────────────────
-      STEP 2 — SELECT VAULT
+      STEP 2 — VAULT SELECTION
      ──────────────────────────── */
   return (
     <PageContainer>
       <Card>
         <CardContent>
           <Stack gap="md">
-            <Text.Title align="left">Select Vault</Text.Title>
+            <Row style={{ justifyContent: "space-between" }} align="center" >
+              <Text.Title align="left">Select Vault</Text.Title>
+
+              <WalletSelectorModalWithDisplay
+                address={selectedWallet}
+                onSelect={(addr) => setSelectedWallet(addr)}
+              />
+            </Row>
+
+            {/* Vault grid */}
             <VaultSelector
-                walletAddress={selectedWallet}
-                onSelect={(vaultAddress) =>
-                    navigate(ROUTES.VAULTS_WITH_WALLET_ADDRESS(vaultAddress))
-                }
-                footer={
-                    <>
-                        <DeployVaultWidget walletAddress={selectedWallet} />
-                        <ButtonPrimary onClick={() => setSelectedWallet(null)}>
-                            Change Wallet
-                        </ButtonPrimary>
-                    </>
-                }
+              walletAddress={selectedWallet}
+              onSelect={(vaultAddress) =>
+                navigate(
+                  ROUTES.VAULTS_WITH_WALLET_ADDRESS(vaultAddress)
+                )
+              }
+              footer={
+                <DeployVaultWidget walletAddress={selectedWallet} />
+              }
             />
           </Stack>
         </CardContent>

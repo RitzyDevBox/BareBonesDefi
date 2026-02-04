@@ -1,7 +1,7 @@
-// hooks/vaults/useDeployVault.ts
 import { useCallback } from "react";
 import { ethers } from "ethers";
 import { useExecuteRawTx } from "../useExecuteRawTx";
+import { wrapWithExecute } from "../../utils/transactionUtils";
 import { buildDeployVaultRawTx } from "../../utils/vault/buildDeployVaultRawTx";
 
 interface DeployVaultArgs {
@@ -13,28 +13,37 @@ export function useDeployVault(
   provider: ethers.providers.Web3Provider | undefined,
   chainId: number | null
 ) {
-  const buildDeployTx = useCallback(
+  const buildDeployVaultTx = useCallback(
     (args: DeployVaultArgs) => {
-      if (!chainId) {
-        throw new Error("Missing chainId");
-      }
+      if (!provider) throw new Error("No provider");
+      if (!chainId) throw new Error("Missing chainId");
 
-      return buildDeployVaultRawTx({
+      const rawTx = buildDeployVaultRawTx({
         chainId,
         walletAddress: args.walletAddress,
         constructorParams: args.constructorParams,
       });
+
+      // IMPORTANT: return the wrapped callback, not its execution
+      return wrapWithExecute(
+        provider,
+        args.walletAddress,
+        rawTx
+      )();
     },
-    [chainId]
+    [provider, chainId]
   );
 
-  const statusMessage = useCallback(
+  const deployVaultStatusMessage = useCallback(
     (args: DeployVaultArgs) =>
       `Deploying vault for wallet ${args.walletAddress}`,
     []
   );
 
-  const deployVault = useExecuteRawTx(buildDeployTx, statusMessage);
+  const deployVault = useExecuteRawTx(
+    buildDeployVaultTx,
+    deployVaultStatusMessage
+  );
 
   return { deployVault };
 }
