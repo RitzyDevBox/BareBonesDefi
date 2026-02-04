@@ -25,7 +25,7 @@ export const router = createHashRouter([
       { path: `${ROUTES.ORGANIZATIONS}`, element: <OrganizationPage/> },
       { path: `${ROUTES.ORGANIZATIONS}/:organizationId`, element: <OrganizationDetailPage /> },
       { path: `${ROUTES.VAULTS}`, element: <VaultPage/>},
-      { path: `${ROUTES.VAULTS_WITH_WALLET_ADDRESS}/:walletAddress`, element: <VaultWalletPage/>},
+      { path: `${ROUTES.VAULT_DETAIL_ROUTE}`, element: <VaultWalletPage/>},
       ...devOnlyRoutes,
 
       { path: "*", element: <Navigate to={ROUTES.ROOT} replace /> },

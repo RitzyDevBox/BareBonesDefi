@@ -6,9 +6,9 @@ import { Stack, Surface } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 
 export function VaultWalletPage() {
-  const { walletAddress } = useParams<{ walletAddress: string }>();
+  const { vaultAddress } = useParams<{ vaultAddress: string }>();
 
-  if (!walletAddress) {
+  if (!vaultAddress) {
     return (
       <PageContainer>
         <Card>
@@ -35,7 +35,7 @@ export function VaultWalletPage() {
                 Vault configuration and asset policies for this wallet.
               </Text.Body>
               <Text.Body color="muted">
-                {walletAddress}
+                {vaultAddress}
               </Text.Body>
             </Stack>
           </CardContent>

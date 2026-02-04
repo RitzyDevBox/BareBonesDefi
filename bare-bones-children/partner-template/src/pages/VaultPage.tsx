@@ -80,9 +80,7 @@ export function VaultPage() {
             <VaultSelector
               walletAddress={selectedWallet}
               onSelect={(vaultAddress) =>
-                navigate(
-                  ROUTES.VAULTS_WITH_WALLET_ADDRESS(vaultAddress)
-                )
+                navigate(ROUTES.VAULTS_DETAIL_PAGE(vaultAddress))
               }
               footer={
                 <DeployVaultWidget walletAddress={selectedWallet} />
