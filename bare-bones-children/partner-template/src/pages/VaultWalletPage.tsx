@@ -2,8 +2,18 @@ import { useParams } from "react-router-dom";
 
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
-import { Stack, Surface } from "../components/Primitives";
+import { Stack } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
+
+import { VaultChangeLog } from "../components/Vaults/VaultChangeLog";
+import { VaultProposalForm } from "../components/Vaults/VaultProposalForm";
+import {
+  useVaultProposals,
+  VaultProposal,
+  VaultProposalStatus,
+} from "../hooks/vaults/useVaultProposals";
+import { useVaultExecution } from "../hooks/vaults/useVaultExecution";
+import { mapUpdateKindToProposalType } from "../utils/vault/vaultProposalMapping";
 
 export function VaultWalletPage() {
   const { vaultAddress } = useParams<{ vaultAddress: string }>();
@@ -13,14 +23,32 @@ export function VaultWalletPage() {
       <PageContainer>
         <Card>
           <CardContent>
-            <Text.Title align="left">Wallet not found</Text.Title>
+            <Text.Title align="left">Vault not found</Text.Title>
             <Text.Body color="muted">
-              No wallet address was provided.
+              No vault address was provided.
             </Text.Body>
           </CardContent>
         </Card>
       </PageContainer>
     );
+  }
+
+  const {
+    active,
+    addProposal,
+    updateStatus,
+  } = useVaultProposals(vaultAddress);
+
+  const { executeProposal, cancelProposal } = useVaultExecution(vaultAddress);
+
+  async function handleExecute(proposal: VaultProposal) {
+    await executeProposal(proposal);
+    updateStatus(proposal.id, VaultProposalStatus.EXECUTED);
+  }
+
+  function handleCancel(proposal: VaultProposal) {
+    cancelProposal(proposal);
+    updateStatus(proposal.id, VaultProposalStatus.CANCELLED);
   }
 
   return (
@@ -30,30 +58,34 @@ export function VaultWalletPage() {
         <Card>
           <CardContent>
             <Stack gap="sm">
-              <Text.Title align="left">Wallet Vaults</Text.Title>
-              <Text.Body color="muted">
-                Vault configuration and asset policies for this wallet.
-              </Text.Body>
-              <Text.Body color="muted">
-                {vaultAddress}
-              </Text.Body>
+              <Text.Title align="left">Vault</Text.Title>
+              <Text.Body color="muted">{vaultAddress}</Text.Body>
             </Stack>
           </CardContent>
         </Card>
 
-        {/* EMPTY STATE */}
+        {/* GOVERNANCE */}
         <Card>
           <CardContent>
-            <Surface>
-              <Stack gap="md">
-                <Text.Title align="left">No Vaults Configured</Text.Title>
-                <Text.Body color="muted">
-                  This wallet does not have any vaults configured yet.
-                  Vaults allow you to define policy-based rules for releasing
-                  and withdrawing assets.
-                </Text.Body>
-              </Stack>
-            </Surface>
+            <Stack gap="lg">
+              <Text.Title align="left">Governance</Text.Title>
+              <VaultProposalForm
+                onPropose={(kind, payload) =>
+                  addProposal(
+                    mapUpdateKindToProposalType(kind),
+                    payload
+                  )
+                }
+              />
+
+              <Text.Title align="left">Active Proposals</Text.Title>
+
+              <VaultChangeLog
+                proposals={active}
+                onExecute={handleExecute}
+                onCancel={handleCancel}
+              />
+            </Stack>
           </CardContent>
         </Card>
       </Stack>
