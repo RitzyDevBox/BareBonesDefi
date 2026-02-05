@@ -13,12 +13,13 @@ import {
   VaultProposalStatus,
 } from "../hooks/vaults/useVaultProposals";
 import { useVaultExecution } from "../hooks/vaults/useVaultExecution";
-import { mapUpdateKindToProposalType } from "../utils/vault/vaultProposalMapping";
+import { useVaultPolicyProposeCallback } from "../hooks/vaults/useVaultPolicyProposeCallback";
+import { useWalletProvider } from "../hooks/useWalletProvider";
 
 export function VaultWalletPage() {
-  const { vaultAddress } = useParams<{ vaultAddress: string }>();
+  const { vaultAddress, walletAddress } = useParams<{ vaultAddress: string, walletAddress: string }>();
 
-  if (!vaultAddress) {
+  if (!vaultAddress || !walletAddress) {
     return (
       <PageContainer>
         <Card>
@@ -33,11 +34,14 @@ export function VaultWalletPage() {
     );
   }
 
-  const {
-    active,
-    addProposal,
-    updateStatus,
-  } = useVaultProposals(vaultAddress);
+  const { provider } = useWalletProvider();
+  const {active, addProposal, updateStatus} = useVaultProposals(vaultAddress);
+  const { proposePolicy } = useVaultPolicyProposeCallback(provider, vaultAddress, walletAddress,
+    (payload) => {
+      addProposal(payload.type, payload);
+    }
+  );
+
 
   const { executeProposal, cancelProposal } = useVaultExecution(vaultAddress);
 
@@ -69,15 +73,7 @@ export function VaultWalletPage() {
           <CardContent>
             <Stack gap="lg">
               <Text.Title align="left">Governance</Text.Title>
-              <VaultProposalForm
-                onPropose={(kind, payload) =>
-                  addProposal(
-                    mapUpdateKindToProposalType(kind),
-                    payload
-                  )
-                }
-              />
-
+              <VaultProposalForm onPropose={(_kind, payload) => proposePolicy(payload)} />
               <Text.Title align="left">Active Proposals</Text.Title>
 
               <VaultChangeLog
