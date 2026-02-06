@@ -10,6 +10,7 @@ import {
   PolicyScopeKind,
 } from "../../models/vaults/vaultTypes";
 import { Input } from "../BasicComponents";
+import { AddressInput } from "../Inputs/AddressInput";
 
 interface Props {
   value: PolicyScope;
@@ -56,12 +57,8 @@ export function PolicyScopeSelector({ value, onChange }: Props) {
 
       {needsAddress && (
         <FormField label="Asset Address">
-          <Input
-            placeholder="0x…"
-            value={value.asset}
-            onChange={(e) =>
-              onChange({ ...value, asset: e.target.value })
-            }
+          <AddressInput value={value.asset}
+            onChange={(e) => onChange({ ...value, asset: e.target.value }) }
           />
         </FormField>
       )}
