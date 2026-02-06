@@ -19,6 +19,11 @@ import {
 import { useVaultPolicyCallback } from "../hooks/vaults/useVaultPolicyCallback";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { VaultProposalAction } from "../utils/vault/vaultPolicyProposeTxBuilder";
+import { useVaultReleaseCallback } from "../hooks/vaults/useVaultReleaseCallback";
+import { useVaultWithdrawCallback } from "../hooks/vaults/useVaultWithdrawCallback";
+import { VaultInteractionTab } from "../components/Vaults/VaultInteractionTab";
+import { useVaultDepositCallback } from "../hooks/vaults/useVaultDepositCallback";
+
 
 export enum VaultTab {
   INTERACT = 0,
@@ -95,18 +100,34 @@ export function VaultWalletPage() {
   }
 
   const tabs: readonly TabDefinition<VaultTab>[] = [
-    {
-      id: VaultTab.INTERACT,
-      label: "Interact",
-      content: (
-        <Stack gap="md">
-          <Text.Title align="left">Interact</Text.Title>
-          <Text.Body color="muted">
-            Withdraw and release actions will live here.
-          </Text.Body>
-        </Stack>
-      ),
-    },
+  {
+    id: VaultTab.INTERACT,
+    label: "Interact",
+    content: (
+      <Stack gap="md">
+        <Text.Title align="left">Interact</Text.Title>
+        <Text.Body color="muted">
+          Deposit into the vault, or release / withdraw assets according to policy.
+        </Text.Body>
+
+        {(() => {
+          const { provider } = useWalletProvider();
+
+          const { deposit } = useVaultDepositCallback(provider, vaultAddress, walletAddress);
+          const { release } = useVaultReleaseCallback(provider, vaultAddress, walletAddress);
+          const { withdraw } = useVaultWithdrawCallback(provider, vaultAddress, walletAddress);
+
+          return (
+            <VaultInteractionTab 
+              onDeposit={(args) => deposit(args)} 
+              onRelease={(args) => release(args)} 
+              onWithdraw={(args) => withdraw(args)} 
+            />
+          );
+        })()}
+      </Stack>
+    ),
+  },
     {
       id: VaultTab.PROPOSE,
       label: "Propose Policy",
