@@ -21,8 +21,8 @@ export function VaultPolicyProposalForm({ onSubmit }: Props) {
   const [scope, setScope] = useState<PolicyScope>({
     kind: PolicyScopeKind.AssetType,
     assetType: AssetType.Native,
-    asset: "0x0000000000000000000000000000000000000000",
-    id: "0",
+    asset: "",
+    id: "",
   });
 
   const [policy, setPolicy] = useState<LimitPolicy>({

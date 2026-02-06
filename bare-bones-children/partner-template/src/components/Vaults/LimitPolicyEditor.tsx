@@ -5,6 +5,7 @@ import { FormField } from "../FormField";
 
 import { LimitKind, LimitPolicy } from "../../models/vaults/vaultTypes";
 import { Input } from "../BasicComponents";
+import { NumberInput } from "../Inputs/NumberInput";
 
 interface Props {
   value: LimitPolicy;
@@ -15,12 +16,7 @@ export function LimitPolicyEditor({ value, onChange }: Props) {
   return (
     <Stack gap="sm">
       <FormField label="Limit Kind">
-        <Select
-          value={value.kind}
-          onChange={(v) =>
-            onChange({ ...value, kind: Number(v) })
-          }
-        >
+        <Select value={value.kind} onChange={(v) => onChange({ ...value, kind: Number(v) }) }>
           <SelectOption value={LimitKind.Unset} label="Unset" />
           <SelectOption value={LimitKind.Absolute} label="Absolute" />
           <SelectOption
@@ -32,9 +28,7 @@ export function LimitPolicyEditor({ value, onChange }: Props) {
       </FormField>
 
       <FormField label="Window (seconds)">
-        <Input
-          value={value.windowSeconds}
-          onChange={(e) =>
+        <NumberInput allowDecimal={false} value={value.windowSeconds} onChange={(e) =>
             onChange({
               ...value,
               windowSeconds: Number(e.target.value),
@@ -44,22 +38,15 @@ export function LimitPolicyEditor({ value, onChange }: Props) {
       </FormField>
 
       <FormField label="Proposal Delay (seconds)">
-        <Input
-          value={value.proposalDelaySeconds}
-          onChange={(e) =>
-            onChange({
-              ...value,
-              proposalDelaySeconds: Number(e.target.value),
-            })
+        <NumberInput allowDecimal={false} value={value.proposalDelaySeconds} onChange={(e) =>
+            onChange({ ...value, proposalDelaySeconds: Number(e.target.value) })
           }
         />
       </FormField>
 
       {value.kind !== LimitKind.Delay && (
         <FormField label="Value">
-          <Input
-            value={value.value}
-            onChange={(e) =>
+          <NumberInput allowDecimal={false} value={value.value} onChange={(e) =>
               onChange({ ...value, value: e.target.value })
             }
           />

@@ -9,8 +9,8 @@ import {
   PolicyScope,
   PolicyScopeKind,
 } from "../../models/vaults/vaultTypes";
-import { Input } from "../BasicComponents";
 import { AddressInput } from "../Inputs/AddressInput";
+import { NumberInput } from "../Inputs/NumberInput";
 
 interface Props {
   value: PolicyScope;
@@ -33,17 +33,11 @@ export function PolicyScopeSelector({ value, onChange }: Props) {
       <FormField label="Asset Type">
         <Select
           value={value.assetType}
-          onChange={(v) =>
+          onChange={(assetType) =>
             onChange({
-              kind:
-                Number(v) === AssetType.Native
-                  ? PolicyScopeKind.AssetType
-                  : PolicyScopeKind.AssetTypeAddress,
-              assetType: Number(v),
-              asset:
-                Number(v) === AssetType.Native
-                  ? "0x0000000000000000000000000000000000000000"
-                  : value.asset,
+              kind: assetType === AssetType.Native ? PolicyScopeKind.AssetType: PolicyScopeKind.AssetTypeAddress,
+              assetType: assetType,
+              asset: assetType === AssetType.Native ? "": value.asset,
               id: "0",
             })
           }
@@ -68,11 +62,8 @@ export function PolicyScopeSelector({ value, onChange }: Props) {
           label={
             requiresId ? "Token ID (required)" : "Token ID (optional)"
           }
-        >
-          <Input
-            placeholder="Token ID"
-            value={value.id}
-            onChange={(e) =>
+        > 
+          <NumberInput placeholder="Token ID" value={value.id} allowDecimal={false} onChange={(e) =>
               onChange({ ...value, id: e.target.value })
             }
           />

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import ERC20_ABI from "../abis/ERC20.json";
+import { ZERO_ADDRESS } from "../constants/misc";
 
 export function useCurrencyInfo(
   provider: ethers.providers.Web3Provider | undefined,
@@ -23,10 +24,8 @@ export function useCurrencyInfo(
       setError("");
       setValid(null);
 
-      const ZERO = "0x0000000000000000000000000000000000000000";
-
       try {
-        if (tokenAddress === ZERO) {
+        if (tokenAddress === ZERO_ADDRESS) {
           const d = 18;
           const sym = "ETH";
 
