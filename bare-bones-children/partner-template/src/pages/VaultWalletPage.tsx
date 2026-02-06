@@ -1,23 +1,36 @@
 import { useParams } from "react-router-dom";
+import { useState } from "react";
 
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
 import { Stack } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 
+import { Tabs, TabDefinition } from "../components/Tabs/Tabs";
+
 import { VaultChangeLog } from "../components/Vaults/VaultChangeLog";
 import { VaultProposalForm } from "../components/Vaults/VaultProposalForm";
+
 import {
   useVaultProposals,
   VaultProposal,
   VaultProposalStatus,
 } from "../hooks/vaults/useVaultProposals";
-import { useVaultExecution } from "../hooks/vaults/useVaultExecution";
-import { useVaultPolicyProposeCallback } from "../hooks/vaults/useVaultPolicyProposeCallback";
+import { useVaultPolicyCallback } from "../hooks/vaults/useVaultPolicyCallback";
 import { useWalletProvider } from "../hooks/useWalletProvider";
+import { VaultProposalAction } from "../utils/vault/vaultPolicyProposeTxBuilder";
+
+export enum VaultTab {
+  INTERACT = 0,
+  PROPOSE = 1,
+  CHANGE_LOG = 2,
+}
 
 export function VaultWalletPage() {
-  const { vaultAddress, walletAddress } = useParams<{ vaultAddress: string, walletAddress: string }>();
+  const { vaultAddress, walletAddress } = useParams<{
+    vaultAddress: string;
+    walletAddress: string;
+  }>();
 
   if (!vaultAddress || !walletAddress) {
     return (
@@ -26,7 +39,7 @@ export function VaultWalletPage() {
           <CardContent>
             <Text.Title align="left">Vault not found</Text.Title>
             <Text.Body color="muted">
-              No vault address was provided.
+              No vault or wallet address was provided.
             </Text.Body>
           </CardContent>
         </Card>
@@ -34,26 +47,101 @@ export function VaultWalletPage() {
     );
   }
 
-  const { provider } = useWalletProvider();
-  const {active, addProposal, updateStatus} = useVaultProposals(vaultAddress);
-  const { proposePolicy } = useVaultPolicyProposeCallback(provider, vaultAddress, walletAddress,
-    (payload) => {
-      addProposal(payload.type, payload);
-    }
+  const [activeTab, setActiveTab] = useState<VaultTab>(
+    VaultTab.INTERACT
   );
 
+  const { provider } = useWalletProvider();
+  const { active, addProposal, updateStatus } =
+    useVaultProposals(vaultAddress);
 
-  const { executeProposal, cancelProposal } = useVaultExecution(vaultAddress);
+  const { actionCallback: proposePolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.PROPOSE, vaultAddress, walletAddress,
+      (payload) => {
+        addProposal(payload.type, payload);
+        setActiveTab(VaultTab.CHANGE_LOG);
+      }
+    );
+
+   const { actionCallback: executePolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.EXECUTE, vaultAddress, walletAddress,
+      (_payload, proposalId) => {
+        if(!proposalId) {
+          return
+        }
+        updateStatus(proposalId, VaultProposalStatus.EXECUTED);
+      }
+    );
+
+    const { actionCallback: cancelPolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.EXECUTE, vaultAddress, walletAddress,
+      (_payload, proposalId) => {
+        if(!proposalId) {
+          return
+        }
+        updateStatus(proposalId, VaultProposalStatus.CANCELLED);
+      }
+    );
+
 
   async function handleExecute(proposal: VaultProposal) {
-    await executeProposal(proposal);
+    await executePolicyCallback(proposal.payload);
     updateStatus(proposal.id, VaultProposalStatus.EXECUTED);
   }
 
-  function handleCancel(proposal: VaultProposal) {
-    cancelProposal(proposal);
-    updateStatus(proposal.id, VaultProposalStatus.CANCELLED);
+  async function handleCancel(proposal: VaultProposal) {
+    await cancelPolicyCallback(proposal.payload);
+    updateStatus(
+      proposal.id,
+      VaultProposalStatus.CANCELLED
+    );
   }
+
+  const tabs: readonly TabDefinition<VaultTab>[] = [
+    {
+      id: VaultTab.INTERACT,
+      label: "Interact",
+      content: (
+        <Stack gap="md">
+          <Text.Title align="left">Interact</Text.Title>
+          <Text.Body color="muted">
+            Withdraw and release actions will live here.
+          </Text.Body>
+        </Stack>
+      ),
+    },
+    {
+      id: VaultTab.PROPOSE,
+      label: "Propose Policy",
+      content: (
+        <Stack gap="md">
+          <Text.Title align="left">
+            Propose Policy Change
+          </Text.Title>
+
+          <VaultProposalForm
+            onPropose={(_kind, payload) =>
+              proposePolicyCallback(payload)
+            }
+          />
+        </Stack>
+      ),
+    },
+    {
+      id: VaultTab.CHANGE_LOG,
+      label: "Change Log",
+      content: (
+        <Stack gap="md">
+          <Text.Title align="left">
+            Active Proposals
+          </Text.Title>
+
+          <VaultChangeLog
+            proposals={active}
+            onExecute={handleExecute}
+            onCancel={handleCancel}
+          />
+        </Stack>
+      ),
+    },
+  ];
 
   return (
     <PageContainer>
@@ -63,25 +151,21 @@ export function VaultWalletPage() {
           <CardContent>
             <Stack gap="sm">
               <Text.Title align="left">Vault</Text.Title>
-              <Text.Body color="muted">{vaultAddress}</Text.Body>
+              <Text.Body color="muted">
+                {vaultAddress}
+              </Text.Body>
             </Stack>
           </CardContent>
         </Card>
 
-        {/* GOVERNANCE */}
+        {/* TABBED CONTENT */}
         <Card>
           <CardContent>
-            <Stack gap="lg">
-              <Text.Title align="left">Governance</Text.Title>
-              <VaultProposalForm onPropose={(_kind, payload) => proposePolicy(payload)} />
-              <Text.Title align="left">Active Proposals</Text.Title>
-
-              <VaultChangeLog
-                proposals={active}
-                onExecute={handleExecute}
-                onCancel={handleCancel}
-              />
-            </Stack>
+            <Tabs
+              tabs={tabs}
+              activeTab={activeTab}
+              onChange={setActiveTab}
+            />
           </CardContent>
         </Card>
       </Stack>

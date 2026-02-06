@@ -12,16 +12,17 @@ export function Stack({
   style,
 }: {
   children: React.ReactNode;
-  gap?: "xs" | "sm" | "md" | "lg" | "xl";
+  gap?: "none"| "xs" | "sm" | "md" | "lg" | "xl";
   align?: "stretch" | "start" | "center" | "end";
   style?: React.CSSProperties;
 }) {
+  const gapValue = gap === "none" ? "0px" : `var(--spacing-${gap})`;
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: `var(--spacing-${gap})`,
+        gap: gapValue,
         alignItems: align === "start" ? "flex-start" :
                       align === "end" ? "flex-end" :
                       align === "center" ? "center" : "stretch",

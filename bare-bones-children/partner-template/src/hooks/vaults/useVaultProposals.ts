@@ -126,10 +126,7 @@ export function useVaultProposals(vaultAddress: string) {
         payload,
         status: VaultProposalStatus.PENDING,
         proposedAt: now,
-        readyAt:
-          delaySeconds > 0
-            ? now + delaySeconds * 1000
-            : undefined,
+        readyAt: delaySeconds >= 0 ? now + delaySeconds * 1000 : undefined,
       };
 
       persist((prev => [...prev, proposal])(proposals));

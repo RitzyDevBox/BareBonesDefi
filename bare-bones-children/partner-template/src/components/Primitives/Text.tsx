@@ -4,12 +4,13 @@ import { cssVar } from "../../utils/themeUtils";
 type TextAlign = "left" | "center" | "right";
 type TextColor = "main" | "secondary" | "label" | "muted";
 type FontWeight = CSSProperties["fontWeight"];
-
+type TextSize = "xs" | "sm" | "md" | "lg";
 type TextProps = PropsWithChildren<{
   style?: CSSProperties;
   align?: TextAlign;
   color?: TextColor;
   weight?: FontWeight;
+  size?: TextSize;
 }>;
 
 function resolveColor(color?: TextColor) {
@@ -33,12 +34,15 @@ export const Text = {
     align = "center",
     color = "main",
     weight,
+    size,
   }: TextProps) {
     return (
       <h3
         style={{
-          fontSize: cssVar("textStyles-title-fontSize"),
-          fontWeight: weight ?? cssVar("textStyles-title-fontWeight"),
+          fontSize: resolveTextSize("title", size),
+          fontWeight:
+            weight ??
+            cssVar("textStyles-title-fontWeight"),
           margin: 0,
           color: resolveColor(color),
           textAlign: align,
@@ -56,12 +60,15 @@ export const Text = {
     align = "left",
     color = "label",
     weight,
+    size,
   }: TextProps) {
     return (
       <label
         style={{
-          fontSize: cssVar("textStyles-label-fontSize"),
-          fontWeight: weight ?? cssVar("textStyles-label-fontWeight"),
+          fontSize: resolveTextSize("label", size),
+          fontWeight:
+            weight ??
+            cssVar("textStyles-label-fontWeight"),
           color: resolveColor(color),
           textAlign: align,
           ...style,
@@ -78,12 +85,15 @@ export const Text = {
     align = "left",
     color = "main",
     weight,
+    size,
   }: TextProps) {
     return (
       <p
         style={{
-          fontSize: cssVar("textStyles-body-fontSize"),
-          fontWeight: weight ?? cssVar("textStyles-body-fontWeight"),
+          fontSize: resolveTextSize("body", size),
+          fontWeight:
+            weight ??
+            cssVar("textStyles-body-fontWeight"),
           color: resolveColor(color),
           textAlign: align,
           margin: 0,
@@ -95,3 +105,14 @@ export const Text = {
     );
   },
 };
+
+function resolveTextSize(
+  base: "title" | "label" | "body",
+  size?: TextSize
+) {
+  if (!size) {
+    return cssVar(`textStyles-${base}-fontSize`);
+  }
+
+  return cssVar(`textStyles-${base}-${size}-fontSize`);
+}
