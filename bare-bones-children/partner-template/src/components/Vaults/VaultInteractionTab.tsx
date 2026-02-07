@@ -3,6 +3,7 @@ import { Stack } from "../Primitives";
 import { Select } from "../Select";
 import { SelectOption } from "../Select/SelectOption";
 import { ButtonPrimary } from "../Button/ButtonPrimary";
+import { FormField } from "../FormField";
 import { AssetType } from "../../models/vaults/vaultTypes";
 import { AddressInput } from "../Inputs/AddressInput";
 import { NumberInput } from "../Inputs/NumberInput";
@@ -26,22 +27,34 @@ export function VaultInteractionTab({
 
   return (
     <Stack gap="lg">
-      <Select value={assetType} onChange={(v) => setAssetType(Number(v))}>
-        <SelectOption value={AssetType.Native} label="Native" />
-        <SelectOption value={AssetType.ERC20} label="ERC20" />
-        <SelectOption value={AssetType.ERC721} label="ERC721" />
-        <SelectOption value={AssetType.ERC1155} label="ERC1155" />
-      </Select>
+      <FormField label="Asset Type">
+        <Select value={assetType} onChange={(v) => setAssetType(Number(v))}>
+          <SelectOption value={AssetType.Native} label="Native" />
+          <SelectOption value={AssetType.ERC20} label="ERC20" />
+          <SelectOption value={AssetType.ERC721} label="ERC721" />
+          <SelectOption value={AssetType.ERC1155} label="ERC1155" />
+        </Select>
+      </FormField>
 
-      {assetType !== AssetType.Native && <AddressInput value={asset} onChange={(e) => setAsset(e.target.value)} />}
-
-      {(assetType === AssetType.ERC721 || assetType === AssetType.ERC1155) && (
-        <NumberInput value={id} onChange={(e) => setId(e.target.value)} allowDecimal={false} />
+      {assetType !== AssetType.Native && (
+        <FormField label="Token / Contract Address">
+          <AddressInput value={asset} onChange={(e) => setAsset(e.target.value)} />
+        </FormField>
       )}
 
-      <NumberInput value={amount} onChange={(e) => setAmount(e.target.value)} />
+      {(assetType === AssetType.ERC721 || assetType === AssetType.ERC1155) && (
+        <FormField label="Token ID">
+          <NumberInput value={id} onChange={(e) => setId(e.target.value)} allowDecimal={false} />
+        </FormField>
+      )}
 
-      <AddressInput value={to} onChange={(e) => setTo(e.target.value)} placeholder="Recipient (release only)" />
+      <FormField label={assetType === AssetType.ERC721 ? "Amount (ignored for ERC721)" : "Amount"}>
+        <NumberInput value={amount} onChange={(e) => setAmount(e.target.value)} />
+      </FormField>
+
+      <FormField label="Recipient (release only)">
+        <AddressInput value={to} onChange={(e) => setTo(e.target.value)} />
+      </FormField>
 
       <Stack gap="sm">
         <ButtonPrimary onClick={() => onDeposit({ assetType, asset, amount })}>Deposit</ButtonPrimary>
