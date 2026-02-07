@@ -61,8 +61,8 @@ export function VaultWalletPage() {
     useVaultProposals(vaultAddress);
 
   const { actionCallback: proposePolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.PROPOSE, vaultAddress, walletAddress,
-      (payload) => {
-        addProposal(payload.type, payload);
+      async (payload) => {
+        await addProposal(payload.type, payload);
         setActiveTab(VaultTab.CHANGE_LOG);
       }
     );

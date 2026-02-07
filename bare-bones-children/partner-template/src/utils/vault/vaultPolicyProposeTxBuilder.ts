@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import SecureValueReserveAbi from "../../abis/diamond/infrastructure/SecureValueReserve.abi.json";
 import { RawTx } from "../basicWalletUtils";
 import { VaultProposalPayload, VaultProposalType } from "../../hooks/vaults/useVaultProposals";
+import { PolicyScope, PolicyScopeKind } from "../../models/vaults/vaultTypes";
 
 const iface = new ethers.utils.Interface(
   SecureValueReserveAbi
@@ -21,12 +22,13 @@ export function buildVaultPolicyProposeRawTx(
 ): RawTx {
   switch (payload.type) {
     case VaultProposalType.POLICY:
+      const scope = normalizeScope(payload.scope)
       return {
         to: vaultAddress,
         value: 0,
         data: iface.encodeFunctionData(
           "proposePolicy",
-          [payload.scope, payload.policy]
+          [scope, payload.policy]
         ),
       };
 
@@ -80,10 +82,11 @@ export function buildVaultPolicyProposeRawTx(
 export function buildVaultPolicyExecuteRawTx(vaultAddress: string, payload: VaultProposalPayload): RawTx {
   switch (payload.type) {
     case VaultProposalType.POLICY:
+      const scope = normalizeScope(payload.scope)
       return {
         to: vaultAddress,
         value: 0,
-        data: iface.encodeFunctionData("executePolicy", [payload.scope, payload.policy]),
+        data: iface.encodeFunctionData("executePolicy", [scope, payload.policy]),
       };
 
     case VaultProposalType.DEFAULT_PROPOSAL_DELAY:
@@ -125,10 +128,11 @@ export function buildVaultPolicyExecuteRawTx(vaultAddress: string, payload: Vaul
 export function buildVaultPolicyCancelRawTx(vaultAddress: string, payload: VaultProposalPayload): RawTx {
   switch (payload.type) {
     case VaultProposalType.POLICY:
+      const scope = normalizeScope(payload.scope)
       return {
         to: vaultAddress,
         value: 0,
-        data: iface.encodeFunctionData("cancelPolicyChange", [payload.scope]),
+        data: iface.encodeFunctionData("cancelPolicyChange", [scope]),
       };
 
     case VaultProposalType.DEFAULT_PROPOSAL_DELAY:
@@ -180,6 +184,34 @@ export function buildVaultPolicyRawTx(vaultAddress: string, action: VaultProposa
     default: {
       const _: never = action;
       throw new Error("Unhandled vault proposal action");
+    }
+  }
+}
+
+function normalizeScope(scope: PolicyScope): PolicyScope {
+  switch (scope.kind) {
+    case PolicyScopeKind.AssetType:
+      return {
+        kind: PolicyScopeKind.AssetType,
+        assetType: scope.assetType,
+        asset: ethers.constants.AddressZero,
+        id: "0",
+      };
+
+    case PolicyScopeKind.AssetTypeAddress:
+      return {
+        kind: PolicyScopeKind.AssetTypeAddress,
+        assetType: scope.assetType,
+        asset: scope.asset,
+        id: "0",
+      };
+
+    case PolicyScopeKind.AssetTypeAddressId:
+      return scope;
+
+    default: {
+      const _: never = scope.kind;
+      throw new Error("Unhandled PolicyScopeKind");
     }
   }
 }
