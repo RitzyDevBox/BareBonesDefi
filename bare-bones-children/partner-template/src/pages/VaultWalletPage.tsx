@@ -119,6 +119,7 @@ export function VaultWalletPage() {
 
           return (
             <VaultInteractionTab 
+              vaultAddress={vaultAddress}
               onDeposit={(args) => deposit(args)} 
               onRelease={(args) => release(args)} 
               onWithdraw={(args) => withdraw(args)} 

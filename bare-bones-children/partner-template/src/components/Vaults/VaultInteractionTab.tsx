@@ -9,21 +9,43 @@ import { AddressInput } from "../Inputs/AddressInput";
 import { NumberInput } from "../Inputs/NumberInput";
 import { VaultReleaseArgs, VaultWithdrawArgs } from "../../utils/vault/vaultInteractionTxBuilder";
 import { VaultDepositArgs } from "../../hooks/vaults/useVaultDepositCallback";
+import { TokenAmountField } from "../TokenAmount/TokenAmountField";
+import { TokenAmountInfo, UserScope } from "../TokenSelect/types";
+import { useWalletProvider } from "../../hooks/useWalletProvider";
+import { DEFAULT_CHAIN_ID, NATIVE_TOKENS_BY_CHAIN } from "../../constants/misc";
 
 export function VaultInteractionTab({
+  vaultAddress,
   onDeposit,
   onRelease,
   onWithdraw,
 }: {
+  vaultAddress?: string,
   onDeposit: (args: VaultDepositArgs) => void;
   onRelease: (args: VaultReleaseArgs) => void;
   onWithdraw: (args: VaultWithdrawArgs) => void;
 }) {
+  const { chainId } = useWalletProvider();
+  const chainIdOrDefault = chainId ?? DEFAULT_CHAIN_ID;
+  const NATIVE_TOKEN = NATIVE_TOKENS_BY_CHAIN[chainIdOrDefault];
+
   const [assetType, setAssetType] = useState<AssetType>(AssetType.Native);
+  const [tokenAmountInfo, setTokenAmountInfo] = useState<TokenAmountInfo>({
+    amount: "",
+    token: NATIVE_TOKEN,
+  });
+
   const [asset, setAsset] = useState("");
   const [id, setId] = useState("0");
-  const [amount, setAmount] = useState("");
   const [to, setTo] = useState("");
+
+  const isFungible = assetType === AssetType.Native || assetType === AssetType.ERC20;
+
+  const tokenAmountOptions = { 
+    userAddress: vaultAddress, 
+    //TODO: Refactor this enum out to just use user address
+    userScope: UserScope.SmartWallet
+  }
 
   return (
     <Stack gap="lg">
@@ -36,30 +58,77 @@ export function VaultInteractionTab({
         </Select>
       </FormField>
 
-      {assetType !== AssetType.Native && (
-        <FormField label="Token / Contract Address">
-          <AddressInput value={asset} onChange={(e) => setAsset(e.target.value)} />
+      {isFungible && (
+        <FormField label="Amount">
+          <TokenAmountField
+            value={tokenAmountInfo}
+            chainId={chainIdOrDefault}
+            onChange={setTokenAmountInfo}
+            options={tokenAmountOptions}
+          />
         </FormField>
       )}
 
-      {(assetType === AssetType.ERC721 || assetType === AssetType.ERC1155) && (
-        <FormField label="Token ID">
-          <NumberInput value={id} onChange={(e) => setId(e.target.value)} allowDecimal={false} />
-        </FormField>
+      {!isFungible && (
+        <>
+          <FormField label="Token / Contract Address">
+            <AddressInput value={asset} onChange={(e) => setAsset(e.target.value)} />
+          </FormField>
+           <FormField label="Token ID">
+            <NumberInput value={id} onChange={(e) => setId(e.target.value)} allowDecimal={false} />
+          </FormField>
+        </>
       )}
 
-      <FormField label={assetType === AssetType.ERC721 ? "Amount (ignored for ERC721)" : "Amount"}>
-        <NumberInput value={amount} onChange={(e) => setAmount(e.target.value)} />
-      </FormField>
+      {assetType === AssetType.ERC1155 && (
+        <FormField label="Amount">
+          <NumberInput value={tokenAmountInfo.amount} onChange={(e) => setTokenAmountInfo(v => ({ ...v, amount: e.target.value }))} />
+        </FormField>
+      )}
 
       <FormField label="Recipient (release only)">
         <AddressInput value={to} onChange={(e) => setTo(e.target.value)} />
       </FormField>
 
       <Stack gap="sm">
-        <ButtonPrimary onClick={() => onDeposit({ assetType, asset, amount })}>Deposit</ButtonPrimary>
-        <ButtonPrimary onClick={() => onRelease({ assetType, asset, id, amount, to })}>Release</ButtonPrimary>
-        <ButtonPrimary onClick={() => onWithdraw({ assetType, asset, id, amount })}>Withdraw</ButtonPrimary>
+        <ButtonPrimary
+          onClick={() =>
+            onDeposit({
+              assetType,
+              asset: (isFungible && tokenAmountInfo.token) ? tokenAmountInfo.token.address ?? "" : asset,
+              amount: tokenAmountInfo.amount,
+            })
+          }
+        >
+          Deposit
+        </ButtonPrimary>
+
+        <ButtonPrimary
+          onClick={() =>
+            onRelease({
+              assetType,
+              asset: (isFungible && tokenAmountInfo.token) ? tokenAmountInfo.token.address ?? "" : asset,
+              id,
+              amount: tokenAmountInfo.amount,
+              to,
+            })
+          }
+        >
+          Release
+        </ButtonPrimary>
+
+        <ButtonPrimary
+          onClick={() =>
+            onWithdraw({
+              assetType,
+              asset: (isFungible && tokenAmountInfo.token) ? tokenAmountInfo.token.address ?? "" : asset,
+              id,
+              amount: tokenAmountInfo.amount,
+            })
+          }
+        >
+          Withdraw
+        </ButtonPrimary>
       </Stack>
     </Stack>
   );

@@ -20,6 +20,7 @@ export function RenderFieldComponent({
 }) {
   const placeholder = ""; // remove label duplication
   const { chainId } = useWalletProvider()
+  
   switch (field.component) {
     case FieldComponent.TOKEN_AMOUNT_PICKER:
       return (

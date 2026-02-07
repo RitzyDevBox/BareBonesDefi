@@ -4,12 +4,14 @@ import { ethers } from "ethers";
 import ERC20_ABI from "../abis/ERC20.json";
 import { useWalletProvider } from "./useWalletProvider";
 import { TokenInfo } from "../components/TokenSelect/types";
+import { useTxRefresh } from "../providers/TxRefreshProvider";
 
 export function useTokenBalance(account?: string | null, token?: TokenInfo | null) {
   const { provider } = useWalletProvider();
   const [balance, setBalance] = useState<string | null>(null);
   const tokenAddressDep = token?.address;
   const decimalDep = token?.decimals;
+  const { version } = useTxRefresh();
 
   useEffect(() => {
     if (!provider || !account || !tokenAddressDep || decimalDep == null) {
@@ -56,7 +58,7 @@ export function useTokenBalance(account?: string | null, token?: TokenInfo | nul
     return () => {
       cancelled = true;
     };
-  }, [provider, account, tokenAddressDep, decimalDep]);
+  }, [provider, account, tokenAddressDep, decimalDep, version]);
 
   return balance;
 }

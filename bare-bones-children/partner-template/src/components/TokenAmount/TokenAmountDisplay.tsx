@@ -62,7 +62,7 @@ export function TokenAmountDisplay({
     onDefaultTokenSelect(resolved);
   }, [token, chainId, loading, tokens, options.defaultTokenAddressResolver, onDefaultTokenSelect, options]);
 
-  const target = options.userScope === UserScope.Account ? account : diamondAddress;
+  const target = options.userAddress ??  (options.userScope === UserScope.Account ? account : diamondAddress);
   const balance = useTokenBalance(target, token);
   const tokenChangeDisabled = options.preventTokenChange === true;
 
