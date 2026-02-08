@@ -71,23 +71,14 @@ export function PolicyScopeSelector({ value, onChange }: Props) {
             })
           }
         >
-          <RadioButton
-            label="Asset Type"
-            option={PolicyScopeKind.AssetType}
-          />
+          <RadioButton label="Asset Type" option={PolicyScopeKind.AssetType} />
 
           {needsAddress && (
-            <RadioButton
-              label="Asset + Address"
-              option={PolicyScopeKind.AssetTypeAddress}
-            />
+            <RadioButton label="Asset + Address" option={PolicyScopeKind.AssetTypeAddress}/>
           )}
 
           {supportsId && (
-            <RadioButton
-              label="Asset + Address + ID"
-              option={PolicyScopeKind.AssetTypeAddressId}
-            />
+            <RadioButton label="Asset + Address + ID" option={PolicyScopeKind.AssetTypeAddressId}/>
           )}
         </RadioGroup>
       </FormField>

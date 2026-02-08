@@ -6,17 +6,19 @@ import { FormField } from "../FormField";
 import { LimitKind, LimitPolicy } from "../../models/vaults/vaultTypes";
 import { Input } from "../BasicComponents";
 import { NumberInput } from "../Inputs/NumberInput";
+import { TimeDurationInput } from "../Inputs/TimeDurationInput";
+import { PercentInput } from "../Inputs/PercentInput";
 
 interface Props {
   value: LimitPolicy;
   onChange: (v: LimitPolicy) => void;
 }
 
-export function LimitPolicyEditor({ value, onChange }: Props) {
+export function LimitPolicyEditor({ value: limitPolicy, onChange }: Props) {
   return (
     <Stack gap="sm">
       <FormField label="Limit Kind">
-        <Select value={value.kind} onChange={(v) => onChange({ ...value, kind: Number(v) }) }>
+        <Select value={limitPolicy.kind} onChange={(v) => onChange({ ...limitPolicy, kind: Number(v) }) }>
           <SelectOption value={LimitKind.Unset} label="Unset" />
           <SelectOption value={LimitKind.Absolute} label="Absolute" />
           <SelectOption
@@ -28,30 +30,37 @@ export function LimitPolicyEditor({ value, onChange }: Props) {
       </FormField>
 
       <FormField label="Window (seconds)">
-        <NumberInput allowDecimal={false} value={value.windowSeconds} onChange={(e) =>
-            onChange({
-              ...value,
-              windowSeconds: Number(e.target.value),
-            })
-          }
+        <TimeDurationInput seconds={limitPolicy.windowSeconds} defaultUnit="d" onChange={(seconds) =>
+            onChange({ ...limitPolicy, windowSeconds: seconds })
+        }
         />
-      </FormField>
 
+      </FormField>
       <FormField label="Proposal Delay (seconds)">
-        <NumberInput allowDecimal={false} value={value.proposalDelaySeconds} onChange={(e) =>
-            onChange({ ...value, proposalDelaySeconds: Number(e.target.value) })
-          }
+        <TimeDurationInput seconds={limitPolicy.proposalDelaySeconds} defaultUnit="d" onChange={(seconds) =>
+            onChange({ ...limitPolicy, proposalDelaySeconds: seconds, })
+        }
         />
       </FormField>
 
-      {value.kind !== LimitKind.Delay && (
-        <FormField label="Value">
-          <NumberInput allowDecimal={false} value={value.value} onChange={(e) =>
-              onChange({ ...value, value: e.target.value })
+      {limitPolicy.kind === LimitKind.Absolute && (
+        <FormField label="Absolute Amount">
+          <NumberInput allowDecimal={false} value={limitPolicy.value} onChange={(e) =>
+              onChange({ ...limitPolicy, value: e.target.value })
             }
           />
         </FormField>
       )}
+      {limitPolicy.kind === LimitKind.PercentOfBalance && (
+        <FormField label="Percent">
+          <PercentInput value={Number(limitPolicy.value)} basisPoints={10_000} allowOver100={false}
+            onChange={(bps) =>
+              onChange({ ...limitPolicy, value: bps.toString() })
+            }
+          />
+          </FormField>
+        )}
+
     </Stack>
   );
 }

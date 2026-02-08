@@ -2,8 +2,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useListNavigation } from "../../hooks/useListNavigation";
 import { DropdownAlignment } from "./models";
-import { Text } from "../Primitives/Text"
-
+import { Text } from "../Primitives/Text";
 
 export function Select<T extends string | number>({
   value,
@@ -13,14 +12,16 @@ export function Select<T extends string | number>({
   style,
   dropdownAlignment,
   renderValue,
+  disabled = false,
 }: {
   value: T | null;
   onChange: (v: T) => void;
   children: React.ReactNode;
   placeholder?: string;
   style?: React.CSSProperties;
-  dropdownAlignment?: DropdownAlignment
+  dropdownAlignment?: DropdownAlignment;
   renderValue?: (opt: React.ReactElement | null) => React.ReactNode;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -39,10 +40,10 @@ export function Select<T extends string | number>({
   // -------------------------
   const { highlightIndex, handleKeyDown } = useListNavigation({
     items: options,
-    isOpen: open,
-    onOpenChange: setOpen,
+    isOpen: open && !disabled,
+    onOpenChange: (v) => !disabled && setOpen(v),
     onSelect: (opt) => {
-      onChange(opt.props.value as T);
+      if (!disabled) onChange(opt.props.value as T);
     },
   });
 
@@ -60,16 +61,18 @@ export function Select<T extends string | number>({
   }, []);
 
   // -------------------------
-  // Focus ring
+  // Focus handling
   // -------------------------
   useEffect(() => {
-    if (headRef.current) headRef.current.tabIndex = 0;
-  }, []);
+    if (headRef.current) {
+      headRef.current.tabIndex = disabled ? -1 : 0;
+    }
+  }, [disabled]);
 
-
-  const align = dropdownAlignment ?? DropdownAlignment.LEFT
+  const align = dropdownAlignment ?? DropdownAlignment.LEFT;
 
   const applyFocusRing = () => {
+    if (disabled) return;
     headRef.current!.style.boxShadow =
       "0 0 0 2px var(--colors-primary)";
   };
@@ -93,11 +96,14 @@ export function Select<T extends string | number>({
       {/* Select Head */}
       <div
         ref={headRef}
-        tabIndex={0}
-        onKeyDown={handleKeyDown}
+        onKeyDown={(e) => {
+          if (!disabled) handleKeyDown(e);
+        }}
         onFocus={applyFocusRing}
         onBlur={removeFocusRing}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (!disabled) setOpen((o) => !o);
+        }}
         style={{
           display: "flex",
           alignItems: "center",
@@ -108,7 +114,8 @@ export function Select<T extends string | number>({
           border: "1px solid var(--colors-border)",
           background: "var(--colors-background)",
           color: "var(--colors-text-main)",
-          cursor: "pointer",
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.5 : 1,
           userSelect: "none",
           outline: "none",
         }}
@@ -140,7 +147,7 @@ export function Select<T extends string | number>({
       </div>
 
       {/* Dropdown */}
-      {open && (
+      {open && !disabled && (
         <div
           style={{
             position: "absolute",
@@ -162,8 +169,10 @@ export function Select<T extends string | number>({
           {options.map((opt, i) =>
             React.cloneElement(opt, {
               onSelect: (v: T) => {
-                onChange(v);
-                setOpen(false);
+                if (!disabled) {
+                  onChange(v);
+                  setOpen(false);
+                }
               },
               highlighted: i === highlightIndex,
             })
