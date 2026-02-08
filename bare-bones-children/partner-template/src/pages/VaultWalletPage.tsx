@@ -134,6 +134,7 @@ export function VaultWalletPage() {
           </Text.Title>
 
           <VaultProposalForm
+            vaultAddress={vaultAddress}
             onPropose={async (_kind, payload) => {
               const tx = await proposePolicyCallback(payload)
               await tx?.wait()

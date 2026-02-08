@@ -19,10 +19,11 @@ import { VaultWithdrawAddressForm } from "./VaultWithdrawAddressForm";
 import { VaultProposalPayload, VaultProposalType } from "../../hooks/vaults/useVaultProposals";
 
 interface Props {
+  vaultAddress: string,
   onPropose: (type: VaultUpdateKind, payload: VaultProposalPayload) => void;
 }
 
-export function VaultProposalForm({ onPropose }: Props) {
+export function VaultProposalForm({ vaultAddress, onPropose }: Props) {
   const [kind, setKind] = useState<VaultUpdateKind>(
     VaultUpdateKind.POLICY
   );
@@ -72,7 +73,8 @@ export function VaultProposalForm({ onPropose }: Props) {
       {kind === VaultUpdateKind.POLICY && (
         <Stack gap="md">
           <PolicyScopeSelector
-            value={scope}
+            vaultAddress={vaultAddress}
+            policyScope={scope}
             onChange={setScope}
           />
 

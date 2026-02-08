@@ -12,31 +12,44 @@ import {
 } from "../../models/vaults/vaultTypes";
 import { AddressInput } from "../Inputs/AddressInput";
 import { NumberInput } from "../Inputs/NumberInput";
+import { useWalletProvider } from "../../hooks/useWalletProvider";
+import { DEFAULT_CHAIN_ID, NATIVE_TOKENS_BY_CHAIN } from "../../constants/misc";
+import { useState } from "react";
+import { TokenInfo } from "../TokenSelect/types";
+import { TokenSelect } from "../TokenSelect/TokenSelect";
+import { TokenSelectButton } from "../TokenAmount/TokenSelectButton";
 
 interface Props {
-  value: PolicyScope;
+  vaultAddress: string;
+  policyScope: PolicyScope;
   onChange: (v: PolicyScope) => void;
 }
 
-export function PolicyScopeSelector({ value, onChange }: Props) {
-  const needsAddress = value.assetType !== AssetType.Native;
-  const supportsId =
-    value.assetType === AssetType.ERC721 ||
-    value.assetType === AssetType.ERC1155;
+export function PolicyScopeSelector({ policyScope, onChange }: Props) {
 
-  const requiresId = value.assetType === AssetType.ERC1155;
+  const { chainId } = useWalletProvider();
+  const chainIdOrDefault = chainId ?? DEFAULT_CHAIN_ID;
+  const NATIVE_TOKEN = NATIVE_TOKENS_BY_CHAIN[chainIdOrDefault];
+  const [open, setOpen] = useState(false);
+  const [token, setToken] = useState<TokenInfo>(NATIVE_TOKEN)
+  const needsAddress = policyScope.assetType !== AssetType.Native;
+  const supportsId =
+    policyScope.assetType === AssetType.ERC721 ||
+    policyScope.assetType === AssetType.ERC1155;
+
+  const requiresId = policyScope.assetType === AssetType.ERC1155;
 
   const addressEnabled =
-    value.kind >= PolicyScopeKind.AssetTypeAddress;
+    policyScope.kind >= PolicyScopeKind.AssetTypeAddress;
   const idEnabled =
-    value.kind === PolicyScopeKind.AssetTypeAddressId;
+    policyScope.kind === PolicyScopeKind.AssetTypeAddressId;
 
   return (
     <Stack gap="sm">
       {/* Asset type */}
       <FormField label="Asset Type">
         <Select
-          value={value.assetType}
+          value={policyScope.assetType}
           onChange={(assetType) => {
             const kind =
               assetType === AssetType.Native
@@ -49,6 +62,9 @@ export function PolicyScopeSelector({ value, onChange }: Props) {
               asset: "",
               id: "0",
             });
+
+            setToken(NATIVE_TOKEN);
+            setOpen(false);
           }}
         >
           <SelectOption value={AssetType.Native} label="Native" />
@@ -61,13 +77,13 @@ export function PolicyScopeSelector({ value, onChange }: Props) {
       {/* Scope radios */}
       <FormField label="Policy Scope">
         <RadioGroup<PolicyScopeKind>
-          value={value.kind}
+          value={policyScope.kind}
           onChange={(kind) =>
             onChange({
-              ...value,
+              ...policyScope,
               kind,
-              asset: kind >= PolicyScopeKind.AssetTypeAddress ? value.asset : "",
-              id: kind === PolicyScopeKind.AssetTypeAddressId ? value.id : "0",
+              asset: kind >= PolicyScopeKind.AssetTypeAddress ? policyScope.asset : "",
+              id: kind === PolicyScopeKind.AssetTypeAddressId ? policyScope.id : "0",
             })
           }
         >
@@ -86,13 +102,26 @@ export function PolicyScopeSelector({ value, onChange }: Props) {
       {/* Address */}
       {needsAddress && (
         <FormField label="Asset Address">
-          <AddressInput
-            value={value.asset}
-            disabled={!addressEnabled}
-            onChange={(e) =>
-              onChange({ ...value, asset: e.target.value })
-            }
-          />
+          {policyScope.assetType === AssetType.ERC20 && <>
+              <TokenSelectButton token={token} onClick={() => setOpen(true)} />
+              <TokenSelect isOpen={open} chainId={chainId} onClose={() => setOpen(false)}
+                onSelect={(selectedToken: TokenInfo) => {
+                  onChange({ ...policyScope, asset: selectedToken.address, });
+                  setToken(selectedToken)
+                  setOpen(false);
+                }}
+              />
+            </>
+          }
+          {policyScope.assetType !== AssetType.ERC20 && <>
+            <AddressInput
+                value={policyScope.asset}
+                disabled={!addressEnabled}
+                onChange={(e) => 
+                    onChange({ ...policyScope, asset: e.target.value })
+                }
+            /></> 
+          }
         </FormField>
       )}
 
@@ -102,11 +131,11 @@ export function PolicyScopeSelector({ value, onChange }: Props) {
           label={requiresId ? "Token ID (required)" : "Token ID (optional)"}
         >
           <NumberInput
-            value={value.id}
+            value={policyScope.id}
             disabled={!idEnabled}
             allowDecimal={false}
             onChange={(e) =>
-              onChange({ ...value, id: e.target.value })
+              onChange({ ...policyScope, id: e.target.value })
             }
           />
         </FormField>

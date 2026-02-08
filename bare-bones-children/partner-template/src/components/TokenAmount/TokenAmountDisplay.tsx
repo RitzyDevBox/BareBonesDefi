@@ -1,10 +1,9 @@
-import { Text } from "../Primitives/Text"
+import { Text } from "../Primitives/Text";
 import {
   AmountInput,
   Row,
   Stack,
   Surface,
-  ClickableSurface,
 } from "../Primitives";
 
 import {
@@ -18,8 +17,8 @@ import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { NATIVE_TOKENS_BY_CHAIN } from "../../constants/misc";
 import { useEffect } from "react";
 import { useTokenList } from "../TokenSelect/useTokenList";
-import { TokenAvatar } from "./TokenAvatar";
 import { useParams } from "react-router-dom";
+import { TokenSelectButton } from "./TokenSelectButton";
 
 interface TokenAmountDisplayProps {
   token: TokenInfo | null;
@@ -41,6 +40,7 @@ export function TokenAmountDisplay({
   const { account, chainId } = useWalletProvider();
   const { tokens, loading } = useTokenList(chainId);
   const { diamondAddress } = useParams<{ diamondAddress?: string }>();
+
   useEffect(() => {
     if (token) return;
     if (!options.defaultTokenAddressResolver) return;
@@ -49,29 +49,35 @@ export function TokenAmountDisplay({
     const defaultAddress = options.defaultTokenAddressResolver(chainId);
     if (!defaultAddress) return;
 
-    const native = NATIVE_TOKENS_BY_CHAIN[chainId]
-
+    const native = NATIVE_TOKENS_BY_CHAIN[chainId];
     const resolved = tokens.concat(native).find(
-      (t) =>
-        t.address.toLowerCase() ===
-        defaultAddress.toLowerCase()
+      (t) => t.address.toLowerCase() === defaultAddress.toLowerCase()
     );
 
     if (!resolved) return;
-
     onDefaultTokenSelect(resolved);
-  }, [token, chainId, loading, tokens, options.defaultTokenAddressResolver, onDefaultTokenSelect, options]);
+  }, [
+    token,
+    chainId,
+    loading,
+    tokens,
+    options.defaultTokenAddressResolver,
+    onDefaultTokenSelect,
+    options,
+  ]);
 
-  const target = options.userAddress ??  (options.userScope === UserScope.Account ? account : diamondAddress);
+  const target =
+    options.userAddress ??
+    (options.userScope === UserScope.Account ? account : diamondAddress);
+
   const balance = useTokenBalance(target, token);
   const tokenChangeDisabled = options.preventTokenChange === true;
 
   return (
-    <Surface style={{ padding: "var(--spacing-md) var(--spacing-sm) var(--spacing-sm) var(--spacing-sm)" }}>
+    <Surface style={{ padding: "var(--spacing-md) var(--spacing-sm) var(--spacing-sm)" }}>
       <Stack gap="xs">
         {/* TOP ROW */}
         <Row justify="between" align="center">
-          {/* AMOUNT — LEFT */}
           <AmountInput
             value={amount}
             decimals={token?.decimals}
@@ -79,38 +85,24 @@ export function TokenAmountDisplay({
             align="left"
           />
 
-          <ClickableSurface as="button" type="button"
-            onClick={!tokenChangeDisabled ? onTokenClick : undefined}
-            style={{
-              padding: "var(--spacing-xs)",
-              borderRadius: "999px",
-              cursor: tokenChangeDisabled ? "default" : "pointer",
-              opacity: tokenChangeDisabled ? 0.7 : 1,
-            }}
-          >
-            <Row gap="xs" align="center">
-              <TokenAvatar src={token?.logoURI} alt={token?.symbol} size={28} />
-              <Text.Body style={{ fontWeight: 600 }}>
-                {token?.symbol ?? "Select"}
-              </Text.Body>
-              <Text.Label>▼</Text.Label>
-            </Row>
-          </ClickableSurface>
+          <TokenSelectButton
+            token={token}
+            disabled={tokenChangeDisabled}
+            onClick={onTokenClick}
+          />
         </Row>
 
-        <Row justify="between" align="center" style={{ fontSize: "0.75rem", lineHeight: 1.5, opacity: 0.85 }}>
-          <Text.Body
-            style={{
-              fontSize: "0.75em",
-              color: "var(--colors-text-muted)",
-            }}
-          >
+        <Row
+          justify="between"
+          align="center"
+          style={{ fontSize: "0.75rem", lineHeight: 1.5, opacity: 0.85 }}
+        >
+          <Text.Body style={{ color: "var(--colors-text-muted)" }}>
             $0.00
           </Text.Body>
 
           <Text.Body
             style={{
-              fontSize: "0.75em",
               color: "var(--colors-text-muted)",
               whiteSpace: "nowrap",
             }}
