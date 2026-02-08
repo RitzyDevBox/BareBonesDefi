@@ -60,12 +60,7 @@ export function VaultWalletPage() {
   const { active, addProposal, updateStatus } =
     useVaultProposals(vaultAddress);
 
-  const { actionCallback: proposePolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.PROPOSE, vaultAddress, walletAddress,
-      async (payload) => {
-        await addProposal(payload.type, payload);
-        setActiveTab(VaultTab.CHANGE_LOG);
-      }
-    );
+  const { actionCallback: proposePolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.PROPOSE, vaultAddress, walletAddress);
 
    const { actionCallback: executePolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.EXECUTE, vaultAddress, walletAddress,
       (_payload, proposalId) => {
@@ -139,9 +134,13 @@ export function VaultWalletPage() {
           </Text.Title>
 
           <VaultProposalForm
-            onPropose={(_kind, payload) =>
-              proposePolicyCallback(payload)
-            }
+            onPropose={async (_kind, payload) => {
+              const tx = await proposePolicyCallback(payload)
+              await tx?.wait()
+              await addProposal(payload.type, payload);
+              setActiveTab(VaultTab.CHANGE_LOG);
+
+            }}
           />
         </Stack>
       ),
