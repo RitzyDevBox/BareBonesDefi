@@ -16,7 +16,8 @@ export const DEFAULT_CHAIN_ID = 999;
 export const TEMPLATE_PROVIDER_OWNER_ADDRESS = '0xfDeDE21f16138e407649eA37Ff166ff910E4a988';
 export const TEMPLATE_PROVIDER_NAMESPACES = {
   //OOPS our deployment forgot to include the version but normally it should
-  SVR_TEMPLATE_PROVIDER_V1: 'SVR_TEMPLATE_PROVIDER'
+  SVR_TEMPLATE_PROVIDER_V1: 'SVR_TEMPLATE_PROVIDER',
+  SVR_TEMPLATE_PROVIDER_C1: 'SVR_TEMPLATE_PROVIDER_C1',
 }
 
 export interface BareBonesConfiguration {
