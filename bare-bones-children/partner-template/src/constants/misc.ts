@@ -9,16 +9,16 @@ export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const NATIVE_ADDRESS = ZERO_ADDRESS
 export const APP_NAME = import.meta.env.VITE_APP_NAME
 export const WALLECT_CONNECT_WALLET_NAME = APP_NAME
-
-
 export const DEFAULT_CHAIN_ID = 999;
-
 export const TEMPLATE_PROVIDER_OWNER_ADDRESS = '0xfDeDE21f16138e407649eA37Ff166ff910E4a988';
 export const TEMPLATE_PROVIDER_NAMESPACES = {
   //OOPS our deployment forgot to include the version but normally it should
   SVR_TEMPLATE_PROVIDER_V1: 'SVR_TEMPLATE_PROVIDER',
+  //Started Using custom verisoning for the provides so we dont need to redeploy
   SVR_TEMPLATE_PROVIDER_C1: 'SVR_TEMPLATE_PROVIDER_C1',
 }
+
+export const POLYGON_SECURE_VALUE_RESERVE_GRAPH_URL = 'https://api.goldsky.com/api/public/project_clze9a4nvee2w01wbaw2y7wzc/subgraphs/secure-value-reserve/1.0.1/gn'
 
 export interface BareBonesConfiguration {
   diamondFactoryAddress: string;
@@ -31,6 +31,11 @@ export interface BareBonesConfiguration {
   namespacedCreate3Factory: string;
   multicall3Address: string,
 }
+
+export const CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = {
+  137: POLYGON_SECURE_VALUE_RESERVE_GRAPH_URL,
+};
+
 
 /**
 
