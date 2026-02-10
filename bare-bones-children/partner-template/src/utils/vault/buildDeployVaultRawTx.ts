@@ -2,6 +2,7 @@
 import { ethers } from "ethers";
 import NamespacedCreate3FactoryAbi from "../../abis/diamond/NamespacedCreate3Factory.abi.json";
 import {
+  ACTIVE_SVR_TEMPLATE_PROVIDER,
   TEMPLATE_PROVIDER_NAMESPACES,
   TEMPLATE_PROVIDER_OWNER_ADDRESS,
   getBareBonesConfiguration,
@@ -31,7 +32,7 @@ export function buildDeployVaultRawTx({
     to: factoryAddress,
     data: factoryInterface.encodeFunctionData("deploy", [
       TEMPLATE_PROVIDER_OWNER_ADDRESS,
-      TEMPLATE_PROVIDER_NAMESPACES.SVR_TEMPLATE_PROVIDER_V1,
+      ACTIVE_SVR_TEMPLATE_PROVIDER,
       constructorParams,
       initData,
     ]),

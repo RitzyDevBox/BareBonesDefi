@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Contract, ethers } from "ethers";
 import NamespacedCreate3FactoryAbi from "../../abis/diamond/NamespacedCreate3Factory.abi.json";
-import { getBareBonesConfiguration, TEMPLATE_PROVIDER_NAMESPACES, TEMPLATE_PROVIDER_OWNER_ADDRESS } from "../../constants/misc";
+import { ACTIVE_SVR_TEMPLATE_PROVIDER, getBareBonesConfiguration, TEMPLATE_PROVIDER_NAMESPACES, TEMPLATE_PROVIDER_OWNER_ADDRESS } from "../../constants/misc";
 import { defaultAbiCoder, keccak256 } from "ethers/lib/utils";
 
 export function useWalletVaults(
@@ -29,7 +29,7 @@ export function useWalletVaults(
         provider
       );
 
-      const namespace = TEMPLATE_PROVIDER_NAMESPACES.SVR_TEMPLATE_PROVIDER_V1;
+      const namespace = ACTIVE_SVR_TEMPLATE_PROVIDER;
 
       const deploymentCount: number =
         await factoryContract.deploymentCount(

@@ -18,6 +18,8 @@ export const TEMPLATE_PROVIDER_NAMESPACES = {
   SVR_TEMPLATE_PROVIDER_C1: 'SVR_TEMPLATE_PROVIDER_C1',
 }
 
+export const ACTIVE_SVR_TEMPLATE_PROVIDER = TEMPLATE_PROVIDER_NAMESPACES.SVR_TEMPLATE_PROVIDER_C1
+
 export const POLYGON_SECURE_VALUE_RESERVE_GRAPH_URL = 'https://api.goldsky.com/api/public/project_clze9a4nvee2w01wbaw2y7wzc/subgraphs/secure-value-reserve/1.0.1/gn'
 
 export interface BareBonesConfiguration {
