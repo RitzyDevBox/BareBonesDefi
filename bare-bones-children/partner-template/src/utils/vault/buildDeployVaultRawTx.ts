@@ -49,7 +49,7 @@ export function encodeVaultConstructorParams(
   defaultWithdrawAddressChangeDelay: number = 0
 ): string {
   return ethers.utils.defaultAbiCoder.encode(
-    ["address", "address", "uint256", "uint256", "uint256"],
+    ["address", "address", "uint32", "uint32", "uint32"],
     [
       walletAddress,        // owner
       coldWalletAddress,    // withdrawDestination

@@ -2,7 +2,7 @@ import { CSSProperties, PropsWithChildren } from "react";
 import { cssVar } from "../../utils/themeUtils";
 
 type TextAlign = "left" | "center" | "right";
-type TextColor = "main" | "secondary" | "label" | "muted";
+type TextColor = "main" | "secondary" | "label" | "muted" | "danger" | "warn" | "success";
 type FontWeight = CSSProperties["fontWeight"];
 type TextSize = "xs" | "sm" | "md" | "lg";
 type TextProps = PropsWithChildren<{
@@ -15,6 +15,13 @@ type TextProps = PropsWithChildren<{
 
 function resolveColor(color?: TextColor) {
   switch (color) {
+    case "danger":
+      return cssVar("colors-error");
+    case "warn":
+      return cssVar("colors-warn");
+    case "success":
+      return cssVar("colors-success");
+
     case "secondary":
       return cssVar("colors-text-secondary");
     case "label":

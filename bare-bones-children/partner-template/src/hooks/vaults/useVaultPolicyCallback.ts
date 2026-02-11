@@ -12,7 +12,6 @@ export function useVaultPolicyCallback(
   vaultProposalAction: VaultProposalAction,
   vaultAddress: string,
   walletAddress: string,
-  onExecute?: (payload: VaultProposalPayload, proposalId?: string) => Promise<void> | void
 ) {
   const buildTx = useCallback(
     (payload: VaultProposalPayload) => {
@@ -32,8 +31,6 @@ export function useVaultPolicyCallback(
   const actionCallback = useExecuteRawTx(
     async (payload: VaultProposalPayload, proposalId?: string) => {
       const receipt = await buildTx(payload);
-      //TODO: this is wrong we need to do this after the exeuction
-      await onExecute?.(payload, proposalId);
       return receipt;
     },
     statusMessage

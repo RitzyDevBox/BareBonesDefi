@@ -14,18 +14,18 @@
       },
       {
         "name": "_defaultProposalDelay",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint32",
+        "internalType": "uint32"
       },
       {
         "name": "_defaultReleaseDelay",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint32",
+        "internalType": "uint32"
       },
       {
         "name": "_defaultWithdrawAddressChangeDelay",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint32",
+        "internalType": "uint32"
       }
     ],
     "stateMutability": "nonpayable"
@@ -112,22 +112,10 @@
   },
   {
     "type": "function",
-    "name": "delayReadyAt",
-    "inputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
+    "name": "emergencyTransferOwnershipToWithdraw",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -135,8 +123,8 @@
     "inputs": [
       {
         "name": "newDelay",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint32",
+        "internalType": "uint32"
       }
     ],
     "outputs": [],
@@ -148,8 +136,8 @@
     "inputs": [
       {
         "name": "newDelay",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint32",
+        "internalType": "uint32"
       }
     ],
     "outputs": [],
@@ -236,8 +224,8 @@
     "inputs": [
       {
         "name": "newDelay",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint32",
+        "internalType": "uint32"
       }
     ],
     "outputs": [],
@@ -250,16 +238,60 @@
     "outputs": [
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint32",
+        "internalType": "uint32"
       },
       {
-        "name": "defaultReleaseDelay",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
       },
       {
         "name": "defaultWithdrawAddressChangeDelay",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getEffectiveLimitPolicy",
+    "inputs": [
+      {
+        "name": "scopeKind",
+        "type": "uint8",
+        "internalType": "enum PolicyScopeKind"
+      },
+      {
+        "name": "assetType",
+        "type": "uint8",
+        "internalType": "enum AssetType"
+      },
+      {
+        "name": "asset",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "kind",
+        "type": "uint8",
+        "internalType": "enum LimitKind"
+      },
+      {
+        "name": "windowSeconds",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "value",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -393,12 +425,55 @@
   },
   {
     "type": "function",
+    "name": "policyKeyToReleaseUsageMap",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "used",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "windowStart",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "policyKeyTodelayReadyAtMap",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "proposeDefaultProposalDelayChange",
     "inputs": [
       {
         "name": "newDelay",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint32",
+        "internalType": "uint32"
       }
     ],
     "outputs": [],
@@ -410,8 +485,8 @@
     "inputs": [
       {
         "name": "newDelay",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint32",
+        "internalType": "uint32"
       }
     ],
     "outputs": [],
@@ -498,8 +573,8 @@
     "inputs": [
       {
         "name": "newDelay",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint32",
+        "internalType": "uint32"
       }
     ],
     "outputs": [],
@@ -537,64 +612,6 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "releaseUsage",
-    "inputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "used",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "windowStart",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "slotToPolicyMap",
-    "inputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "kind",
-        "type": "uint8",
-        "internalType": "enum LimitKind"
-      },
-      {
-        "name": "windowSeconds",
-        "type": "uint32",
-        "internalType": "uint32"
-      },
-      {
-        "name": "proposalDelaySeconds",
-        "type": "uint32",
-        "internalType": "uint32"
-      },
-      {
-        "name": "value",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -712,6 +729,25 @@
   },
   {
     "type": "event",
+    "name": "EmergencyTransferOwnershipToWithdrawAddress",
+    "inputs": [
+      {
+        "name": "oldOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "ExecuteEvent",
     "inputs": [
       {
@@ -816,9 +852,9 @@
       },
       {
         "name": "delay",
-        "type": "uint256",
+        "type": "uint32",
         "indexed": false,
-        "internalType": "uint256"
+        "internalType": "uint32"
       }
     ],
     "anonymous": false
@@ -891,9 +927,9 @@
       },
       {
         "name": "delay",
-        "type": "uint256",
+        "type": "uint32",
         "indexed": false,
-        "internalType": "uint256"
+        "internalType": "uint32"
       }
     ],
     "anonymous": false
@@ -901,6 +937,11 @@
   {
     "type": "error",
     "name": "ChangeNotReady",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidDecimals",
     "inputs": []
   },
   {
@@ -916,6 +957,16 @@
   {
     "type": "error",
     "name": "NotOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PendingChangeExists",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PercentExceedsBips",
     "inputs": []
   },
   {

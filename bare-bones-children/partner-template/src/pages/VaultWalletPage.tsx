@@ -11,11 +11,7 @@ import { Tabs, TabDefinition } from "../components/Tabs/Tabs";
 import { VaultChangeLog } from "../components/Vaults/VaultChangeLog";
 import { VaultProposalForm } from "../components/Vaults/VaultProposalForm";
 
-import {
-  useVaultProposals,
-  VaultProposal,
-  VaultProposalStatus,
-} from "../hooks/vaults/useVaultProposals";
+import { VaultProposal} from "../hooks/vaults/useVaultProposals";
 import { useVaultPolicyCallback } from "../hooks/vaults/useVaultPolicyCallback";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { VaultProposalAction } from "../utils/vault/vaultPolicyProposeTxBuilder";
@@ -23,6 +19,7 @@ import { useVaultReleaseCallback } from "../hooks/vaults/useVaultReleaseCallback
 import { useVaultWithdrawCallback } from "../hooks/vaults/useVaultWithdrawCallback";
 import { VaultInteractionTab } from "../components/Vaults/VaultInteractionTab";
 import { useVaultDepositCallback } from "../hooks/vaults/useVaultDepositCallback";
+import { DEFAULT_CHAIN_ID } from "../constants/misc";
 
 
 export enum VaultTab {
@@ -56,42 +53,19 @@ export function VaultWalletPage() {
     VaultTab.INTERACT
   );
 
-  const { provider } = useWalletProvider();
-  const { active, addProposal, updateStatus } =
-    useVaultProposals(vaultAddress);
+  const { provider, chainId } = useWalletProvider();
 
   const { actionCallback: proposePolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.PROPOSE, vaultAddress, walletAddress);
-
-   const { actionCallback: executePolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.EXECUTE, vaultAddress, walletAddress,
-      (_payload, proposalId) => {
-        if(!proposalId) {
-          return
-        }
-        updateStatus(proposalId, VaultProposalStatus.EXECUTED);
-      }
-    );
-
-    const { actionCallback: cancelPolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.EXECUTE, vaultAddress, walletAddress,
-      (_payload, proposalId) => {
-        if(!proposalId) {
-          return
-        }
-        updateStatus(proposalId, VaultProposalStatus.CANCELLED);
-      }
-    );
+  const { actionCallback: executePolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.EXECUTE, vaultAddress, walletAddress);
+  const { actionCallback: cancelPolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.EXECUTE, vaultAddress, walletAddress);
 
 
   async function handleExecute(proposal: VaultProposal) {
     await executePolicyCallback(proposal.payload);
-    updateStatus(proposal.id, VaultProposalStatus.EXECUTED);
   }
 
   async function handleCancel(proposal: VaultProposal) {
     await cancelPolicyCallback(proposal.payload);
-    updateStatus(
-      proposal.id,
-      VaultProposalStatus.CANCELLED
-    );
   }
 
   const tabs: readonly TabDefinition<VaultTab>[] = [
@@ -138,7 +112,6 @@ export function VaultWalletPage() {
             onPropose={async (_kind, payload) => {
               const tx = await proposePolicyCallback(payload)
               await tx?.wait()
-              await addProposal(payload.type, payload);
               setActiveTab(VaultTab.CHANGE_LOG);
 
             }}
@@ -156,7 +129,8 @@ export function VaultWalletPage() {
           </Text.Title>
 
           <VaultChangeLog
-            proposals={active}
+            chainId={chainId ?? DEFAULT_CHAIN_ID}
+            vault={vaultAddress}
             onExecute={handleExecute}
             onCancel={handleCancel}
           />

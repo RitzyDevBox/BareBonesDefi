@@ -1,30 +1,31 @@
 import { Stack, Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
-import { VaultProposal } from "../../hooks/vaults/useVaultProposals";
-import { AssetType, LimitKind, PolicyScopeKind } from "../../models/vaults/vaultTypes";
 
+import { useVaultGovernance } from "../../hooks/vaults/useVaultGovernance";
+
+import {
+  AssetType,
+  LimitKind,
+  PolicyScopeKind,
+} from "../../models/vaults/vaultTypes";
+
+import {
+  VaultProposal,
+  VaultProposalStatus,
+  VaultProposalType,
+} from "../../hooks/vaults/useVaultProposals";
 
 interface Props {
-  proposals: VaultProposal[];
+  vault: string;
+  chainId: number;
   onExecute: (p: VaultProposal) => void;
   onCancel: (p: VaultProposal) => void;
 }
 
-export function formatAssetType(type: AssetType): string {
-  switch (type) {
-    case AssetType.Native:
-      return "Native";
-    case AssetType.ERC20:
-      return "ERC20";
-    case AssetType.ERC721:
-      return "ERC721";
-    case AssetType.ERC1155:
-      return "ERC1155";
-    default:
-      return "Unknown";
-  }
-}
+/* ───────────────────────────────
+   Formatting Utilities
+──────────────────────────────── */
 
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -41,12 +42,26 @@ function formatDuration(seconds: number): string {
   return days === 1 ? "1 day" : `${days} days`;
 }
 
-export function formatPolicyValue(
+function formatAssetType(type: AssetType): string {
+  switch (type) {
+    case AssetType.Native:
+      return "Native";
+    case AssetType.ERC20:
+      return "ERC20";
+    case AssetType.ERC721:
+      return "ERC721";
+    case AssetType.ERC1155:
+      return "ERC1155";
+    default:
+      return "Unknown";
+  }
+}
+
+function formatPolicyValue(
   rawValue: string,
   assetType: AssetType,
-  decimals: number | null = null
+  decimals: number = 18
 ): string {
-  // NFTs / semi-fungible assets are unit based
   if (
     assetType === AssetType.ERC721 ||
     assetType === AssetType.ERC1155
@@ -54,35 +69,32 @@ export function formatPolicyValue(
     return `${rawValue} token`;
   }
 
-  // Native / ERC20 (default 18 decimals)
-  const d = decimals ?? 18;
-
   try {
     const value = BigInt(rawValue);
-    const base = BigInt(10) ** BigInt(d);
+    const base = BigInt(10) ** BigInt(decimals);
 
-    // clean integer (e.g. 1 ETH)
     if (value % base === 0n) {
-      return `${value / base} ETH`;
+      return `${value / base}`;
     }
 
-    // fractional fallback
-    return `${Number(value) / Number(base)} ETH`;
+    return `${Number(value) / Number(base)}`;
   } catch {
-    // safety fallback if parsing fails
     return rawValue;
   }
 }
 
+/* ───────────────────────────────
+   Summary Renderer
+──────────────────────────────── */
 
-function renderProposalSummary(p: VaultProposal): {
+function renderSummary(p: VaultProposal): {
   title: string;
   details: string[];
 } {
   const { payload } = p;
 
   switch (payload.type) {
-    case "POLICY": {
+    case VaultProposalType.POLICY: {
       const { scope, policy } = payload;
 
       const asset =
@@ -110,25 +122,25 @@ function renderProposalSummary(p: VaultProposal): {
       };
     }
 
-    case "DEFAULT_PROPOSAL_DELAY":
+    case VaultProposalType.DEFAULT_PROPOSAL_DELAY:
       return {
         title: "Default Proposal Delay",
         details: [formatDuration(payload.seconds)],
       };
 
-    case "DEFAULT_RELEASE_DELAY":
+    case VaultProposalType.DEFAULT_RELEASE_DELAY:
       return {
         title: "Default Release Delay",
         details: [formatDuration(payload.seconds)],
       };
 
-    case "WITHDRAW_ADDRESS_DELAY":
+    case VaultProposalType.WITHDRAW_ADDRESS_DELAY:
       return {
         title: "Withdraw Address Change Delay",
         details: [formatDuration(payload.seconds)],
       };
 
-    case "WITHDRAW_ADDRESS":
+    case VaultProposalType.WITHDRAW_ADDRESS:
       return {
         title: "Withdraw Destination",
         details: [payload.address],
@@ -142,13 +154,35 @@ function renderProposalSummary(p: VaultProposal): {
   }
 }
 
+/* ───────────────────────────────
+   Component
+──────────────────────────────── */
 
 export function VaultChangeLog({
-  proposals,
+  vault,
+  chainId,
   onExecute,
   onCancel,
 }: Props) {
-  if (!proposals.length) {
+
+  const { proposals, loading, error } =
+    useVaultGovernance(chainId, vault);
+
+  if (loading) {
+    return <Text.Body color="muted">Loading...</Text.Body>;
+  }
+
+  if (error) {
+    return <Text.Body color="danger">{error}</Text.Body>;
+  }
+
+  const active = proposals.filter(
+    (p) =>
+      p.status === VaultProposalStatus.PENDING ||
+      p.status === VaultProposalStatus.READY
+  );
+
+  if (!active.length) {
     return (
       <Text.Body color="muted">
         No active proposals.
@@ -158,26 +192,40 @@ export function VaultChangeLog({
 
   return (
     <Stack gap="md">
-      {proposals.map((p) => {
-        const ready = p.readyAt !== undefined && Date.now() >= p.readyAt;
+      {active.map((proposal) => {
 
-        const { title, details } = renderProposalSummary(p);
+        const ready =
+          proposal.status === VaultProposalStatus.READY;
+
+        const { title, details } = renderSummary(proposal);
 
         return (
-          <Stack key={p.id} gap="sm" style={{
+          <Stack
+            key={proposal.id}
+            gap="sm"
+            style={{
               padding: "12px",
               border: "1px solid var(--border)",
               borderRadius: 6,
             }}
           >
-            <Row key={p.id} align="start" gap="sm" style={{
+            <Row
+              align="start"
+              gap="sm"
+              style={{
                 justifyContent: "space-between",
                 flexWrap: "wrap",
-            }}
+              }}
             >
               <Stack gap="xs" style={{ minWidth: 0, flex: 1 }}>
-                <Text.Body size="sm" weight={600}>{title}</Text.Body>
-                <Text.Body size="xs" color="muted">Status: {p.status}</Text.Body>
+                <Text.Body size="sm" weight={600}>
+                  {title}
+                </Text.Body>
+
+                <Text.Body size="xs" color="muted">
+                  Status: {proposal.status}
+                </Text.Body>
+
                 <Text.Body size="sm" color="muted">
                   {details.join(" • ")}
                 </Text.Body>
@@ -186,17 +234,24 @@ export function VaultChangeLog({
               <Row
                 gap="xs"
                 style={{
-                flexShrink: 0,
-                width: "100%",
-                justifyContent: "flex-end",
-                marginTop: "var(--spacing-xs)",
+                  flexShrink: 0,
+                  width: "100%",
+                  justifyContent: "flex-end",
+                  marginTop: "var(--spacing-xs)",
                 }}
               >
-                <ButtonPrimary size="sm" fullWidth={false} disabled={!ready} onClick={() => onExecute(p)}>
+                <ButtonPrimary
+                  size="sm"
+                  disabled={!ready}
+                  onClick={() => onExecute(proposal)}
+                >
                   Execute
                 </ButtonPrimary>
 
-                <ButtonSecondary size="sm" fullWidth={false} onClick={() => onCancel(p)}>
+                <ButtonSecondary
+                  size="sm"
+                  onClick={() => onCancel(proposal)}
+                >
                   Cancel
                 </ButtonSecondary>
               </Row>
