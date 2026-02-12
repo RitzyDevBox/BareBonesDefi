@@ -57,7 +57,7 @@ export function VaultWalletPage() {
 
   const { actionCallback: proposePolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.PROPOSE, vaultAddress, walletAddress);
   const { actionCallback: executePolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.EXECUTE, vaultAddress, walletAddress);
-  const { actionCallback: cancelPolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.EXECUTE, vaultAddress, walletAddress);
+  const { actionCallback: cancelPolicyCallback } = useVaultPolicyCallback(provider, VaultProposalAction.CANCEL, vaultAddress, walletAddress);
 
 
   async function handleExecute(proposal: VaultProposal) {

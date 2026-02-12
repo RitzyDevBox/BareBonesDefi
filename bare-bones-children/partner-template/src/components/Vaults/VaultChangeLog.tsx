@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Stack, Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
@@ -44,16 +45,11 @@ function formatDuration(seconds: number): string {
 
 function formatAssetType(type: AssetType): string {
   switch (type) {
-    case AssetType.Native:
-      return "Native";
-    case AssetType.ERC20:
-      return "ERC20";
-    case AssetType.ERC721:
-      return "ERC721";
-    case AssetType.ERC1155:
-      return "ERC1155";
-    default:
-      return "Unknown";
+    case AssetType.Native: return "Native";
+    case AssetType.ERC20: return "ERC20";
+    case AssetType.ERC721: return "ERC721";
+    case AssetType.ERC1155: return "ERC1155";
+    default: return "Unknown";
   }
 }
 
@@ -73,10 +69,7 @@ function formatPolicyValue(
     const value = BigInt(rawValue);
     const base = BigInt(10) ** BigInt(decimals);
 
-    if (value % base === 0n) {
-      return `${value / base}`;
-    }
-
+    if (value % base === 0n) return `${value / base}`;
     return `${Number(value) / Number(base)}`;
   } catch {
     return rawValue;
@@ -123,34 +116,19 @@ function renderSummary(p: VaultProposal): {
     }
 
     case VaultProposalType.DEFAULT_PROPOSAL_DELAY:
-      return {
-        title: "Default Proposal Delay",
-        details: [formatDuration(payload.seconds)],
-      };
+      return { title: "Default Proposal Delay", details: [formatDuration(payload.seconds)] };
 
     case VaultProposalType.DEFAULT_RELEASE_DELAY:
-      return {
-        title: "Default Release Delay",
-        details: [formatDuration(payload.seconds)],
-      };
+      return { title: "Default Release Delay", details: [formatDuration(payload.seconds)] };
 
     case VaultProposalType.WITHDRAW_ADDRESS_DELAY:
-      return {
-        title: "Withdraw Address Change Delay",
-        details: [formatDuration(payload.seconds)],
-      };
+      return { title: "Withdraw Address Change Delay", details: [formatDuration(payload.seconds)] };
 
     case VaultProposalType.WITHDRAW_ADDRESS:
-      return {
-        title: "Withdraw Destination",
-        details: [payload.address],
-      };
+      return { title: "Withdraw Destination", details: [payload.address] };
 
     default:
-      return {
-        title: "Unknown Proposal",
-        details: [],
-      };
+      return { title: "Unknown Proposal", details: [] };
   }
 }
 
@@ -165,38 +143,32 @@ export function VaultChangeLog({
   onCancel,
 }: Props) {
 
-  const { proposals, loading, error } =
-    useVaultGovernance(chainId, vault);
+  const { proposals, loading, error } = useVaultGovernance(chainId, vault);
+  const [showHistory, setShowHistory] = useState(false);
 
-  if (loading) {
-    return <Text.Body color="muted">Loading...</Text.Body>;
-  }
-
-  if (error) {
-    return <Text.Body color="danger">{error}</Text.Body>;
-  }
+  if (loading) return <Text.Body color="muted">Loading...</Text.Body>;
+  if (error) return <Text.Body color="danger">{error}</Text.Body>;
 
   const active = proposals.filter(
-    (p) =>
+    p =>
       p.status === VaultProposalStatus.PENDING ||
       p.status === VaultProposalStatus.READY
   );
 
-  if (!active.length) {
-    return (
-      <Text.Body color="muted">
-        No active proposals.
-      </Text.Body>
-    );
-  }
+  const list = showHistory ? proposals : active;
 
   return (
     <Stack gap="md">
-      {active.map((proposal) => {
 
-        const ready =
-          proposal.status === VaultProposalStatus.READY;
+      {!list.length && (
+        <Text.Body color="muted">
+          {showHistory ? "No governance history." : "No active proposals."}
+        </Text.Body>
+      )}
 
+      {list.map((proposal) => {
+
+        const ready = proposal.status === VaultProposalStatus.READY;
         const { title, details } = renderSummary(proposal);
 
         return (
@@ -231,34 +203,48 @@ export function VaultChangeLog({
                 </Text.Body>
               </Stack>
 
-              <Row
-                gap="xs"
-                style={{
-                  flexShrink: 0,
-                  width: "100%",
-                  justifyContent: "flex-end",
-                  marginTop: "var(--spacing-xs)",
-                }}
-              >
-                <ButtonPrimary
-                  size="sm"
-                  disabled={!ready}
-                  onClick={() => onExecute(proposal)}
+              {(proposal.status === VaultProposalStatus.PENDING ||
+                proposal.status === VaultProposalStatus.READY) && (
+                <Row
+                  gap="xs"
+                  style={{
+                    flexShrink: 0,
+                    width: "100%",
+                    justifyContent: "flex-end",
+                    marginTop: "var(--spacing-xs)",
+                  }}
                 >
-                  Execute
-                </ButtonPrimary>
+                  <ButtonPrimary
+                    size="sm"
+                    disabled={!ready}
+                    onClick={() => onExecute(proposal)}
+                  >
+                    Execute
+                  </ButtonPrimary>
 
-                <ButtonSecondary
-                  size="sm"
-                  onClick={() => onCancel(proposal)}
-                >
-                  Cancel
-                </ButtonSecondary>
-              </Row>
+                  <ButtonSecondary
+                    size="sm"
+                    onClick={() => onCancel(proposal)}
+                  >
+                    Cancel
+                  </ButtonSecondary>
+                </Row>
+              )}
             </Row>
           </Stack>
         );
       })}
+
+      {/* ───────── Toggle Button ───────── */}
+      <Row style={{ justifyContent: "center", marginTop: 12 }}>
+        <ButtonSecondary
+          size="sm"
+          onClick={() => setShowHistory(prev => !prev)}
+        >
+          {showHistory ? "Hide History" : "Show Full History"}
+        </ButtonSecondary>
+      </Row>
+
     </Stack>
   );
 }

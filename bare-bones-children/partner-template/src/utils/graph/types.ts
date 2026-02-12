@@ -28,6 +28,11 @@ export interface SVRPolicyExecutedGQL {
 export interface SVRPolicyCancelledGQL {
   id: string;
   cancelledAt: string;
+  scopeKind: string;
+  assetType: string;
+  asset: string;
+  assetId: string;
+  svr: string;
 }
 
 export interface SVRSlotProposedGQL {

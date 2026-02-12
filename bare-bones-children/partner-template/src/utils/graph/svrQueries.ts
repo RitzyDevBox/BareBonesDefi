@@ -22,10 +22,14 @@ export const VAULT_GOVERNANCE_QUERY = `
     }
 
     svrpolicyCancelleds(where: { svr: $vault }) {
-      id
-      cancelledAt
+        id
+        scopeKind
+        svr
+        cancelledAt
+        assetType
+        assetId
+        asset
     }
-
     svrslotProposeds(where: { svr: $vault }) {
       id
       selector
