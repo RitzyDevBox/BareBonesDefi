@@ -23,7 +23,18 @@ export interface SVRPolicyProposedGQL {
 export interface SVRPolicyExecutedGQL {
   id: string;
   executedAt: string;
+
+  kind: string;
+  windowSeconds: string;
+  proposalDelaySeconds: string;
+  value: string;
+
+  scopeKind: string;
+  assetType: string;
+  asset: string;
+  assetId: string;
 }
+
 
 export interface SVRPolicyCancelledGQL {
   id: string;

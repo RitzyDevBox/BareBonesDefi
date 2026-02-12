@@ -19,6 +19,14 @@ export const VAULT_GOVERNANCE_QUERY = `
     svrpolicyExecuteds(where: { svr: $vault }) {
       id
       executedAt
+      kind
+      windowSeconds
+      proposalDelaySeconds
+      value
+      scopeKind
+      assetType
+      asset
+      assetId
     }
 
     svrpolicyCancelleds(where: { svr: $vault }) {

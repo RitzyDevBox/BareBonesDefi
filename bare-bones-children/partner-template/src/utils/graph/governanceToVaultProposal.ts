@@ -251,6 +251,7 @@ export function mapGovernanceToVaultProposals(
 
       let status = VaultProposalStatus.PENDING;
       let executedAt: number | undefined;
+      let cancelledAt: number | undefined;
 
       for (let j = i + 1; j < events.length; j++) {
 
@@ -263,6 +264,7 @@ export function mapGovernanceToVaultProposals(
 
         if (next.action === "CANCEL") {
           status = VaultProposalStatus.CANCELLED;
+          cancelledAt = next.cancelledAt;
           break;
         }
 
@@ -311,6 +313,7 @@ export function mapGovernanceToVaultProposals(
         proposedAt: createdAt,
         readyAt,
         executedAt,
+        cancelledAt
       });
     }
   }

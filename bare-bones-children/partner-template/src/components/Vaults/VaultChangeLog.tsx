@@ -30,15 +30,10 @@ interface Props {
 
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
-
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60)
-    return minutes === 1 ? "1 minute" : `${minutes} minutes`;
-
+  if (minutes < 60) return minutes === 1 ? "1 minute" : `${minutes} minutes`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24)
-    return hours === 1 ? "1 hour" : `${hours} hours`;
-
+  if (hours < 24) return hours === 1 ? "1 hour" : `${hours} hours`;
   const days = Math.floor(hours / 24);
   return days === 1 ? "1 day" : `${days} days`;
 }
@@ -68,7 +63,6 @@ function formatPolicyValue(
   try {
     const value = BigInt(rawValue);
     const base = BigInt(10) ** BigInt(decimals);
-
     if (value % base === 0n) return `${value / base}`;
     return `${Number(value) / Number(base)}`;
   } catch {
@@ -149,13 +143,18 @@ export function VaultChangeLog({
   if (loading) return <Text.Body color="muted">Loading...</Text.Body>;
   if (error) return <Text.Body color="danger">{error}</Text.Body>;
 
-  const active = proposals.filter(
+  // ✅ Always order newest first
+  const sorted = [...proposals].sort(
+    (a, b) => b.proposedAt - a.proposedAt
+  );
+
+  const active = sorted.filter(
     p =>
       p.status === VaultProposalStatus.PENDING ||
       p.status === VaultProposalStatus.READY
   );
 
-  const list = showHistory ? proposals : active;
+  const list = showHistory ? sorted : active;
 
   return (
     <Stack gap="md">
@@ -198,6 +197,22 @@ export function VaultChangeLog({
                   Status: {proposal.status}
                 </Text.Body>
 
+                {proposal.status === VaultProposalStatus.EXECUTED &&
+                  proposal.executedAt && (
+                    <Text.Body size="xs" color="muted">
+                      Executed at:{" "}
+                      {new Date(proposal.executedAt * 1000).toLocaleString()}
+                    </Text.Body>
+                  )}
+
+                {proposal.status === VaultProposalStatus.CANCELLED &&
+                  proposal.cancelledAt && (
+                    <Text.Body size="xs" color="muted">
+                      Cancelled at:{" "}
+                      {new Date(proposal.cancelledAt * 1000).toLocaleString()}
+                    </Text.Body>
+                  )}
+
                 <Text.Body size="sm" color="muted">
                   {details.join(" • ")}
                 </Text.Body>
@@ -235,7 +250,6 @@ export function VaultChangeLog({
         );
       })}
 
-      {/* ───────── Toggle Button ───────── */}
       <Row style={{ justifyContent: "center", marginTop: 12 }}>
         <ButtonSecondary
           size="sm"

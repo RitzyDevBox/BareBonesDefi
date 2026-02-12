@@ -62,4 +62,5 @@ export interface VaultProposal {
   proposedAt: number;
   readyAt?: number;
   executedAt?: number;
+  cancelledAt?: number;
 }
