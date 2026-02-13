@@ -14,8 +14,7 @@ export enum UserScope
 }
 
 export interface TokenAmountDisplayFieldOptions {
-  userScope: UserScope
-  userAddress?: string, 
+  userAddress: string | null, 
   defaultTokenAddressResolver?: (chainId?: number | null) => string,
   preventTokenChange?: boolean
 }

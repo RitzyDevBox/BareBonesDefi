@@ -100,7 +100,7 @@ export function PolicyScopeSelector({ policyScope, onChange }: Props) {
       {needsAddress && (
         <FormField label="Asset Address">
           {policyScope.assetType === AssetType.ERC20 && <>
-              <TokenSelectButton token={token} onClick={() => setOpen(true)} />
+              <TokenSelectButton token={token ?? null} onClick={() => setOpen(true)} />
               <TokenSelect isOpen={open} hideNative={true} chainId={chainId} onClose={() => setOpen(false)}
                 onSelect={(selectedToken: TokenInfo) => {
                   onChange({ ...policyScope, asset: selectedToken.address, });

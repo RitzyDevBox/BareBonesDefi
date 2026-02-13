@@ -4,6 +4,12 @@ import { Input } from "../../BasicComponents";
 import { FormField } from "../../FormField";
 import { TokenAmountField } from "../../TokenAmount/TokenAmountField";
 import { useWalletProvider } from "../../../hooks/useWalletProvider";
+import { TokenAmountDisplayFieldOptions, UserScope } from "../../TokenSelect/types";
+import { useParams } from "react-router-dom";
+
+//TODO: use switch when we need more options
+type RenderFieldOptions = { userScope: UserScope } | undefined
+
 
 export function RenderFieldComponent({
   field,
@@ -16,20 +22,23 @@ export function RenderFieldComponent({
   value: any;
   allValues: Record<string, any>;
   onChange: (value: any) => void;
-  options: any
+  options: RenderFieldOptions
 }) {
   const placeholder = ""; // remove label duplication
-  const { chainId } = useWalletProvider()
+  const { chainId, account } = useWalletProvider()
+  const { diamondAddress } = useParams<{ diamondAddress?: string }>();
   
   switch (field.component) {
     case FieldComponent.TOKEN_AMOUNT_PICKER:
+      const tokenPickerScopeAddress = options?.userScope == UserScope.Account ? account : diamondAddress
+      const tokenPickerOptions: TokenAmountDisplayFieldOptions = { userAddress: tokenPickerScopeAddress ?? null}
       return (
         <FormField label={field.label ?? ""}>
           <TokenAmountField
             value={value}
             chainId={chainId}
             onChange={onChange}
-            options={options}
+            options={tokenPickerOptions}
           />
         </FormField>
       );

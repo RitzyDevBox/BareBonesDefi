@@ -9,11 +9,17 @@ import { AddressInput } from "../Inputs/AddressInput";
 import { NumberInput } from "../Inputs/NumberInput";
 import { useVaultDepositCallback } from "../../hooks/vaults/useVaultDepositCallback";
 import { TokenAmountField } from "../TokenAmount/TokenAmountField";
-import { TokenAmountInfo, UserScope } from "../TokenSelect/types";
+import { TokenAmountInfo } from "../TokenSelect/types";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { DEFAULT_CHAIN_ID, NATIVE_TOKENS_BY_CHAIN } from "../../constants/misc";
 import { useVaultReleaseCallback } from "../../hooks/vaults/useVaultReleaseCallback";
 import { useVaultWithdrawCallback } from "../../hooks/vaults/useVaultWithdrawCallback";
+
+enum VaultAction {
+  Deposit = "deposit",
+  Release = "release",
+  Withdraw = "withdraw",
+}
 
 export function VaultInteractionTab({
   vaultAddress,
@@ -22,17 +28,34 @@ export function VaultInteractionTab({
   vaultAddress: string,
   walletAddress: string,
 }) {
-  const { chainId, provider } = useWalletProvider();
+  const { chainId, provider, account } = useWalletProvider();
+
   const { deposit: onDeposit } = useVaultDepositCallback(provider, vaultAddress, walletAddress);
   const { release: onRelease } = useVaultReleaseCallback(provider, vaultAddress, walletAddress);
   const { withdraw: onWithdraw } = useVaultWithdrawCallback(provider, vaultAddress, walletAddress);
-  const NATIVE_TOKEN = useMemo(() => NATIVE_TOKENS_BY_CHAIN[chainId ?? DEFAULT_CHAIN_ID], [chainId]);
 
+  const NATIVE_TOKEN = useMemo(
+    () => NATIVE_TOKENS_BY_CHAIN[chainId ?? DEFAULT_CHAIN_ID],
+    [chainId]
+  );
+
+  const [action, setAction] = useState<VaultAction>(VaultAction.Deposit);
   const [assetType, setAssetType] = useState<AssetType>(AssetType.Native);
+
   const [tokenAmountInfo, setTokenAmountInfo] = useState<TokenAmountInfo>({
     amount: "",
     token: NATIVE_TOKEN,
   });
+
+  const [asset, setAsset] = useState("");
+  const [id, setId] = useState("0");
+  const [to, setTo] = useState("");
+
+  const isFungible = assetType === AssetType.Native || assetType === AssetType.ERC20;
+
+  const tokenAmountOptions = {
+    userAddress: action === VaultAction.Deposit ? account : vaultAddress ,
+  };
 
   useEffect(() => {
     setTokenAmountInfo({
@@ -41,23 +64,41 @@ export function VaultInteractionTab({
     });
   }, [chainId]);
 
+  useEffect(() => {
+    // reset form when switching actions
+    setAsset("");
+    setId("0");
+    setTo("");
+    setTokenAmountInfo({
+      amount: "",
+      token: NATIVE_TOKEN,
+    });
+  }, [action, NATIVE_TOKEN]);
 
-  const [asset, setAsset] = useState("");
-  const [id, setId] = useState("0");
-  const [to, setTo] = useState("");
-
-  const isFungible = assetType === AssetType.Native || assetType === AssetType.ERC20;
-
-  const tokenAmountOptions = { 
-    userAddress: vaultAddress, 
-    //TODO: Refactor this enum out to just use user address
-    userScope: UserScope.SmartWallet
-  }
+  const resolvedAsset = isFungible && tokenAmountInfo.token
+      ? tokenAmountInfo.token.address ?? ""
+      : asset;
 
   return (
     <Stack gap="lg">
+      {/* ACTION SELECT */}
+      <FormField label="Action">
+        <Select
+          value={action}
+          onChange={(v) => setAction(v as VaultAction)}
+        >
+          <SelectOption value={VaultAction.Deposit} label="Deposit" />
+          <SelectOption value={VaultAction.Release} label="Release" />
+          <SelectOption value={VaultAction.Withdraw} label="Withdraw" />
+        </Select>
+      </FormField>
+
+      {/* ASSET TYPE */}
       <FormField label="Asset Type">
-        <Select value={assetType} onChange={(v) => setAssetType(Number(v))}>
+        <Select
+          value={assetType}
+          onChange={(v) => setAssetType(Number(v))}
+        >
           <SelectOption value={AssetType.Native} label="Native" />
           <SelectOption value={AssetType.ERC20} label="ERC20" />
           <SelectOption value={AssetType.ERC721} label="ERC721" />
@@ -65,6 +106,7 @@ export function VaultInteractionTab({
         </Select>
       </FormField>
 
+      {/* FUNGIBLE */}
       {isFungible && (
         <FormField label="Amount">
           <TokenAmountField
@@ -76,67 +118,85 @@ export function VaultInteractionTab({
         </FormField>
       )}
 
+      {/* NFT */}
       {!isFungible && (
         <>
           <FormField label="Token / Contract Address">
-            <AddressInput value={asset} onChange={(e) => setAsset(e.target.value)} />
+            <AddressInput
+              value={asset}
+              onChange={(e) => setAsset(e.target.value)}
+            />
           </FormField>
-           <FormField label="Token ID">
-            <NumberInput value={id} onChange={(e) => setId(e.target.value)} allowDecimal={false} />
+
+          <FormField label="Token ID">
+            <NumberInput
+              value={id}
+              onChange={(e) => setId(e.target.value)}
+              allowDecimal={false}
+            />
           </FormField>
         </>
       )}
 
+      {/* ERC1155 extra amount */}
       {assetType === AssetType.ERC1155 && (
         <FormField label="Amount">
-          <NumberInput value={tokenAmountInfo.amount} onChange={(e) => setTokenAmountInfo(v => ({ ...v, amount: e.target.value }))} />
+          <NumberInput
+            value={tokenAmountInfo.amount}
+            onChange={(e) =>
+              setTokenAmountInfo((v) => ({
+                ...v,
+                amount: e.target.value,
+              }))
+            }
+          />
         </FormField>
       )}
 
-      <FormField label="Recipient (release only)">
-        <AddressInput value={to} onChange={(e) => setTo(e.target.value)} />
-      </FormField>
+      {/* RELEASE ONLY */}
+      {action === VaultAction.Release && (
+        <FormField label="Recipient">
+          <AddressInput
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+          />
+        </FormField>
+      )}
 
-      <Stack gap="sm">
-        <ButtonPrimary
-          onClick={() =>
+      {/* SINGLE ACTION BUTTON */}
+      <ButtonPrimary onClick={() => {
+          if (action === VaultAction.Deposit) {
             onDeposit({
               assetType,
-              asset: (isFungible && tokenAmountInfo.token) ? tokenAmountInfo.token.address ?? "" : asset,
+              asset: resolvedAsset,
               amount: tokenAmountInfo.amount,
-            })
+            });
           }
-        >
-          Deposit
-        </ButtonPrimary>
 
-        <ButtonPrimary
-          onClick={() =>
+          if (action === VaultAction.Release) {
             onRelease({
               assetType,
-              asset: (isFungible && tokenAmountInfo.token) ? tokenAmountInfo.token.address ?? "" : asset,
+              asset: resolvedAsset,
               id,
               amount: tokenAmountInfo.amount,
               to,
-            })
+            });
           }
-        >
-          Release
-        </ButtonPrimary>
 
-        <ButtonPrimary
-          onClick={() =>
+          if (action === VaultAction.Withdraw) {
             onWithdraw({
               assetType,
-              asset: (isFungible && tokenAmountInfo.token) ? tokenAmountInfo.token.address ?? "" : asset,
+              asset: resolvedAsset,
               id,
               amount: tokenAmountInfo.amount,
-            })
+            });
           }
-        >
-          Withdraw
-        </ButtonPrimary>
-      </Stack>
+        }}
+      >
+        {action === VaultAction.Deposit && "Deposit"}
+        {action === VaultAction.Release && "Release"}
+        {action === VaultAction.Withdraw && "Withdraw"}
+      </ButtonPrimary>
     </Stack>
   );
 }
