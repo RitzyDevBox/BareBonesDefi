@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Stack } from "../Primitives";
 import { Select } from "../Select";
 import { SelectOption } from "../Select/SelectOption";
@@ -7,33 +7,40 @@ import { FormField } from "../FormField";
 import { AssetType } from "../../models/vaults/vaultTypes";
 import { AddressInput } from "../Inputs/AddressInput";
 import { NumberInput } from "../Inputs/NumberInput";
-import { VaultReleaseArgs, VaultWithdrawArgs } from "../../utils/vault/vaultInteractionTxBuilder";
-import { VaultDepositArgs } from "../../hooks/vaults/useVaultDepositCallback";
+import { useVaultDepositCallback } from "../../hooks/vaults/useVaultDepositCallback";
 import { TokenAmountField } from "../TokenAmount/TokenAmountField";
 import { TokenAmountInfo, UserScope } from "../TokenSelect/types";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { DEFAULT_CHAIN_ID, NATIVE_TOKENS_BY_CHAIN } from "../../constants/misc";
+import { useVaultReleaseCallback } from "../../hooks/vaults/useVaultReleaseCallback";
+import { useVaultWithdrawCallback } from "../../hooks/vaults/useVaultWithdrawCallback";
 
 export function VaultInteractionTab({
   vaultAddress,
-  onDeposit,
-  onRelease,
-  onWithdraw,
+  walletAddress
 }: {
-  vaultAddress?: string,
-  onDeposit: (args: VaultDepositArgs) => void;
-  onRelease: (args: VaultReleaseArgs) => void;
-  onWithdraw: (args: VaultWithdrawArgs) => void;
+  vaultAddress: string,
+  walletAddress: string,
 }) {
-  const { chainId } = useWalletProvider();
-  const chainIdOrDefault = chainId ?? DEFAULT_CHAIN_ID;
-  const NATIVE_TOKEN = NATIVE_TOKENS_BY_CHAIN[chainIdOrDefault];
+  const { chainId, provider } = useWalletProvider();
+  const { deposit: onDeposit } = useVaultDepositCallback(provider, vaultAddress, walletAddress);
+  const { release: onRelease } = useVaultReleaseCallback(provider, vaultAddress, walletAddress);
+  const { withdraw: onWithdraw } = useVaultWithdrawCallback(provider, vaultAddress, walletAddress);
+  const NATIVE_TOKEN = useMemo(() => NATIVE_TOKENS_BY_CHAIN[chainId ?? DEFAULT_CHAIN_ID], [chainId]);
 
   const [assetType, setAssetType] = useState<AssetType>(AssetType.Native);
   const [tokenAmountInfo, setTokenAmountInfo] = useState<TokenAmountInfo>({
     amount: "",
     token: NATIVE_TOKEN,
   });
+
+  useEffect(() => {
+    setTokenAmountInfo({
+      amount: "",
+      token: NATIVE_TOKEN,
+    });
+  }, [chainId]);
+
 
   const [asset, setAsset] = useState("");
   const [id, setId] = useState("0");
@@ -62,7 +69,7 @@ export function VaultInteractionTab({
         <FormField label="Amount">
           <TokenAmountField
             value={tokenAmountInfo}
-            chainId={chainIdOrDefault}
+            chainId={chainId}
             onChange={setTokenAmountInfo}
             options={tokenAmountOptions}
           />

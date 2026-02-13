@@ -264,7 +264,7 @@ export function mapGovernanceToVaultProposals(
 
         if (next.action === "CANCEL") {
           status = VaultProposalStatus.CANCELLED;
-          cancelledAt = next.cancelledAt;
+          cancelledAt = next.createdAt;
           break;
         }
 

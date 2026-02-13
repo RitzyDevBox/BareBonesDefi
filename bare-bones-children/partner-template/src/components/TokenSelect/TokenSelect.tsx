@@ -19,6 +19,7 @@ interface TokenSelectProps {
   onClose: () => void;
   chainId: number | null;
   onSelect: (t: TokenInfo) => void;
+  hideNative?: boolean
 }
 
 export function TokenSelect({
@@ -26,6 +27,7 @@ export function TokenSelect({
   onClose,
   chainId,
   onSelect,
+  hideNative
 }: TokenSelectProps) {
   const { provider } = useWalletProvider();
   const { tokens, loading } = useTokenList(chainId);
@@ -52,7 +54,9 @@ export function TokenSelect({
   const allTokens = useMemo(() => {
     const list: TokenInfo[] = [];
 
-    if (nativeToken) list.push(nativeToken);
+    if (!hideNative && nativeToken) {
+      list.push(nativeToken);
+    }
     list.push(...customTokens, ...tokens);
 
     return list.sort((a, b) => {
@@ -73,7 +77,7 @@ export function TokenSelect({
       if (aIsCustom !== bIsCustom) return aIsCustom ? -1 : 1;
       return a.symbol.localeCompare(b.symbol);
     });
-  }, [nativeToken, customTokens, tokens]);
+  }, [nativeToken, customTokens, tokens, hideNative]);
 
   const filteredTokens = useMemo(() => {
     if (!normalizedQuery) return allTokens;

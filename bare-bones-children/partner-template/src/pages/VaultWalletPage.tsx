@@ -5,20 +5,14 @@ import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
 import { Stack } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
-
 import { Tabs, TabDefinition } from "../components/Tabs/Tabs";
-
 import { VaultChangeLog } from "../components/Vaults/VaultChangeLog";
 import { VaultProposalForm } from "../components/Vaults/VaultProposalForm";
-
 import { VaultProposal} from "../hooks/vaults/useVaultProposals";
 import { useVaultPolicyCallback } from "../hooks/vaults/useVaultPolicyCallback";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { VaultProposalAction } from "../utils/vault/vaultPolicyProposeTxBuilder";
-import { useVaultReleaseCallback } from "../hooks/vaults/useVaultReleaseCallback";
-import { useVaultWithdrawCallback } from "../hooks/vaults/useVaultWithdrawCallback";
 import { VaultInteractionTab } from "../components/Vaults/VaultInteractionTab";
-import { useVaultDepositCallback } from "../hooks/vaults/useVaultDepositCallback";
 import { DEFAULT_CHAIN_ID } from "../constants/misc";
 
 
@@ -69,35 +63,23 @@ export function VaultWalletPage() {
   }
 
   const tabs: readonly TabDefinition<VaultTab>[] = [
-  {
-    id: VaultTab.INTERACT,
-    label: "Interact",
-    content: (
-      <Stack gap="md">
-        <Text.Title align="left">Interact</Text.Title>
-        <Text.Body color="muted">
-          Deposit into the vault, or release / withdraw assets according to policy.
-        </Text.Body>
+    {
+      id: VaultTab.INTERACT,
+      label: "Interact",
+      content: (
+        <Stack gap="md">
+          <Text.Title align="left">Interact</Text.Title>
+          <Text.Body color="muted">
+            Deposit into the vault, or release / withdraw assets according to policy.
+          </Text.Body>
 
-        {(() => {
-          const { provider } = useWalletProvider();
-
-          const { deposit } = useVaultDepositCallback(provider, vaultAddress, walletAddress);
-          const { release } = useVaultReleaseCallback(provider, vaultAddress, walletAddress);
-          const { withdraw } = useVaultWithdrawCallback(provider, vaultAddress, walletAddress);
-
-          return (
-            <VaultInteractionTab 
-              vaultAddress={vaultAddress}
-              onDeposit={(args) => deposit(args)} 
-              onRelease={(args) => release(args)} 
-              onWithdraw={(args) => withdraw(args)} 
-            />
-          );
-        })()}
-      </Stack>
-    ),
-  },
+          <VaultInteractionTab
+            vaultAddress={vaultAddress}
+            walletAddress={walletAddress}
+          />
+        </Stack>
+      ),
+    },
     {
       id: VaultTab.PROPOSE,
       label: "Propose Policy",

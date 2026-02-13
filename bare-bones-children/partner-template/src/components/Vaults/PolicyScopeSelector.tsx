@@ -13,7 +13,6 @@ import {
 import { AddressInput } from "../Inputs/AddressInput";
 import { NumberInput } from "../Inputs/NumberInput";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
-import { DEFAULT_CHAIN_ID, NATIVE_TOKENS_BY_CHAIN } from "../../constants/misc";
 import { useState } from "react";
 import { TokenInfo } from "../TokenSelect/types";
 import { TokenSelect } from "../TokenSelect/TokenSelect";
@@ -28,10 +27,8 @@ interface Props {
 export function PolicyScopeSelector({ policyScope, onChange }: Props) {
 
   const { chainId } = useWalletProvider();
-  const chainIdOrDefault = chainId ?? DEFAULT_CHAIN_ID;
-  const NATIVE_TOKEN = NATIVE_TOKENS_BY_CHAIN[chainIdOrDefault];
   const [open, setOpen] = useState(false);
-  const [token, setToken] = useState<TokenInfo>(NATIVE_TOKEN)
+  const [token, setToken] = useState<TokenInfo>()
   const needsAddress = policyScope.assetType !== AssetType.Native;
   const supportsId =
     policyScope.assetType === AssetType.ERC721 ||
@@ -63,7 +60,7 @@ export function PolicyScopeSelector({ policyScope, onChange }: Props) {
               id: "0",
             });
 
-            setToken(NATIVE_TOKEN);
+            setToken(undefined);
             setOpen(false);
           }}
         >
@@ -104,7 +101,7 @@ export function PolicyScopeSelector({ policyScope, onChange }: Props) {
         <FormField label="Asset Address">
           {policyScope.assetType === AssetType.ERC20 && <>
               <TokenSelectButton token={token} onClick={() => setOpen(true)} />
-              <TokenSelect isOpen={open} chainId={chainId} onClose={() => setOpen(false)}
+              <TokenSelect isOpen={open} hideNative={true} chainId={chainId} onClose={() => setOpen(false)}
                 onSelect={(selectedToken: TokenInfo) => {
                   onChange({ ...policyScope, asset: selectedToken.address, });
                   setToken(selectedToken)

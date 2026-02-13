@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Stack, Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
+import { Select } from "../Select/Select";
 
 import { useVaultGovernance } from "../../hooks/vaults/useVaultGovernance";
 
@@ -16,12 +17,23 @@ import {
   VaultProposalStatus,
   VaultProposalType,
 } from "../../hooks/vaults/useVaultProposals";
+import { SelectOption } from "../Select";
 
 interface Props {
   vault: string;
   chainId: number;
   onExecute: (p: VaultProposal) => void;
   onCancel: (p: VaultProposal) => void;
+}
+
+/* ───────────────────────────────
+   Filter Enum
+──────────────────────────────── */
+
+enum VaultProposalFilter {
+  ACTIVE = "ACTIVE",
+  EXECUTED = "EXECUTED",
+  FULL = "FULL",
 }
 
 /* ───────────────────────────────
@@ -110,16 +122,16 @@ function renderSummary(p: VaultProposal): {
     }
 
     case VaultProposalType.DEFAULT_PROPOSAL_DELAY:
-      return { title: "Default Proposal Delay", details: [formatDuration(payload.seconds)] };
+      return { title: "Default Proposal Delay", details: [`Delay: ${formatDuration(payload.seconds)}`] };
 
     case VaultProposalType.DEFAULT_RELEASE_DELAY:
-      return { title: "Default Release Delay", details: [formatDuration(payload.seconds)] };
+      return { title: "Default Release Delay", details: [`Delay: ${formatDuration(payload.seconds)}`] };
 
     case VaultProposalType.WITHDRAW_ADDRESS_DELAY:
-      return { title: "Withdraw Address Change Delay", details: [formatDuration(payload.seconds)] };
+      return { title: "Withdraw Address Change Delay", details: [`Delay: ${formatDuration(payload.seconds)}`] };
 
     case VaultProposalType.WITHDRAW_ADDRESS:
-      return { title: "Withdraw Destination", details: [payload.address] };
+      return { title: "Withdraw Destination", details: [`Address: ${payload.address}`] };
 
     default:
       return { title: "Unknown Proposal", details: [] };
@@ -138,30 +150,55 @@ export function VaultChangeLog({
 }: Props) {
 
   const { proposals, loading, error } = useVaultGovernance(chainId, vault);
-  const [showHistory, setShowHistory] = useState(false);
+  const [filter, setFilter] = useState<VaultProposalFilter>(VaultProposalFilter.ACTIVE);
 
   if (loading) return <Text.Body color="muted">Loading...</Text.Body>;
   if (error) return <Text.Body color="danger">{error}</Text.Body>;
 
-  // ✅ Always order newest first
   const sorted = [...proposals].sort(
     (a, b) => b.proposedAt - a.proposedAt
   );
 
-  const active = sorted.filter(
-    p =>
-      p.status === VaultProposalStatus.PENDING ||
-      p.status === VaultProposalStatus.READY
-  );
+  const list = sorted.filter((p) => {
+    switch (filter) {
+      case VaultProposalFilter.ACTIVE:
+        return (
+          p.status === VaultProposalStatus.PENDING ||
+          p.status === VaultProposalStatus.READY
+        );
 
-  const list = showHistory ? sorted : active;
+      case VaultProposalFilter.EXECUTED:
+        return p.status === VaultProposalStatus.EXECUTED;
+
+      case VaultProposalFilter.FULL:
+        return true;
+
+      default:
+        return true;
+    }
+  });
 
   return (
     <Stack gap="md">
 
+      {/* Header Row */}
+      <Row style={{ justifyContent: "space-between", alignItems: "center" }}>
+        <Text.Body weight={600}>Governance</Text.Body>
+
+        <div style={{ flexShrink: 0 }}>
+          <Select value={filter} onChange={(v) => setFilter(v as VaultProposalFilter)}>
+            <SelectOption value={VaultProposalFilter.ACTIVE} label="Active" />
+            <SelectOption value={VaultProposalFilter.EXECUTED} label="Executed" />
+            <SelectOption value={VaultProposalFilter.FULL} label="Full History" />
+          </Select>
+        </div>
+      </Row>
+
       {!list.length && (
         <Text.Body color="muted">
-          {showHistory ? "No governance history." : "No active proposals."}
+          {filter === VaultProposalFilter.ACTIVE && "No active proposals."}
+          {filter === VaultProposalFilter.EXECUTED && "No executed proposals."}
+          {filter === VaultProposalFilter.FULL && "No governance history."}
         </Text.Body>
       )}
 
@@ -249,15 +286,6 @@ export function VaultChangeLog({
           </Stack>
         );
       })}
-
-      <Row style={{ justifyContent: "center", marginTop: 12 }}>
-        <ButtonSecondary
-          size="sm"
-          onClick={() => setShowHistory(prev => !prev)}
-        >
-          {showHistory ? "Hide History" : "Show Full History"}
-        </ButtonSecondary>
-      </Row>
 
     </Stack>
   );
