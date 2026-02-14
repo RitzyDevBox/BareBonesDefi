@@ -29,14 +29,14 @@ export function LimitPolicyEditor({ value: limitPolicy, onChange }: Props) {
         </Select>
       </FormField>
 
-      <FormField label="Window (seconds)">
+      <FormField label="Window">
         <TimeDurationInput seconds={limitPolicy.windowSeconds} defaultUnit="d" onChange={(seconds) =>
             onChange({ ...limitPolicy, windowSeconds: seconds })
         }
         />
 
       </FormField>
-      <FormField label="Proposal Delay (seconds)">
+      <FormField label="Proposal Delay">
         <TimeDurationInput seconds={limitPolicy.proposalDelaySeconds} defaultUnit="d" onChange={(seconds) =>
             onChange({ ...limitPolicy, proposalDelaySeconds: seconds, })
         }

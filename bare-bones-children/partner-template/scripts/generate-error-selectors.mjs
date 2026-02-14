@@ -85,8 +85,14 @@ function extractErrorSelectors(abi, filePath) {
     console.log(`Found ${errorFragments.length} errors in: ${filePath}`);
 
     for (const fragment of errorFragments) {
+      // Include parameter names if available
       const signature = `${fragment.name}(${fragment.inputs
-        .map((i) => i.type)
+        .map((i, idx) => {
+          const paramName = i.name && i.name.length > 0
+            ? i.name
+            : `arg${idx}`;
+          return `${i.type} ${paramName}`;
+        })
         .join(",")})`;
 
       const selector = iface.getSighash(fragment);

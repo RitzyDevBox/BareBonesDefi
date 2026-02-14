@@ -2,6 +2,7 @@
 // Unified EIP-1193 / ethers error shape
 // -------------------------
 
+import { Interface } from "ethers/lib/utils";
 import { ERROR_SELECTOR_MAP } from "./abiUtils";
 
 export interface Eip1193Error extends Error {
@@ -95,13 +96,15 @@ export function normalizeEip1193Error(
 // -------------------------
 // Presentation (human-readable Error)
 // -------------------------
-
 export function handleCommonTxError(
   error: unknown
 ): Error {
   const normalized = normalizeEip1193Error(error);
-
   const e = error as Eip1193Error;
+
+  const revertData =
+    e?.error?.data ||
+    e?.data;
 
   switch (normalized) {
     case NormalizedTxError.USER_REJECTED:
@@ -111,26 +114,63 @@ export function handleCommonTxError(
       return new Error("Required network is not added to the wallet");
 
     case NormalizedTxError.REVERTED: {
-      const revertData =
-        e.error?.data ||
-        e.data;
-
       if (typeof revertData === "string" && revertData.length >= 10) {
         const selector = revertData.slice(0, 10);
         const signature = ERROR_SELECTOR_MAP?.[selector];
 
         if (signature) {
-          return new Error(`Execution reverted: ${signature}`);
+          try {
+            const iface = new Interface([`error ${signature}`]);
+            const errorName = signature.split("(")[0];
+
+            const decoded = iface.decodeErrorResult(
+              errorName,
+              revertData
+            );
+
+            // Extract param names from signature
+            const paramSection = signature.slice(
+              signature.indexOf("(") + 1,
+              signature.lastIndexOf(")")
+            );
+
+            const paramNames = paramSection
+              .split(",")
+              .map((p) => p.trim().split(" ")[1] || null);
+
+            const formattedArgs = decoded
+              .map((value: any, idx: number) => {
+                const name = paramNames[idx] ?? `arg${idx}`;
+                const formattedValue =
+                  value?._isBigNumber
+                    ? value.toString()
+                    : String(value);
+
+                return `${name}=${formattedValue}`;
+              })
+              .join(", ");
+
+            return new Error(
+              `Execution reverted: ${errorName}(${formattedArgs})`
+            );
+          } catch {
+            return new Error(
+              `Execution reverted: ${signature}\nRaw data: ${revertData}`
+            );
+          }
         }
+
+        return new Error(
+          `Execution reverted.\nUnknown selector: ${selector}\nRaw data: ${revertData}`
+        );
       }
 
       return new Error(
-        e.reason ||
-        e.error?.message ||
-        "Transaction reverted"
+        `Execution reverted.\nReason: ${
+          e.reason || e.error?.message || "Unknown"
+        }`
       );
     }
-
 
     case NormalizedTxError.INSUFFICIENT_FUNDS:
       return new Error("Insufficient funds for transaction");
@@ -140,8 +180,8 @@ export function handleCommonTxError(
 
     case NormalizedTxError.UNKNOWN:
     default:
-      return e instanceof Error
-        ? e
-        : new Error("Transaction failed");
+      return new Error(
+        `Transaction failed.\nRaw error:\n${JSON.stringify(e, null, 2)}`
+      );
   }
 }
