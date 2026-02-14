@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Contract, ethers } from "ethers";
 import NamespacedCreate3FactoryAbi from "../../abis/diamond/NamespacedCreate3Factory.abi.json";
-import { ACTIVE_SVR_TEMPLATE_PROVIDER, getBareBonesConfiguration, TEMPLATE_PROVIDER_NAMESPACES, TEMPLATE_PROVIDER_OWNER_ADDRESS } from "../../constants/misc";
+import { ACTIVE_SVR_TEMPLATE_PROVIDER, getBareBonesConfiguration, TEMPLATE_PROVIDER_OWNER_ADDRESS } from "../../constants/misc";
 import { defaultAbiCoder, keccak256 } from "ethers/lib/utils";
 
 export function useWalletVaults(

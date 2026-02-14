@@ -47,7 +47,8 @@ export const ERROR_SELECTOR_MAP: Record<string, string> = {
   "0x30cd7471": "NotOwner()",
   "0xa1c738b4": "PendingChangeExists()",
   "0x1bab8472": "PercentExceedsBips()",
-  "0x04e22101": "QuotaExceeded()",
+  "0x9a7fcd22": "QuotaAmountExceeded(uint256,uint256)",
+  "0x044ddcf7": "QuotaWindowExceeded(uint256)",
   "0x5274afe7": "SafeERC20FailedOperation(address)",
   "0xdd8e4af7": "ValueMismatch()"
 } as const;

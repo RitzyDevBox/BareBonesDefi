@@ -3,7 +3,6 @@ import { ethers } from "ethers";
 import NamespacedCreate3FactoryAbi from "../../abis/diamond/NamespacedCreate3Factory.abi.json";
 import {
   ACTIVE_SVR_TEMPLATE_PROVIDER,
-  TEMPLATE_PROVIDER_NAMESPACES,
   TEMPLATE_PROVIDER_OWNER_ADDRESS,
   getBareBonesConfiguration,
 } from "../../constants/misc";
