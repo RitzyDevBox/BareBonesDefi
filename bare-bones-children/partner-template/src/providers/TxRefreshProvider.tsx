@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useRef } from "react";
+import { DEFAULT_REFRESH_DELAY } from "../constants/misc";
 
 type TxMeta = {
   hash?: string;
@@ -15,12 +16,17 @@ const TxRefreshContext = createContext<TxRefreshContextValue | null>(null);
 export function TxRefreshProvider({ children }: { children: React.ReactNode }) {
   const [version, setVersion] = useState(0);
 
-  const triggerRefresh = useCallback((_meta?: TxMeta) => {
-    // intentionally unused for now
-    // meta?.hash
-    // meta?.message
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    setVersion((v) => v + 1);
+  const triggerRefresh = useCallback((_meta?: TxMeta) => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+
+    refreshTimeoutRef.current = setTimeout(() => {
+      setVersion((v) => v + 1);
+      refreshTimeoutRef.current = null;
+    }, DEFAULT_REFRESH_DELAY);
   }, []);
 
   return (

@@ -96,19 +96,36 @@ export function Surface<E extends React.ElementType = "div">({
 }: PolymorphicProps<E>) {
   const Component = as ?? "div";
   const isButton = Component === "button";
+
+  const isDisabled =
+    isButton && (rest as React.ButtonHTMLAttributes<HTMLButtonElement>).disabled;
+
+  const effectiveClickable = clickable && !isDisabled;
+
   return (
     <Component
       {...rest}
-      data-clickable={clickable ? "true" : undefined}
+      data-clickable={effectiveClickable ? "true" : undefined}
       style={{
         background: "var(--surface-bg)",
         border: "1px solid var(--surface-border)",
         borderRadius: "var(--radius-md)",
-        cursor: clickable ? "pointer" : undefined,
-        transition: clickable
+
+        cursor: isDisabled
+          ? "not-allowed"
+          : effectiveClickable
+          ? "pointer"
+          : undefined,
+
+        transition: effectiveClickable
           ? "background-color 120ms ease, border-color 120ms ease, transform 80ms ease"
           : undefined,
+
+        opacity: isDisabled ? 0.5 : 1,
+        pointerEvents: isDisabled ? "none" : undefined,
+
         ...(isButton && { margin: 0 }),
+
         ...style,
       }}
     >

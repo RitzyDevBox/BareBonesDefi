@@ -19,6 +19,8 @@ export const TEMPLATE_PROVIDER_NAMESPACES = {
   SVR_TEMPLATE_PROVIDER_C2: 'SVR_TEMPLATE_PROVIDER_C2',
 }
 
+// Each transaction will trigger a state refresh but we add a delay since the graph takes some time to update
+export const DEFAULT_REFRESH_DELAY = 10000
 export const TOAST_ERROR_DISPLAY_DURATION_MS = 5000
 
 export const ACTIVE_SVR_TEMPLATE_PROVIDER = TEMPLATE_PROVIDER_NAMESPACES.SVR_TEMPLATE_PROVIDER_C2

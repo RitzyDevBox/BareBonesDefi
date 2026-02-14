@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Stack, Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
@@ -18,6 +18,7 @@ import {
   VaultProposalType,
 } from "../../hooks/vaults/useVaultProposals";
 import { SelectOption } from "../Select";
+import { formatTimeRemaining } from "../../utils/timeUtils";
 
 interface Props {
   vault: string;
@@ -151,6 +152,16 @@ export function VaultChangeLog({
 
   const { proposals, loading, error } = useVaultGovernance(chainId, vault);
   const [filter, setFilter] = useState<VaultProposalFilter>(VaultProposalFilter.ACTIVE);
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Math.floor(Date.now() / 1000));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
 
   if (loading) return <Text.Body color="muted">Loading...</Text.Body>;
   if (error) return <Text.Body color="danger">{error}</Text.Body>;
@@ -203,8 +214,14 @@ export function VaultChangeLog({
       )}
 
       {list.map((proposal) => {
+        
 
-        const ready = proposal.status === VaultProposalStatus.READY;
+        const secondsRemaining = proposal.readyAt != null
+          ? Math.max(proposal.readyAt - now, 0)
+          : null;
+        const ready = proposal.status === VaultProposalStatus.READY ||
+          (proposal.readyAt != null && proposal.readyAt <= now);
+
         const { title, details } = renderSummary(proposal);
 
         return (
@@ -233,6 +250,15 @@ export function VaultChangeLog({
                 <Text.Body size="xs" color="muted">
                   Status: {proposal.status}
                 </Text.Body>
+
+                {proposal.status === VaultProposalStatus.PENDING &&
+                  secondsRemaining != null &&
+                  secondsRemaining > 0 && (
+                    <Text.Body size="sm" color="muted">
+                      Ready in {formatTimeRemaining(secondsRemaining)}
+                    </Text.Body>
+                )}
+
 
                 {proposal.status === VaultProposalStatus.EXECUTED &&
                   proposal.executedAt && (

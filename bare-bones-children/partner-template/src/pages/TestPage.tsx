@@ -172,6 +172,9 @@ export function TestPage() {
 
       </CardContent>
       
+        <ButtonPrimary disabled={true} onClick={() => console.log('clicked')} >
+          Disabled Button
+        </ButtonPrimary>
 
       <Modal
         isOpen={open}
