@@ -69,10 +69,7 @@ export function mapGovernanceToVaultProposals(
   }
 
   for (const e of data.svrpolicyExecuteds) {
-    const proposal = data.svrpolicyProposeds.find(p => p.id === e.id);
-    if (!proposal) continue;
-
-    const key = policyKey(proposal);
+    const key = policyKey(e);
     if (!policyGroups.has(key)) continue;
 
     policyGroups.get(key)!.push({
