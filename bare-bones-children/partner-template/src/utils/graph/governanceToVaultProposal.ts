@@ -286,7 +286,7 @@ export function mapGovernanceToVaultProposals(
           type = VaultProposalType.WITHDRAW_ADDRESS;
           break;
         case "WITHDRAW_DESTINATION_PROPOSAL_DELAY":
-          type = VaultProposalType.WITHDRAW_ADDRESS_DELAY;
+          type = VaultProposalType.WITHDRAW_ADDRESS_DELAY_PLUS_ONE;
           break;
         case "DEFAULT_PROPOSAL_DELAY":
           type = VaultProposalType.DEFAULT_PROPOSAL_DELAY;
@@ -305,7 +305,7 @@ export function mapGovernanceToVaultProposals(
         payload:
           type === VaultProposalType.WITHDRAW_ADDRESS
             ? { type, address: proposal.newValue }
-            : { type, seconds: Number(proposal.newValue) },
+            : { type, seconds: type === VaultProposalType.WITHDRAW_ADDRESS_DELAY_PLUS_ONE ? Number(proposal.newValue) - 1 : Number(proposal.newValue) },
         status,
         proposedAt: createdAt,
         readyAt,

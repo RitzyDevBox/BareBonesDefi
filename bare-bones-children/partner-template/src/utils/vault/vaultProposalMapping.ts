@@ -18,7 +18,7 @@ export function mapUpdateKindToProposalType(
       return VaultProposalType.DEFAULT_RELEASE_DELAY;
 
     case VaultUpdateKind.WITHDRAW_ADDRESS_DELAY:
-      return VaultProposalType.WITHDRAW_ADDRESS_DELAY;
+      return VaultProposalType.WITHDRAW_ADDRESS_DELAY_PLUS_ONE;
 
     case VaultUpdateKind.WITHDRAW_ADDRESS:
       return VaultProposalType.WITHDRAW_ADDRESS;

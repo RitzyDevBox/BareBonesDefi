@@ -127,7 +127,7 @@ function renderSummary(p: VaultProposal): {
     case VaultProposalType.DEFAULT_RELEASE_DELAY:
       return { title: "Default Release Delay", details: [`Delay: ${formatDuration(payload.seconds)}`] };
 
-    case VaultProposalType.WITHDRAW_ADDRESS_DELAY:
+    case VaultProposalType.WITHDRAW_ADDRESS_DELAY_PLUS_ONE:
       return { title: "Withdraw Address Change Delay", details: [`Delay: ${formatDuration(payload.seconds)}`] };
 
     case VaultProposalType.WITHDRAW_ADDRESS:

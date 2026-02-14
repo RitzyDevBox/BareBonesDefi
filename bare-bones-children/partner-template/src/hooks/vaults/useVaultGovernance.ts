@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { VaultProposal } from "../../hooks/vaults/useVaultProposals";
 import { fetchVaultGovernance } from "../../utils/graph/vaultGraphService";
 import { mapGovernanceToVaultProposals } from "../../utils/graph/governanceToVaultProposal";
+import { useTxRefresh } from "../../providers/TxRefreshProvider";
 
 export function useVaultGovernance(
   chainId: number | null,
@@ -10,6 +11,7 @@ export function useVaultGovernance(
   const [proposals, setProposals] = useState<VaultProposal[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { version } = useTxRefresh();
 
   useEffect(() => {
     if (!chainId || !vaultAddress) return;
@@ -45,7 +47,7 @@ export function useVaultGovernance(
     return () => {
       cancelled = true;
     };
-  }, [chainId, vaultAddress]);
+  }, [chainId, vaultAddress, version]);
 
   return { proposals, loading, error };
 }

@@ -116,7 +116,7 @@ export function VaultProposalForm({ vaultAddress, onPropose }: Props) {
         <VaultDelayForm
           label="Withdraw Address Change Delay (seconds)"
           onSubmit={(seconds) =>
-            onPropose(VaultUpdateKind.WITHDRAW_ADDRESS_DELAY, { type: VaultProposalType.WITHDRAW_ADDRESS_DELAY,  seconds})
+            onPropose(VaultUpdateKind.WITHDRAW_ADDRESS_DELAY, { type: VaultProposalType.WITHDRAW_ADDRESS_DELAY_PLUS_ONE,  seconds})
           }
         />
       )}

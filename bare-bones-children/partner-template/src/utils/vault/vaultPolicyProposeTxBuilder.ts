@@ -52,7 +52,7 @@ export function buildVaultPolicyProposeRawTx(
         ),
       };
 
-    case VaultProposalType.WITHDRAW_ADDRESS_DELAY:
+    case VaultProposalType.WITHDRAW_ADDRESS_DELAY_PLUS_ONE:
       return {
         to: vaultAddress,
         value: 0,
@@ -103,7 +103,7 @@ export function buildVaultPolicyExecuteRawTx(vaultAddress: string, payload: Vaul
         data: iface.encodeFunctionData("executeDefaultReleaseDelayChange", [payload.seconds]),
       };
 
-    case VaultProposalType.WITHDRAW_ADDRESS_DELAY:
+    case VaultProposalType.WITHDRAW_ADDRESS_DELAY_PLUS_ONE:
       return {
         to: vaultAddress,
         value: 0,
@@ -149,7 +149,7 @@ export function buildVaultPolicyCancelRawTx(vaultAddress: string, payload: Vault
         data: iface.encodeFunctionData("cancelDefaultReleaseDelayChange", []),
       };
 
-    case VaultProposalType.WITHDRAW_ADDRESS_DELAY:
+    case VaultProposalType.WITHDRAW_ADDRESS_DELAY_PLUS_ONE:
       return {
         to: vaultAddress,
         value: 0,

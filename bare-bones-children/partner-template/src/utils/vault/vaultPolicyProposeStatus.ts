@@ -20,7 +20,7 @@ export function vaultPolicyProposeStatusMessage(
     case VaultProposalType.DEFAULT_RELEASE_DELAY:
       return `${actionDescriptor} default release delay: ${payload.seconds}s`;
 
-    case VaultProposalType.WITHDRAW_ADDRESS_DELAY:
+    case VaultProposalType.WITHDRAW_ADDRESS_DELAY_PLUS_ONE:
       return `${actionDescriptor} withdraw address change delay: ${payload.seconds}s`;
 
     case VaultProposalType.WITHDRAW_ADDRESS:

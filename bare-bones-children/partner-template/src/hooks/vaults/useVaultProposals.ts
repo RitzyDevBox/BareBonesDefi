@@ -16,7 +16,7 @@ export enum VaultProposalType {
   POLICY = "POLICY",
   DEFAULT_PROPOSAL_DELAY = "DEFAULT_PROPOSAL_DELAY",
   DEFAULT_RELEASE_DELAY = "DEFAULT_RELEASE_DELAY",
-  WITHDRAW_ADDRESS_DELAY = "WITHDRAW_ADDRESS_DELAY",
+  WITHDRAW_ADDRESS_DELAY_PLUS_ONE = "WITHDRAW_ADDRESS_DELAY",
   WITHDRAW_ADDRESS = "WITHDRAW_ADDRESS",
 }
 
@@ -39,7 +39,7 @@ export type VaultProposalPayload =
       seconds: number;
     }
   | {
-      type: VaultProposalType.WITHDRAW_ADDRESS_DELAY;
+      type: VaultProposalType.WITHDRAW_ADDRESS_DELAY_PLUS_ONE;
       seconds: number;
     }
   | {
