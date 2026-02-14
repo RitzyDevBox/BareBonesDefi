@@ -1,4 +1,5 @@
 // actions/useToastActionLifecycle.ts
+import { TOAST_ERROR_DISPLAY_DURATION_MS } from "../../../constants/misc";
 import { TxOpts } from "../../../utils/transactionUtils";
 import { toastStore } from "../../Toasts/toast.store";
 import { ToastBehavior, ToastPosition, ToastType } from "../../Toasts/toast.types";
@@ -37,7 +38,8 @@ export function useToastActionLifecycle(): TxOpts {
         title: "Error",
         message,
         type: ToastType.Error,
-        behavior: ToastBehavior.Persistent,
+        durationMs: TOAST_ERROR_DISPLAY_DURATION_MS,
+        behavior: ToastBehavior.AutoClose,
         position: ToastPosition.Top,
       });
     },

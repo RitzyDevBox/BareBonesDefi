@@ -10,7 +10,6 @@ import { useParams } from "react-router-dom";
 //TODO: use switch when we need more options
 type RenderFieldOptions = { userScope: UserScope } | undefined
 
-
 export function RenderFieldComponent({
   field,
   value,

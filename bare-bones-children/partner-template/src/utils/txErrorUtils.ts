@@ -2,6 +2,8 @@
 // Unified EIP-1193 / ethers error shape
 // -------------------------
 
+import { ERROR_SELECTOR_MAP } from "./abiUtils";
+
 export interface Eip1193Error extends Error {
   code?: number | string;
 
@@ -60,10 +62,16 @@ export function normalizeEip1193Error(
     return NormalizedTxError.CHAIN_NOT_ADDED;
   }
 
-  // Revert / call exception
-  if (code === "CALL_EXCEPTION") {
+  // Revert / call exception (including gas estimation failure)
+  if (
+    code === "CALL_EXCEPTION" ||
+    code === "UNPREDICTABLE_GAS_LIMIT" ||
+    typeof error?.error?.data === "string" ||
+    typeof error?.data === "string"
+  ) {
     return NormalizedTxError.REVERTED;
   }
+
 
   // Insufficient funds
   if (
@@ -102,12 +110,27 @@ export function handleCommonTxError(
     case NormalizedTxError.CHAIN_NOT_ADDED:
       return new Error("Required network is not added to the wallet");
 
-    case NormalizedTxError.REVERTED:
+    case NormalizedTxError.REVERTED: {
+      const revertData =
+        e.error?.data ||
+        e.data;
+
+      if (typeof revertData === "string" && revertData.length >= 10) {
+        const selector = revertData.slice(0, 10);
+        const signature = ERROR_SELECTOR_MAP?.[selector];
+
+        if (signature) {
+          return new Error(`Execution reverted: ${signature}`);
+        }
+      }
+
       return new Error(
         e.reason ||
-          e.error?.message ||
-          "Transaction reverted"
+        e.error?.message ||
+        "Transaction reverted"
       );
+    }
+
 
     case NormalizedTxError.INSUFFICIENT_FUNDS:
       return new Error("Insufficient funds for transaction");
