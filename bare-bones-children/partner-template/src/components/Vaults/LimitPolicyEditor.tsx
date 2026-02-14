@@ -4,7 +4,6 @@ import { SelectOption } from "../Select/SelectOption";
 import { FormField } from "../FormField";
 
 import { LimitKind, LimitPolicy } from "../../models/vaults/vaultTypes";
-import { Input } from "../BasicComponents";
 import { NumberInput } from "../Inputs/NumberInput";
 import { TimeDurationInput } from "../Inputs/TimeDurationInput";
 import { PercentInput } from "../Inputs/PercentInput";

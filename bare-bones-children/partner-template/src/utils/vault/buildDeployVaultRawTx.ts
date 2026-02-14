@@ -16,7 +16,6 @@ interface BuildDeployVaultArgs {
 
 export function buildDeployVaultRawTx({
   chainId,
-  walletAddress,
   constructorParams,
   initData = "0x",
 }: BuildDeployVaultArgs) {
@@ -43,9 +42,9 @@ export function buildDeployVaultRawTx({
 export function encodeVaultConstructorParams(
   walletAddress: string,
   coldWalletAddress: string,
-  defaultProposalDelay: number = 0,
-  defaultReleaseDelay: number = 0,
-  defaultWithdrawAddressChangeDelay: number = 0
+  _defaultProposalDelay: number = 0,
+  _defaultReleaseDelay: number = 0,
+  _defaultWithdrawAddressChangeDelay: number = 0
 ): string {
   return ethers.utils.defaultAbiCoder.encode(
     ["address", "address", "uint32", "uint32", "uint32"],

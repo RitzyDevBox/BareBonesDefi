@@ -73,7 +73,6 @@ export function buildVaultPolicyProposeRawTx(
       };
 
     default: {
-      const _: never = payload;
       throw new Error("Unhandled vault proposal payload");
     }
   }
@@ -118,7 +117,6 @@ export function buildVaultPolicyExecuteRawTx(vaultAddress: string, payload: Vaul
       };
 
     default: {
-      const _: never = payload;
       throw new Error("Unhandled vault proposal payload (execute)");
     }
   }
@@ -164,7 +162,6 @@ export function buildVaultPolicyCancelRawTx(vaultAddress: string, payload: Vault
       };
 
     default: {
-      const _: never = payload;
       throw new Error("Unhandled vault proposal payload (cancel)");
     }
   }
@@ -182,7 +179,6 @@ export function buildVaultPolicyRawTx(vaultAddress: string, action: VaultProposa
       return buildVaultPolicyCancelRawTx(vaultAddress, payload);
 
     default: {
-      const _: never = action;
       throw new Error("Unhandled vault proposal action");
     }
   }
@@ -210,7 +206,6 @@ function normalizeScope(scope: PolicyScope): PolicyScope {
       return scope;
 
     default: {
-      const _: never = scope.kind;
       throw new Error("Unhandled PolicyScopeKind");
     }
   }

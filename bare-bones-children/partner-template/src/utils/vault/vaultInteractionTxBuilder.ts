@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import SecureValueReserveAbi from "../../abis/diamond/infrastructure/SecureValueReserve.abi.json";
 import { RawTx } from "../basicWalletUtils";
 import { AssetType } from "../../models/vaults/vaultTypes";
-import { parseErc20, parseNative } from "../transactionUtils";
+import { parseErc20 } from "../transactionUtils";
 import { ZERO_ADDRESS } from "../../constants/misc";
 
 const iface = new ethers.utils.Interface(SecureValueReserveAbi);

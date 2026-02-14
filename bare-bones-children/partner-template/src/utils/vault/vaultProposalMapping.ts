@@ -24,7 +24,6 @@ export function mapUpdateKindToProposalType(
       return VaultProposalType.WITHDRAW_ADDRESS;
 
     default: {
-      const _: never = kind;
       throw new Error("Unhandled VaultUpdateKind");
     }
   }

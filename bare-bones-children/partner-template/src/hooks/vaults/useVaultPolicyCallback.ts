@@ -29,7 +29,7 @@ export function useVaultPolicyCallback(
   );
 
   const actionCallback = useExecuteRawTx(
-    async (payload: VaultProposalPayload, proposalId?: string) => {
+    async (payload: VaultProposalPayload, _proposalId?: string) => {
       const receipt = await buildTx(payload);
       return receipt;
     },

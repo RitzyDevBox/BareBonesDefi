@@ -27,7 +27,6 @@ export function vaultPolicyProposeStatusMessage(
       return `${actionDescriptor} new withdraw destination: ${payload.address}`;
 
     default: {
-      const _: never = payload;
       return `${actionDescriptor} vault governance change`;
     }
   }
