@@ -1,6 +1,6 @@
 // components/Vaults/DeployVaultWidget.tsx
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useDeployVault } from "../../hooks/vaults/useDeployVault";
 import { encodeVaultConstructorParams } from "../../utils/vault/buildDeployVaultRawTx";
@@ -10,6 +10,7 @@ import { Stack, Row, Surface, ClickableSurface } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { Input } from "../BasicComponents";
 import { FormField } from "../FormField";
+import { getAddress, isAddress } from "ethers/lib/utils";
 
 export function DeployVaultWidget({
   walletAddress,
@@ -30,16 +31,30 @@ export function DeployVaultWidget({
   const [releaseDelay, setReleaseDelay] = useState(0);
   const [withdrawChangeDelay, setWithdrawChangeDelay] = useState(0);
 
-  const constructorParams =
-    withdrawAddress && account
-      ? encodeVaultConstructorParams(
-          walletAddress,
-          withdrawAddress,
-          proposalDelay,
-          releaseDelay,
-          withdrawChangeDelay
-        )
-      : undefined;
+  const constructorParams = useMemo(() => {
+    if (!withdrawAddress) return undefined;
+
+    const normalized = withdrawAddress.toLowerCase();
+
+    if (!isAddress(normalized)) return undefined;
+
+    return encodeVaultConstructorParams(
+      walletAddress,
+      normalized,
+      proposalDelay,
+      releaseDelay,
+      withdrawChangeDelay
+    );
+  }, [
+    walletAddress,
+    withdrawAddress,
+    proposalDelay,
+    releaseDelay,
+    withdrawChangeDelay
+  ]);
+
+
+
 
   return (
     <Stack gap="md">
