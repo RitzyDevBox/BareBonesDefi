@@ -10,7 +10,7 @@ import { Stack, Row, Surface, ClickableSurface } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { Input } from "../BasicComponents";
 import { FormField } from "../FormField";
-import { getAddress, isAddress } from "ethers/lib/utils";
+import { isAddress } from "ethers/lib/utils";
 
 export function DeployVaultWidget({
   walletAddress,
