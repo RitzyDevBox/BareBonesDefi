@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ethers } from "ethers";
 import EXECUTE_FACET_ABI from "../abis/diamond/facets/ExecuteFacet.abi.json";
+import CALIBUR_ABI from "../abis/diamond/facets/CaliburEntry.abi.json";
 import { RawTx } from "./basicWalletUtils";
 import { handleCommonTxError } from "./txErrorUtils";
 import { buildFeeParams, buildGasLimit } from "./buildFeeParams";
@@ -104,6 +105,46 @@ export function wrapWithDiamondExecute(
       rawTx.to,
       rawTx.value ?? 0,
       rawTx.data
+    );
+
+    return {
+      to: diamondAddress,
+      data: populated.data!,
+      value: populated.value ?? 0,
+    };
+  };
+}
+
+export function wrapWithCaliburExecute(
+  provider: ethers.providers.Web3Provider | undefined,
+  diamondAddress: string,
+  rawTx: RawTx
+): () => Promise<RawTx> {
+  return async () => {
+    const signer = requireSigner(provider);
+
+    const diamond = new ethers.Contract(
+      diamondAddress,
+      CALIBUR_ABI,
+      signer
+    );
+
+    const populated = await diamond.populateTransaction[
+      "execute(((address,uint256,bytes)[],bool))"
+    ](
+      {
+        calls: [
+          {
+            to: rawTx.to,
+            value: rawTx.value ?? 0,
+            data: rawTx.data
+          }
+        ],
+        revertOnFailure: true
+      },
+      {
+        value: rawTx.value ?? 0
+      }
     );
 
     return {

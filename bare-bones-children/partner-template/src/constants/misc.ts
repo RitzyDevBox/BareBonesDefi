@@ -60,11 +60,11 @@ export const CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = {
   Deploying: CALIBUR_ENTRY_V2 0x688aa2C69C527E7De344296da634E5cfd56779db
   Deploying: CALIBUR_KERNEL_INITIALIZER_V2 0x3c2b67e2129be489be74d262f8A691c1f5e42af3
 
-  Diamond init code hash: 0x21dcb0260683b45dc4b6e390e2fa78299ba4519f6e1cb3ad77f8a599798e3b53
+  Diamond init code hash: 0x895ddadea89a852657055537968c164fe1178b5b8a6d93e1a2622685a0d2d576
  */
 export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   diamondFactoryAddress: "0x040B257d069E388d9b519EeE6D157D17E76514d6",
-  diamondFactoryInitHash: "0x21dcb0260683b45dc4b6e390e2fa78299ba4519f6e1cb3ad77f8a599798e3b53",
+  diamondFactoryInitHash: "0x895ddadea89a852657055537968c164fe1178b5b8a6d93e1a2622685a0d2d576",
   ownerAuthorityResolverAddress: "0x167C85EBAB5AB3eA18BCCaDacee0188Dad2857C4",
   nftAuthorityResolverAddress: "0x7E8578a8ea8a441725c96183493295318A44D6EB",
   diamondKernelInitializer: "0x3c2b67e2129be489be74d262f8A691c1f5e42af3",

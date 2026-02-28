@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { ethers } from "ethers";
 import { useExecuteRawTx } from "../useExecuteRawTx";
-import { wrapWithDiamondExecute } from "../../utils/transactionUtils";
+import { wrapWithCaliburExecute } from "../../utils/transactionUtils";
 import { buildDeployVaultRawTx } from "../../utils/vault/buildDeployVaultRawTx";
 
 interface DeployVaultArgs {
@@ -25,7 +25,7 @@ export function useDeployVault(
       });
 
       // IMPORTANT: return the wrapped callback, not its execution
-      return wrapWithDiamondExecute(
+      return wrapWithCaliburExecute(
         provider,
         args.walletAddress,
         rawTx

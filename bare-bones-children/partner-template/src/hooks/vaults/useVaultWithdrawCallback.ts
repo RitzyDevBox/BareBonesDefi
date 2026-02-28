@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { useCallback } from "react";
-import { wrapWithDiamondExecute } from "../../utils/transactionUtils";
+import { wrapWithCaliburExecute } from "../../utils/transactionUtils";
 import { useExecuteRawTx } from "../useExecuteRawTx";
 import { buildVaultWithdrawRawTx, VaultWithdrawArgs } from "../../utils/vault/vaultInteractionTxBuilder";
 import { AssetType } from "../../models/vaults/vaultTypes";
@@ -13,7 +13,7 @@ export function useVaultWithdrawCallback(
   const buildWithdrawTx = useCallback((args: VaultWithdrawArgs) => {
     if (!provider) throw new Error("No provider");
     const rawTx = buildVaultWithdrawRawTx(vaultAddress, args);
-    return wrapWithDiamondExecute(provider, walletAddress, rawTx)();
+    return wrapWithCaliburExecute(provider, walletAddress, rawTx)();
   }, [provider, vaultAddress, walletAddress]);
 
   const statusMessage = useCallback((args: VaultWithdrawArgs) => {
