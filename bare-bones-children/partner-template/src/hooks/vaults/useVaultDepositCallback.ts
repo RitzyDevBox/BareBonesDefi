@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { useCallback } from "react";
-import { wrapWithExecute } from "../../utils/transactionUtils";
+import { wrapWithDiamondExecute } from "../../utils/transactionUtils";
 import { useExecuteRawTx } from "../useExecuteRawTx";
 import { AssetType } from "../../models/vaults/vaultTypes";
 import { buildERC1155DepositRawTx, buildERC721DepositRawTx, buildSendERC20RawTx } from "../../utils/basicWalletUtils";
@@ -28,23 +28,23 @@ export function useVaultDepositCallback(
           value: ethers.utils.parseEther(args.amount),
           data: "0x",
         }
-        return wrapWithExecute(provider, walletAddress, rawTx)();
+        return wrapWithDiamondExecute(provider, walletAddress, rawTx)();
 
       case AssetType.ERC20: {
         const rawTx = buildSendERC20RawTx(args.asset, vaultAddress, args.amount, args.decimals);
-        return wrapWithExecute(provider, walletAddress, rawTx)();
+        return wrapWithDiamondExecute(provider, walletAddress, rawTx)();
       }
 
       case AssetType.ERC721: {
         if (!args.id) throw new Error("Missing token ID");
         const rawTx = buildERC721DepositRawTx(args.asset, walletAddress, vaultAddress, args.id);
-        return wrapWithExecute(provider, walletAddress, rawTx)();
+        return wrapWithDiamondExecute(provider, walletAddress, rawTx)();
       }
 
       case AssetType.ERC1155: {
         if (!args.id) throw new Error("Missing token ID");
         const rawTx = buildERC1155DepositRawTx(args.asset, walletAddress, vaultAddress, args.id, args.amount);
-        return wrapWithExecute(provider, walletAddress, rawTx)();
+        return wrapWithDiamondExecute(provider, walletAddress, rawTx)();
       }
 
       default:

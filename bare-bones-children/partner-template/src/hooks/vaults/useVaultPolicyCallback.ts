@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import { useCallback } from "react";
 
-import { wrapWithExecute } from "../../utils/transactionUtils";
+import { wrapWithDiamondExecute } from "../../utils/transactionUtils";
 import { useExecuteRawTx } from "../useExecuteRawTx";
 import { VaultProposalPayload } from "./useVaultProposals";
 import { buildVaultPolicyRawTx, VaultProposalAction } from "../../utils/vault/vaultPolicyProposeTxBuilder";
@@ -18,7 +18,7 @@ export function useVaultPolicyCallback(
       if (!provider) throw new Error("No provider");
       const rawTx = buildVaultPolicyRawTx(vaultAddress, vaultProposalAction, payload);
 
-      return wrapWithExecute(provider, walletAddress, rawTx)();
+      return wrapWithDiamondExecute(provider, walletAddress, rawTx)();
     },
     [provider, vaultAddress, walletAddress, vaultProposalAction]
   );

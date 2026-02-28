@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { ethers } from "ethers";
 import { AssetType } from "../models";
 import { SendCurrencyArgs, buildSendCurrencyRawTx } from "../../../utils/basicWalletUtils";
-import { wrapWithExecute } from "../../../utils/transactionUtils";
+import { wrapWithDiamondExecute } from "../../../utils/transactionUtils";
 import { useExecuteRawTx } from "../../../hooks/useExecuteRawTx";
 
 export interface WithdrawCurrencyArgs extends SendCurrencyArgs {
@@ -16,7 +16,7 @@ export function useWalletWithdrawCallback(
   const buildWithdrawTx = useCallback((args: WithdrawCurrencyArgs) => {
     if (!provider) throw new Error("No provider")
     const rawTx = buildSendCurrencyRawTx(args)
-    return wrapWithExecute(provider, diamondAddress, rawTx)()
+    return wrapWithDiamondExecute(provider, diamondAddress, rawTx)()
   }, [provider, diamondAddress])
 
   const withdrawStatusMessage = useCallback((args: WithdrawCurrencyArgs) => {

@@ -1,7 +1,7 @@
 // hooks/useWrapCallback.ts
 import { useCallback } from "react";
 import { ethers } from "ethers";
-import { wrapWithExecute } from "../../../utils/transactionUtils";
+import { wrapWithDiamondExecute } from "../../../utils/transactionUtils";
 import { buildWrapRawTx, WrapArgs, WrapMode } from "../../../utils/basicWalletUtils";
 import { useExecuteRawTx } from "../../../hooks/useExecuteRawTx";
 
@@ -12,7 +12,7 @@ export function useWrapCallback(
   const buildWrapTx = useCallback(async (args: WrapArgs) => {
     if (!provider) throw new Error("No provider")
     const rawTx = buildWrapRawTx(args, WrapMode.WRAP)
-    return await wrapWithExecute(provider, diamondAddress, rawTx)()
+    return await wrapWithDiamondExecute(provider, diamondAddress, rawTx)()
   }, [provider, diamondAddress])
 
   const wrapStatusMessage = useCallback((args: WrapArgs) => `Wrapping ${args.amount} ETH → WETH`, [])
@@ -29,7 +29,7 @@ export function useUnwrapCallback(
   const buildUnwrapTx = useCallback((args: WrapArgs) => {
     if (!provider) throw new Error("No provider")
     const rawTx = buildWrapRawTx(args, WrapMode.UNWRAP)
-    return wrapWithExecute(provider, diamondAddress, rawTx)()
+    return wrapWithDiamondExecute(provider, diamondAddress, rawTx)()
   }, [provider, diamondAddress])
 
   const unwrapStatusMessage = useCallback((args: WrapArgs) => `Unwrapping ${args.amount} WETH → ETH`, [])

@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { TransactionRequest } from "@ethersproject/providers";
 import { RawTx } from "../../../utils/basicWalletUtils";
-import { wrapWithExecute } from "../../../utils/transactionUtils";
+import { wrapWithDiamondExecute } from "../../../utils/transactionUtils";
 import { useWalletProvider } from "../../useWalletProvider";
 import { useExecuteRawTx } from "../../../hooks/useExecuteRawTx";
 
@@ -22,7 +22,7 @@ export function useOnSendTransaction() {
       value: tx.value,
     };
 
-    return wrapWithExecute(provider, tx.from, rawTx)();
+    return wrapWithDiamondExecute(provider, tx.from, rawTx)();
   }, [provider]);
 
   const sendStatusMessage = useCallback(() => `WalletConnect transaction`, []);

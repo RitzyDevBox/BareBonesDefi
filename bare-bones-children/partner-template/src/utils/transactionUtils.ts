@@ -86,7 +86,7 @@ export function parseErc20(amount: string, decimals?: number | null) {
   return ethers.utils.parseUnits(amount, decimals ?? 18);
 }
 
-export function wrapWithExecute(
+export function wrapWithDiamondExecute(
   provider: ethers.providers.Web3Provider | undefined,
   diamondAddress: string,
   rawTx: RawTx

@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { TransactionRequest } from "@ethersproject/providers";
 import { useWalletProvider } from "../../useWalletProvider";
-import { wrapWithExecute } from "../../../utils/transactionUtils";
+import { wrapWithDiamondExecute } from "../../../utils/transactionUtils";
 import { RawTx } from "../../../utils/basicWalletUtils";
 
 export function useOnEthCall() {
@@ -21,7 +21,7 @@ export function useOnEthCall() {
       };
 
       // Wrap into execute(...)
-      const buildWrappedTx = wrapWithExecute(
+      const buildWrappedTx = wrapWithDiamondExecute(
         provider,
         tx.from,
         rawTx

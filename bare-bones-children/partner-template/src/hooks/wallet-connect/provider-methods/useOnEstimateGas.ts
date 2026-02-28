@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useWalletProvider } from "../../useWalletProvider";
-import { wrapWithExecute } from "../../../utils/transactionUtils";
+import { wrapWithDiamondExecute } from "../../../utils/transactionUtils";
 import { TransactionRequest } from "@ethersproject/providers";
 import { RawTx } from "../../../utils/basicWalletUtils";
 
@@ -21,7 +21,7 @@ export function useOnEstimateGas() {
       };
 
       // wrap
-      const buildWrappedTx = wrapWithExecute(
+      const buildWrappedTx = wrapWithDiamondExecute(
         provider,
         tx.from,
         rawTx
