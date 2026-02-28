@@ -20,8 +20,10 @@ import { useTxRefresh } from "../providers/TxRefreshProvider";
 
 export function DeployDiamondWidget({
   onDeployed,
+  showOrganizationSelector = false,
 }: {
   onDeployed?: (address: string, index: number) => void;
+  showOrganizationSelector?: boolean;
 }) {
   const { provider, account, chainId } = useWalletProvider();
 
@@ -90,7 +92,7 @@ export function DeployDiamondWidget({
   return (
     <Stack gap="md">
       {/* Organization selector */}
-      <Surface>
+      {showOrganizationSelector && <Surface>
         <Stack gap="xs">
           <Text.Label>Organization (optional)</Text.Label>
 
@@ -113,6 +115,7 @@ export function DeployDiamondWidget({
           </Select>
         </Stack>
       </Surface>
+      }
 
       <ButtonPrimary onClick={deploy} disabled={isDeploying}>
         {isDeploying ? "Deploying…" : "Deploy Wallet"}

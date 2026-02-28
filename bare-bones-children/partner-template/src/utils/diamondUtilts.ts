@@ -30,12 +30,12 @@ export function buildDeployEOAOwnerBasedDiamondRawTx(
   const ownerOptions = ethers.utils.defaultAbiCoder.encode(["address"],[args.owner]);
 
   // Optional initializer data
-  let initData = "0x";
+  const initData = ethers.utils.defaultAbiCoder.encode(["address"],[config.barebones4337Facet]);
 
-  if (args.organizationId) {
-    const orgId = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(args.organizationId));
-    initData = ethers.utils.defaultAbiCoder.encode(["address", "bytes32"],[config.globalOrganizationRegistry,orgId]);
-  }
+  // if (args.organizationId) {
+  //   const orgId = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(args.organizationId));
+  //   initData = ethers.utils.defaultAbiCoder.encode(["address", "bytes32"],[config.globalOrganizationRegistry,orgId]);
+  // }
 
   return {
     to: config.diamondFactoryAddress,
