@@ -141,9 +141,6 @@ export function wrapWithCaliburExecute(
           }
         ],
         revertOnFailure: true
-      },
-      {
-        value: rawTx.value ?? 0
       }
     );
 

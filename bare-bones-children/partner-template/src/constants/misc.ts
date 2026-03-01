@@ -57,8 +57,8 @@ export const CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = {
   Deploying: OWNER_AUTHORITY_RESOLVER_V3 0x167C85EBAB5AB3eA18BCCaDacee0188Dad2857C4
   Deploying: NFT_AUTHORITY_RESOLVER_V3 0x7E8578a8ea8a441725c96183493295318A44D6EB
   
-  Deploying: CALIBUR_ENTRY_V2 0x688aa2C69C527E7De344296da634E5cfd56779db
-  Deploying: CALIBUR_KERNEL_INITIALIZER_V2 0x3c2b67e2129be489be74d262f8A691c1f5e42af3
+  Deploying: CALIBUR_ENTRY_V3 0x104d0Bc6BdAa0980e0e627CdAbc23E8cF2383936
+  Deploying: CALIBUR_KERNEL_INITIALIZER_V3 0x33AB24Ae30Fdcc6Ad7Ef794899a993A012DE49c5
 
   Diamond init code hash: 0x895ddadea89a852657055537968c164fe1178b5b8a6d93e1a2622685a0d2d576
  */
@@ -67,12 +67,12 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   diamondFactoryInitHash: "0x895ddadea89a852657055537968c164fe1178b5b8a6d93e1a2622685a0d2d576",
   ownerAuthorityResolverAddress: "0x167C85EBAB5AB3eA18BCCaDacee0188Dad2857C4",
   nftAuthorityResolverAddress: "0x7E8578a8ea8a441725c96183493295318A44D6EB",
-  diamondKernelInitializer: "0x3c2b67e2129be489be74d262f8A691c1f5e42af3",
+  diamondKernelInitializer: "0x33AB24Ae30Fdcc6Ad7Ef794899a993A012DE49c5",
   namespacedCreate3Factory: "0x2EF901902fA6993949dbb32f8807fd2bFfB3D8da",
   multicall3Address: "0xca11bde05977b3631167028862be2a173976ca11",
   
   //Bare Bones Kernel
-  barebones4337Facet: "0x688aa2C69C527E7De344296da634E5cfd56779db",
+  barebones4337Facet: "0x104d0Bc6BdAa0980e0e627CdAbc23E8cF2383936",
   
   // Organization Configs
   globalOrganizationRegistry: "0xfb4c3957C7638c3Ec8b777AcF8bD65fd40df42b5",

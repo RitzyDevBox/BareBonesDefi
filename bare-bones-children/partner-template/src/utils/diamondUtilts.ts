@@ -30,7 +30,7 @@ export function buildDeployEOAOwnerBasedDiamondRawTx(
   const ownerOptions = ethers.utils.defaultAbiCoder.encode(["address"],[args.owner]);
 
   // Optional initializer data
-  const initData = ethers.utils.defaultAbiCoder.encode(["address"],[config.barebones4337Facet]);
+  const initData = ethers.utils.defaultAbiCoder.encode(["address"],[config.ownerAuthorityResolverAddress]);
 
   // if (args.organizationId) {
   //   const orgId = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(args.organizationId));
