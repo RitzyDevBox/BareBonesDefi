@@ -20,7 +20,7 @@ import { useTxRefresh } from "../providers/TxRefreshProvider";
 
 export function DeployDiamondWidget({
   onDeployed,
-  showOrganizationSelector = false,
+  showOrganizationSelector = true,
 }: {
   onDeployed?: (address: string, index: number) => void;
   showOrganizationSelector?: boolean;

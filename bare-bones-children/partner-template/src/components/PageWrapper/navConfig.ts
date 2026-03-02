@@ -23,11 +23,11 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Browser",
     path: ROUTES.DAPP_BROWSER,
   },
-  // {
-  //   id: "organization",
-  //   label: "Organizations",
-  //   path: ROUTES.ORGANIZATIONS,
-  // },
+  {
+    id: "organization",
+    label: "Organizations",
+    path: ROUTES.ORGANIZATIONS,
+  },
   {
     id: "vaults",
     label: "Vaults",

@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import DIAMOND_FACTORY_ABI from "../abis/diamond/DiamondFactory.abi.json";
-import { getBareBonesConfiguration } from "../constants/misc";
+import { getBareBonesConfiguration, ZERO_ADDRESS } from "../constants/misc";
 import { RawTx } from "./basicWalletUtils";
 
 export interface DeployDiamondArgs {
@@ -30,12 +30,12 @@ export function buildDeployEOAOwnerBasedDiamondRawTx(
   const ownerOptions = ethers.utils.defaultAbiCoder.encode(["address"],[args.owner]);
 
   // Optional initializer data
-  const initData = ethers.utils.defaultAbiCoder.encode(["address"],[config.ownerAuthorityResolverAddress]);
+  let initData = ethers.utils.defaultAbiCoder.encode(["address","address", "bytes32"],[config.ownerAuthorityResolverAddress, ZERO_ADDRESS, ethers.constants.HashZero]);
 
-  // if (args.organizationId) {
-  //   const orgId = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(args.organizationId));
-  //   initData = ethers.utils.defaultAbiCoder.encode(["address", "bytes32"],[config.globalOrganizationRegistry,orgId]);
-  // }
+  if (args.organizationId) {
+    const orgId = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(args.organizationId));
+    initData = ethers.utils.defaultAbiCoder.encode(["address","address", "bytes32"],[config.ownerAuthorityResolverAddress,config.globalOrganizationRegistry,orgId]);
+  }
 
   return {
     to: config.diamondFactoryAddress,
