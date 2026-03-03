@@ -51,6 +51,6 @@ bare-bones-children/partner-template$
 
 ##
 
-Test Wallet Deployment Seed 0: 0x6dC2F30D8D2b1683617AaECd98941D7e56cA61A1
 release-v3: https://ar-io.dev/E8og-xo8Ls74cFw0RNGCrAgTCGOVZ_zc_64BGLezExE
 release-v4: https://ar-io.dev/KEUxTl_aSNSQEfoIscnwhpFpWvbmINcl4g_34JhUIu4
+release-v5: https://ar-io.dev/P0skptlyvRuymq2nQRdUYJ6-1RYvTVKLgeOwZ8ftTz0

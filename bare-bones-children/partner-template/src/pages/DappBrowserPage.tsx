@@ -30,7 +30,7 @@ function getOrigin(url: string) {
 
 export function DappBrowserPage() {
   const { account, provider, chainId } = useWalletProvider();
-  const [url, setUrl] = useState("https://app.uniswap.org");
+  const [url, setUrl] = useState("https://app.aave.com");
   const [lastOrigin, setLastOrigin] = useState<string | null>(getOrigin(url));
   const [inputUrl, setInputUrl] = useState(url);
   const [activeWalletAddress, setActiveWalletAddress] =
