@@ -1,0 +1,70 @@
+[
+  {
+    "type": "function",
+    "name": "compute",
+    "inputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct SimplePayrollEngine.PayrollContext",
+        "components": [
+          {
+            "name": "employee",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "hoursWorked",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "processTimestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "earnings",
+            "type": "tuple[]",
+            "internalType": "struct SimplePayrollEngine.EarningsCode[]",
+            "components": [
+              {
+                "name": "rule",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "rate",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "config",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "commissionBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "config",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "payDelta",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "pure"
+  }
+]

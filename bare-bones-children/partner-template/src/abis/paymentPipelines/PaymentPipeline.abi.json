@@ -1,0 +1,58 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "executeProcess",
+    "inputs": [
+      {
+        "name": "processRoot",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "scopeKey",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "contextData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "processChunk",
+    "inputs": [
+      {
+        "name": "scopeKey",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "maxSteps",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "error",
+    "name": "EmptyQueue",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Unauthorized",
+    "inputs": []
+  }
+]

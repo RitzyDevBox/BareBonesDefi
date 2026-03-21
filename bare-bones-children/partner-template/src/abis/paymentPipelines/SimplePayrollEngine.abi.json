@@ -1,0 +1,65 @@
+[
+  {
+    "type": "function",
+    "name": "compute",
+    "inputs": [
+      {
+        "name": "ctx",
+        "type": "tuple",
+        "internalType": "struct SimplePayrollEngine.PayrollContext",
+        "components": [
+          {
+            "name": "employee",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "hoursWorked",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "processTimestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "earnings",
+            "type": "tuple[]",
+            "internalType": "struct SimplePayrollEngine.EarningsCode[]",
+            "components": [
+              {
+                "name": "rule",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "rate",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "config",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "grossAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "NoEmployeeAddress",
+    "inputs": []
+  }
+]
