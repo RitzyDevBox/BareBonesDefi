@@ -9,6 +9,7 @@ import { ROUTES } from "./routes";
 import { OrganizationDetailPage } from "./pages/OrganizationDetailPage";
 import { VaultPage } from "./pages/VaultPage";
 import { VaultWalletPage } from "./pages/VaultWalletPage";
+import { PaymentPage } from "./pages/PaymentPage";
 
 const devOnlyRoutes = import.meta.env.DEV
   ? [{ path: "test-page", element: <TestPage /> }]
@@ -22,6 +23,7 @@ export const router = createHashRouter([
       { index: true, element: <LandingPage /> },
       { path: `${ROUTES.BASIC_WALLET}/:diamondAddress?`, element: <BasicWalletPage />},
       { path: `${ROUTES.DAPP_BROWSER}`, element: <DappBrowserPage/> },
+      { path: `${ROUTES.PAYMENTS}`, element: <PaymentPage/> },
       { path: `${ROUTES.ORGANIZATIONS}`, element: <OrganizationPage/> },
       { path: `${ROUTES.ORGANIZATIONS}/:organizationId`, element: <OrganizationDetailPage /> },
       { path: `${ROUTES.VAULTS}`, element: <VaultPage/>},

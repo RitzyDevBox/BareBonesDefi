@@ -27,6 +27,11 @@ export const NAV_ITEMS: NavItem[] = [
     id: "organization",
     label: "Organizations",
     path: ROUTES.ORGANIZATIONS,
+  },  
+  {
+    id: "Payments",
+    label: "Payments",
+    path: ROUTES.PAYMENTS,
   },
   {
     id: "vaults",

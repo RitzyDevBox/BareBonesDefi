@@ -1,0 +1,1 @@
+export { PayrollRuleConfigurator } from "./PayrollRuleConfigurator";

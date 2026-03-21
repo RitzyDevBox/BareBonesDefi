@@ -38,6 +38,16 @@ export interface BareBonesConfiguration {
   namespacedCreate3Factory: string;
   multicall3Address: string,
   barebones4337Facet: string;
+  // Payroll Configuration
+  mockPaymentTokenAddress: string;
+  paymentPipelineAddress: string;
+  onboardingManagerAddress: string;
+  payrollEngineAddress: string;
+  payrollManagerAddress: string;
+  hoursRuleAddress: string;
+  flatRuleAddress: string;
+  commissionRuleAddress: string;
+  salaryPerSecondRuleAddress: string;
 }
 
 export const CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = {
@@ -63,6 +73,17 @@ export const CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = {
   Deploying: CALIBUR_KERNEL_INITIALIZER_V4 0x3A152cfdb8d2ebB3A2fC3A46665ee31CDa620fe7
 
   Diamond init code hash: 0x895ddadea89a852657055537968c164fe1178b5b8a6d93e1a2622685a0d2d576
+
+  Deploying: MOCK_PAYMENT_TOKEN_V3 0xdE087292FC57dBdF49e7F0094f481403C3720d81
+  Deploying: PAYMENT_PIPELINE_V3 0xa64eB7cF73F724B465850Ab263324E3319117e2B
+  Deploying: ONBOARDING_MANAGER_V3 0x7a7d0AF1E834be52a662F0859F5374ba98cF944D
+  Deploying: PAYROLL_ENGINE_V3 0x8Ca648CB06204b34c393AF4823c7192E88d2ee6C
+  Deploying: PAYROLL_MANAGER_V3 0xA8E16A77872b5BAec35A354eBc906a0cE7C5fC97
+  
+  Deploying: HOURS_RULE_V3 0x3D6A19d340966842278A237508677Af32734A750
+  Deploying: FLAT_RULE_V3 0x5B9A89fd77d506827A87BaBe7C843dF61D2D99DE
+  Deploying: COMMISSION_RULE_V3 0x7C7dd4D83f083EF4A262A488e50AE1133715D453
+  Deploying: SALARY_PER_SECOND_RULE_V3 0x0ff88Fb5E890A5B57Ce8F92aEa1B058818354860
  */
 export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   diamondFactoryAddress: "0x040B257d069E388d9b519EeE6D157D17E76514d6",
@@ -79,6 +100,17 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   // Organization Configs
   globalOrganizationRegistry: "0xfb4c3957C7638c3Ec8b777AcF8bD65fd40df42b5",
   facetFallbackFailureHook: "0x75674AD532898ecE57DD5AF2E8BEfd546d5d6E6A",
+  
+  // Payroll Configuration
+  mockPaymentTokenAddress: "0xdE087292FC57dBdF49e7F0094f481403C3720d81",
+  paymentPipelineAddress: "0xa64eB7cF73F724B465850Ab263324E3319117e2B",
+  onboardingManagerAddress: "0x7a7d0AF1E834be52a662F0859F5374ba98cF944D",
+  payrollEngineAddress: "0x8Ca648CB06204b34c393AF4823c7192E88d2ee6C",
+  payrollManagerAddress: "0xA8E16A77872b5BAec35A354eBc906a0cE7C5fC97",
+  hoursRuleAddress: "0x3D6A19d340966842278A237508677Af32734A750",
+  flatRuleAddress: "0x5B9A89fd77d506827A87BaBe7C843dF61D2D99DE",
+  commissionRuleAddress: "0x7C7dd4D83f083EF4A262A488e50AE1133715D453",
+  salaryPerSecondRuleAddress: "0x0ff88Fb5E890A5B57Ce8F92aEa1B058818354860",
 } as const;
 
 export const BARE_BONES_CHAIN_OVERRIDES: Partial<
