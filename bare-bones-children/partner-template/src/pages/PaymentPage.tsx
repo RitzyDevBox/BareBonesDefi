@@ -16,6 +16,7 @@ import { PayrollRuleConfigurator } from "../components/PayrollRuleConfigurator";
 import { EmployeeTable } from "../components/EmployeeTable/EmployeeTable";
 import { ROUTES } from "../routes";
 import type { OrganizationModel, EmployeeModel } from "../models/payments";
+import { fetchEmployeesByOrganization } from "../utils/payroll/fetchEmployeesByOrganization";
 
 export function PaymentPage() {
   const { organizationId } = useParams<{ organizationId?: string }>();
@@ -87,7 +88,12 @@ export function PaymentPage() {
       setIsAdmin(org.exists && org.owner.toLowerCase() === account?.toLowerCase());
 
       if (org.exists) {
-        await fetchEmployees(slugBytes);
+        const employeeList = await fetchEmployeesByOrganization(
+          provider,
+          onboardingAddress,
+          slugBytes
+        );
+        setEmployees(employeeList);
       } else {
         setEmployees([]);
       }
@@ -97,33 +103,6 @@ export function PaymentPage() {
       setEmployees([]);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function fetchEmployees(slugBytes: string) {
-    if (!provider || !onboardingAddress) return;
-
-    try {
-      const contract = new ethers.Contract(
-        onboardingAddress,
-        OnboardingManagerABI as any,
-        provider
-      );
-
-      const total = await contract.totalEmployeesInOrganization(slugBytes);
-      const employeeIds = await contract.getEmployeesByOrganizationPaged(
-        slugBytes,
-        0,
-        total.toNumber()
-      );
-
-      const employeeList = await Promise.all(
-        employeeIds.map((id: ethers.BigNumber) => contract.getEmployee(id))
-      );
-
-      setEmployees(employeeList);
-    } catch (err) {
-      console.error("Error fetching employees:", err);
     }
   }
 

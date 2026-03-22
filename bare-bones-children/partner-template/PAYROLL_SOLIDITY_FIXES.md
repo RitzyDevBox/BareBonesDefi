@@ -3,6 +3,13 @@
 ## Overview
 This document outlines required fixes and improvements to the PayrollManager contract to support proper frontend integration, prevent edge cases, and improve overall usability.
 
+## Frontend Execution TODOs (Current Payroll)
+
+- Simplify execution flow so the UI can trigger payroll processing with one high-level action.
+- Replace multi-transaction/manual sequencing with a safer, single orchestration path where possible.
+- Add a simple `Preview Payroll` mode in frontend before processing.
+- Keep transaction execution aligned with existing `useExecuteRawTx` pattern and refresh lifecycle.
+
 ---
 
 ## Issue 1: Earnings Array Not Queryable

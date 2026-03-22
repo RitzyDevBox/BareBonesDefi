@@ -3,15 +3,19 @@ import { ethers } from "ethers";
 import { useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
-import { Stack } from "../components/Primitives";
+import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
+import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
 import { ERC20Mintable } from "../components/ERC20Mintable/ERC20Mintable";
+import { PayrollTreasuryFund } from "../components/PayrollTreasuryFund/PayrollTreasuryFund";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
 import OnboardingManagerABI from "../abis/paymentPipelines/OnboardingManager.abi.json";
 import { EmployeeTable } from "../components/EmployeeTable/EmployeeTable";
 import type { OrganizationModel, EmployeeModel } from "../models/payments";
+import { useProcessCurrentPayroll } from "../hooks/payroll/useProcessCurrentPayroll";
+import { fetchEmployeesByOrganization } from "../utils/payroll/fetchEmployeesByOrganization";
 
 export function CurrentPayrollPage() {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -24,6 +28,9 @@ export function CurrentPayrollPage() {
   const [employees, setEmployees] = useState<EmployeeModel[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isProcessingPayroll, setIsProcessingPayroll] = useState(false);
+
+  const { processCurrentPayroll } = useProcessCurrentPayroll();
 
   const config = useMemo(() => {
     if (!chainId) return null;
@@ -59,7 +66,12 @@ export function CurrentPayrollPage() {
       setIsAdmin(org.exists && org.owner.toLowerCase() === account?.toLowerCase());
 
       if (org.exists) {
-        await fetchEmployees(slugBytes);
+        const employeeList = await fetchEmployeesByOrganization(
+          provider,
+          onboardingAddress,
+          slugBytes
+        );
+        setEmployees(employeeList);
       } else {
         setEmployees([]);
       }
@@ -72,30 +84,14 @@ export function CurrentPayrollPage() {
     }
   }
 
-  async function fetchEmployees(slugBytes: string) {
-    if (!provider || !onboardingAddress) return;
+  async function handleProcessPayroll() {
+    if (!slug || !isAdmin || isProcessingPayroll) return;
 
+    setIsProcessingPayroll(true);
     try {
-      const contract = new ethers.Contract(
-        onboardingAddress,
-        OnboardingManagerABI as any,
-        provider
-      );
-
-      const total = await contract.totalEmployeesInOrganization(slugBytes);
-      const employeeIds = await contract.getEmployeesByOrganizationPaged(
-        slugBytes,
-        0,
-        total.toNumber()
-      );
-
-      const employeeList = await Promise.all(
-        employeeIds.map((id: ethers.BigNumber) => contract.getEmployee(id))
-      );
-
-      setEmployees(employeeList);
-    } catch (err) {
-      console.error("Error fetching employees:", err);
+      await processCurrentPayroll(slug, 1);
+    } finally {
+      setIsProcessingPayroll(false);
     }
   }
 
@@ -103,6 +99,13 @@ export function CurrentPayrollPage() {
     <PageContainer center>
       <Stack gap="lg" style={{ maxWidth: 600 }}>
         <ERC20Mintable />
+
+        {slug && (
+          <PayrollTreasuryFund
+            organizationSlug={slug}
+            disabled={!isAdmin}
+          />
+        )}
 
         <Card>
           <CardContent>
@@ -131,6 +134,18 @@ export function CurrentPayrollPage() {
                   <Text.Body color={isAdmin ? "success" : "muted"}>
                     {isAdmin ? "✓ Admin Mode" : "Read Only Mode"}
                   </Text.Body>
+                  <Row gap="sm" justify="end">
+                    <ButtonSecondary style={{ flex: 0 }}>
+                      Preview Payroll
+                    </ButtonSecondary>
+                    <ButtonPrimary
+                      style={{ flex: 0 }}
+                      onClick={handleProcessPayroll}
+                      disabled={!isAdmin || !slug || isProcessingPayroll}
+                    >
+                      {isProcessingPayroll ? "Processing..." : "Process Payroll"}
+                    </ButtonPrimary>
+                  </Row>
                 </Stack>
               )}
 

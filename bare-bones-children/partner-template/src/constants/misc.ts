@@ -44,6 +44,7 @@ export interface BareBonesConfiguration {
   onboardingManagerAddress: string;
   payrollEngineAddress: string;
   payrollManagerAddress: string;
+  payrollTreasuryAddress: string;
   hoursRuleAddress: string;
   flatRuleAddress: string;
   commissionRuleAddress: string;
@@ -107,6 +108,7 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   onboardingManagerAddress: "0x7a7d0AF1E834be52a662F0859F5374ba98cF944D",
   payrollEngineAddress: "0x8Ca648CB06204b34c393AF4823c7192E88d2ee6C",
   payrollManagerAddress: "0xA8E16A77872b5BAec35A354eBc906a0cE7C5fC97",
+  payrollTreasuryAddress: "0x3DBcFb887af1F87F094c7c0B42CA9Bb17Fd08787",
   hoursRuleAddress: "0x3D6A19d340966842278A237508677Af32734A750",
   flatRuleAddress: "0x5B9A89fd77d506827A87BaBe7C843dF61D2D99DE",
   commissionRuleAddress: "0x7C7dd4D83f083EF4A262A488e50AE1133715D453",
