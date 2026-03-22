@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { Stack, Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { Card, CardContent } from "../BasicComponents";
-import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
+import { ButtonPrimary } from "../Button/ButtonPrimary";
 import { NumberInput } from "../Inputs/NumberInput";
 import { Select, SelectOption } from "../Select";
 import type { TableRowData } from "../Table";
@@ -363,7 +363,6 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData, canEdit = f
           )}
 
           <Row gap="sm" justify="end">
-            <ButtonSecondary style={{ flex: 0 }} disabled={!canEditPayroll}>Cancel</ButtonSecondary>
             <ButtonPrimary onClick={handleConfigureRule} style={{ flex: 0 }} disabled={!canEditPayroll}>
               Save
             </ButtonPrimary>

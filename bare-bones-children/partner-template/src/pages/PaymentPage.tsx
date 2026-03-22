@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
+import { useNavigate, useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent, Input } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
 import { AddressInput } from "../components/Inputs/AddressInput";
-import { ERC20Mintable } from "../components/ERC20Mintable/ERC20Mintable";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
@@ -14,28 +14,17 @@ import { getBareBonesConfiguration } from "../constants/misc";
 import OnboardingManagerABI from "../abis/paymentPipelines/OnboardingManager.abi.json";
 import { PayrollRuleConfigurator } from "../components/PayrollRuleConfigurator";
 import { EmployeeTable } from "../components/EmployeeTable/EmployeeTable";
-
-interface Organization {
-  slug: string;
-  owner: string;
-  exists: boolean;
-}
-
-interface Employee {
-  employeeId: ethers.BigNumber;
-  organizationSlug: string;
-  role: string;
-  paymentAddress: string;
-  params: string;
-  status: number;
-}
+import { ROUTES } from "../routes";
+import type { OrganizationModel, EmployeeModel } from "../models/payments";
 
 export function PaymentPage() {
+  const { organizationId } = useParams<{ organizationId?: string }>();
+  const navigate = useNavigate();
   const { account, provider, chainId } = useWalletProvider();
   const { version } = useTxRefresh();
-  const [slug, setSlug] = useState<string>("");
-  const [orgInfo, setOrgInfo] = useState<Organization | null>(null);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [slug, setSlug] = useState<string>(organizationId ?? "");
+  const [orgInfo, setOrgInfo] = useState<OrganizationModel | null>(null);
+  const [employees, setEmployees] = useState<EmployeeModel[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -59,6 +48,20 @@ export function PaymentPage() {
       fetchOrgInfo(slug.trim());
     }
   }, [version]);
+
+  // If route contains /payments/:organizationId, preload and fetch automatically
+  useEffect(() => {
+    const slugFromRoute = (organizationId ?? "").trim();
+    if (!slugFromRoute) return;
+
+    if (slug !== slugFromRoute) {
+      setSlug(slugFromRoute);
+    }
+
+    if (provider && onboardingAddress) {
+      fetchOrgInfo(slugFromRoute);
+    }
+  }, [organizationId, provider, onboardingAddress]);
 
   // Fetch org info
   async function fetchOrgInfo(orgSlug: string) {
@@ -197,8 +200,6 @@ export function PaymentPage() {
   return (
     <PageContainer center>
       <Stack gap="lg" style={{ maxWidth: 600 }}>
-        <ERC20Mintable />
-
         <Card>
           <CardContent>
             <Stack>
@@ -228,6 +229,15 @@ export function PaymentPage() {
                     <Text.Body color={isAdmin ? "success" : "muted"}>
                       {isAdmin ? "✓ Admin Mode" : "Read Only Mode"}
                     </Text.Body>
+                    <Row gap="sm" justify="end">
+                      <ButtonSecondary
+                        style={{ flex: 0 }}
+                        onClick={() => navigate(ROUTES.PAYROLL_CURRENT(slug.trim()))}
+                        disabled={!slug.trim()}
+                      >
+                        Go to Current Payroll
+                      </ButtonSecondary>
+                    </Row>
                   </Stack>
 
                   {isAdmin && (

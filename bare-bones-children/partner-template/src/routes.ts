@@ -3,12 +3,16 @@ const ORGANIZATION_SUB_ROUTE = 'organizations'
 const VAULTS_SUB_ROUTE = 'vaults'
 const WALLETS_SUB_ROUTE = 'wallets'
 const PAYMENTS_SUB_ROUTE = 'payments'
+const PAYROLL_SUB_ROUTE = 'payroll'
+const CURRENT_SUB_ROUTE = 'current'
 
 export const ROUTES = {
   ROOT: "/",
   BASIC_WALLET: `/${BASIC_WALLET_SUB_ROUTE}`,
   DAPP_BROWSER: '/dapp-browser',
   PAYMENTS: `/${PAYMENTS_SUB_ROUTE}`,
+  PAYMENTS_ORG_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId`,
+  PAYROLL_CURRENT_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId/${PAYROLL_SUB_ROUTE}/${CURRENT_SUB_ROUTE}`,
   ORGANIZATIONS: `/${ORGANIZATION_SUB_ROUTE}`,
   ORGANIZATION_DETAIL: (organizationId: string) => `/${ORGANIZATION_SUB_ROUTE}/${organizationId}`,
   VAULTS: `/${VAULTS_SUB_ROUTE}`,
@@ -16,5 +20,7 @@ export const ROUTES = {
 
   // ✅ Navigation helper
   BASIC_WALLET_WITH_ADDRESS: (address: string) => `/${BASIC_WALLET_SUB_ROUTE}/${address}`,
+  PAYMENTS_ORG: (organizationId: string) => `/${PAYMENTS_SUB_ROUTE}/${organizationId}`,
+  PAYROLL_CURRENT: (organizationId: string) => `/${PAYMENTS_SUB_ROUTE}/${organizationId}/${PAYROLL_SUB_ROUTE}/${CURRENT_SUB_ROUTE}`,
   VAULT_DETAIL: (walletAddress: string, vaultAddress: string) =>`/${WALLETS_SUB_ROUTE}/${walletAddress}/${VAULTS_SUB_ROUTE}/${vaultAddress}`,
 } as const;
