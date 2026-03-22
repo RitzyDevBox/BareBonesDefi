@@ -5,12 +5,14 @@ import { Text } from "../Primitives/Text";
 import { Card, CardContent } from "../BasicComponents";
 import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
 import { NumberInput } from "../Inputs/NumberInput";
+import { Select, SelectOption } from "../Select";
 import type { TableRowData } from "../Table";
 import { useToastStore } from "../Toasts/useToastStore";
 import { ToastType, ToastBehavior, ToastPosition } from "../Toasts/toast.types";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
 import { getBareBonesConfiguration } from "../../constants/misc";
+import { shortAddress } from "../../utils/formatUtils";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 
 export enum PayrollPayType {
@@ -34,9 +36,10 @@ interface PayrollRuleConfiguratorProps {
   slug: string;
   employeeId: number;
   rowData: TableRowData;
+  canEdit?: boolean;
 }
 
-export function PayrollRuleConfigurator({ slug, employeeId, rowData }: PayrollRuleConfiguratorProps) {
+export function PayrollRuleConfigurator({ slug, employeeId, rowData, canEdit = false }: PayrollRuleConfiguratorProps) {
   const employeeAddress = rowData.cells.address;
   const employeeRole = rowData.cells.role;
 
@@ -62,6 +65,8 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData }: PayrollRu
 
   const isHoursThreshold = ruleType === PayrollRuleType.HoursThreshold;
   const payType = isHoursThreshold ? PayrollPayType.Hourly : PayrollPayType.Salary;
+  const isWalletConnected = Boolean(chainId && provider);
+  const canEditPayroll = canEdit && isWalletConnected;
 
   const payrollManagerInterface = useMemo(() => new ethers.utils.Interface(PayrollManagerABI as any), []);
 
@@ -209,6 +214,7 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData }: PayrollRu
   );
 
   const handleConfigureRule = async () => {
+    if (!canEditPayroll) return;
     if (!slug || !payrollManagerAddress) return;
     
     // Validate start <= end when custom hours enabled
@@ -250,29 +256,36 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData }: PayrollRu
     <Card style={{ backgroundColor: "var(--colors-background)", border: "1px solid var(--colors-border)" }}>
       <CardContent>
         <Stack gap="md">
-          <Text.Label>Configure Payroll Rule</Text.Label>
+          {!canEditPayroll && (
+            <Row gap="xs" align="center">
+              <Text.Body size="xs" color="warn">
+                ⚠️ Read Only: Only Organization Owner
+              </Text.Body>
+            </Row>
+          )}
+
+          <Text.Title align="left" size="sm">Configure Payroll Rule</Text.Title>
 
           <Stack>
-            <Text.Body size="sm" color="muted">
-              Employee: <strong>{employeeAddress}</strong>
+            <Text.Body color="muted">
+              Employee: <strong>{shortAddress(employeeAddress)}</strong>
             </Text.Body>
-            <Text.Body size="sm" color="muted">
+            <Text.Body color="muted">
               Role: <strong>{employeeRole}</strong>
             </Text.Body>
           </Stack>
 
           <Stack>
             <Text.Label style={{ fontSize: "0.875rem" }}>Rule</Text.Label>
-            <Row gap="md">
-              <select
-                value={ruleType}
-                onChange={(e) => setRuleType(e.target.value as PayrollRuleType)}
-                style={{ width: "100%", padding: "var(--spacing-md)", borderRadius: "var(--radius-md)", border: "1px solid var(--colors-border)" }}
-              >
-                <option value={PayrollRuleType.HoursThreshold}>Hours Threshold</option>
-                <option value={PayrollRuleType.FlatAmount}>Flat Amount</option>
-              </select>
-            </Row>
+            <Select
+              value={ruleType}
+              onChange={setRuleType}
+              style={{ width: "100%" }}
+              disabled={!canEditPayroll}
+            >
+              <SelectOption value={PayrollRuleType.HoursThreshold} label="Hours Threshold" />
+              <SelectOption value={PayrollRuleType.FlatAmount} label="Flat Amount" />
+            </Select>
           </Stack>
 
           <Stack>
@@ -282,6 +295,7 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData }: PayrollRu
               onChange={(e) => setRate((e.target as HTMLInputElement).value)}
               placeholder="e.g. 20"
               allowDecimal
+              disabled={!canEditPayroll}
             />
           </Stack>
 
@@ -293,6 +307,7 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData }: PayrollRu
                 onChange={(e) => setDefaultHours((e.target as HTMLInputElement).value)}
                 placeholder="e.g. 40"
                 allowDecimal={false}
+                disabled={!canEditPayroll}
               />
             </Stack>
           )}
@@ -304,6 +319,7 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData }: PayrollRu
                   <input
                     type="checkbox"
                     checked={enableCustomHours}
+                    disabled={!canEditPayroll}
                     onChange={(e) => {
                       const newValue = e.target.checked;
                       setEnableCustomHours(newValue);
@@ -314,7 +330,7 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData }: PayrollRu
                       }
                     }}
                   />
-                  <Text.Body size="sm">Configure Active Hour Bounds</Text.Body>
+                  <Text.Body>Configure Active Hour Bounds</Text.Body>
                 </label>
               </Stack>
 
@@ -327,6 +343,7 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData }: PayrollRu
                       onChange={(e) => setHoursStart((e.target as HTMLInputElement).value)}
                       placeholder="0"
                       allowDecimal={false}
+                      disabled={!canEditPayroll}
                     />
                   </Stack>
 
@@ -337,6 +354,7 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData }: PayrollRu
                       onChange={(e) => setHoursEnd((e.target as HTMLInputElement).value)}
                       placeholder="uint256.max"
                       allowDecimal={false}
+                      disabled={!canEditPayroll}
                     />
                   </Stack>
                 </Stack>
@@ -345,9 +363,9 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData }: PayrollRu
           )}
 
           <Row gap="sm" justify="end">
-            <ButtonSecondary style={{ flex: 0 }}>Cancel</ButtonSecondary>
-            <ButtonPrimary onClick={handleConfigureRule} style={{ flex: 0 }}>
-              Save Rule
+            <ButtonSecondary style={{ flex: 0 }} disabled={!canEditPayroll}>Cancel</ButtonSecondary>
+            <ButtonPrimary onClick={handleConfigureRule} style={{ flex: 0 }} disabled={!canEditPayroll}>
+              Save
             </ButtonPrimary>
           </Row>
         </Stack>

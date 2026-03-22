@@ -12,8 +12,8 @@ import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
 import OnboardingManagerABI from "../abis/paymentPipelines/OnboardingManager.abi.json";
-import { Table } from "../components/Table";
 import { PayrollRuleConfigurator } from "../components/PayrollRuleConfigurator";
+import { EmployeeTable } from "../components/EmployeeTable/EmployeeTable";
 
 interface Organization {
   slug: string;
@@ -38,10 +38,6 @@ export function PaymentPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-
-  // New employee form
-  const [newEmployeeRole, setNewEmployeeRole] = useState<string>("");
-  const [newEmployeeAddress, setNewEmployeeAddress] = useState<string>("");
 
   // Transfer ownership form
   const [newOwner, setNewOwner] = useState<string>("");
@@ -192,14 +188,6 @@ export function PaymentPage() {
     registerOrg(chainId, slug.trim());
   }
 
-  async function handleOnboardEmployee() {
-    if (!newEmployeeRole.trim() || !newEmployeeAddress.trim() || !chainId)
-      return;
-    await onboardEmployee(chainId, slug.trim(), newEmployeeRole.trim(), newEmployeeAddress.trim());
-    setNewEmployeeRole("");
-    setNewEmployeeAddress("");
-  }
-
   async function handleTransferOwnership() {
     if (!newOwner.trim() || !chainId) return;
     await transferOwnership(chainId, slug.trim(), newOwner.trim());
@@ -259,27 +247,6 @@ export function PaymentPage() {
                     </Stack>
                   )}
 
-                  {orgInfo.exists && isAdmin && (
-                    <Stack>
-                      <Text.Label>Add Employee</Text.Label>
-                      <Stack>
-                        <Input
-                          value={newEmployeeRole}
-                          onChange={(e) => setNewEmployeeRole(e.target.value)}
-                          placeholder="Role (e.g., DEV)"
-                        />
-                        <AddressInput
-                          value={newEmployeeAddress}
-                          onChange={(e) => setNewEmployeeAddress((e.target as HTMLInputElement).value)}
-                          placeholder="0x…"
-                        />
-                        <ButtonPrimary onClick={handleOnboardEmployee}>
-                          Add Employee
-                        </ButtonPrimary>
-                      </Stack>
-                    </Stack>
-                  )}
-
                   {!orgInfo.exists && (
                     <ButtonPrimary onClick={handleRegisterOrg}>
                       Create Organization
@@ -287,44 +254,28 @@ export function PaymentPage() {
                   )}
 
                   {employees.length > 0 && (
-                    <Stack>
-                      <Text.Label>Employees ({employees.length})</Text.Label>
-                      <Table
-                        columns={[
-                          {
-                            key: "id",
-                            header: "ID",
-                          },
-                          {
-                            key: "role",
-                            header: "Role",
-                          },
-                          {
-                            key: "address",
-                            header: "Address",
-                            render: (value: string) => (
-                              <span style={{ wordBreak: "break-all" }}>{value}</span>
-                            )
-                          },
-                        ]}
-                        data={employees.map((emp) => ({
-                          id: emp.employeeId.toString(),
-                          cells: {
-                            id: emp.employeeId.toNumber(),
-                            role: ethers.utils.parseBytes32String(emp.role),
-                            address: emp.paymentAddress,
-                          },
-                          expandedContent: (rowData) => (
-                            <PayrollRuleConfigurator
-                              slug={slug}
-                              employeeId={emp.employeeId.toNumber()}
-                              rowData={rowData}
-                            />
-                          ),
-                        }))}
-                        showSearch={false}
-                      />
-                    </Stack>
+                    <EmployeeTable
+                      employees={employees}
+                      searchEnabled={true}
+                      renderExpandedRow={(emp, rowData) => (
+                        <PayrollRuleConfigurator
+                          slug={slug}
+                          employeeId={emp.employeeId.toNumber()}
+                          rowData={rowData}
+                          canEdit={isAdmin}
+                        />
+                      )}
+                      onAddEmployee={
+                        isAdmin
+                          ? {
+                              onSubmit: async (role, address) => {
+                                await onboardEmployee(chainId!, slug, role, address);
+                              },
+                              loading: false,
+                            }
+                          : undefined
+                      }
+                    />
                   )}
                 </>
               )}

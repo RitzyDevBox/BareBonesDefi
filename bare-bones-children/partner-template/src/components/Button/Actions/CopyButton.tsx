@@ -17,7 +17,8 @@ export function CopyButton({
       size="sm"
       aria-label={ariaLabel}
       disabled={disabled}
-      onClick={() => {
+      onClick={(e) => {
+        e.stopPropagation();
         if (!value) return;
         navigator.clipboard.writeText(value);
       }}

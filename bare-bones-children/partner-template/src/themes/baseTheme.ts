@@ -33,8 +33,28 @@ export const baseTheme = {
   },
 
   textStyles: {
-    title: { fontSize: "20px", fontWeight: 600 },
-    label: { fontSize: "14px", fontWeight: 500 },
-    body: { fontSize: "14px" },
+    title: {
+      fontSize: "20px",
+      fontWeight: 600,
+      xs: { fontSize: "12px" },
+      sm: { fontSize: "14px" },
+      md: { fontSize: "18px" },
+      lg: { fontSize: "24px" },
+    },
+    label: {
+      fontSize: "14px",
+      fontWeight: 500,
+      xs: { fontSize: "10px" },
+      sm: { fontSize: "12px" },
+      md: { fontSize: "14px" },
+      lg: { fontSize: "16px" },
+    },
+    body: {
+      fontSize: "14px",
+      xs: { fontSize: "10px" },
+      sm: { fontSize: "12px" },
+      md: { fontSize: "14px" },
+      lg: { fontSize: "16px" },
+    },
   },
 };

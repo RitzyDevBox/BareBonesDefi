@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Stack } from "../Primitives";
-import { Text } from "../Primitives/Text";
 import type { TableRowData, TableColumn } from "./Table";
 
 interface TableRowProps {
@@ -69,10 +68,14 @@ export function TableRow({
             key={idx}
             style={{
               padding: "var(--spacing-sm)",
+              maxWidth: "250px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              color: "var(--colors-text-main)",
               ...cellStyle,
             }}
           >
-            <Text.Body size="sm">{cell}</Text.Body>
+            {React.isValidElement(cell) ? cell : cell as React.ReactNode}
           </td>
         ))}
       </tr>
@@ -80,7 +83,6 @@ export function TableRow({
         <tr
           style={{
             borderBottom: "1px solid var(--colors-border)",
-            backgroundColor: "var(--colors-background)",
           }}
         >
           <td colSpan={cells.length + 1} style={{ padding: "var(--spacing-md)" }}>
