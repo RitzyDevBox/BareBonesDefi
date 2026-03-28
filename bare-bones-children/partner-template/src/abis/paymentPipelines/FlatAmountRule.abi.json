@@ -14,7 +14,7 @@
             "internalType": "address"
           },
           {
-            "name": "hoursWorked",
+            "name": "employeeId",
             "type": "uint256",
             "internalType": "uint256"
           },

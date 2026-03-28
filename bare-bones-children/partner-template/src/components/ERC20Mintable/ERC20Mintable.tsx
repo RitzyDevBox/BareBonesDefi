@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ethers } from "ethers";
 import MockERC20ABI from "../../abis/paymentPipelines/MockERC20.abi.json";
 import { Card, CardContent } from "../BasicComponents";

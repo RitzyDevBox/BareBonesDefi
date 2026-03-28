@@ -4,17 +4,17 @@
     "name": "compute",
     "inputs": [
       {
-        "name": "ctx",
+        "name": "",
         "type": "tuple",
         "internalType": "struct SimplePayrollEngine.PayrollContext",
         "components": [
           {
-            "name": "employee",
+            "name": "payee",
             "type": "address",
             "internalType": "address"
           },
           {
-            "name": "hoursWorked",
+            "name": "payeeId",
             "type": "uint256",
             "internalType": "uint256"
           },
@@ -42,6 +42,11 @@
                 "name": "config",
                 "type": "bytes",
                 "internalType": "bytes"
+              },
+              {
+                "name": "runData",
+                "type": "bytes",
+                "internalType": "bytes"
               }
             ]
           }
@@ -54,6 +59,11 @@
       },
       {
         "name": "config",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "runData",
         "type": "bytes",
         "internalType": "bytes"
       }

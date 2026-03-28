@@ -112,7 +112,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "employee",
+        "name": "payee",
         "type": "address",
         "internalType": "address"
       },
@@ -192,7 +192,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "employee",
+        "name": "payee",
         "type": "address",
         "indexed": true,
         "internalType": "address"
