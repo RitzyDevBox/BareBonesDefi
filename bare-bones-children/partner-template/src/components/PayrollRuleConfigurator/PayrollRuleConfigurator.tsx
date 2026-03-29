@@ -34,14 +34,14 @@ export interface EarningsCode {
 
 interface PayrollRuleConfiguratorProps {
   slug: string;
-  employeeId: number;
+  payeeId: number;
   rowData: TableRowData;
   canEdit?: boolean;
 }
 
-export function PayrollRuleConfigurator({ slug, employeeId, rowData, canEdit = false }: PayrollRuleConfiguratorProps) {
-  const employeeAddress = rowData.cells.address;
-  const employeeRole = rowData.cells.role;
+export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = false }: PayrollRuleConfiguratorProps) {
+  const payeeAddress = rowData.cells.address;
+  const payeeRole = rowData.cells.role;
 
   const { showToast } = useToastStore();
   const { chainId, provider } = useWalletProvider();
@@ -64,7 +64,6 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData, canEdit = f
   const [hoursEnd, setHoursEnd] = useState<string>(ethers.constants.MaxUint256.toString());
 
   const isHoursThreshold = ruleType === PayrollRuleType.HoursThreshold;
-  const payType = isHoursThreshold ? PayrollPayType.Hourly : PayrollPayType.Salary;
   const isWalletConnected = Boolean(chainId && provider);
   const canEditPayroll = canEdit && isWalletConnected;
 
@@ -81,14 +80,13 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData, canEdit = f
         const contract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
         const slugBytes = ethers.utils.formatBytes32String(slug);
 
-        const payrollStateResult = await contract.payrollState(slugBytes, employeeId);
+        const page = await contract.getEmployeesWithDefaults(slugBytes, 0, 500);
+        const rows: any[] = page?.rows ?? page?.[0] ?? [];
+        const payee = rows.find((row) => Number(row.payeeId?.toString?.() ?? "0") === payeeId);
+        const earnings: any[] = payee?.earnings ?? [];
 
-        const exists = payrollStateResult.exists;
-        const defaultHoursValue = payrollStateResult.defaultHoursPerPeriod;
-        const earnings: any[] = payrollStateResult.earnings;
-
-        if (exists) {
-          setDefaultHours(defaultHoursValue.toString());
+        if (payee) {
+          setDefaultHours("40");
 
           // Prefer rule-based inference (ignore payType from contract for now)
           let appliedRuleType = PayrollRuleType.HoursThreshold;
@@ -102,7 +100,7 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData, canEdit = f
 
               if (ruleAddr.toLowerCase() === (config?.hoursRuleAddress ?? "").toLowerCase()) {
                 appliedRuleType = PayrollRuleType.HoursThreshold;
-              } else if (ruleAddr.toLowerCase() === (config?.flatRuleAddress ?? "").toLowerCase()) {
+              } else if (ruleAddr.toLowerCase() === (config?.oneTimePaymentAddress ?? "").toLowerCase()) {
                 appliedRuleType = PayrollRuleType.FlatAmount;
               } else {
                 appliedRuleType = PayrollRuleType.HoursThreshold;
@@ -151,10 +149,10 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData, canEdit = f
     };
 
     loadPayrollState();
-  }, [chainId, provider, payrollManagerAddress, slug, employeeId, config?.hoursRuleAddress, config?.flatRuleAddress]);
+  }, [chainId, provider, payrollManagerAddress, slug, payeeId, config?.hoursRuleAddress, config?.oneTimePaymentAddress]);
 
   const buildConfigurePayrollTx = React.useCallback(
-    (_chainId: number, slugInput: string, employeeIdInput: number) => {
+    async (_chainId: number, slugInput: string, payeeIdInput: number) => {
       if (!payrollManagerAddress) {
         throw new Error("Payroll manager address is not configured");
       }
@@ -166,14 +164,12 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData, canEdit = f
         ruleType === PayrollRuleType.HoursThreshold
           ? config?.hoursRuleAddress
           : ruleType === PayrollRuleType.FlatAmount
-          ? config?.flatRuleAddress
+          ? config?.oneTimePaymentAddress
           : config?.commissionRuleAddress;
 
       if (!earningsRule) {
         throw new Error("Earnings rule contract address missing");
       }
-
-      const defaultHoursValue = isHoursThreshold ? Number(defaultHours) || 0 : 0;
 
       let encodedConfig = "0x";
       if (ruleType === PayrollRuleType.HoursThreshold) {
@@ -187,14 +183,41 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData, canEdit = f
         encodedConfig = "0x";
       }
 
+      const readContract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
+      let cursor = 0;
+      let selectedEarningsCodeId: ethers.BigNumberish | null = null;
+      while (selectedEarningsCodeId === null) {
+        const page = await readContract.getOrganizationEarningsCodes(slugBytes, cursor, 100);
+        const rows: any[] = page?.rows ?? page?.[0] ?? [];
+        const hasMore = Boolean(page?.hasMore ?? page?.[1]);
+
+        const match = rows.find(
+          (row) =>
+            String(row.rule || "").toLowerCase() === String(earningsRule).toLowerCase()
+        );
+
+        if (match) {
+          selectedEarningsCodeId = match.earningsCodeId;
+          break;
+        }
+
+        if (!hasMore || rows.length === 0) {
+          break;
+        }
+
+        cursor += rows.length;
+      }
+
+      if (selectedEarningsCodeId == null) {
+        throw new Error("No earnings code found for selected rule");
+      }
+
       const encoded = payrollManagerInterface.encodeFunctionData(
-        "configureEmployeePayroll",
+        "configurePayeePayroll",
         [
           slugBytes,
-          employeeIdInput,
-          payType,
-          defaultHoursValue,
-          [{ rule: earningsRule, rate: parsedRate, config: encodedConfig }],
+          payeeIdInput,
+          [{ earningsCodeId: selectedEarningsCodeId, rate: parsedRate, runData: encodedConfig }],
         ]
       );
 
@@ -209,8 +232,8 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData, canEdit = f
 
   const configurePayroll = useExecuteRawTx(
     buildConfigurePayrollTx,
-    (_: number, slugInput: string, employeeIdInput: number) =>
-      `Payroll configured for employee ${employeeIdInput} (${employeeAddress}, ${employeeRole}, ${slugInput})`
+    (_: number, slugInput: string, payeeIdInput: number) =>
+      `Payroll configured for payee ${payeeIdInput} (${payeeAddress}, ${payeeRole}, ${slugInput})`
   );
 
   const handleConfigureRule = async () => {
@@ -236,7 +259,7 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData, canEdit = f
       }
     }
     
-    await configurePayroll(Number(chainId), slug, employeeId);
+    await configurePayroll(Number(chainId), slug, payeeId);
   };
 
   if (isLoadingPayrollState) {
@@ -244,7 +267,7 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData, canEdit = f
       <Card style={{ backgroundColor: "var(--colors-background)", border: "1px solid var(--colors-border)" }}>
         <CardContent>
           <Stack gap="md">
-            <Text.Label>Loading employee payroll config...</Text.Label>
+            <Text.Label>Loading payee payroll config...</Text.Label>
             <Text.Body size="sm" color="muted">Fetching existing state from PayrollManager...</Text.Body>
           </Stack>
         </CardContent>
@@ -268,10 +291,10 @@ export function PayrollRuleConfigurator({ slug, employeeId, rowData, canEdit = f
 
           <Stack>
             <Text.Body color="muted">
-              Employee: <strong>{shortAddress(employeeAddress)}</strong>
+              Payee: <strong>{shortAddress(payeeAddress)}</strong>
             </Text.Body>
             <Text.Body color="muted">
-              Role: <strong>{employeeRole}</strong>
+              Role: <strong>{payeeRole}</strong>
             </Text.Body>
           </Stack>
 

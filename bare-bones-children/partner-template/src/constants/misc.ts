@@ -46,7 +46,7 @@ export interface BareBonesConfiguration {
   payrollManagerAddress: string;
   payrollTreasuryAddress: string;
   hoursRuleAddress: string;
-  flatRuleAddress: string;
+  oneTimePaymentAddress: string;
   commissionRuleAddress: string;
   salaryPerSecondRuleAddress: string;
 }
@@ -120,10 +120,10 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   payrollManagerAddress: "0xd85236FBe722158c98100EFe0bB626A13962242d",
   payrollTreasuryAddress: "0x40a7e1a0bec5c35bf44a144b8364a6e9b339b017",
   hoursRuleAddress: "0x4D2c4C35A9956e2465A9C46d1E75d9dc13649119",
-  flatRuleAddress: "0xbE487A0B83848c9256864c8b1D97a857ba6B9c3a",
+  oneTimePaymentAddress: "0xbE487A0B83848c9256864c8b1D97a857ba6B9c3a",
   commissionRuleAddress: "0x05116ee77320a7e3207Db2441a6731CB32440C92",
   salaryPerSecondRuleAddress: "0x1aDEE34fa2259a587510111aBD960AaAeFE5161c",
-  
+
 } as const;
 
 export const BARE_BONES_CHAIN_OVERRIDES: Partial<

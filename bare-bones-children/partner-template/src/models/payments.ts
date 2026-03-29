@@ -6,8 +6,8 @@ export interface OrganizationModel {
   exists: boolean;
 }
 
-export interface EmployeeModel {
-  employeeId: BigNumber;
+export interface PayeeModel {
+  payeeId: BigNumber;
   organizationSlug: string;
   role: string;
   paymentAddress: string;
