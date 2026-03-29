@@ -1,26 +1,27 @@
 import { useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { Card, CardContent, Input } from "../BasicComponents";
 import { Stack, Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
-import { ButtonPrimary } from "../Button/ButtonPrimary";
+import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
 import { NumberInput } from "../Inputs/NumberInput";
 import { Select, SelectOption } from "../Select";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
 import { getBareBonesConfiguration } from "../../constants/misc";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
-import type { PayeeModel } from "../../models/payments";
-import type { OrganizationEarningsCodeView } from "../../utils/payroll/fetchPayrollViews";
 
 type RuleType = "hourly" | "oneTime" | "salary";
-type HourlyMode = "base" | "overtime";
+const UINT32_MAX_NUM = 4294967295;
+
+interface HourlyBandRow {
+  maxHours: string;
+  multiplier: string;
+  isRemaining: boolean;
+}
 
 interface PayrollEarningsManagerProps {
   slug: string;
   canEdit: boolean;
-  payees: PayeeModel[];
-  organizationEarningsCodes: OrganizationEarningsCodeView[];
 }
 
 function parseUint(value: string, fallback = 0) {
@@ -28,11 +29,15 @@ function parseUint(value: string, fallback = 0) {
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : fallback;
 }
 
+function parseMultiplierToBps(value: string, fallback = 10_000) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Math.max(0, Math.floor(n * 10_000));
+}
+
 export function PayrollEarningsManager({
   slug,
   canEdit,
-  payees,
-  organizationEarningsCodes,
 }: PayrollEarningsManagerProps) {
   const { chainId } = useWalletProvider();
 
@@ -48,24 +53,107 @@ export function PayrollEarningsManager({
   );
 
   const [ruleType, setRuleType] = useState<RuleType>("hourly");
-  const [hourlyMode, setHourlyMode] = useState<HourlyMode>("overtime");
-  const [hourCap, setHourCap] = useState("40");
-  const [baseMultiplierBps, setBaseMultiplierBps] = useState("10000");
-  const [otMultiplierBps, setOtMultiplierBps] = useState("15000");
+  const [hourlyBands, setHourlyBands] = useState<HourlyBandRow[]>([
+    { maxHours: "40", multiplier: "1", isRemaining: false },
+    { maxHours: UINT32_MAX_NUM.toString(), multiplier: "1.5", isRemaining: true },
+  ]);
   const [salaryPeriodDays, setSalaryPeriodDays] = useState("7");
 
-  const [selectedPayeeId, setSelectedPayeeId] = useState<string>("");
-  const [selectedEarningsCodeId, setSelectedEarningsCodeId] = useState<string>("");
-  const [assignmentRate, setAssignmentRate] = useState<string>("0");
-  const [assignmentHoursWorked, setAssignmentHoursWorked] = useState<string>("40");
+  function normalizeRemainingBands(rows: HourlyBandRow[]) {
+    return rows.map((row, i) => ({
+      ...row,
+      isRemaining: row.isRemaining && i === rows.length - 1,
+    }));
+  }
 
-  const selectedCode = useMemo(
-    () =>
-      organizationEarningsCodes.find(
-        (row) => row.earningsCodeId.toString() === selectedEarningsCodeId
-      ) ?? null,
-    [organizationEarningsCodes, selectedEarningsCodeId]
-  );
+  function minimumAllowedMaxHours(rows: HourlyBandRow[], index: number) {
+    if (index <= 0) return 0;
+    const prior = parseUint(rows[index - 1].maxHours, 0);
+    return Math.min(UINT32_MAX_NUM, prior + 1);
+  }
+
+  function updateHourlyBand(index: number, key: keyof HourlyBandRow, value: string) {
+    setHourlyBands((prev) => {
+      if (key === "isRemaining") {
+        const checked = value === "true";
+        const isLast = index === prev.length - 1;
+
+        if (!isLast) {
+          return normalizeRemainingBands(prev);
+        }
+
+        const next = prev.map((row, i) => {
+          if (i !== index) {
+            return { ...row, isRemaining: false };
+          }
+
+          if (checked) {
+            return { ...row, isRemaining: true, maxHours: UINT32_MAX_NUM.toString() };
+          }
+
+          return { ...row, isRemaining: false, maxHours: UINT32_MAX_NUM.toString() };
+        });
+
+        return normalizeRemainingBands(next);
+      }
+
+      if (key === "maxHours") {
+        // Let users type freely (including temporary empty value).
+        // Final validation/clamping is applied on blur.
+        return normalizeRemainingBands(
+          prev.map((row, i) =>
+            i === index ? { ...row, maxHours: value } : row
+          )
+        );
+      }
+
+      return normalizeRemainingBands(
+        prev.map((row, i) => (i === index ? { ...row, [key]: value } : row))
+      );
+    });
+  }
+
+  function commitHourlyBandMaxHours(index: number) {
+    setHourlyBands((prev) => {
+      const minAllowed = minimumAllowedMaxHours(prev, index);
+      const parsed = parseUint(prev[index]?.maxHours ?? "", minAllowed);
+      const clamped = Math.max(minAllowed, Math.min(UINT32_MAX_NUM, parsed));
+
+      const next = prev.map((row, i) =>
+        i === index ? { ...row, maxHours: String(clamped) } : { ...row }
+      );
+
+      // Cascade constraints to following bands.
+      for (let i = index + 1; i < next.length; i += 1) {
+        if (next[i].isRemaining) {
+          next[i].maxHours = UINT32_MAX_NUM.toString();
+          continue;
+        }
+
+        const prior = parseUint(next[i - 1].maxHours, 0);
+        const current = parseUint(next[i].maxHours, prior + 1);
+        if (current <= prior) {
+          next[i].maxHours = String(Math.min(UINT32_MAX_NUM, prior + 1));
+        }
+      }
+
+      return normalizeRemainingBands(next);
+    });
+  }
+
+  function addHourlyBand() {
+    setHourlyBands((prev) => {
+      const next = prev.map((row) => ({ ...row, isRemaining: false }));
+      return [...next, { maxHours: UINT32_MAX_NUM.toString(), multiplier: "1", isRemaining: true }];
+    });
+  }
+
+  function removeHourlyBand(index: number) {
+    setHourlyBands((prev) => {
+      if (prev.length <= 1) return prev;
+      return normalizeRemainingBands(prev.filter((_, i) => i !== index));
+    });
+  }
 
   const buildRegisterCodeTx = async (_chainId: number, orgSlug: string) => {
     if (!payrollManagerAddress || !config) {
@@ -84,14 +172,20 @@ export function PayrollEarningsManager({
     let encodedConfig = "0x";
 
     if (ruleType === "hourly") {
-      const cap = parseUint(hourCap, 40);
-      const baseBps = parseUint(baseMultiplierBps, 10_000);
-      const otBps = parseUint(otMultiplierBps, 15_000);
+      let priorCap = -1;
+      const flattenedBands = hourlyBands.flatMap((row, idx) => {
+        const fallbackCap = idx === hourlyBands.length - 1 ? UINT32_MAX_NUM : 40;
+        const isRemaining = row.isRemaining && idx === hourlyBands.length - 1;
+        let maxHours = isRemaining ? UINT32_MAX_NUM : parseUint(row.maxHours, fallbackCap);
+        if (maxHours <= priorCap) {
+          maxHours = Math.min(UINT32_MAX_NUM, priorCap + 1);
+        }
+        const multiplierBps = parseMultiplierToBps(row.multiplier, 10_000);
+        priorCap = maxHours;
+        return [maxHours, multiplierBps];
+      });
 
-      const bands =
-        hourlyMode === "overtime"
-          ? [cap, baseBps, 4294967295, otBps]
-          : [cap, baseBps];
+      const bands = flattenedBands.length > 0 ? flattenedBands : [40, 10000];
 
       encodedConfig = ethers.utils.defaultAbiCoder.encode(["uint32[]"], [bands]);
     } else if (ruleType === "salary") {
@@ -115,228 +209,189 @@ export function PayrollEarningsManager({
       `Registered ${ruleType} earnings code for ${orgSlug}`
   );
 
-  const buildAssignCodeToPayeeTx = async (
-    _chainId: number,
-    orgSlug: string,
-    payeeIdRaw: string,
-    earningsCodeIdRaw: string
-  ) => {
-    if (!payrollManagerAddress) {
-      throw new Error("Payroll manager config missing");
-    }
-
-    const slugBytes = ethers.utils.formatBytes32String(orgSlug);
-    const payeeId = ethers.BigNumber.from(payeeIdRaw);
-    const earningsCodeId = ethers.BigNumber.from(earningsCodeIdRaw);
-
-    const rate = ethers.utils.parseEther(assignmentRate || "0");
-
-    const isHourlyCode =
-      selectedCode &&
-      config &&
-      selectedCode.rule.toLowerCase() === config.hoursRuleAddress.toLowerCase();
-
-    const runData = isHourlyCode
-      ? ethers.utils.defaultAbiCoder.encode(["uint32"], [parseUint(assignmentHoursWorked, 40)])
-      : "0x";
-
-    return {
-      to: payrollManagerAddress,
-      data: payrollManagerInterface.encodeFunctionData("configurePayeePayroll", [
-        slugBytes,
-        payeeId,
-        [{ earningsCodeId, rate, runData }],
-      ]),
-    } as any;
-  };
-
-  const assignCodeToPayee = useExecuteRawTx(
-    buildAssignCodeToPayeeTx,
-    (_: number, orgSlug: string, payeeIdRaw: string, earningsCodeIdRaw: string) =>
-      `Configured payee ${payeeIdRaw} with earnings code ${earningsCodeIdRaw} for ${orgSlug}`
-  );
-
   const canRegister = Boolean(canEdit && slug && payrollManagerAddress);
-  const canAssign = Boolean(
-    canEdit &&
-      slug &&
-      payrollManagerAddress &&
-      selectedPayeeId &&
-      selectedEarningsCodeId
-  );
 
   return (
-    <Card>
-      <CardContent>
-        <Stack gap="md">
-          <Text.Title align="left" size="sm">Payroll Earnings Management</Text.Title>
+    <Stack gap="sm">
+      <Text.Title align="left" size="sm">Payroll Earnings</Text.Title>
 
-          <Card style={{ border: "1px solid var(--colors-border)" }}>
-            <CardContent>
-              <Stack gap="sm">
-                <Text.Label>1) Register Organization Earnings Code</Text.Label>
+      <Stack
+        gap="sm"
+        style={{
+          border: "1px solid var(--colors-border)",
+          borderRadius: "var(--radius-md)",
+          padding: "var(--spacing-md)",
+          backgroundColor: "var(--colors-surface)",
+        }}
+      >
+        <Stack>
+          <Text.Body size="sm" color="muted">Rule Type</Text.Body>
+          <Select<RuleType>
+            value={ruleType}
+            onChange={setRuleType}
+            disabled={!canEdit}
+          >
+            <SelectOption value="hourly" label="Hourly" />
+            <SelectOption value="oneTime" label="One-Time Payment" />
+            <SelectOption value="salary" label="Salary" />
+          </Select>
+        </Stack>
 
-                <Stack>
-                  <Text.Body size="sm" color="muted">Rule Type</Text.Body>
-                  <Select<RuleType>
-                    value={ruleType}
-                    onChange={setRuleType}
-                    disabled={!canEdit}
+        {ruleType === "hourly" && (
+          <Stack gap="sm">
+            <Text.Body size="sm" color="muted">
+              Bands use decimal multipliers (example: 1.5 for overtime).
+            </Text.Body>
+
+            <Stack
+              gap="xs"
+              style={{
+                border: "1px solid var(--colors-border)",
+                borderRadius: "var(--radius-md)",
+                padding: "var(--spacing-sm)",
+              }}
+            >
+              {hourlyBands.map((band, index) => (
+                <Row
+                  key={`hourly-band-${index}`}
+                  gap="sm"
+                  wrap
+                  align="end"
+                  style={{
+                    position: "relative",
+                    paddingBottom: "var(--spacing-xs)",
+                    paddingRight: "34px",
+                    borderBottom:
+                      index === hourlyBands.length - 1
+                        ? "none"
+                        : "1px dashed var(--colors-border)",
+                  }}
+                >
+                  <button
+                    aria-label="Delete band"
+                    type="button"
+                    disabled={!canEdit || hourlyBands.length <= 1}
+                    onClick={() => removeHourlyBand(index)}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      right: 0,
+                      width: 24,
+                      height: 24,
+                      borderRadius: 999,
+                      border: "1px solid var(--colors-border)",
+                      background: "var(--colors-background)",
+                      color: "var(--colors-text)",
+                      cursor: !canEdit || hourlyBands.length <= 1 ? "not-allowed" : "pointer",
+                      lineHeight: 1,
+                      fontSize: 14,
+                    }}
                   >
-                    <SelectOption value="hourly" label="Hourly" />
-                    <SelectOption value="oneTime" label="One-Time Payment" />
-                    <SelectOption value="salary" label="Salary" />
-                  </Select>
-                </Stack>
+                    ×
+                  </button>
 
-                {ruleType === "hourly" && (
-                  <Stack gap="sm">
-                    <Stack>
-                      <Text.Body size="sm" color="muted">Hourly Config Mode</Text.Body>
-                      <Select<HourlyMode>
-                        value={hourlyMode}
-                        onChange={setHourlyMode}
-                        disabled={!canEdit}
-                      >
-                        <SelectOption value="overtime" label="Overtime Bands" />
-                        <SelectOption value="base" label="Base Only" />
-                      </Select>
-                    </Stack>
-
-                    <Row gap="sm" wrap>
-                      <Stack style={{ flex: 1, minWidth: 120 }}>
-                        <Text.Body size="sm" color="muted">Cap Hours</Text.Body>
-                        <NumberInput value={hourCap} onChange={(e) => setHourCap((e.target as HTMLInputElement).value)} allowDecimal={false} disabled={!canEdit} />
-                      </Stack>
-                      <Stack style={{ flex: 1, minWidth: 120 }}>
-                        <Text.Body size="sm" color="muted">Base BPS</Text.Body>
-                        <NumberInput value={baseMultiplierBps} onChange={(e) => setBaseMultiplierBps((e.target as HTMLInputElement).value)} allowDecimal={false} disabled={!canEdit} />
-                      </Stack>
-                      {hourlyMode === "overtime" && (
-                        <Stack style={{ flex: 1, minWidth: 120 }}>
-                          <Text.Body size="sm" color="muted">OT BPS</Text.Body>
-                          <NumberInput value={otMultiplierBps} onChange={(e) => setOtMultiplierBps((e.target as HTMLInputElement).value)} allowDecimal={false} disabled={!canEdit} />
-                        </Stack>
-                      )}
-                    </Row>
-                  </Stack>
-                )}
-
-                {ruleType === "salary" && (
-                  <Stack style={{ maxWidth: 220 }}>
-                    <Text.Body size="sm" color="muted">Salary Period (days)</Text.Body>
+                  <Stack style={{ flex: 1, minWidth: 140 }}>
+                    <Text.Body size="sm" color="muted">Multiplier</Text.Body>
                     <NumberInput
-                      value={salaryPeriodDays}
-                      onChange={(e) => setSalaryPeriodDays((e.target as HTMLInputElement).value)}
-                      allowDecimal={false}
+                      value={band.multiplier}
+                      onChange={(e) => updateHourlyBand(index, "multiplier", (e.target as HTMLInputElement).value)}
+                      allowDecimal
                       disabled={!canEdit}
                     />
                   </Stack>
-                )}
 
-                {ruleType === "oneTime" && (
-                  <Text.Body size="sm" color="muted">
-                    One-Time rule uses empty config bytes.
-                  </Text.Body>
-                )}
-
-                <Row justify="end">
-                  <ButtonPrimary
-                    style={{ flex: 0 }}
-                    disabled={!canRegister}
-                    onClick={() => registerEarningsCode(chainId!, slug)}
-                  >
-                    Register Earnings Code
-                  </ButtonPrimary>
-                </Row>
-              </Stack>
-            </CardContent>
-          </Card>
-
-          <Card style={{ border: "1px solid var(--colors-border)" }}>
-            <CardContent>
-              <Stack gap="sm">
-                <Text.Label>2) Assign Earnings Code to Payee</Text.Label>
-
-                <Stack>
-                  <Text.Body size="sm" color="muted">Payee</Text.Body>
-                  <Select<string>
-                    value={selectedPayeeId || null}
-                    onChange={(v) => setSelectedPayeeId(String(v))}
-                    disabled={!canEdit}
-                  >
-                    {payees.map((payee) => (
-                      <SelectOption
-                        key={payee.payeeId.toString()}
-                        value={payee.payeeId.toString()}
-                        label={`#${payee.payeeId.toString()} · ${payee.paymentAddress}`}
-                      />
-                    ))}
-                  </Select>
-                </Stack>
-
-                <Stack>
-                  <Text.Body size="sm" color="muted">Earnings Code</Text.Body>
-                  <Select<string>
-                    value={selectedEarningsCodeId || null}
-                    onChange={(v) => setSelectedEarningsCodeId(String(v))}
-                    disabled={!canEdit}
-                  >
-                    {organizationEarningsCodes.map((code) => (
-                      <SelectOption
-                        key={code.earningsCodeId.toString()}
-                        value={code.earningsCodeId.toString()}
-                        label={`#${code.earningsCodeId.toString()} · ${code.isActive ? "Active" : "Inactive"}`}
-                      />
-                    ))}
-                  </Select>
-                </Stack>
-
-                <Stack style={{ maxWidth: 280 }}>
-                  <Text.Body size="sm" color="muted">Rate</Text.Body>
-                  <Input
-                    value={assignmentRate}
-                    onChange={(e) => setAssignmentRate(e.target.value)}
-                    placeholder="e.g. 20"
-                    disabled={!canEdit}
-                  />
-                </Stack>
-
-                {selectedCode &&
-                  config &&
-                  selectedCode.rule.toLowerCase() === config.hoursRuleAddress.toLowerCase() && (
-                    <Stack style={{ maxWidth: 280 }}>
-                      <Text.Body size="sm" color="muted">Hours Worked (runData)</Text.Body>
+                  {!band.isRemaining && (
+                    <Stack style={{ flex: 1, minWidth: 130 }}>
+                      <Text.Body size="sm" color="muted">Max Hours</Text.Body>
                       <NumberInput
-                        value={assignmentHoursWorked}
-                        onChange={(e) => setAssignmentHoursWorked((e.target as HTMLInputElement).value)}
+                        value={band.maxHours}
+                        onChange={(e) => updateHourlyBand(index, "maxHours", (e.target as HTMLInputElement).value)}
+                        onBlur={() => commitHourlyBandMaxHours(index)}
                         allowDecimal={false}
                         disabled={!canEdit}
                       />
                     </Stack>
                   )}
 
-                <Row justify="end">
-                  <ButtonPrimary
-                    style={{ flex: 0 }}
-                    disabled={!canAssign}
-                    onClick={() =>
-                      assignCodeToPayee(
-                        chainId!,
-                        slug,
-                        selectedPayeeId,
-                        selectedEarningsCodeId
-                      )
-                    }
-                  >
-                    Assign to Payee
-                  </ButtonPrimary>
+                  <Stack style={{ minWidth: 160, paddingBottom: "var(--spacing-xs)" }}>
+                    {index === hourlyBands.length - 1 ? (
+                      <label style={{ display: "flex", alignItems: "center", gap: "var(--spacing-xs)" }}>
+                        <input
+                          type="checkbox"
+                          checked={band.isRemaining}
+                          disabled={!canEdit}
+                          onChange={(e) => updateHourlyBand(index, "isRemaining", String(e.target.checked))}
+                        />
+                        <Text.Body size="sm">Remaining Hours</Text.Body>
+                      </label>
+                    ) : (
+                      <Text.Body size="sm" color="muted">Bounded Band</Text.Body>
+                    )}
+                  </Stack>
+
+                  <Stack style={{ flexBasis: "100%" }}>
+                    <Text.Body size="xs" color="muted">
+                      {(() => {
+                        const priorCap = index === 0 ? 0 : parseUint(hourlyBands[index - 1].maxHours, 0);
+                        const fromHour = index === 0 ? 0 : priorCap;
+                        const multiplier = band.multiplier || "1";
+
+                        if (band.isRemaining) {
+                          return `Any Hours over ${priorCap} will use rate * ${multiplier}.`;
+                        }
+
+                        const cap = parseUint(band.maxHours, Math.max(0, fromHour));
+                        return `Hours ${Math.max(0, fromHour)}-${cap} use rate * ${multiplier}.`;
+                      })()}
+                    </Text.Body>
+                  </Stack>
                 </Row>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Stack>
-      </CardContent>
-    </Card>
+              ))}
+            </Stack>
+
+            <Row justify="between" align="center" wrap>
+              <Text.Body size="xs" color="muted">
+                Tip: mark one band as Remaining Hours to cover everything after prior caps.
+              </Text.Body>
+              <ButtonSecondary
+                style={{ flex: 0 }}
+                disabled={!canEdit}
+                onClick={addHourlyBand}
+              >
+                Add Band
+              </ButtonSecondary>
+            </Row>
+          </Stack>
+        )}
+
+        {ruleType === "salary" && (
+          <Stack style={{ maxWidth: 260 }}>
+            <Text.Body size="sm" color="muted">Salary Period (days)</Text.Body>
+            <NumberInput
+              value={salaryPeriodDays}
+              onChange={(e) => setSalaryPeriodDays((e.target as HTMLInputElement).value)}
+              allowDecimal={false}
+              disabled={!canEdit}
+            />
+          </Stack>
+        )}
+
+        {ruleType === "oneTime" && (
+          <Text.Body size="sm" color="muted">
+            One-Time rule uses empty config.
+          </Text.Body>
+        )}
+
+        <Row justify="end">
+          <ButtonPrimary
+            style={{ flex: 0 }}
+            disabled={!canRegister}
+            onClick={() => registerEarningsCode(chainId!, slug)}
+          >
+            Register Code
+          </ButtonPrimary>
+        </Row>
+      </Stack>
+    </Stack>
   );
 }

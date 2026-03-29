@@ -7,12 +7,16 @@ import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
 import { AddressInput } from "../components/Inputs/AddressInput";
+import { NumberInput } from "../components/Inputs/NumberInput";
+import { Modal } from "../components/Modal/Modal";
+import { CopyButton } from "../components/Button/Actions/CopyButton";
+import { Select, SelectOption } from "../components/Select";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
-import { useProcessCurrentPayroll } from "../hooks/payroll/useProcessCurrentPayroll";
 import { getBareBonesConfiguration } from "../constants/misc";
 import OnboardingManagerABI from "../abis/paymentPipelines/OnboardingManager.abi.json";
+import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import { PayeesTable } from "../components/PayeesTable";
 import { PayrollEarningsManager } from "../components/PayrollEarningsManager";
 import { ROUTES } from "../routes";
@@ -21,10 +25,16 @@ import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganiz
 import {
   fetchPayeesWithDefaults,
   fetchOrganizationEarningsCodes,
+  type PayeeDefaultEarningView,
   type OrganizationEarningsCodeView,
   type PayeeDefaultsView,
 } from "../utils/payroll/fetchPayrollViews";
 import { shortAddress } from "../utils/formatUtils";
+import {
+  buildRuleMeta,
+  decodeConfigDisplay,
+  decodeRunDataDisplay,
+} from "../utils/payroll/earningsDisplay";
 
 function formatRate(rate: ethers.BigNumber) {
   try {
@@ -34,17 +44,26 @@ function formatRate(rate: ethers.BigNumber) {
   }
 }
 
-function truncateHex(hex?: string, length = 16) {
-  if (!hex || hex === "0x") return "0x";
-  if (hex.length <= length) return hex;
-  return `${hex.slice(0, length)}…`;
-}
-
 function payeeStatusLabel(status?: number) {
   if (status === 0) return "Active";
   if (status === 1) return "On Leave";
   if (status === 2) return "Inactive";
   return `Status ${String(status ?? 0)}`;
+}
+
+type PayeeEarningsMode = "view" | "add" | "edit" | "delete";
+
+interface PayeeEarningsModalState {
+  isOpen: boolean;
+  mode: PayeeEarningsMode;
+  payee: PayeeModel | null;
+  earning: PayeeDefaultEarningView | null;
+}
+
+interface PayeeAssignmentDraft {
+  earningsCodeId: string;
+  rate: string;
+  runData: string;
 }
 
 export function PaymentPage() {
@@ -61,10 +80,19 @@ export function PaymentPage() {
   >([]);
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isStartingPayroll, setIsStartingPayroll] = useState(false);
 
   // Transfer ownership form
   const [newOwner, setNewOwner] = useState<string>("");
+  const [payeeEarningsModal, setPayeeEarningsModal] = useState<PayeeEarningsModalState>({
+    isOpen: false,
+    mode: "view",
+    payee: null,
+    earning: null,
+  });
+  const [modalCodeId, setModalCodeId] = useState<string>("");
+  const [modalRate, setModalRate] = useState<string>("0");
+  const [modalHourlyRunData, setModalHourlyRunData] = useState<string>("40");
+  const [modalRawRunData, setModalRawRunData] = useState<string>("0x");
 
   const config = useMemo(() => {
     if (!chainId) return null;
@@ -222,7 +250,51 @@ export function PaymentPage() {
       `Ownership transferred to ${newOwnerAddr}`
   );
 
-  const { processCurrentPayroll } = useProcessCurrentPayroll();
+  const payrollManagerInterface = useMemo(
+    () => new ethers.utils.Interface(PayrollManagerABI as any),
+    []
+  );
+
+  const buildConfigurePayeeEarningsTx = useCallback(
+    (
+      _: number,
+      orgSlug: string,
+      payeeIdRaw: string,
+      assignmentsRaw: PayeeAssignmentDraft[]
+    ) => {
+      if (!payrollManagerAddress) {
+        throw new Error("Payroll manager address missing");
+      }
+
+      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      const payeeId = ethers.BigNumber.from(payeeIdRaw);
+      const assignments = assignmentsRaw.map((assignment) => ({
+        earningsCodeId: ethers.BigNumber.from(assignment.earningsCodeId),
+        rate: ethers.utils.parseEther(assignment.rate || "0"),
+        runData: assignment.runData || "0x",
+      }));
+
+      return {
+        to: payrollManagerAddress,
+        data: payrollManagerInterface.encodeFunctionData("configurePayeePayroll", [
+          slugBytes,
+          payeeId,
+          assignments,
+        ]),
+      } as any;
+    },
+    [payrollManagerAddress, payrollManagerInterface]
+  );
+
+  const configurePayeeEarnings = useExecuteRawTx(
+    buildConfigurePayeeEarningsTx,
+    (
+      _: number,
+      orgSlug: string,
+      payeeIdRaw: string,
+      assignmentsRaw: PayeeAssignmentDraft[]
+    ) => `Configured payee ${payeeIdRaw} with ${assignmentsRaw.length} earnings code(s) for ${orgSlug}`
+  );
 
   function handleFetchOrg() {
     if (!slug.trim() || !chainId) return;
@@ -240,16 +312,164 @@ export function PaymentPage() {
     setNewOwner("");
   }
 
-  async function handleStartPayroll() {
-    if (!chainId || !isAdmin || !slug.trim() || isStartingPayroll) return;
+  const assignedCodeIdsForModalPayee = useMemo(() => {
+    const payeeId = payeeEarningsModal.payee?.payeeId?.toString();
+    if (!payeeId) return new Set<string>();
+    const defaults = defaultsByPayeeId.get(payeeId);
+    return new Set((defaults?.earnings ?? []).map((earning) => earning.earningsCodeId.toString()));
+  }, [payeeEarningsModal.payee, defaultsByPayeeId]);
 
-    setIsStartingPayroll(true);
-    try {
-      const chunkLimit = Math.max(1, payees.length * 2);
-      await processCurrentPayroll(slug.trim(), 1, chunkLimit);
-    } finally {
-      setIsStartingPayroll(false);
+  const selectedModalCode = useMemo(
+    () => (modalCodeId ? earningsCodeById.get(modalCodeId) ?? null : null),
+    [modalCodeId, earningsCodeById]
+  );
+
+  const selectedModalRule = selectedModalCode?.rule ?? payeeEarningsModal.earning?.rule ?? ethers.constants.AddressZero;
+  const selectedModalRuleMeta = useMemo(
+    () => buildRuleMeta(selectedModalRule, config),
+    [selectedModalRule, config]
+  );
+
+  useEffect(() => {
+    if (!payeeEarningsModal.isOpen) return;
+
+    const earning = payeeEarningsModal.earning;
+    if (earning) {
+      const codeId = earning.earningsCodeId.toString();
+      setModalCodeId(codeId);
+      setModalRate(formatRate(earning.rate));
+      setModalRawRunData(earning.runData || "0x");
+
+      try {
+        const ruleMeta = buildRuleMeta(earning.rule, config);
+        if (ruleMeta.kind === "hourly" && earning.runData && earning.runData !== "0x") {
+          const decoded = ethers.utils.defaultAbiCoder.decode(["uint32"], earning.runData);
+          setModalHourlyRunData(String(Number((decoded?.[0] as ethers.BigNumber).toString())));
+        } else {
+          setModalHourlyRunData("40");
+        }
+      } catch {
+        setModalHourlyRunData("40");
+      }
+      return;
     }
+
+    setModalRate("0");
+    setModalRawRunData("0x");
+    setModalHourlyRunData("40");
+
+    if (payeeEarningsModal.mode === "add") {
+      const firstAvailable = organizationEarningsCodes.find(
+        (code) => !assignedCodeIdsForModalPayee.has(code.earningsCodeId.toString())
+      );
+      setModalCodeId(firstAvailable ? firstAvailable.earningsCodeId.toString() : "");
+    } else {
+      setModalCodeId("");
+    }
+  }, [
+    payeeEarningsModal,
+    config,
+    organizationEarningsCodes,
+    assignedCodeIdsForModalPayee,
+  ]);
+
+  function openPayeeEarningsModal(
+    mode: PayeeEarningsMode,
+    payee: PayeeModel,
+    earning: PayeeDefaultEarningView | null = null
+  ) {
+    setPayeeEarningsModal({
+      isOpen: true,
+      mode,
+      payee,
+      earning,
+    });
+  }
+
+  function resolveModalRunData(ruleAddress: string) {
+    const ruleMeta = buildRuleMeta(ruleAddress, config);
+    if (ruleMeta.kind === "hourly") {
+      return ethers.utils.defaultAbiCoder.encode(["uint32"], [Math.max(0, Math.floor(Number(modalHourlyRunData) || 0))]);
+    }
+    if (ruleMeta.kind === "custom") {
+      return modalRawRunData?.trim() || "0x";
+    }
+    return "0x";
+  }
+
+  function buildPayeeAssignmentsForSave(includeAllCatalog: boolean): PayeeAssignmentDraft[] {
+    const payeeId = payeeEarningsModal.payee?.payeeId?.toString();
+    if (!payeeId) return [];
+
+    const currentDefaults = defaultsByPayeeId.get(payeeId)?.earnings ?? [];
+    const assignmentMap = new Map<string, PayeeAssignmentDraft>();
+
+    for (const earning of currentDefaults) {
+      assignmentMap.set(earning.earningsCodeId.toString(), {
+        earningsCodeId: earning.earningsCodeId.toString(),
+        rate: formatRate(earning.rate),
+        runData: earning.runData || "0x",
+      });
+    }
+
+    if (modalCodeId) {
+      const selectedRuleAddress =
+        selectedModalCode?.rule ??
+        payeeEarningsModal.earning?.rule ??
+        ethers.constants.AddressZero;
+
+      if (payeeEarningsModal.mode === "delete") {
+        assignmentMap.set(modalCodeId, {
+          earningsCodeId: modalCodeId,
+          rate: "0",
+          runData: "0x",
+        });
+      } else {
+        assignmentMap.set(modalCodeId, {
+          earningsCodeId: modalCodeId,
+          rate: modalRate || "0",
+          runData: resolveModalRunData(selectedRuleAddress),
+        });
+      }
+    }
+
+    if (includeAllCatalog) {
+      for (const orgCode of organizationEarningsCodes) {
+        const codeId = orgCode.earningsCodeId.toString();
+        if (!assignmentMap.has(codeId)) {
+          const ruleMeta = buildRuleMeta(orgCode.rule, config);
+          assignmentMap.set(codeId, {
+            earningsCodeId: codeId,
+            rate: "0",
+            runData:
+              ruleMeta.kind === "hourly"
+                ? ethers.utils.defaultAbiCoder.encode(["uint32"], [0])
+                : "0x",
+          });
+        }
+      }
+    }
+
+    return Array.from(assignmentMap.values()).sort((a, b) =>
+      ethers.BigNumber.from(a.earningsCodeId).lt(ethers.BigNumber.from(b.earningsCodeId)) ? -1 : 1
+    );
+  }
+
+  async function handleSubmitPayeeEarningsModal(includeAllCatalog: boolean) {
+    if (!chainId || !payeeEarningsModal.payee || !slug.trim()) return;
+
+    const payeeId = payeeEarningsModal.payee.payeeId.toString();
+    const assignments = buildPayeeAssignmentsForSave(includeAllCatalog);
+    if (assignments.length === 0) return;
+
+    await configurePayeeEarnings(chainId, slug.trim(), payeeId, assignments);
+
+    setPayeeEarningsModal({
+      isOpen: false,
+      mode: "view",
+      payee: null,
+      earning: null,
+    });
   }
 
   return (
@@ -288,15 +508,6 @@ export function PaymentPage() {
                       Earnings Catalog: {organizationEarningsCodes.length} code(s) · Defaults Loaded: {payeeDefaults.length} payee(s)
                     </Text.Body>
                     <Row gap="sm" justify="end">
-                      {isAdmin && (
-                        <ButtonPrimary
-                          style={{ flex: 0 }}
-                          onClick={handleStartPayroll}
-                          disabled={!slug.trim() || isStartingPayroll}
-                        >
-                          {isStartingPayroll ? "Starting..." : "Start Payroll"}
-                        </ButtonPrimary>
-                      )}
                       <ButtonSecondary
                         style={{ flex: 0 }}
                         onClick={() => navigate(ROUTES.PAYROLL_CURRENT(slug.trim()))}
@@ -328,8 +539,6 @@ export function PaymentPage() {
                         <PayrollEarningsManager
                           slug={slug.trim()}
                           canEdit={isAdmin}
-                          payees={payees}
-                          organizationEarningsCodes={organizationEarningsCodes}
                         />
                       )}
                     </>
@@ -371,7 +580,17 @@ export function PaymentPage() {
                           <Card style={{ backgroundColor: "var(--colors-background)", border: "1px solid var(--colors-border)" }}>
                             <CardContent>
                               <Stack gap="sm">
-                                <Text.Label>Payee Default Earnings</Text.Label>
+                                <Row justify="between" align="center" wrap>
+                                  <Text.Label>Payee Default Earnings</Text.Label>
+                                  {isAdmin && (
+                                    <ButtonSecondary
+                                      style={{ flex: 0 }}
+                                      onClick={() => openPayeeEarningsModal("add", payee, null)}
+                                    >
+                                      Add
+                                    </ButtonSecondary>
+                                  )}
+                                </Row>
                                 {!defaults || defaults.earnings.length === 0 ? (
                                   <Text.Body color="muted">
                                     No default earnings assignments found for this payee.
@@ -382,6 +601,14 @@ export function PaymentPage() {
                                       const codeId = earning.earningsCodeId.toString();
                                       const codeMeta = earningsCodeById.get(codeId);
                                       const active = codeMeta?.isActive ?? earning.isActive;
+                                      const ruleMeta = buildRuleMeta(earning.rule, config);
+                                      const showConfig =
+                                        ruleMeta.configRequired ||
+                                        (ruleMeta.kind === "custom" && Boolean(earning.config && earning.config !== "0x"));
+                                      const showRunData =
+                                        ruleMeta.runDataRequired ||
+                                        (ruleMeta.kind === "custom" && Boolean(earning.runData && earning.runData !== "0x"));
+
                                       return (
                                         <Card key={`${payeeId}-${codeId}`} style={{ border: "1px solid var(--colors-border)" }}>
                                           <CardContent style={{ padding: "var(--spacing-md)" }}>
@@ -392,18 +619,54 @@ export function PaymentPage() {
                                                   {active ? "Active" : "Inactive"}
                                                 </Text.Body>
                                               </Row>
-                                              <Text.Body size="sm" color="muted">
-                                                Rule: {shortAddress(earning.rule)}
-                                              </Text.Body>
+                                              <Row justify="between" align="center" wrap>
+                                                <Text.Body size="sm" color="muted">
+                                                  Rule: {ruleMeta.name}
+                                                </Text.Body>
+                                                <Row gap="sm" align="center">
+                                                  <Text.Body size="sm" color="muted">
+                                                    {shortAddress(earning.rule)}
+                                                  </Text.Body>
+                                                  <CopyButton value={earning.rule} ariaLabel="Copy rule address" />
+                                                </Row>
+                                              </Row>
                                               <Text.Body size="sm" color="muted">
                                                 Rate: {formatRate(earning.rate)}
                                               </Text.Body>
-                                              <Text.Body size="sm" color="muted">
-                                                Config: {truncateHex(earning.config)}
-                                              </Text.Body>
-                                              <Text.Body size="sm" color="muted">
-                                                Run Data: {truncateHex(earning.runData)}
-                                              </Text.Body>
+                                              {showConfig && (
+                                                <Text.Body size="sm" color="muted">
+                                                  Config: {decodeConfigDisplay(earning.config, earning.rule, config)}
+                                                </Text.Body>
+                                              )}
+                                              {showRunData && (
+                                                <Text.Body size="sm" color="muted">
+                                                  Run Data: {decodeRunDataDisplay(earning.runData, earning.rule, config)}
+                                                </Text.Body>
+                                              )}
+                                              <Row gap="sm" justify="end" wrap>
+                                                <ButtonSecondary
+                                                  style={{ flex: 0 }}
+                                                  onClick={() => openPayeeEarningsModal("view", payee, earning)}
+                                                >
+                                                  View
+                                                </ButtonSecondary>
+                                                {isAdmin && (
+                                                  <>
+                                                    <ButtonSecondary
+                                                      style={{ flex: 0 }}
+                                                      onClick={() => openPayeeEarningsModal("edit", payee, earning)}
+                                                    >
+                                                      Edit
+                                                    </ButtonSecondary>
+                                                    <ButtonSecondary
+                                                      style={{ flex: 0 }}
+                                                      onClick={() => openPayeeEarningsModal("delete", payee, earning)}
+                                                    >
+                                                      Delete
+                                                    </ButtonSecondary>
+                                                  </>
+                                                )}
+                                              </Row>
                                             </Stack>
                                           </CardContent>
                                         </Card>
@@ -433,6 +696,164 @@ export function PaymentPage() {
             </Stack>
           </CardContent>
         </Card>
+
+        <Modal
+          isOpen={payeeEarningsModal.isOpen}
+          onClose={() =>
+            setPayeeEarningsModal({
+              isOpen: false,
+              mode: "view",
+              payee: null,
+              earning: null,
+            })
+          }
+          title={
+            payeeEarningsModal.mode === "add"
+              ? "Add Earnings Code"
+              : payeeEarningsModal.mode === "edit"
+              ? "Edit Earnings Code"
+              : payeeEarningsModal.mode === "delete"
+              ? "Delete Earnings Code"
+              : "View Earnings Code"
+          }
+          width={620}
+        >
+          <Stack gap="md">
+            <Text.Body color="muted" size="sm">
+              Payee: #{payeeEarningsModal.payee?.payeeId?.toString() ?? "-"} · {shortAddress(payeeEarningsModal.payee?.paymentAddress ?? ethers.constants.AddressZero)}
+            </Text.Body>
+
+            <Stack>
+              <Text.Body size="sm" color="muted">Earnings Code</Text.Body>
+              <Select<string>
+                value={modalCodeId || null}
+                onChange={(v) => setModalCodeId(String(v))}
+                disabled={payeeEarningsModal.mode === "view" || payeeEarningsModal.mode === "delete"}
+              >
+                {organizationEarningsCodes.map((code) => {
+                  const ruleMeta = buildRuleMeta(code.rule, config);
+                  return (
+                    <SelectOption
+                      key={code.earningsCodeId.toString()}
+                      value={code.earningsCodeId.toString()}
+                      label={`#${code.earningsCodeId.toString()} · ${ruleMeta.name} · ${code.isActive ? "Active" : "Inactive"}`}
+                    />
+                  );
+                })}
+              </Select>
+              <Text.Body size="xs" color="muted">
+                Same rule can have multiple earnings codes. Re-selecting an existing code updates it.
+              </Text.Body>
+            </Stack>
+
+            {selectedModalCode && (
+              <Row justify="between" align="center" wrap>
+                <Text.Body size="sm" color="muted">
+                  Rule: {selectedModalRuleMeta.name}
+                </Text.Body>
+                <Row gap="sm" align="center">
+                  <Text.Body size="sm" color="muted">{shortAddress(selectedModalCode.rule)}</Text.Body>
+                  <CopyButton value={selectedModalCode.rule} ariaLabel="Copy rule address" />
+                </Row>
+              </Row>
+            )}
+
+            {payeeEarningsModal.mode !== "view" && (
+              <Stack>
+                <Text.Body size="sm" color="muted">Rate</Text.Body>
+                <Input
+                  value={modalRate}
+                  onChange={(e) => setModalRate(e.target.value)}
+                  placeholder="e.g. 20"
+                  disabled={payeeEarningsModal.mode === "delete"}
+                />
+              </Stack>
+            )}
+
+            {selectedModalRuleMeta.kind === "hourly" && payeeEarningsModal.mode !== "view" && (
+              <Stack>
+                <Text.Body size="sm" color="muted">Hours Worked (runData)</Text.Body>
+                <NumberInput
+                  value={modalHourlyRunData}
+                  onChange={(e) => setModalHourlyRunData((e.target as HTMLInputElement).value)}
+                  allowDecimal={false}
+                  disabled={payeeEarningsModal.mode === "delete"}
+                />
+              </Stack>
+            )}
+
+            {selectedModalRuleMeta.kind === "custom" && payeeEarningsModal.mode !== "view" && (
+              <Stack>
+                <Text.Body size="sm" color="muted">Run Data (raw hex)</Text.Body>
+                <Input
+                  value={modalRawRunData}
+                  onChange={(e) => setModalRawRunData(e.target.value)}
+                  placeholder="0x"
+                  disabled={payeeEarningsModal.mode === "delete"}
+                />
+              </Stack>
+            )}
+
+            {payeeEarningsModal.mode === "view" && payeeEarningsModal.earning && (
+              <Stack gap="sm">
+                <Text.Body size="sm" color="muted">
+                  Rate: {formatRate(payeeEarningsModal.earning.rate)}
+                </Text.Body>
+                {(selectedModalRuleMeta.configRequired || selectedModalRuleMeta.kind === "custom") && (
+                  <Text.Body size="sm" color="muted">
+                    Config: {decodeConfigDisplay(payeeEarningsModal.earning.config, payeeEarningsModal.earning.rule, config)}
+                  </Text.Body>
+                )}
+                {(selectedModalRuleMeta.runDataRequired || selectedModalRuleMeta.kind === "custom") && (
+                  <Text.Body size="sm" color="muted">
+                    Run Data: {decodeRunDataDisplay(payeeEarningsModal.earning.runData, payeeEarningsModal.earning.rule, config)}
+                  </Text.Body>
+                )}
+              </Stack>
+            )}
+
+            {payeeEarningsModal.mode === "delete" && (
+              <Text.Body color="warn" size="sm">
+                Delete uses a soft remove by setting the selected payee/code rate to 0 and runData to 0x.
+              </Text.Body>
+            )}
+
+            <Row gap="sm" justify="end">
+              <ButtonSecondary
+                style={{ flex: 0 }}
+                onClick={() =>
+                  setPayeeEarningsModal({
+                    isOpen: false,
+                    mode: "view",
+                    payee: null,
+                    earning: null,
+                  })
+                }
+              >
+                Close
+              </ButtonSecondary>
+
+              {payeeEarningsModal.mode !== "view" && isAdmin && (
+                <>
+                  <ButtonSecondary
+                    style={{ flex: 0 }}
+                    onClick={() => handleSubmitPayeeEarningsModal(false)}
+                    disabled={!modalCodeId}
+                  >
+                    Save One
+                  </ButtonSecondary>
+                  <ButtonPrimary
+                    style={{ flex: 0 }}
+                    onClick={() => handleSubmitPayeeEarningsModal(true)}
+                    disabled={organizationEarningsCodes.length === 0}
+                  >
+                    Save All
+                  </ButtonPrimary>
+                </>
+              )}
+            </Row>
+          </Stack>
+        </Modal>
       </Stack>
     </PageContainer>
   );

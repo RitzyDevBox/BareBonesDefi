@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState, useEffect } from "react";
 import { ethers } from "ethers";
 import MockERC20ABI from "../../abis/paymentPipelines/MockERC20.abi.json";
 import PayrollTreasuryABI from "../../abis/paymentPipelines/PayrollTreasury.abi.json";
+import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 import { Card, CardContent } from "../BasicComponents";
 import { ButtonPrimary } from "../Button/ButtonPrimary";
 import { NumberInput } from "../Inputs/NumberInput";
@@ -37,7 +38,11 @@ export function PayrollTreasuryFund({
   }, [chainId]);
 
   const mockERC20Address = config?.mockPaymentTokenAddress || "0x0000000000000000000000000000000000000000";
-  const treasuryAddress = config?.payrollTreasuryAddress || "0x0000000000000000000000000000000000000000";
+  const payrollManagerAddress = config?.payrollManagerAddress || "";
+  // Use config as initial fallback; resolved dynamically from manager.treasury() below
+  const [resolvedTreasuryAddress, setResolvedTreasuryAddress] = useState<string>(
+    config?.payrollTreasuryAddress || "0x0000000000000000000000000000000000000000"
+  );
 
   const iface = useMemo(
     () => new ethers.utils.Interface(MockERC20ABI as any),
@@ -51,20 +56,25 @@ export function PayrollTreasuryFund({
 
   // Fetch treasury and user balances
   useEffect(() => {
-    if (!organizationSlug || !provider || !treasuryAddress) return;
+    if (!organizationSlug || !provider || !payrollManagerAddress) return;
 
     fetchBalances();
-  }, [organizationSlug, provider, treasuryAddress, account, mockERC20Address, version]);
+  }, [organizationSlug, provider, payrollManagerAddress, account, mockERC20Address, version]);
 
   async function fetchBalances() {
-    if (!provider) return;
+    if (!provider || !payrollManagerAddress) return;
 
     setLoadingBalance(true);
     try {
+      // Resolve the actual treasury address from the PayrollManager contract
+      const manager = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
+      const actualTreasuryAddress: string = await manager.treasury();
+      setResolvedTreasuryAddress(actualTreasuryAddress);
+
       // Fetch treasury balance
-      if (treasuryAddress) {
+      if (actualTreasuryAddress && actualTreasuryAddress !== ethers.constants.AddressZero) {
         const treasuryContract = new ethers.Contract(
-          treasuryAddress,
+          actualTreasuryAddress,
           PayrollTreasuryABI as any,
           provider
         );
@@ -107,10 +117,10 @@ export function PayrollTreasuryFund({
 
       return {
         to: mockERC20Address,
-        data: iface.encodeFunctionData("approve", [treasuryAddress, parsed]),
+        data: iface.encodeFunctionData("approve", [resolvedTreasuryAddress, parsed]),
       } as any;
     },
-    [iface, mockERC20Address, treasuryAddress]
+    [iface, mockERC20Address, resolvedTreasuryAddress]
   );
 
   const buildFinalDepositTx = useCallback(
@@ -121,14 +131,14 @@ export function PayrollTreasuryFund({
       const slugBytes = ethers.utils.formatBytes32String(organizationSlug);
 
       return {
-        to: treasuryAddress,
+        to: resolvedTreasuryAddress,
         data: treasuryIface.encodeFunctionData("deposit", [
           slugBytes,
           parsed,
         ]),
       } as any;
     },
-    [organizationSlug, treasuryIface, treasuryAddress]
+    [organizationSlug, treasuryIface, resolvedTreasuryAddress]
   );
 
   const approve = useExecuteRawTx(

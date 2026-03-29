@@ -1,14 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
 import { useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
-import { Card, CardContent } from "../components/BasicComponents";
+import { Card, CardContent, Input } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
+import { Modal } from "../components/Modal/Modal";
+import { Select, SelectOption } from "../components/Select";
+import { NumberInput } from "../components/Inputs/NumberInput";
+import { CopyButton } from "../components/Button/Actions/CopyButton";
 import { ERC20Mintable } from "../components/ERC20Mintable/ERC20Mintable";
 import { PayrollTreasuryFund } from "../components/PayrollTreasuryFund/PayrollTreasuryFund";
 import { useWalletProvider } from "../hooks/useWalletProvider";
+import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
 import OnboardingManagerABI from "../abis/paymentPipelines/OnboardingManager.abi.json";
@@ -19,10 +24,18 @@ import { useProcessCurrentPayroll } from "../hooks/payroll/useProcessCurrentPayr
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";
 import {
   fetchLatestPayrollId,
+  fetchOrganizationEarningsCodes,
   fetchPayrollPayeesWithRunData,
+  type OrganizationEarningsCodeView,
+  type PayrollResolvedEarningView,
   type PayrollPayeeRunDataView,
 } from "../utils/payroll/fetchPayrollViews";
 import { shortAddress } from "../utils/formatUtils";
+import {
+  buildRuleMeta,
+  decodeConfigDisplay,
+  decodeRunDataDisplay,
+} from "../utils/payroll/earningsDisplay";
 
 function formatRate(rate: ethers.BigNumber) {
   try {
@@ -30,12 +43,6 @@ function formatRate(rate: ethers.BigNumber) {
   } catch {
     return "0";
   }
-}
-
-function truncateHex(hex?: string, length = 16) {
-  if (!hex || hex === "0x") return "0x";
-  if (hex.length <= length) return hex;
-  return `${hex.slice(0, length)}…`;
 }
 
 function payeeStatusLabel(status?: number) {
@@ -57,6 +64,15 @@ function sourceColor(source: number): "main" | "secondary" | "label" | "muted" |
   return "secondary";
 }
 
+type CurrentPayrollEarningsMode = "view" | "override" | "additional";
+
+interface CurrentPayrollEarningsModalState {
+  isOpen: boolean;
+  mode: CurrentPayrollEarningsMode;
+  payee: PayeeModel | null;
+  earning: PayrollResolvedEarningView | null;
+}
+
 export function CurrentPayrollPage() {
   const { organizationId } = useParams<{ organizationId: string }>();
   const slug = (organizationId ?? "").trim();
@@ -68,14 +84,33 @@ export function CurrentPayrollPage() {
   const [payees, setPayees] = useState<PayeeModel[]>([]);
   const [currentPayrollId, setCurrentPayrollId] = useState<number | null>(null);
   const [payrollPayeeRunData, setPayrollPayeeRunData] = useState<PayrollPayeeRunDataView[]>([]);
+  const [organizationEarningsCodes, setOrganizationEarningsCodes] = useState<
+    OrganizationEarningsCodeView[]
+  >([]);
   const [isPreviewingPayroll, setIsPreviewingPayroll] = useState(false);
   const [previewGrossByPayeeId, setPreviewGrossByPayeeId] = useState<Record<string, string>>({});
   const [previewTotalGross, setPreviewTotalGross] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isStartingPayroll, setIsStartingPayroll] = useState(false);
   const [isProcessingPayroll, setIsProcessingPayroll] = useState(false);
+  // Default start date to 8 days ago so period 0 (ends at startDate+7d) is already complete
+  const [startDateInput, setStartDateInput] = useState<string>(
+    String(Math.floor(Date.now() / 1000) - 8 * 24 * 60 * 60)
+  );
+  const [periodIdInput, setPeriodIdInput] = useState<string>("0");
+  const [earningsModal, setEarningsModal] = useState<CurrentPayrollEarningsModalState>({
+    isOpen: false,
+    mode: "view",
+    payee: null,
+    earning: null,
+  });
+  const [modalCodeId, setModalCodeId] = useState("");
+  const [modalRate, setModalRate] = useState("0");
+  const [modalHourlyRunData, setModalHourlyRunData] = useState("40");
+  const [modalRawRunData, setModalRawRunData] = useState("0x");
 
-  const { processCurrentPayroll } = useProcessCurrentPayroll();
+  const { startPayroll, processCurrentPayroll } = useProcessCurrentPayroll();
 
   const config = useMemo(() => {
     if (!chainId) return null;
@@ -84,6 +119,10 @@ export function CurrentPayrollPage() {
 
   const onboardingAddress = config?.onboardingManagerAddress;
   const payrollManagerAddress = config?.payrollManagerAddress;
+  const payrollInterface = useMemo(
+    () => new ethers.utils.Interface(PayrollManagerABI as any),
+    []
+  );
 
   const payrollRunByPayeeId = useMemo(
     () =>
@@ -91,6 +130,105 @@ export function CurrentPayrollPage() {
         payrollPayeeRunData.map((row) => [row.payeeId.toString(), row] as const)
       ),
     [payrollPayeeRunData]
+  );
+
+  const earningsCodeById = useMemo(
+    () =>
+      new Map(
+        organizationEarningsCodes.map((row) => [row.earningsCodeId.toString(), row] as const)
+      ),
+    [organizationEarningsCodes]
+  );
+
+  const selectedModalCode = useMemo(
+    () => (modalCodeId ? earningsCodeById.get(modalCodeId) ?? null : null),
+    [modalCodeId, earningsCodeById]
+  );
+
+  const selectedModalRule =
+    selectedModalCode?.rule ?? earningsModal.earning?.rule ?? ethers.constants.AddressZero;
+  const selectedModalRuleMeta = useMemo(
+    () => buildRuleMeta(selectedModalRule, config),
+    [selectedModalRule, config]
+  );
+
+  const buildSetEarningsOverrideTx = useCallback(
+    (
+      _: number,
+      orgSlug: string,
+      payrollId: number,
+      payeeId: string,
+      earningsCodeId: string,
+      isActive: boolean,
+      rateRaw: string,
+      runData: string
+    ) => {
+      if (!payrollManagerAddress) {
+        throw new Error("Payroll manager address missing");
+      }
+
+      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      return {
+        to: payrollManagerAddress,
+        data: payrollInterface.encodeFunctionData("setEarningsOverride", [
+          slugBytes,
+          payrollId,
+          ethers.BigNumber.from(payeeId),
+          ethers.BigNumber.from(earningsCodeId),
+          isActive,
+          ethers.utils.parseEther(rateRaw || "0"),
+          runData,
+        ]),
+      } as any;
+    },
+    [payrollManagerAddress, payrollInterface]
+  );
+
+  const setEarningsOverride = useExecuteRawTx(
+    buildSetEarningsOverrideTx,
+    (_: number, orgSlug: string, payrollId: number, payeeId: string) =>
+      `Updated override for payee ${payeeId} in payroll ${payrollId} (${orgSlug})`
+  );
+
+  const buildAddAdditionalEarningTx = useCallback(
+    (
+      _: number,
+      orgSlug: string,
+      payrollId: number,
+      payeeId: string,
+      ruleAddress: string,
+      rateRaw: string,
+      configBytes: string,
+      runData: string
+    ) => {
+      if (!payrollManagerAddress) {
+        throw new Error("Payroll manager address missing");
+      }
+
+      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+
+      return {
+        to: payrollManagerAddress,
+        data: payrollInterface.encodeFunctionData("addEarningsForPayroll", [
+          slugBytes,
+          payrollId,
+          ethers.BigNumber.from(payeeId),
+          {
+            rule: ruleAddress,
+            rate: ethers.utils.parseEther(rateRaw || "0"),
+            config: configBytes,
+            runData,
+          },
+        ]),
+      } as any;
+    },
+    [payrollManagerAddress, payrollInterface]
+  );
+
+  const addAdditionalEarning = useExecuteRawTx(
+    buildAddAdditionalEarningTx,
+    (_: number, orgSlug: string, payrollId: number, payeeId: string) =>
+      `Added additional earning for payee ${payeeId} in payroll ${payrollId} (${orgSlug})`
   );
 
   useEffect(() => {
@@ -124,12 +262,23 @@ export function CurrentPayrollPage() {
         setPayees(payeeList);
 
         if (payrollManagerAddress) {
-          const latestPayrollId = await fetchLatestPayrollId(
-            provider,
-            payrollManagerAddress,
-            orgSlug,
-            account ?? undefined
-          );
+          const [latestPayrollId, earningRows] = await Promise.all([
+            fetchLatestPayrollId(
+              provider,
+              payrollManagerAddress,
+              orgSlug,
+              account ?? undefined
+            ),
+            fetchOrganizationEarningsCodes(
+              provider,
+              payrollManagerAddress,
+              orgSlug,
+              undefined,
+              account ?? undefined
+            ),
+          ]);
+
+          setOrganizationEarningsCodes(earningRows);
 
           setCurrentPayrollId(latestPayrollId);
 
@@ -149,11 +298,13 @@ export function CurrentPayrollPage() {
         } else {
           setCurrentPayrollId(null);
           setPayrollPayeeRunData([]);
+          setOrganizationEarningsCodes([]);
         }
       } else {
         setPayees([]);
         setCurrentPayrollId(null);
         setPayrollPayeeRunData([]);
+        setOrganizationEarningsCodes([]);
       }
     } catch (err) {
       console.error("Error fetching org info:", err);
@@ -161,18 +312,37 @@ export function CurrentPayrollPage() {
       setPayees([]);
       setCurrentPayrollId(null);
       setPayrollPayeeRunData([]);
+      setOrganizationEarningsCodes([]);
     } finally {
       setLoading(false);
     }
   }
 
+  async function handleStartPayroll() {
+    if (!slug || !isAdmin || isStartingPayroll) return;
+
+    const parsedStartDate = Math.floor(Number(startDateInput || "0"));
+    if (!Number.isFinite(parsedStartDate) || parsedStartDate <= 0) {
+      throw new Error("Start date must be a non-zero unix timestamp");
+    }
+
+    const parsedPeriodId = Math.max(0, Math.floor(Number(periodIdInput || "0")));
+
+    setIsStartingPayroll(true);
+    try {
+      await startPayroll(slug, parsedPeriodId, parsedStartDate);
+    } finally {
+      setIsStartingPayroll(false);
+    }
+  }
+
   async function handleProcessPayroll() {
-    if (!slug || !isAdmin || isProcessingPayroll) return;
+    if (!slug || !isAdmin || isProcessingPayroll || currentPayrollId == null) return;
 
     setIsProcessingPayroll(true);
     try {
       const chunkLimit = Math.max(1, payees.length * 2);
-      await processCurrentPayroll(slug, 1, chunkLimit);
+      await processCurrentPayroll(slug, currentPayrollId, 1, chunkLimit);
     } finally {
       setIsProcessingPayroll(false);
     }
@@ -266,6 +436,111 @@ export function CurrentPayrollPage() {
     }
   }
 
+  useEffect(() => {
+    if (!earningsModal.isOpen) return;
+
+    const earning = earningsModal.earning;
+    if (earning) {
+      setModalCodeId(earning.earningsCodeId.toString());
+      setModalRate(formatRate(earning.rate));
+      setModalRawRunData(earning.runData || "0x");
+
+      try {
+        const ruleMeta = buildRuleMeta(earning.rule, config);
+        if (ruleMeta.kind === "hourly" && earning.runData && earning.runData !== "0x") {
+          const decoded = ethers.utils.defaultAbiCoder.decode(["uint32"], earning.runData);
+          setModalHourlyRunData(String(Number((decoded?.[0] as ethers.BigNumber).toString())));
+        } else {
+          setModalHourlyRunData("40");
+        }
+      } catch {
+        setModalHourlyRunData("40");
+      }
+      return;
+    }
+
+    const firstCode = organizationEarningsCodes[0]?.earningsCodeId?.toString() ?? "";
+    setModalCodeId(firstCode);
+    setModalRate("0");
+    setModalRawRunData("0x");
+    setModalHourlyRunData("40");
+  }, [earningsModal, organizationEarningsCodes, config]);
+
+  function openEarningsModal(
+    mode: CurrentPayrollEarningsMode,
+    payee: PayeeModel,
+    earning: PayrollResolvedEarningView | null = null
+  ) {
+    setEarningsModal({
+      isOpen: true,
+      mode,
+      payee,
+      earning,
+    });
+  }
+
+  function closeEarningsModal() {
+    setEarningsModal({
+      isOpen: false,
+      mode: "view",
+      payee: null,
+      earning: null,
+    });
+  }
+
+  function resolveModalRunData() {
+    if (selectedModalRuleMeta.kind === "hourly") {
+      return ethers.utils.defaultAbiCoder.encode(["uint32"], [Math.max(0, Math.floor(Number(modalHourlyRunData) || 0))]);
+    }
+
+    if (selectedModalRuleMeta.kind === "custom") {
+      return modalRawRunData?.trim() || "0x";
+    }
+
+    return "0x";
+  }
+
+  async function handleSubmitCurrentPayrollEarning() {
+    if (!chainId || !currentPayrollId || !earningsModal.payee || !slug) return;
+
+    const payeeId = earningsModal.payee.payeeId.toString();
+    const runData = resolveModalRunData();
+
+    if (earningsModal.mode === "override") {
+      const codeId = earningsModal.earning?.earningsCodeId.toString() ?? modalCodeId;
+      if (!codeId) return;
+
+      await setEarningsOverride(
+        chainId,
+        slug,
+        currentPayrollId,
+        payeeId,
+        codeId,
+        true,
+        modalRate || "0",
+        runData
+      );
+      closeEarningsModal();
+      return;
+    }
+
+    if (earningsModal.mode === "additional") {
+      if (!selectedModalCode) return;
+
+      await addAdditionalEarning(
+        chainId,
+        slug,
+        currentPayrollId,
+        payeeId,
+        selectedModalCode.rule,
+        modalRate || "0",
+        selectedModalCode.config,
+        runData
+      );
+      closeEarningsModal();
+    }
+  }
+
   return (
     <PageContainer center>
       <Stack gap="lg" style={{ maxWidth: 600 }}>
@@ -313,7 +588,40 @@ export function CurrentPayrollPage() {
                       Preview Total Gross: {previewTotalGross}
                     </Text.Body>
                   )}
+                  {isAdmin && (
+                    <Row gap="sm" align="end" wrap>
+                      <Stack style={{ flex: 1, minWidth: 160 }}>
+                        <Text.Body size="sm" color="muted">Start Date (unix)</Text.Body>
+                        <NumberInput
+                          value={startDateInput}
+                          onChange={(e) => setStartDateInput((e.target as HTMLInputElement).value)}
+                          allowDecimal={false}
+                        />
+                      </Stack>
+                      <Stack style={{ flex: "0 0 90px" }}>
+                        <Text.Body size="sm" color="muted">Period ID</Text.Body>
+                        <NumberInput
+                          value={periodIdInput}
+                          onChange={(e) => setPeriodIdInput((e.target as HTMLInputElement).value)}
+                          allowDecimal={false}
+                        />
+                      </Stack>
+                    </Row>
+                  )}
+                  {isAdmin && (
+                    <Text.Body size="sm" color="muted">
+                      Period {periodIdInput} ends at startDate + {(Number(periodIdInput || 0) + 1)} × 7 days.
+                      Ensure block.timestamp is past that point before starting.
+                    </Text.Body>
+                  )}
                   <Row gap="sm" justify="end">
+                    <ButtonSecondary
+                      style={{ flex: 0 }}
+                      onClick={handleStartPayroll}
+                      disabled={!isAdmin || !slug || isStartingPayroll}
+                    >
+                      {isStartingPayroll ? "Starting..." : "Start Payroll"}
+                    </ButtonSecondary>
                     <ButtonSecondary
                       style={{ flex: 0 }}
                       onClick={handlePreviewPayroll}
@@ -324,7 +632,7 @@ export function CurrentPayrollPage() {
                     <ButtonPrimary
                       style={{ flex: 0 }}
                       onClick={handleProcessPayroll}
-                      disabled={!isAdmin || !slug || isProcessingPayroll}
+                      disabled={!isAdmin || !slug || isProcessingPayroll || currentPayrollId == null}
                     >
                       {isProcessingPayroll ? "Processing..." : "Process Payroll"}
                     </ButtonPrimary>
@@ -363,7 +671,17 @@ export function CurrentPayrollPage() {
                     <Card style={{ backgroundColor: "var(--colors-background)", border: "1px solid var(--colors-border)" }}>
                       <CardContent>
                         <Stack gap="sm">
-                          <Text.Label>Current Payroll Resolved Earnings</Text.Label>
+                          <Row justify="between" align="center" wrap>
+                            <Text.Label>Current Payroll Resolved Earnings</Text.Label>
+                            {isAdmin && currentPayrollId !== null && (
+                              <ButtonSecondary
+                                style={{ flex: 0 }}
+                                onClick={() => openEarningsModal("additional", payee, null)}
+                              >
+                                Add Additional
+                              </ButtonSecondary>
+                            )}
+                          </Row>
                           {(() => {
                             const payeeId = payee.payeeId.toString();
                             const payeeRunData = payrollRunByPayeeId.get(payeeId);
@@ -389,18 +707,42 @@ export function CurrentPayrollPage() {
                                             {sourceLabel(earning.source)}
                                           </Text.Body>
                                         </Row>
-                                        <Text.Body size="sm" color="muted">
-                                          Rule: {shortAddress(earning.rule)}
-                                        </Text.Body>
+                                        <Row justify="between" align="center" wrap>
+                                          <Text.Body size="sm" color="muted">
+                                            Rule: {buildRuleMeta(earning.rule, config).name}
+                                          </Text.Body>
+                                          <Row gap="sm" align="center">
+                                            <Text.Body size="sm" color="muted">
+                                              {shortAddress(earning.rule)}
+                                            </Text.Body>
+                                            <CopyButton value={earning.rule} ariaLabel="Copy rule address" />
+                                          </Row>
+                                        </Row>
                                         <Text.Body size="sm" color="muted">
                                           Rate: {formatRate(earning.rate)}
                                         </Text.Body>
-                                        <Text.Body size="sm" color="muted">
-                                          Config: {truncateHex(earning.config)}
-                                        </Text.Body>
-                                        <Text.Body size="sm" color="muted">
-                                          Run Data: {truncateHex(earning.runData)}
-                                        </Text.Body>
+                                        {(buildRuleMeta(earning.rule, config).configRequired ||
+                                          (buildRuleMeta(earning.rule, config).kind === "custom" && earning.config !== "0x")) && (
+                                          <Text.Body size="sm" color="muted">
+                                            Config: {decodeConfigDisplay(earning.config, earning.rule, config)}
+                                          </Text.Body>
+                                        )}
+                                        {(buildRuleMeta(earning.rule, config).runDataRequired ||
+                                          (buildRuleMeta(earning.rule, config).kind === "custom" && earning.runData !== "0x")) && (
+                                          <Text.Body size="sm" color="muted">
+                                            Run Data: {decodeRunDataDisplay(earning.runData, earning.rule, config)}
+                                          </Text.Body>
+                                        )}
+                                        {isAdmin && currentPayrollId !== null && (
+                                          <Row justify="end" gap="sm" wrap>
+                                            <ButtonSecondary
+                                              style={{ flex: 0 }}
+                                              onClick={() => openEarningsModal("override", payee, earning)}
+                                            >
+                                              Override
+                                            </ButtonSecondary>
+                                          </Row>
+                                        )}
                                       </Stack>
                                     </CardContent>
                                   </Card>
@@ -417,6 +759,114 @@ export function CurrentPayrollPage() {
             </Stack>
           </CardContent>
         </Card>
+
+        <Modal
+          isOpen={earningsModal.isOpen}
+          onClose={closeEarningsModal}
+          title={
+            earningsModal.mode === "override"
+              ? "Override Earnings"
+              : earningsModal.mode === "additional"
+              ? "Add Additional Earnings"
+              : "Earnings"
+          }
+          width={620}
+        >
+          <Stack gap="md">
+            <Text.Body color="muted" size="sm">
+              Payee: #{earningsModal.payee?.payeeId?.toString() ?? "-"} · {shortAddress(earningsModal.payee?.paymentAddress ?? ethers.constants.AddressZero)}
+            </Text.Body>
+
+            <Stack>
+              <Text.Body size="sm" color="muted">Earnings Code</Text.Body>
+              <Select<string>
+                value={modalCodeId || null}
+                onChange={(v) => setModalCodeId(String(v))}
+                disabled={earningsModal.mode !== "additional"}
+              >
+                {(earningsModal.mode === "additional"
+                  ? organizationEarningsCodes
+                  : earningsModal.earning
+                  ? [{
+                      earningsCodeId: earningsModal.earning.earningsCodeId,
+                      isActive: true,
+                      rule: earningsModal.earning.rule,
+                      config: earningsModal.earning.config,
+                    }]
+                  : []
+                ).map((code) => (
+                  <SelectOption
+                    key={code.earningsCodeId.toString()}
+                    value={code.earningsCodeId.toString()}
+                    label={`#${code.earningsCodeId.toString()} · ${buildRuleMeta(code.rule, config).name}`}
+                  />
+                ))}
+              </Select>
+            </Stack>
+
+            <Row justify="between" align="center" wrap>
+              <Text.Body size="sm" color="muted">
+                Rule: {selectedModalRuleMeta.name}
+              </Text.Body>
+              <Row gap="sm" align="center">
+                <Text.Body size="sm" color="muted">{shortAddress(selectedModalRule)}</Text.Body>
+                <CopyButton value={selectedModalRule} ariaLabel="Copy rule address" />
+              </Row>
+            </Row>
+
+            {selectedModalRuleMeta.configRequired && selectedModalCode && (
+              <Text.Body size="sm" color="muted">
+                Config: {decodeConfigDisplay(selectedModalCode.config, selectedModalCode.rule, config)}
+              </Text.Body>
+            )}
+
+            <Stack>
+              <Text.Body size="sm" color="muted">Rate</Text.Body>
+              <Input
+                value={modalRate}
+                onChange={(e) => setModalRate(e.target.value)}
+                placeholder="e.g. 20"
+              />
+            </Stack>
+
+            {selectedModalRuleMeta.kind === "hourly" && (
+              <Stack>
+                <Text.Body size="sm" color="muted">Hours Worked (runData)</Text.Body>
+                <NumberInput
+                  value={modalHourlyRunData}
+                  onChange={(e) => setModalHourlyRunData((e.target as HTMLInputElement).value)}
+                  allowDecimal={false}
+                />
+              </Stack>
+            )}
+
+            {selectedModalRuleMeta.kind === "custom" && (
+              <Stack>
+                <Text.Body size="sm" color="muted">Run Data (raw hex)</Text.Body>
+                <Input
+                  value={modalRawRunData}
+                  onChange={(e) => setModalRawRunData(e.target.value)}
+                  placeholder="0x"
+                />
+              </Stack>
+            )}
+
+            <Row justify="end" gap="sm">
+              <ButtonSecondary style={{ flex: 0 }} onClick={closeEarningsModal}>
+                Close
+              </ButtonSecondary>
+              {isAdmin && earningsModal.mode !== "view" && (
+                <ButtonPrimary
+                  style={{ flex: 0 }}
+                  onClick={handleSubmitCurrentPayrollEarning}
+                  disabled={earningsModal.mode === "additional" && !selectedModalCode}
+                >
+                  Save
+                </ButtonPrimary>
+              )}
+            </Row>
+          </Stack>
+        </Modal>
       </Stack>
     </PageContainer>
   );
