@@ -109,16 +109,20 @@ export function PayeesTable({
 			)}
 
 			<Stack>
-				<Text.Label>Payees ({filteredPayees.length})</Text.Label>
-
-				{searchEnabled && (
-					<Input
-						type="text"
-						placeholder="Search by role, address, or ID..."
-						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
-						style={{ marginBottom: "var(--spacing-sm)" }}
-					/>
+				{searchEnabled ? (
+					<Row justify="between" align="center" wrap style={{ marginBottom: "var(--spacing-sm)" }}>
+						<Text.Label>Payees ({filteredPayees.length})</Text.Label>
+						<div style={{ width: "100%", maxWidth: 380, marginLeft: "auto" }}>
+							<Input
+								type="text"
+								placeholder="Search by role, address, or ID..."
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+							/>
+						</div>
+					</Row>
+				) : (
+					<Text.Label>Payees ({filteredPayees.length})</Text.Label>
 				)}
 
 				<Table

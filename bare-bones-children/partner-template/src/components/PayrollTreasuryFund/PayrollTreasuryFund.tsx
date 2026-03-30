@@ -171,49 +171,53 @@ export function PayrollTreasuryFund({
   }
 
   return (
-    <Card>
-      <CardContent>
-        <Stack>
-          <Text.Title>Payroll Treasury</Text.Title>
-
-          <Row gap="sm" align="center">
-            <Text.Label>Your Balance:</Text.Label>
-            {loadingBalance ? (
-              <Text.Body color="muted">Loading...</Text.Body>
-            ) : (
-              <Text.Body color="secondary" weight={600}>
-                {userBalance} tokens
-              </Text.Body>
-            )}
-          </Row>
-
-          <Row gap="sm" align="center">
-            <Text.Label>Treasury Balance:</Text.Label>
-            {loadingBalance ? (
-              <Text.Body color="muted">Loading...</Text.Body>
-            ) : (
-              <Text.Body color="success" weight={600}>
-                {treasuryBalance} tokens
-              </Text.Body>
-            )}
-          </Row>
-
+    <Card style={{ width: "100%", height: "100%" }}>
+      <CardContent style={{ height: "100%" }}>
+        <Stack style={{ height: "100%", justifyContent: "space-between" }}>
           <Stack>
-            <Text.Label>Deposit Amount</Text.Label>
-            <NumberInput
-              value={amount}
-              onChange={(e) => setAmount((e.target as HTMLInputElement).value)}
-              placeholder="0.0"
-              disabled={disabled}
-            />
+            <Text.Title>Payroll Treasury</Text.Title>
+
+            <Row gap="sm" align="center">
+              <Text.Label>Your Balance:</Text.Label>
+              {loadingBalance ? (
+                <Text.Body color="muted">Loading...</Text.Body>
+              ) : (
+                <Text.Body color="secondary" weight={600}>
+                  {userBalance} tokens
+                </Text.Body>
+              )}
+            </Row>
+
+            <Row gap="sm" align="center">
+              <Text.Label>Treasury Balance:</Text.Label>
+              {loadingBalance ? (
+                <Text.Body color="muted">Loading...</Text.Body>
+              ) : (
+                <Text.Body color="success" weight={600}>
+                  {treasuryBalance} tokens
+                </Text.Body>
+              )}
+            </Row>
           </Stack>
 
-          <ButtonPrimary
-            onClick={handleDepositFunds}
-            disabled={!amount || disabled || !organizationSlug}
-          >
-            Supply Treasury
-          </ButtonPrimary>
+          <Stack>
+            <Stack>
+              <Text.Label>Deposit Amount</Text.Label>
+              <NumberInput
+                value={amount}
+                onChange={(e) => setAmount((e.target as HTMLInputElement).value)}
+                placeholder="0.0"
+                disabled={disabled}
+              />
+            </Stack>
+
+            <ButtonPrimary
+              onClick={handleDepositFunds}
+              disabled={!amount || disabled || !organizationSlug}
+            >
+              Supply Treasury
+            </ButtonPrimary>
+          </Stack>
         </Stack>
       </CardContent>
     </Card>

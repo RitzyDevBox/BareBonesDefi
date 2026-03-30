@@ -1,7 +1,7 @@
 import React from "react";
 import { ClickableSurface } from "../Primitives";
 
-export type ButtonSize = "sm" | "md" | "lg";
+export type ButtonSize = "sm" | "md" | "lg" | "xl";
 export type ButtonShape = "square" | "rounded" | "pill" | "circle";
 
 export interface ButtonBaseProps
@@ -28,6 +28,7 @@ export function ButtonBase({
     sm: "var(--spacing-sm)",
     md: "var(--spacing-md)",
     lg: "var(--spacing-lg)",
+    xl: "var(--spacing-lg)",
   };
 
   const radiusByShape = {

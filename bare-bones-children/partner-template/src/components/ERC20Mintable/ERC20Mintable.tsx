@@ -57,7 +57,7 @@ export function ERC20Mintable() {
   }
 
   return (
-    <Card style={{ width: 420 }}>
+    <Card style={{ width: "100%", height: "100%" }}>
       <CardContent>
         <Stack>
           <Text.Title>Mint Mock ERC20</Text.Title>

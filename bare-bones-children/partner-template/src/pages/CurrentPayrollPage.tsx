@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent, Input } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
@@ -10,6 +10,7 @@ import { Modal } from "../components/Modal/Modal";
 import { Select, SelectOption } from "../components/Select";
 import { NumberInput } from "../components/Inputs/NumberInput";
 import { CopyButton } from "../components/Button/Actions/CopyButton";
+import { IconButton } from "../components/Button/IconButton";
 import { ERC20Mintable } from "../components/ERC20Mintable/ERC20Mintable";
 import { PayrollTreasuryFund } from "../components/PayrollTreasuryFund/PayrollTreasuryFund";
 import { useWalletProvider } from "../hooks/useWalletProvider";
@@ -31,6 +32,7 @@ import {
   type PayrollPayeeRunDataView,
 } from "../utils/payroll/fetchPayrollViews";
 import { shortAddress } from "../utils/formatUtils";
+import { ROUTES } from "../routes";
 import {
   buildRuleMeta,
   decodeConfigDisplay,
@@ -45,26 +47,58 @@ function formatRate(rate: ethers.BigNumber) {
   }
 }
 
+enum PayeeStatus {
+  Active = 0,
+  OnLeave = 1,
+  Inactive = 2,
+}
+
+enum EarningsSource {
+  Default = 0,
+  Override = 1,
+  Additional = 2,
+}
+
+enum CurrentPayrollEarningsMode {
+  View = "view",
+  Override = "override",
+  Additional = "additional",
+}
+
 function payeeStatusLabel(status?: number) {
-  if (status === 0) return "Active";
-  if (status === 1) return "On Leave";
-  if (status === 2) return "Inactive";
-  return `Status ${String(status ?? 0)}`;
+  switch (status) {
+    case PayeeStatus.Active:
+      return "Active";
+    case PayeeStatus.OnLeave:
+      return "On Leave";
+    case PayeeStatus.Inactive:
+      return "Inactive";
+    default:
+      return `Status ${String(status ?? 0)}`;
+  }
 }
 
 function sourceLabel(source: number) {
-  if (source === 1) return "Override";
-  if (source === 2) return "Additional";
-  return "Default";
+  switch (source) {
+    case EarningsSource.Override:
+      return "Override";
+    case EarningsSource.Additional:
+      return "Additional";
+    default:
+      return "Default";
+  }
 }
 
 function sourceColor(source: number): "main" | "secondary" | "label" | "muted" | "danger" | "warn" | "success" {
-  if (source === 1) return "warn";
-  if (source === 2) return "success";
-  return "secondary";
+  switch (source) {
+    case EarningsSource.Override:
+      return "warn";
+    case EarningsSource.Additional:
+      return "success";
+    default:
+      return "secondary";
+  }
 }
-
-type CurrentPayrollEarningsMode = "view" | "override" | "additional";
 
 interface CurrentPayrollEarningsModalState {
   isOpen: boolean;
@@ -75,6 +109,7 @@ interface CurrentPayrollEarningsModalState {
 
 export function CurrentPayrollPage() {
   const { organizationId } = useParams<{ organizationId: string }>();
+  const navigate = useNavigate();
   const slug = (organizationId ?? "").trim();
 
   const { account, provider, chainId } = useWalletProvider();
@@ -101,7 +136,7 @@ export function CurrentPayrollPage() {
   const [periodIdInput, setPeriodIdInput] = useState<string>("0");
   const [earningsModal, setEarningsModal] = useState<CurrentPayrollEarningsModalState>({
     isOpen: false,
-    mode: "view",
+    mode: CurrentPayrollEarningsMode.View,
     payee: null,
     earning: null,
   });
@@ -482,7 +517,7 @@ export function CurrentPayrollPage() {
   function closeEarningsModal() {
     setEarningsModal({
       isOpen: false,
-      mode: "view",
+      mode: CurrentPayrollEarningsMode.View,
       payee: null,
       earning: null,
     });
@@ -506,7 +541,7 @@ export function CurrentPayrollPage() {
     const payeeId = earningsModal.payee.payeeId.toString();
     const runData = resolveModalRunData();
 
-    if (earningsModal.mode === "override") {
+    if (earningsModal.mode === CurrentPayrollEarningsMode.Override) {
       const codeId = earningsModal.earning?.earningsCodeId.toString() ?? modalCodeId;
       if (!codeId) return;
 
@@ -520,11 +555,13 @@ export function CurrentPayrollPage() {
         modalRate || "0",
         runData
       );
+      setPreviewGrossByPayeeId({});
+      setPreviewTotalGross(null);
       closeEarningsModal();
       return;
     }
 
-    if (earningsModal.mode === "additional") {
+    if (earningsModal.mode === CurrentPayrollEarningsMode.Additional) {
       if (!selectedModalCode) return;
 
       await addAdditionalEarning(
@@ -537,26 +574,43 @@ export function CurrentPayrollPage() {
         selectedModalCode.config,
         runData
       );
+      setPreviewGrossByPayeeId({});
+      setPreviewTotalGross(null);
       closeEarningsModal();
     }
   }
 
   return (
-    <PageContainer center>
-      <Stack gap="lg" style={{ maxWidth: 600 }}>
-        <ERC20Mintable />
+    <PageContainer center maxWidth={1440}>
+      <Stack gap="lg" style={{ width: "100%" }}>
+        <Row gap="sm" wrap style={{ width: "100%", alignItems: "stretch", justifyContent: "center" }}>
+          <div style={{ flex: "0 1 440px", width: "100%", maxWidth: 460, minWidth: 320, display: "flex" }}>
+            <ERC20Mintable />
+          </div>
 
-        {slug && (
-          <PayrollTreasuryFund
-            organizationSlug={slug}
-            disabled={!isAdmin}
-          />
-        )}
+          {slug && (
+            <div style={{ flex: "0 1 440px", width: "100%", maxWidth: 460, minWidth: 320, display: "flex" }}>
+              <PayrollTreasuryFund
+                organizationSlug={slug}
+                disabled={!isAdmin}
+              />
+            </div>
+          )}
+        </Row>
 
-        <Card>
+        <Card style={{ width: "100%", maxWidth: 860, alignSelf: "center" }}>
           <CardContent>
             <Stack>
-              <Text.Title align="left">Current Payroll</Text.Title>
+              <Row justify="between" align="center" wrap>
+                <Text.Title align="left">Current Payroll</Text.Title>
+                <ButtonSecondary
+                  style={{ flex: 0 }}
+                  onClick={() => navigate(ROUTES.PAYMENTS_ORG(slug))}
+                  disabled={!slug}
+                >
+                  Back to Payment Page
+                </ButtonSecondary>
+              </Row>
 
               {!slug && (
                 <Text.Body color="warn">
@@ -639,9 +693,14 @@ export function CurrentPayrollPage() {
                   </Row>
                 </Stack>
               )}
+            </Stack>
+          </CardContent>
+        </Card>
 
-              {payees.length > 0 && (
-                <PayeesTable
+        {payees.length > 0 && (
+          <Card style={{ width: "100%" }}>
+            <CardContent>
+              <PayeesTable
                   payees={payees}
                   searchEnabled={true}
                   extraColumns={[
@@ -650,12 +709,12 @@ export function CurrentPayrollPage() {
                       header: "Resolved Codes",
                     },
                     {
-                      key: "previewGross",
-                      header: "Preview Gross",
-                    },
-                    {
                       key: "payeeStatus",
                       header: "Status",
+                    },
+                    {
+                      key: "previewGross",
+                      header: "Preview Gross",
                     },
                   ]}
                   getExtraCells={(payee) => {
@@ -671,17 +730,19 @@ export function CurrentPayrollPage() {
                     <Card style={{ backgroundColor: "var(--colors-background)", border: "1px solid var(--colors-border)" }}>
                       <CardContent>
                         <Stack gap="sm">
-                          <Row justify="between" align="center" wrap>
-                            <Text.Label>Current Payroll Resolved Earnings</Text.Label>
-                            {isAdmin && currentPayrollId !== null && (
+                          <Text.Label>Current Payroll Resolved Earnings</Text.Label>
+                          {isAdmin && currentPayrollId !== null && (
+                            <Row align="center" style={{ width: "100%" }}>
+                              <div style={{ flex: 1, height: 1, background: "var(--colors-border)" }} />
                               <ButtonSecondary
-                                style={{ flex: 0 }}
-                                onClick={() => openEarningsModal("additional", payee, null)}
+                                style={{ flex: 0, minWidth: 170, borderRadius: 999, paddingInline: "var(--spacing-md)" }}
+                                onClick={() => openEarningsModal(CurrentPayrollEarningsMode.Additional, payee, null)}
                               >
-                                Add Additional
+                                + Add Additional
                               </ButtonSecondary>
-                            )}
-                          </Row>
+                              <div style={{ flex: 1, height: 1, background: "var(--colors-border)" }} />
+                            </Row>
+                          )}
                           {(() => {
                             const payeeId = payee.payeeId.toString();
                             const payeeRunData = payrollRunByPayeeId.get(payeeId);
@@ -695,58 +756,80 @@ export function CurrentPayrollPage() {
                               </Text.Body>
                             ) : (
                               <Stack gap="sm">
-                                {payeeRunData.earnings.map((earning, index) => (
-                                  <Card key={`${payeeId}-${earning.earningsCodeId.toString()}-${index}`} style={{ border: "1px solid var(--colors-border)" }}>
-                                    <CardContent style={{ padding: "var(--spacing-md)" }}>
+                                {payeeRunData.earnings.map((earning, index) => {
+                                  const codeId = earning.earningsCodeId.toString();
+                                  const ruleMeta = buildRuleMeta(earning.rule, config);
+
+                                  return (
+                                  <Card key={`${payeeId}-${codeId}-${index}`} style={{ border: "1px solid var(--colors-border)" }}>
+                                    <CardContent style={{ padding: "var(--spacing-md)", position: "relative" }}>
+                                      {isAdmin && currentPayrollId !== null && (
+                                        <IconButton
+                                          size="xl"
+                                          iconFontSize="xl"
+                                          shape="rounded"
+                                          aria-label="Override earning"
+                                          title="Override earning"
+                                          onClick={() => openEarningsModal(CurrentPayrollEarningsMode.Override, payee, earning)}
+                                          style={{
+                                            position: "absolute",
+                                            right: "var(--spacing-sm)",
+                                            top: "var(--spacing-sm)",
+                                            zIndex: 1,
+                                            borderColor: "var(--colors-borderHover)",
+                                            color: "var(--colors-text-main)",
+                                          }}
+                                        >
+                                          <span
+                                            style={{
+                                              display: "flex",
+                                              alignItems: "center",
+                                              justifyContent: "center",
+                                              width: "1em",
+                                              height: "1em",
+                                              transform: "translate(-2px, 0px) rotate(90deg)",
+                                              transformOrigin: "center",
+                                              fontSize: "26px",
+                                              lineHeight: "1em",
+                                              fontWeight: 400,
+                                            }}
+                                          >
+                                            ✎
+                                          </span>
+                                        </IconButton>
+                                      )}
                                       <Stack gap="xs">
-                                        <Row justify="between" wrap>
-                                          <Text.Body weight={600}>
-                                            Code #{earning.earningsCodeId.toString()}
-                                          </Text.Body>
-                                          <Text.Body color={sourceColor(earning.source)} size="sm">
-                                            {sourceLabel(earning.source)}
-                                          </Text.Body>
-                                        </Row>
-                                        <Row justify="between" align="center" wrap>
+                                        <Text.Body weight={600}>
+                                          Rule {ruleMeta.name}: {codeId}
+                                        </Text.Body>
+                                        <Text.Body color={sourceColor(earning.source)} size="sm">
+                                          State: {sourceLabel(earning.source)}
+                                        </Text.Body>
+                                        <Row gap="sm" align="center" wrap>
                                           <Text.Body size="sm" color="muted">
-                                            Rule: {buildRuleMeta(earning.rule, config).name}
+                                            Address: {shortAddress(earning.rule)}
                                           </Text.Body>
-                                          <Row gap="sm" align="center">
-                                            <Text.Body size="sm" color="muted">
-                                              {shortAddress(earning.rule)}
-                                            </Text.Body>
-                                            <CopyButton value={earning.rule} ariaLabel="Copy rule address" />
-                                          </Row>
+                                          <CopyButton value={earning.rule} ariaLabel="Copy rule address" />
                                         </Row>
                                         <Text.Body size="sm" color="muted">
                                           Rate: {formatRate(earning.rate)}
                                         </Text.Body>
-                                        {(buildRuleMeta(earning.rule, config).configRequired ||
-                                          (buildRuleMeta(earning.rule, config).kind === "custom" && earning.config !== "0x")) && (
+                                        {(ruleMeta.configRequired ||
+                                          (ruleMeta.kind === "custom" && earning.config !== "0x")) && (
                                           <Text.Body size="sm" color="muted">
                                             Config: {decodeConfigDisplay(earning.config, earning.rule, config)}
                                           </Text.Body>
                                         )}
-                                        {(buildRuleMeta(earning.rule, config).runDataRequired ||
-                                          (buildRuleMeta(earning.rule, config).kind === "custom" && earning.runData !== "0x")) && (
+                                        {(ruleMeta.runDataRequired ||
+                                          (ruleMeta.kind === "custom" && earning.runData !== "0x")) && (
                                           <Text.Body size="sm" color="muted">
                                             Run Data: {decodeRunDataDisplay(earning.runData, earning.rule, config)}
                                           </Text.Body>
                                         )}
-                                        {isAdmin && currentPayrollId !== null && (
-                                          <Row justify="end" gap="sm" wrap>
-                                            <ButtonSecondary
-                                              style={{ flex: 0 }}
-                                              onClick={() => openEarningsModal("override", payee, earning)}
-                                            >
-                                              Override
-                                            </ButtonSecondary>
-                                          </Row>
-                                        )}
                                       </Stack>
                                     </CardContent>
                                   </Card>
-                                ))}
+                                );})}
                               </Stack>
                             );
                           })()}
@@ -755,18 +838,17 @@ export function CurrentPayrollPage() {
                     </Card>
                   )}
                 />
-              )}
-            </Stack>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         <Modal
           isOpen={earningsModal.isOpen}
           onClose={closeEarningsModal}
           title={
-            earningsModal.mode === "override"
+            earningsModal.mode === CurrentPayrollEarningsMode.Override
               ? "Override Earnings"
-              : earningsModal.mode === "additional"
+              : earningsModal.mode === CurrentPayrollEarningsMode.Additional
               ? "Add Additional Earnings"
               : "Earnings"
           }
@@ -782,9 +864,9 @@ export function CurrentPayrollPage() {
               <Select<string>
                 value={modalCodeId || null}
                 onChange={(v) => setModalCodeId(String(v))}
-                disabled={earningsModal.mode !== "additional"}
+                disabled={earningsModal.mode !== CurrentPayrollEarningsMode.Additional}
               >
-                {(earningsModal.mode === "additional"
+                {(earningsModal.mode === CurrentPayrollEarningsMode.Additional
                   ? organizationEarningsCodes
                   : earningsModal.earning
                   ? [{
@@ -855,11 +937,11 @@ export function CurrentPayrollPage() {
               <ButtonSecondary style={{ flex: 0 }} onClick={closeEarningsModal}>
                 Close
               </ButtonSecondary>
-              {isAdmin && earningsModal.mode !== "view" && (
+              {isAdmin && earningsModal.mode !== CurrentPayrollEarningsMode.View && (
                 <ButtonPrimary
                   style={{ flex: 0 }}
                   onClick={handleSubmitCurrentPayrollEarning}
-                  disabled={earningsModal.mode === "additional" && !selectedModalCode}
+                  disabled={earningsModal.mode === CurrentPayrollEarningsMode.Additional && !selectedModalCode}
                 >
                   Save
                 </ButtonPrimary>

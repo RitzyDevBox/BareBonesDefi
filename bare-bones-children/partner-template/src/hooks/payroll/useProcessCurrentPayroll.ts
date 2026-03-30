@@ -2,15 +2,22 @@ import { useCallback, useMemo } from "react";
 import { ethers } from "ethers";
 import { useExecuteRawTx } from "../useExecuteRawTx";
 import { useWalletProvider } from "../useWalletProvider";
+import { useTxRefresh } from "../../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../../constants/misc";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 
-type PayrollManagerStep = "initializePayroll" | "createPayroll" | "processChunk" | "finalizeChunk";
+enum PayrollManagerStep {
+  InitializePayroll = "initializePayroll",
+  CreatePayroll = "createPayroll",
+  ProcessChunk = "processChunk",
+  FinalizeChunk = "finalizeChunk",
+}
 const DEFAULT_CHUNK_LIMIT = 100;
 const DEFAULT_PERIOD_ID = 0;
 
 export function useProcessCurrentPayroll() {
   const { chainId, provider } = useWalletProvider();
+  const { version } = useTxRefresh();
 
   const config = useMemo(() => {
     if (!chainId) return null;
@@ -41,11 +48,11 @@ export function useProcessCurrentPayroll() {
       const slugBytes = ethers.utils.formatBytes32String(slugInput);
 
       const data =
-        step === "initializePayroll"
+        step === PayrollManagerStep.InitializePayroll
           ? payrollManagerInterface.encodeFunctionData("initializePayroll", [slugBytes, startDate])
-          : step === "createPayroll"
+          : step === PayrollManagerStep.CreatePayroll
           ? payrollManagerInterface.encodeFunctionData("createPayroll", [slugBytes, periodId])
-          : step === "processChunk"
+          : step === PayrollManagerStep.ProcessChunk
           ? payrollManagerInterface.encodeFunctionData("processPayrollChunk", [
               slugBytes,
               payrollIdInput,
@@ -72,13 +79,13 @@ export function useProcessCurrentPayroll() {
       periodId: ethers.BigNumberish = DEFAULT_PERIOD_ID,
       startDate: ethers.BigNumberish = 0
     ) => {
-      if (step === "initializePayroll") {
+      if (step === PayrollManagerStep.InitializePayroll) {
         return `Initialized payroll for ${slugInput} at startDate ${String(startDate)}`;
       }
-      if (step === "createPayroll") {
+      if (step === PayrollManagerStep.CreatePayroll) {
         return `Created payroll period ${String(periodId)} for ${slugInput}`;
       }
-      if (step === "processChunk") {
+      if (step === PayrollManagerStep.ProcessChunk) {
         return `Processed payroll #${String(payrollIdInput)} chunk (limit ${String(chunkLimit)}) for ${slugInput}`;
       }
       return `Finalized payroll #${String(payrollIdInput)} chunk (limit ${String(chunkLimit)}) for ${slugInput}`;
@@ -107,7 +114,7 @@ export function useProcessCurrentPayroll() {
 
         await executeManagerStep(
           chainId,
-          "initializePayroll",
+          PayrollManagerStep.InitializePayroll,
           slugInput,
           undefined,
           DEFAULT_CHUNK_LIMIT,
@@ -118,7 +125,7 @@ export function useProcessCurrentPayroll() {
 
       await executeManagerStep(
         chainId,
-        "createPayroll",
+        PayrollManagerStep.CreatePayroll,
         slugInput,
         undefined,
         DEFAULT_CHUNK_LIMIT,
@@ -133,6 +140,7 @@ export function useProcessCurrentPayroll() {
       provider,
       payrollManagerAddress,
       executeManagerStep,
+      version,
     ]
   );
 
@@ -150,11 +158,11 @@ export function useProcessCurrentPayroll() {
       }
 
       for (let i = 0; i < chunkLoopCount; i++) {
-        await executeManagerStep(chainId, "processChunk", slugInput, payrollId, chunkLimit);
+        await executeManagerStep(chainId, PayrollManagerStep.ProcessChunk, slugInput, payrollId, chunkLimit);
       }
 
       for (let i = 0; i < chunkLoopCount; i++) {
-        await executeManagerStep(chainId, "finalizeChunk", slugInput, payrollId, chunkLimit);
+        await executeManagerStep(chainId, PayrollManagerStep.FinalizeChunk, slugInput, payrollId, chunkLimit);
       }
     },
     [
@@ -162,6 +170,7 @@ export function useProcessCurrentPayroll() {
       provider,
       payrollManagerAddress,
       executeManagerStep,
+      version,
     ]
   );
 

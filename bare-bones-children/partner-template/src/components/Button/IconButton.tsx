@@ -1,18 +1,20 @@
 import React from "react";
 import { ButtonBase, ButtonShape } from "./ButtonBase";
 
-export type IconButtonSize = "sm" | "md" | "lg";
+export type IconButtonSize = "sm" | "md" | "lg" | "xl";
 
 const ICON_SIZE: Record<IconButtonSize, string> = {
   sm: "var(--spacing-md)",
   md: "var(--spacing-lg)",
   lg: "var(--spacing-xl)",
+  xl: "36px",
 };
 
 const ICON_FONT: Record<IconButtonSize, string> = {
   sm: "14px",
   md: "18px",
   lg: "22px",
+  xl: "28px",
 };
 
 interface IconButtonProps

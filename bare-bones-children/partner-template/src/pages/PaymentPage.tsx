@@ -10,6 +10,8 @@ import { AddressInput } from "../components/Inputs/AddressInput";
 import { NumberInput } from "../components/Inputs/NumberInput";
 import { Modal } from "../components/Modal/Modal";
 import { CopyButton } from "../components/Button/Actions/CopyButton";
+import { IconButton } from "../components/Button/IconButton";
+import { TrashBinIcon } from "../assets/icons/TrashBinIcon";
 import { Select, SelectOption } from "../components/Select";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
@@ -473,9 +475,9 @@ export function PaymentPage() {
   }
 
   return (
-    <PageContainer center>
-      <Stack gap="lg" style={{ maxWidth: 600 }}>
-        <Card>
+    <PageContainer center maxWidth={1320}>
+      <Stack gap="lg" style={{ width: "100%" }}>
+        <Card style={{ width: "100%", maxWidth: 860, alignSelf: "center" }}>
           <CardContent>
             <Stack>
               <Text.Title>Organization Management</Text.Title>
@@ -550,152 +552,177 @@ export function PaymentPage() {
                     </ButtonPrimary>
                   )}
 
-                  {orgInfo.exists && (
-                    <PayeesTable
-                      payees={payees}
-                      searchEnabled={true}
-                      extraColumns={[
-                        {
-                          key: "defaultCodes",
-                          header: "Default Codes",
-                        },
-                        {
-                          key: "payeeStatus",
-                          header: "Status",
-                        },
-                      ]}
-                      getExtraCells={(payee) => {
-                        const payeeId = payee.payeeId.toString();
-                        const defaults = defaultsByPayeeId.get(payeeId);
-                        return {
-                          defaultCodes: defaults?.earnings.length ?? 0,
-                          payeeStatus: payeeStatusLabel(defaults?.payeeStatus ?? payee.status),
-                        };
-                      }}
-                      renderExpandedRow={(payee) => {
-                        const payeeId = payee.payeeId.toString();
-                        const defaults = defaultsByPayeeId.get(payeeId);
-
-                        return (
-                          <Card style={{ backgroundColor: "var(--colors-background)", border: "1px solid var(--colors-border)" }}>
-                            <CardContent>
-                              <Stack gap="sm">
-                                <Row justify="between" align="center" wrap>
-                                  <Text.Label>Payee Default Earnings</Text.Label>
-                                  {isAdmin && (
-                                    <ButtonSecondary
-                                      style={{ flex: 0 }}
-                                      onClick={() => openPayeeEarningsModal("add", payee, null)}
-                                    >
-                                      Add
-                                    </ButtonSecondary>
-                                  )}
-                                </Row>
-                                {!defaults || defaults.earnings.length === 0 ? (
-                                  <Text.Body color="muted">
-                                    No default earnings assignments found for this payee.
-                                  </Text.Body>
-                                ) : (
-                                  <Stack gap="sm">
-                                    {defaults.earnings.map((earning) => {
-                                      const codeId = earning.earningsCodeId.toString();
-                                      const codeMeta = earningsCodeById.get(codeId);
-                                      const active = codeMeta?.isActive ?? earning.isActive;
-                                      const ruleMeta = buildRuleMeta(earning.rule, config);
-                                      const showConfig =
-                                        ruleMeta.configRequired ||
-                                        (ruleMeta.kind === "custom" && Boolean(earning.config && earning.config !== "0x"));
-                                      const showRunData =
-                                        ruleMeta.runDataRequired ||
-                                        (ruleMeta.kind === "custom" && Boolean(earning.runData && earning.runData !== "0x"));
-
-                                      return (
-                                        <Card key={`${payeeId}-${codeId}`} style={{ border: "1px solid var(--colors-border)" }}>
-                                          <CardContent style={{ padding: "var(--spacing-md)" }}>
-                                            <Stack gap="xs">
-                                              <Row justify="between" wrap>
-                                                <Text.Body weight={600}>Code #{codeId}</Text.Body>
-                                                <Text.Body color={active ? "success" : "warn"} size="sm">
-                                                  {active ? "Active" : "Inactive"}
-                                                </Text.Body>
-                                              </Row>
-                                              <Row justify="between" align="center" wrap>
-                                                <Text.Body size="sm" color="muted">
-                                                  Rule: {ruleMeta.name}
-                                                </Text.Body>
-                                                <Row gap="sm" align="center">
-                                                  <Text.Body size="sm" color="muted">
-                                                    {shortAddress(earning.rule)}
-                                                  </Text.Body>
-                                                  <CopyButton value={earning.rule} ariaLabel="Copy rule address" />
-                                                </Row>
-                                              </Row>
-                                              <Text.Body size="sm" color="muted">
-                                                Rate: {formatRate(earning.rate)}
-                                              </Text.Body>
-                                              {showConfig && (
-                                                <Text.Body size="sm" color="muted">
-                                                  Config: {decodeConfigDisplay(earning.config, earning.rule, config)}
-                                                </Text.Body>
-                                              )}
-                                              {showRunData && (
-                                                <Text.Body size="sm" color="muted">
-                                                  Run Data: {decodeRunDataDisplay(earning.runData, earning.rule, config)}
-                                                </Text.Body>
-                                              )}
-                                              <Row gap="sm" justify="end" wrap>
-                                                <ButtonSecondary
-                                                  style={{ flex: 0 }}
-                                                  onClick={() => openPayeeEarningsModal("view", payee, earning)}
-                                                >
-                                                  View
-                                                </ButtonSecondary>
-                                                {isAdmin && (
-                                                  <>
-                                                    <ButtonSecondary
-                                                      style={{ flex: 0 }}
-                                                      onClick={() => openPayeeEarningsModal("edit", payee, earning)}
-                                                    >
-                                                      Edit
-                                                    </ButtonSecondary>
-                                                    <ButtonSecondary
-                                                      style={{ flex: 0 }}
-                                                      onClick={() => openPayeeEarningsModal("delete", payee, earning)}
-                                                    >
-                                                      Delete
-                                                    </ButtonSecondary>
-                                                  </>
-                                                )}
-                                              </Row>
-                                            </Stack>
-                                          </CardContent>
-                                        </Card>
-                                      );
-                                    })}
-                                  </Stack>
-                                )}
-                              </Stack>
-                            </CardContent>
-                          </Card>
-                        );
-                      }}
-                      onAddPayee={
-                        isAdmin
-                          ? {
-                              onSubmit: async (role, address) => {
-                                await onboardPayee(chainId!, slug, role, address);
-                              },
-                              loading: false,
-                            }
-                          : undefined
-                      }
-                    />
-                  )}
                 </>
               )}
             </Stack>
           </CardContent>
         </Card>
+
+        {orgInfo?.exists && (
+          <Card style={{ width: "100%" }}>
+            <CardContent>
+              <PayeesTable
+                payees={payees}
+                searchEnabled={true}
+                extraColumns={[
+                  {
+                    key: "defaultCodes",
+                    header: "Default Codes",
+                  },
+                  {
+                    key: "payeeStatus",
+                    header: "Status",
+                  },
+                ]}
+                getExtraCells={(payee) => {
+                  const payeeId = payee.payeeId.toString();
+                  const defaults = defaultsByPayeeId.get(payeeId);
+                  return {
+                    defaultCodes: defaults?.earnings.length ?? 0,
+                    payeeStatus: payeeStatusLabel(defaults?.payeeStatus ?? payee.status),
+                  };
+                }}
+                renderExpandedRow={(payee) => {
+                  const payeeId = payee.payeeId.toString();
+                  const defaults = defaultsByPayeeId.get(payeeId);
+
+                  return (
+                    <Card style={{ backgroundColor: "var(--colors-background)", border: "1px solid var(--colors-border)" }}>
+                      <CardContent>
+                        <Stack gap="sm">
+                          <Text.Label>Payee Default Earnings</Text.Label>
+                          {isAdmin && (
+                            <Row align="center" style={{ width: "100%" }}>
+                              <div style={{ flex: 1, height: 1, background: "var(--colors-border)" }} />
+                              <ButtonSecondary
+                                style={{ flex: 0, minWidth: 150, borderRadius: 999, paddingInline: "var(--spacing-md)" }}
+                                onClick={() => openPayeeEarningsModal("add", payee, null)}
+                              >
+                                + Add Earnings
+                              </ButtonSecondary>
+                              <div style={{ flex: 1, height: 1, background: "var(--colors-border)" }} />
+                            </Row>
+                          )}
+                          {!defaults || defaults.earnings.length === 0 ? (
+                            <Text.Body color="muted">
+                              No default earnings assignments found for this payee.
+                            </Text.Body>
+                          ) : (
+                            <Stack gap="sm">
+                              {defaults.earnings.map((earning) => {
+                                const codeId = earning.earningsCodeId.toString();
+                                const codeMeta = earningsCodeById.get(codeId);
+                                const active = codeMeta?.isActive ?? earning.isActive;
+                                const ruleMeta = buildRuleMeta(earning.rule, config);
+                                const showConfig =
+                                  ruleMeta.configRequired ||
+                                  (ruleMeta.kind === "custom" && Boolean(earning.config && earning.config !== "0x"));
+                                const showRunData =
+                                  ruleMeta.runDataRequired ||
+                                  (ruleMeta.kind === "custom" && Boolean(earning.runData && earning.runData !== "0x"));
+
+                                return (
+                                  <Card key={`${payeeId}-${codeId}`} style={{ border: "1px solid var(--colors-border)" }}>
+                                    <CardContent style={{ padding: "var(--spacing-md)", position: "relative" }}>
+                                      {isAdmin && (
+                                        <Row gap="xs" align="center" style={{ position: "absolute", right: "var(--spacing-sm)", top: "var(--spacing-sm)", zIndex: 1 }}>
+                                          <IconButton
+                                            size="xl"
+                                            iconFontSize="xl"
+                                            shape="rounded"
+                                            aria-label="Edit earning"
+                                            title="Edit"
+                                            onClick={() => openPayeeEarningsModal("edit", payee, earning)}
+                                            style={{
+                                              borderColor: "var(--colors-borderHover)",
+                                              color: "var(--colors-text-main)",
+                                            }}
+                                          >
+                                            <span
+                                              style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                width: "1em",
+                                                height: "1em",
+                                                transform: "translate(-2px, 0px) rotate(90deg)",
+                                                transformOrigin: "center",
+                                                fontSize: "26px",
+                                                lineHeight: "1em",
+                                                fontWeight: 400,
+                                              }}
+                                            >
+                                              ✎
+                                            </span>
+                                          </IconButton>
+                                          <IconButton
+                                            size="xl"
+                                            iconFontSize="lg"
+                                            shape="rounded"
+                                            aria-label="Delete earning"
+                                            title="Delete"
+                                            onClick={() => openPayeeEarningsModal("delete", payee, earning)}
+                                            style={{
+                                              borderColor: "var(--colors-borderHover)",
+                                              color: "var(--colors-error)",
+                                            }}
+                                          >
+                                            <span style={{ display: "flex", transform: "translateX(1px)" }}>
+                                              <TrashBinIcon size={24} />
+                                            </span>
+                                          </IconButton>
+                                        </Row>
+                                      )}
+                                      <Stack gap="xs">
+                                        <Text.Body weight={600}>Rule {ruleMeta.name}: {codeId}</Text.Body>
+                                        <Text.Body color={active ? "success" : "warn"} size="sm">
+                                          State: {active ? "Active" : "Inactive"}
+                                        </Text.Body>
+                                        <Row gap="sm" align="center" wrap>
+                                          <Text.Body size="sm" color="muted">
+                                            Address: {shortAddress(earning.rule)}
+                                          </Text.Body>
+                                          <CopyButton value={earning.rule} ariaLabel="Copy rule address" />
+                                        </Row>
+                                        <Text.Body size="sm" color="muted">
+                                          Rate: {formatRate(earning.rate)}
+                                        </Text.Body>
+                                        {showConfig && (
+                                          <Text.Body size="sm" color="muted">
+                                            Config: {decodeConfigDisplay(earning.config, earning.rule, config)}
+                                          </Text.Body>
+                                        )}
+                                        {showRunData && (
+                                          <Text.Body size="sm" color="muted">
+                                            Run Data: {decodeRunDataDisplay(earning.runData, earning.rule, config)}
+                                          </Text.Body>
+                                        )}
+                                      </Stack>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              })}
+                            </Stack>
+                          )}
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  );
+                }}
+                onAddPayee={
+                  isAdmin
+                    ? {
+                        onSubmit: async (role, address) => {
+                          await onboardPayee(chainId!, slug, role, address);
+                        },
+                        loading: false,
+                      }
+                    : undefined
+                }
+              />
+            </CardContent>
+          </Card>
+        )}
 
         <Modal
           isOpen={payeeEarningsModal.isOpen}
