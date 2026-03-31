@@ -541,6 +541,7 @@ export function PaymentPage() {
                         <PayrollEarningsManager
                           slug={slug.trim()}
                           canEdit={isAdmin}
+                          earningsCodes={organizationEarningsCodes}
                         />
                       )}
                     </>

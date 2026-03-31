@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import MockERC20ABI from "../../abis/paymentPipelines/MockERC20.abi.json";
 import { Card, CardContent } from "../BasicComponents";
 import { ButtonPrimary } from "../Button/ButtonPrimary";
+import { CopyButton } from "../Button/Actions/CopyButton";
 import { NumberInput } from "../Inputs/NumberInput";
 import { AddressInput } from "../Inputs/AddressInput";
 import { Stack, Row } from "../Primitives";
@@ -10,6 +11,7 @@ import { Text } from "../Primitives/Text";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
 import { getBareBonesConfiguration } from "../../constants/misc";
+import { shortAddress } from "../../utils/formatUtils";
 
 const MAX_MINT = 1_000_000_000; // limit per mint (human units)
 const DEFAULT_DECIMALS = 18;
@@ -61,8 +63,10 @@ export function ERC20Mintable() {
       <CardContent>
         <Stack>
           <Text.Title>Mint Mock ERC20</Text.Title>
-
-          <Text.Body color="muted">Token contract: {mockERC20Address}</Text.Body>
+          <Row gap="sm" align="center" wrap>
+            <Text.Body color="muted">Token contract: {shortAddress(mockERC20Address)}</Text.Body>
+            <CopyButton value={mockERC20Address} ariaLabel="Copy mock token address" />
+          </Row>
 
           <Stack>
             <Text.Label>Recipient</Text.Label>

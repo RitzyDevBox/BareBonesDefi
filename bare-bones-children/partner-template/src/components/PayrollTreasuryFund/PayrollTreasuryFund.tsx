@@ -5,6 +5,7 @@ import PayrollTreasuryABI from "../../abis/paymentPipelines/PayrollTreasury.abi.
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 import { Card, CardContent } from "../BasicComponents";
 import { ButtonPrimary } from "../Button/ButtonPrimary";
+import { CopyButton } from "../Button/Actions/CopyButton";
 import { NumberInput } from "../Inputs/NumberInput";
 import { Stack, Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
@@ -12,6 +13,7 @@ import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../../constants/misc";
+import { shortAddress } from "../../utils/formatUtils";
 
 const DEFAULT_DECIMALS = 18;
 
@@ -173,34 +175,42 @@ export function PayrollTreasuryFund({
   return (
     <Card style={{ width: "100%", height: "100%" }}>
       <CardContent style={{ height: "100%" }}>
-        <Stack style={{ height: "100%", justifyContent: "space-between" }}>
-          <Stack>
-            <Text.Title>Payroll Treasury</Text.Title>
+        <Stack style={{ height: "100%" }}>
+          <Text.Title>Payroll Treasury</Text.Title>
 
-            <Row gap="sm" align="center">
-              <Text.Label>Your Balance:</Text.Label>
-              {loadingBalance ? (
-                <Text.Body color="muted">Loading...</Text.Body>
-              ) : (
-                <Text.Body color="secondary" weight={600}>
-                  {userBalance} tokens
+          <Stack style={{ flex: 1, justifyContent: "flex-end", paddingTop: "var(--spacing-lg)" }}>
+            <Stack>
+              <Row gap="sm" align="center" wrap>
+                <Text.Label>Treasury:</Text.Label>
+                <Text.Body size="sm" color="muted">
+                  {shortAddress(resolvedTreasuryAddress)}
                 </Text.Body>
-              )}
-            </Row>
+                <CopyButton value={resolvedTreasuryAddress} ariaLabel="Copy treasury address" />
+              </Row>
 
-            <Row gap="sm" align="center">
-              <Text.Label>Treasury Balance:</Text.Label>
-              {loadingBalance ? (
-                <Text.Body color="muted">Loading...</Text.Body>
-              ) : (
-                <Text.Body color="success" weight={600}>
-                  {treasuryBalance} tokens
-                </Text.Body>
-              )}
-            </Row>
-          </Stack>
+              <Row gap="sm" align="center">
+                <Text.Label>Your Balance:</Text.Label>
+                {loadingBalance ? (
+                  <Text.Body color="muted">Loading...</Text.Body>
+                ) : (
+                  <Text.Body color="secondary" weight={600}>
+                    {userBalance} tokens
+                  </Text.Body>
+                )}
+              </Row>
 
-          <Stack>
+              <Row gap="sm" align="center">
+                <Text.Label>Treasury Balance:</Text.Label>
+                {loadingBalance ? (
+                  <Text.Body color="muted">Loading...</Text.Body>
+                ) : (
+                  <Text.Body color="success" weight={600}>
+                    {treasuryBalance} tokens
+                  </Text.Body>
+                )}
+              </Row>
+            </Stack>
+
             <Stack>
               <Text.Label>Deposit Amount</Text.Label>
               <NumberInput
@@ -209,14 +219,14 @@ export function PayrollTreasuryFund({
                 placeholder="0.0"
                 disabled={disabled}
               />
-            </Stack>
 
-            <ButtonPrimary
-              onClick={handleDepositFunds}
-              disabled={!amount || disabled || !organizationSlug}
-            >
-              Supply Treasury
-            </ButtonPrimary>
+              <ButtonPrimary
+                onClick={handleDepositFunds}
+                disabled={!amount || disabled || !organizationSlug}
+              >
+                Supply Treasury
+              </ButtonPrimary>
+            </Stack>
           </Stack>
         </Stack>
       </CardContent>
