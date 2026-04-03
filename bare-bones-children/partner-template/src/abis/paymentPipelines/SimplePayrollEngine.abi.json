@@ -19,7 +19,12 @@
             "internalType": "uint256"
           },
           {
-            "name": "processTimestamp",
+            "name": "startTime",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "endTime",
             "type": "uint256",
             "internalType": "uint256"
           },

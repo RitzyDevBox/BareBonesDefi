@@ -58,12 +58,12 @@
         ]
       },
       {
-        "name": "commissionBps",
+        "name": "rate",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "config",
+        "name": "",
         "type": "bytes",
         "internalType": "bytes"
       },
@@ -75,16 +75,11 @@
     ],
     "outputs": [
       {
-        "name": "payDelta",
+        "name": "",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "error",
-    "name": "DynamicCallFailed",
-    "inputs": []
+    "stateMutability": "pure"
   }
 ]
