@@ -1,15 +1,15 @@
 import { ethers } from "ethers";
-import OnboardingManagerABI from "../../abis/paymentPipelines/OnboardingManager.abi.json";
+import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 import type { PayeeModel } from "../../models/payments";
 
 export async function fetchPayeesByOrganization(
   provider: ethers.providers.Provider,
-  onboardingAddress: string,
+  payrollManagerAddress: string,
   slugBytes: string
 ): Promise<PayeeModel[]> {
   const contract = new ethers.Contract(
-    onboardingAddress,
-    OnboardingManagerABI as any,
+    payrollManagerAddress,
+    PayrollManagerABI as any,
     provider
   );
 

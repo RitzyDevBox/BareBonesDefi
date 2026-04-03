@@ -17,7 +17,6 @@ import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
-import OnboardingManagerABI from "../abis/paymentPipelines/OnboardingManager.abi.json";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import { PayeesTable } from "../components/PayeesTable";
 import { PayrollEarningsManager } from "../components/PayrollEarningsManager";
@@ -101,10 +100,9 @@ export function PaymentPage() {
     return getBareBonesConfiguration(chainId);
   }, [chainId]);
 
-  const onboardingAddress = config?.onboardingManagerAddress;
   const payrollManagerAddress = config?.payrollManagerAddress;
   const iface = useMemo(
-    () => new ethers.utils.Interface(OnboardingManagerABI as any),
+    () => new ethers.utils.Interface(PayrollManagerABI as any),
     []
   );
 
@@ -140,20 +138,20 @@ export function PaymentPage() {
       setSlug(slugFromRoute);
     }
 
-    if (provider && onboardingAddress) {
+    if (provider && payrollManagerAddress) {
       fetchOrgInfo(slugFromRoute);
     }
-  }, [organizationId, provider, onboardingAddress, payrollManagerAddress]);
+  }, [organizationId, provider, payrollManagerAddress]);
 
   // Fetch org info
   async function fetchOrgInfo(orgSlug: string) {
-    if (!provider || !onboardingAddress) return;
+    if (!provider || !payrollManagerAddress) return;
 
     setLoading(true);
     try {
       const contract = new ethers.Contract(
-        onboardingAddress,
-        OnboardingManagerABI as any,
+        payrollManagerAddress,
+        PayrollManagerABI as any,
         provider
       );
 
@@ -170,7 +168,7 @@ export function PaymentPage() {
 
       if (org.exists) {
         const [payeeList, defaultsRows, earningsRows] = await Promise.all([
-          fetchPayeesByOrganization(provider, onboardingAddress, slugBytes),
+          fetchPayeesByOrganization(provider, payrollManagerAddress, slugBytes),
           payrollManagerAddress
             ? fetchPayeesWithDefaults(provider, payrollManagerAddress, orgSlug, undefined, account ?? undefined)
             : Promise.resolve([]),
@@ -202,10 +200,10 @@ export function PaymentPage() {
   const buildRegisterOrgTx = useCallback((_: number, orgSlug: string) => {
     const slugBytes = ethers.utils.formatBytes32String(orgSlug);
     return {
-      to: onboardingAddress,
+      to: payrollManagerAddress,
       data: iface.encodeFunctionData("registerOrganization", [slugBytes]),
     } as any;
-  }, [onboardingAddress, iface]);
+  }, [payrollManagerAddress, iface]);
 
   const registerOrg = useExecuteRawTx(
     buildRegisterOrgTx,
@@ -217,7 +215,7 @@ export function PaymentPage() {
       const slugBytes = ethers.utils.formatBytes32String(orgSlug);
       const roleBytes = ethers.utils.formatBytes32String(role);
       return {
-        to: onboardingAddress,
+        to: payrollManagerAddress,
         data: iface.encodeFunctionData("onboardPayee", [
           slugBytes,
           roleBytes,
@@ -226,7 +224,7 @@ export function PaymentPage() {
         ]),
       } as any;
     },
-    [onboardingAddress, iface]
+    [payrollManagerAddress, iface]
   );
 
   const onboardPayee = useExecuteRawTx(
@@ -239,11 +237,11 @@ export function PaymentPage() {
     (_: number, orgSlug: string, newOwnerAddr: string) => {
       const slugBytes = ethers.utils.formatBytes32String(orgSlug);
       return {
-        to: onboardingAddress,
+        to: payrollManagerAddress,
         data: iface.encodeFunctionData("updateOwner", [slugBytes, newOwnerAddr]),
       } as any;
     },
-    [onboardingAddress, iface]
+    [payrollManagerAddress, iface]
   );
 
   const transferOwnership = useExecuteRawTx(

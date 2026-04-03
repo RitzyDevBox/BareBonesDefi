@@ -17,7 +17,6 @@ import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
-import OnboardingManagerABI from "../abis/paymentPipelines/OnboardingManager.abi.json";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import { PayeesTable } from "../components/PayeesTable";
 import type { OrganizationModel, PayeeModel } from "../models/payments";
@@ -152,7 +151,6 @@ export function CurrentPayrollPage() {
     return getBareBonesConfiguration(chainId);
   }, [chainId]);
 
-  const onboardingAddress = config?.onboardingManagerAddress;
   const payrollManagerAddress = config?.payrollManagerAddress;
   const payrollInterface = useMemo(
     () => new ethers.utils.Interface(PayrollManagerABI as any),
@@ -269,16 +267,16 @@ export function CurrentPayrollPage() {
   useEffect(() => {
     if (!slug) return;
     fetchOrgInfo(slug);
-  }, [slug, version, provider, onboardingAddress, payrollManagerAddress, account]);
+  }, [slug, version, provider, payrollManagerAddress, account]);
 
   async function fetchOrgInfo(orgSlug: string) {
-    if (!provider || !onboardingAddress) return;
+    if (!provider || !payrollManagerAddress) return;
 
     setLoading(true);
     try {
       const contract = new ethers.Contract(
-        onboardingAddress,
-        OnboardingManagerABI as any,
+        payrollManagerAddress,
+        PayrollManagerABI as any,
         provider
       );
 
@@ -293,7 +291,7 @@ export function CurrentPayrollPage() {
       setIsAdmin(org.exists && org.owner.toLowerCase() === account?.toLowerCase());
 
       if (org.exists) {
-        const payeeList = await fetchPayeesByOrganization(provider, onboardingAddress, slugBytes);
+        const payeeList = await fetchPayeesByOrganization(provider, payrollManagerAddress, slugBytes);
         setPayees(payeeList);
 
         if (payrollManagerAddress) {
