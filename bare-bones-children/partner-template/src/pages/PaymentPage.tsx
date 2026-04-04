@@ -105,6 +105,7 @@ export function PaymentPage() {
     () => new ethers.utils.Interface(PayrollManagerABI as any),
     []
   );
+  const defaultPayBatchCode = useMemo(() => ethers.utils.formatBytes32String("DEFAULT_PAY_BATCH"), []);
 
   const defaultsByPayeeId = useMemo(
     () =>
@@ -167,19 +168,15 @@ export function PaymentPage() {
       setIsAdmin(org.exists && org.owner.toLowerCase() === account?.toLowerCase());
 
       if (org.exists) {
-        const [payeeList, defaultsRows, earningsRows] = await Promise.all([
+        const [payeeListResult, defaultsRowsResult, earningsRowsResult] = await Promise.allSettled([
           fetchPayeesByOrganization(provider, payrollManagerAddress, slugBytes),
-          payrollManagerAddress
-            ? fetchPayeesWithDefaults(provider, payrollManagerAddress, orgSlug, undefined, account ?? undefined)
-            : Promise.resolve([]),
-          payrollManagerAddress
-            ? fetchOrganizationEarningsCodes(provider, payrollManagerAddress, orgSlug, undefined, account ?? undefined)
-            : Promise.resolve([]),
+          fetchPayeesWithDefaults(provider, payrollManagerAddress, orgSlug, undefined, undefined, account ?? undefined),
+          fetchOrganizationEarningsCodes(provider, payrollManagerAddress, orgSlug, undefined, account ?? undefined),
         ]);
 
-        setPayees(payeeList);
-        setPayeeDefaults(defaultsRows);
-        setOrganizationEarningsCodes(earningsRows);
+        setPayees(payeeListResult.status === "fulfilled" ? payeeListResult.value : []);
+        setPayeeDefaults(defaultsRowsResult.status === "fulfilled" ? defaultsRowsResult.value : []);
+        setOrganizationEarningsCodes(earningsRowsResult.status === "fulfilled" ? earningsRowsResult.value : []);
       } else {
         setPayees([]);
         setPayeeDefaults([]);
@@ -211,14 +208,14 @@ export function PaymentPage() {
   );
 
   const buildOnboardPayeeTx = useCallback(
-    (_: number, orgSlug: string, role: string, address: string) => {
+    (_: number, orgSlug: string, name: string, address: string) => {
       const slugBytes = ethers.utils.formatBytes32String(orgSlug);
-      const roleBytes = ethers.utils.formatBytes32String(role);
+      const nameBytes = ethers.utils.formatBytes32String(name);
       return {
         to: payrollManagerAddress,
         data: iface.encodeFunctionData("onboardPayee", [
           slugBytes,
-          roleBytes,
+          nameBytes,
           address,
           "0x",
         ]),
@@ -229,8 +226,38 @@ export function PaymentPage() {
 
   const onboardPayee = useExecuteRawTx(
     buildOnboardPayeeTx,
-    (_: number, __: string, role: string, address: string) =>
-      `Onboarded payee "${role}" at ${address}`
+    (_: number, __: string, name: string, address: string) =>
+      `Onboarded payee "${name}" at ${address}`
+  );
+
+  const batchOnboardPayees = useExecuteRawTx(
+    (_: number, orgSlug: string, entries: Array<{ name: string; address: string }>) => {
+      if (!payrollManagerAddress) {
+        throw new Error("Payroll manager address missing");
+      }
+      if (entries.length === 0) {
+        throw new Error("No payees to onboard");
+      }
+
+      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      const configs = entries.map((entry) => ({
+        name: ethers.utils.formatBytes32String(entry.name.trim()),
+        paymentAddress: entry.address.trim(),
+        params: "0x",
+        assignments: [],
+      }));
+
+      return {
+        to: payrollManagerAddress,
+        data: iface.encodeFunctionData("batchOnboardPayeesAndConfigurePayBatch", [
+          slugBytes,
+          defaultPayBatchCode,
+          configs,
+        ]),
+      } as any;
+    },
+    (_: number, __: string, entries: Array<{ name: string; address: string }>) =>
+      `Onboarded ${entries.length} payee(s)`
   );
 
   const buildTransferOwnershipTx = useCallback(
@@ -495,6 +522,29 @@ export function PaymentPage() {
                 </Row>
               </Stack>
 
+              {!!slug.trim() && (
+                <Row gap="sm" justify="end" wrap>
+                  <ButtonSecondary
+                    style={{ flex: 0 }}
+                    onClick={() => navigate(ROUTES.PAYMENTS_MANAGE_PAYEES(slug.trim()))}
+                  >
+                    Manage Payees
+                  </ButtonSecondary>
+                  <ButtonSecondary
+                    style={{ flex: 0 }}
+                    onClick={() => navigate(ROUTES.PAYMENTS_PAY_BATCHES(slug.trim()))}
+                  >
+                    Pay Batches
+                  </ButtonSecondary>
+                  <ButtonSecondary
+                    style={{ flex: 0 }}
+                    onClick={() => navigate(ROUTES.PAYROLL_CURRENT(slug.trim()))}
+                  >
+                    Go to Current Payroll
+                  </ButtonSecondary>
+                </Row>
+              )}
+
               {orgInfo && (
                 <>
                   <Stack style={{ padding: "var(--spacing-md)", backgroundColor: "var(--colors-background)", borderRadius: "var(--radius-md)" }}>
@@ -507,15 +557,6 @@ export function PaymentPage() {
                     <Text.Body color="muted" size="sm">
                       Earnings Catalog: {organizationEarningsCodes.length} code(s) · Defaults Loaded: {payeeDefaults.length} payee(s)
                     </Text.Body>
-                    <Row gap="sm" justify="end">
-                      <ButtonSecondary
-                        style={{ flex: 0 }}
-                        onClick={() => navigate(ROUTES.PAYROLL_CURRENT(slug.trim()))}
-                        disabled={!slug.trim()}
-                      >
-                        Go to Current Payroll
-                      </ButtonSecondary>
-                    </Row>
                   </Stack>
 
                   {isAdmin && (
@@ -711,8 +752,11 @@ export function PaymentPage() {
                 onAddPayee={
                   isAdmin
                     ? {
-                        onSubmit: async (role, address) => {
-                          await onboardPayee(chainId!, slug, role, address);
+                        onSubmit: async (name, address) => {
+                          return await onboardPayee(chainId!, slug, name, address);
+                        },
+                        onSubmitBatch: async (rows) => {
+                          return await batchOnboardPayees(chainId!, slug, rows);
                         },
                         loading: false,
                       }

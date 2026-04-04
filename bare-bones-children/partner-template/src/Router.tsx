@@ -11,6 +11,8 @@ import { VaultPage } from "./pages/VaultPage";
 import { VaultWalletPage } from "./pages/VaultWalletPage";
 import { PaymentPage } from "./pages/PaymentPage";
 import { CurrentPayrollPage } from "./pages/CurrentPayrollPage.tsx";
+import { ManagePayeesPage } from "./pages/ManagePayeesPage";
+import { PayBatchesPage } from "./pages/PayBatchesPage";
 
 const devOnlyRoutes = import.meta.env.DEV
   ? [{ path: "test-page", element: <TestPage /> }]
@@ -26,6 +28,8 @@ export const router = createHashRouter([
       { path: `${ROUTES.DAPP_BROWSER}`, element: <DappBrowserPage/> },
       { path: `${ROUTES.PAYMENTS}`, element: <PaymentPage/> },
       { path: `${ROUTES.PAYMENTS_ORG_ROUTE}`, element: <PaymentPage/> },
+      { path: `${ROUTES.PAYMENTS_MANAGE_PAYEES_ROUTE}`, element: <ManagePayeesPage/> },
+      { path: `${ROUTES.PAYMENTS_PAY_BATCHES_ROUTE}`, element: <PayBatchesPage/> },
       { path: `${ROUTES.PAYROLL_CURRENT_ROUTE}`, element: <CurrentPayrollPage/> },
       { path: `${ROUTES.ORGANIZATIONS}`, element: <OrganizationPage/> },
       { path: `${ROUTES.ORGANIZATIONS}/:organizationId`, element: <OrganizationDetailPage /> },

@@ -2,6 +2,7 @@ import { ethers } from "ethers";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 
 const DEFAULT_PAGE_SIZE = 100;
+const DEFAULT_PAY_BATCH_CODE = ethers.utils.formatBytes32String("DEFAULT_PAY_BATCH");
 
 export interface OrganizationEarningsCodeView {
   earningsCodeId: ethers.BigNumber;
@@ -113,6 +114,7 @@ export async function fetchPayeesWithDefaults(
   provider: ethers.providers.Provider,
   payrollManagerAddress: string,
   slug: string,
+  payBatchCode: string = DEFAULT_PAY_BATCH_CODE,
   pageSize = DEFAULT_PAGE_SIZE,
   from?: string
 ): Promise<PayeeDefaultsView[]> {
@@ -123,8 +125,8 @@ export async function fetchPayeesWithDefaults(
   return readAllPages<PayeeDefaultsView>(
     (cursor, limit) =>
       overrides
-        ? contract.getEmployeesWithDefaults(slugBytes, cursor, limit, overrides)
-        : contract.getEmployeesWithDefaults(slugBytes, cursor, limit),
+        ? contract.getPayBatchPayeesWithDefaults(slugBytes, payBatchCode, cursor, limit, overrides)
+        : contract.getPayBatchPayeesWithDefaults(slugBytes, payBatchCode, cursor, limit),
     pageSize
   );
 }
@@ -144,8 +146,8 @@ export async function fetchPayrollPayeesWithRunData(
   return readAllPages<PayrollPayeeRunDataView>(
     (cursor, limit) =>
       overrides
-        ? contract.getPayrollEmployeesWithRunData(slugBytes, payrollId, cursor, limit, overrides)
-        : contract.getPayrollEmployeesWithRunData(slugBytes, payrollId, cursor, limit),
+        ? contract.getPayrollPayeesWithRunData(slugBytes, payrollId, cursor, limit, overrides)
+        : contract.getPayrollPayeesWithRunData(slugBytes, payrollId, cursor, limit),
     pageSize
   );
 }

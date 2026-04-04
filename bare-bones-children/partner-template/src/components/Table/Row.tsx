@@ -8,6 +8,8 @@ interface TableRowProps {
   expandedContentRender?: (rowData: TableRowData) => React.ReactNode;
   rowStyle?: React.CSSProperties;
   cellStyle?: React.CSSProperties;
+  rowIndex?: number;
+  totalRows?: number;
 }
 
 export function TableRow({
@@ -16,6 +18,8 @@ export function TableRow({
   expandedContentRender,
   rowStyle,
   cellStyle,
+  rowIndex = 0,
+  totalRows = 0,
 }: TableRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasExpandable = !!expandedContentRender;
@@ -69,9 +73,11 @@ export function TableRow({
             style={{
               padding: "var(--spacing-sm)",
               maxWidth: "250px",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
+              overflow: columns[idx]?.allowOverflow ? "visible" : "hidden",
+              textOverflow: columns[idx]?.allowOverflow ? "clip" : "ellipsis",
               color: "var(--colors-text-main)",
+              position: columns[idx]?.allowOverflow ? "relative" : undefined,
+              zIndex: columns[idx]?.allowOverflow ? totalRows - rowIndex + 50 : undefined,
               ...cellStyle,
             }}
           >

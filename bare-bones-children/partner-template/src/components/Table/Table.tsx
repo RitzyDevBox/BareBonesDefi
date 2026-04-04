@@ -9,6 +9,7 @@ export interface TableColumn {
   header: string;
   render?: (value: any) => React.ReactNode;
   width?: string;
+  allowOverflow?: boolean;
 }
 
 export interface TableRowData {
@@ -69,7 +70,7 @@ export function Table({
         />
       )}
 
-      <div style={{ overflowX: "auto" }}>
+      <div style={{ overflowX: "auto", overflowY: "visible" }}>
         <table
           style={{
             width: "100%",
@@ -111,12 +112,14 @@ export function Table({
           </thead>
           <tbody>
             {filteredData.length > 0 ? (
-              filteredData.map((row) => (
+              filteredData.map((row, idx) => (
                 <TableRow
                   key={row.id}
                   rowData={row}
                   columns={columns}
                   expandedContentRender={row.expandedContent}
+                  rowIndex={idx}
+                  totalRows={filteredData.length}
                 />
               ))
             ) : (

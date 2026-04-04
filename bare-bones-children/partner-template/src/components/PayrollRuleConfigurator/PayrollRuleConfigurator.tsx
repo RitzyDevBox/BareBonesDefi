@@ -41,7 +41,7 @@ interface PayrollRuleConfiguratorProps {
 
 export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = false }: PayrollRuleConfiguratorProps) {
   const payeeAddress = rowData.cells.address;
-  const payeeRole = rowData.cells.role;
+  const payeeName = rowData.cells.name;
 
   const { showToast } = useToastStore();
   const { chainId, provider } = useWalletProvider();
@@ -79,8 +79,9 @@ export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = fals
       try {
         const contract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
         const slugBytes = ethers.utils.formatBytes32String(slug);
+        const defaultPayBatchCode = ethers.utils.formatBytes32String("DEFAULT_PAY_BATCH");
 
-        const page = await contract.getEmployeesWithDefaults(slugBytes, 0, 500);
+        const page = await contract.getPayBatchPayeesWithDefaults(slugBytes, defaultPayBatchCode, 0, 500);
         const rows: any[] = page?.rows ?? page?.[0] ?? [];
         const payee = rows.find((row) => Number(row.payeeId?.toString?.() ?? "0") === payeeId);
         const earnings: any[] = payee?.earnings ?? [];
@@ -233,7 +234,7 @@ export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = fals
   const configurePayroll = useExecuteRawTx(
     buildConfigurePayrollTx,
     (_: number, slugInput: string, payeeIdInput: number) =>
-      `Payroll configured for payee ${payeeIdInput} (${payeeAddress}, ${payeeRole}, ${slugInput})`
+      `Payroll configured for payee ${payeeIdInput} (${payeeAddress}, ${payeeName}, ${slugInput})`
   );
 
   const handleConfigureRule = async () => {
@@ -294,7 +295,7 @@ export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = fals
               Payee: <strong>{shortAddress(payeeAddress)}</strong>
             </Text.Body>
             <Text.Body color="muted">
-              Role: <strong>{payeeRole}</strong>
+              Name: <strong>{payeeName}</strong>
             </Text.Body>
           </Stack>
 

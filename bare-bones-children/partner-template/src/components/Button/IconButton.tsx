@@ -40,7 +40,11 @@ export function IconButton({
       style={{
         width: ICON_SIZE[size],
         height: ICON_SIZE[size],
+        minWidth: ICON_SIZE[size],
+        minHeight: ICON_SIZE[size],
         padding: 0,
+        flexShrink: 0,
+        boxSizing: "border-box",
         fontSize: ICON_FONT[iconFontSize ?? size],
         background: "var(--colors-surface)",
         border: "1px solid var(--colors-border)",

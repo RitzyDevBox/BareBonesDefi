@@ -161,7 +161,7 @@ export function Select<T extends string | number>({
             borderRadius: "var(--radius-md)",
             border: "1px solid var(--colors-border)",
             boxShadow: "var(--shadows-soft)",
-            zIndex: 1000,
+            zIndex: 5000,
             maxHeight: 240,
             overflowY: "auto",
           }}
