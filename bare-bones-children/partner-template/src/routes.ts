@@ -4,7 +4,7 @@ const VAULTS_SUB_ROUTE = 'vaults'
 const WALLETS_SUB_ROUTE = 'wallets'
 const PAYMENTS_SUB_ROUTE = 'payments'
 const PAYROLL_SUB_ROUTE = 'payroll'
-const CURRENT_SUB_ROUTE = 'current'
+const PAYROLLS_SUB_ROUTE = 'payrolls'
 const MANAGE_PAYEES_SUB_ROUTE = 'manage-payees'
 const PAY_BATCHES_SUB_ROUTE = 'pay-batches'
 const EARNINGS_SUB_ROUTE = 'earnings'
@@ -18,7 +18,8 @@ export const ROUTES = {
   PAYMENTS_MANAGE_PAYEES_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId/${MANAGE_PAYEES_SUB_ROUTE}`,
   PAYMENTS_PAY_BATCHES_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId/${PAY_BATCHES_SUB_ROUTE}`,
   PAYMENTS_EARNINGS_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId/${EARNINGS_SUB_ROUTE}`,
-  PAYROLL_CURRENT_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId/${PAYROLL_SUB_ROUTE}/${CURRENT_SUB_ROUTE}`,
+  PAYROLLS_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId/${PAYROLLS_SUB_ROUTE}`,
+  PAYROLL_DETAIL_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId/${PAYROLL_SUB_ROUTE}/:payrollId`,
   ORGANIZATIONS: `/${ORGANIZATION_SUB_ROUTE}`,
   ORGANIZATION_DETAIL: (organizationId: string) => `/${ORGANIZATION_SUB_ROUTE}/${organizationId}`,
   VAULTS: `/${VAULTS_SUB_ROUTE}`,
@@ -33,6 +34,9 @@ export const ROUTES = {
     `/${PAYMENTS_SUB_ROUTE}/${organizationId}/${PAY_BATCHES_SUB_ROUTE}`,
   PAYMENTS_EARNINGS: (organizationId: string) =>
     `/${PAYMENTS_SUB_ROUTE}/${organizationId}/${EARNINGS_SUB_ROUTE}`,
-  PAYROLL_CURRENT: (organizationId: string) => `/${PAYMENTS_SUB_ROUTE}/${organizationId}/${PAYROLL_SUB_ROUTE}/${CURRENT_SUB_ROUTE}`,
+  PAYROLLS: (organizationId: string) =>
+    `/${PAYMENTS_SUB_ROUTE}/${organizationId}/${PAYROLLS_SUB_ROUTE}`,
+  PAYROLL_DETAIL: (organizationId: string, payrollId: string | number) =>
+    `/${PAYMENTS_SUB_ROUTE}/${organizationId}/${PAYROLL_SUB_ROUTE}/${String(payrollId)}`,
   VAULT_DETAIL: (walletAddress: string, vaultAddress: string) =>`/${WALLETS_SUB_ROUTE}/${walletAddress}/${VAULTS_SUB_ROUTE}/${vaultAddress}`,
 } as const;

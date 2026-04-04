@@ -3,7 +3,12 @@ import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
 import { ROUTES } from "../../routes";
 import { useNavigate } from "react-router-dom";
 
-export type PaymentsNavTab = "overview" | "managePayees" | "payBatches" | "earnings" | "currentPayroll";
+export type PaymentsNavTab =
+  | "overview"
+  | "managePayees"
+  | "payBatches"
+  | "earnings"
+  | "payrolls";
 
 interface PaymentsNavBarProps {
   slug: string;
@@ -17,9 +22,29 @@ const BUTTON_STYLE = {
   borderRadius: 999,
 } as const;
 
+const ARROW_BUTTON_STYLE = {
+  flex: 0,
+  minWidth: 44,
+  width: 44,
+  height: 40,
+  borderRadius: 999,
+  paddingInline: 0,
+} as const;
+
 export function PaymentsNavBar({ slug, active }: PaymentsNavBarProps) {
   const navigate = useNavigate();
   const disabled = !slug.trim();
+  const tabs: Array<{ key: PaymentsNavTab; label: string; to: string }> = [
+    { key: "overview", label: "Overview", to: ROUTES.PAYMENTS_ORG(slug) },
+    { key: "managePayees", label: "Manage Payees", to: ROUTES.PAYMENTS_MANAGE_PAYEES(slug) },
+    { key: "payBatches", label: "Pay Batches", to: ROUTES.PAYMENTS_PAY_BATCHES(slug) },
+    { key: "earnings", label: "Earnings", to: ROUTES.PAYMENTS_EARNINGS(slug) },
+    { key: "payrolls", label: "Active Payroll", to: ROUTES.PAYROLLS(slug) },
+  ];
+
+  const activeIndex = tabs.findIndex((tab) => tab.key === active);
+  const prevTab = activeIndex > 0 ? tabs[activeIndex - 1] : null;
+  const nextTab = activeIndex >= 0 && activeIndex < tabs.length - 1 ? tabs[activeIndex + 1] : null;
 
   return (
     <Row
@@ -33,61 +58,40 @@ export function PaymentsNavBar({ slug, active }: PaymentsNavBarProps) {
         background: "var(--colors-background)",
       }}
     >
-      {active === "overview" ? (
-        <ButtonPrimary style={BUTTON_STYLE}>Overview</ButtonPrimary>
-      ) : (
-        <ButtonSecondary style={BUTTON_STYLE} onClick={() => navigate(ROUTES.PAYMENTS_ORG(slug))} disabled={disabled}>
-          Overview
-        </ButtonSecondary>
+      <ButtonSecondary
+        style={ARROW_BUTTON_STYLE}
+        onClick={() => prevTab && navigate(prevTab.to)}
+        disabled={disabled || !prevTab}
+        title="Previous"
+        aria-label="Previous"
+      >
+        ←
+      </ButtonSecondary>
+
+      {tabs.map((tab) =>
+        tab.key === active ? (
+          <ButtonPrimary key={tab.key} style={BUTTON_STYLE}>{tab.label}</ButtonPrimary>
+        ) : (
+          <ButtonSecondary
+            key={tab.key}
+            style={BUTTON_STYLE}
+            onClick={() => navigate(tab.to)}
+            disabled={disabled}
+          >
+            {tab.label}
+          </ButtonSecondary>
+        )
       )}
 
-      {active === "managePayees" ? (
-        <ButtonPrimary style={BUTTON_STYLE}>Manage Payees</ButtonPrimary>
-      ) : (
-        <ButtonSecondary
-          style={BUTTON_STYLE}
-          onClick={() => navigate(ROUTES.PAYMENTS_MANAGE_PAYEES(slug))}
-          disabled={disabled}
-        >
-          Manage Payees
-        </ButtonSecondary>
-      )}
-
-      {active === "payBatches" ? (
-        <ButtonPrimary style={BUTTON_STYLE}>Pay Batches</ButtonPrimary>
-      ) : (
-        <ButtonSecondary
-          style={BUTTON_STYLE}
-          onClick={() => navigate(ROUTES.PAYMENTS_PAY_BATCHES(slug))}
-          disabled={disabled}
-        >
-          Pay Batches
-        </ButtonSecondary>
-      )}
-
-      {active === "earnings" ? (
-        <ButtonPrimary style={BUTTON_STYLE}>Earnings</ButtonPrimary>
-      ) : (
-        <ButtonSecondary
-          style={BUTTON_STYLE}
-          onClick={() => navigate(ROUTES.PAYMENTS_EARNINGS(slug))}
-          disabled={disabled}
-        >
-          Earnings
-        </ButtonSecondary>
-      )}
-
-      {active === "currentPayroll" ? (
-        <ButtonPrimary style={BUTTON_STYLE}>Current Payroll</ButtonPrimary>
-      ) : (
-        <ButtonSecondary
-          style={BUTTON_STYLE}
-          onClick={() => navigate(ROUTES.PAYROLL_CURRENT(slug))}
-          disabled={disabled}
-        >
-          Current Payroll
-        </ButtonSecondary>
-      )}
+      <ButtonSecondary
+        style={{ ...ARROW_BUTTON_STYLE, marginLeft: "auto" }}
+        onClick={() => nextTab && navigate(nextTab.to)}
+        disabled={disabled || !nextTab}
+        title="Next"
+        aria-label="Next"
+      >
+        →
+      </ButtonSecondary>
     </Row>
   );
 }

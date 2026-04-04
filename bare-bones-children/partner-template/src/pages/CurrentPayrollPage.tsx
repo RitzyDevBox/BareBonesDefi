@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent, Input } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
@@ -16,6 +16,7 @@ import { PayrollTreasuryFund } from "../components/PayrollTreasuryFund/PayrollTr
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
+import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { getBareBonesConfiguration } from "../constants/misc";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import { PayeesTable } from "../components/PayeesTable";
@@ -23,7 +24,6 @@ import type { OrganizationModel, PayeeModel } from "../models/payments";
 import { useProcessCurrentPayroll } from "../hooks/payroll/useProcessCurrentPayroll";
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";
 import {
-  fetchLatestPayrollId,
   fetchOrganizationEarningsCodes,
   fetchPayrollPayeesWithRunData,
   type OrganizationEarningsCodeView,
@@ -31,7 +31,7 @@ import {
   type PayrollPayeeRunDataView,
 } from "../utils/payroll/fetchPayrollViews";
 import { shortAddress } from "../utils/formatUtils";
-import { ROUTES } from "../routes";
+import { PaymentsNavBar } from "../components/Payments/PaymentsNavBar";
 import {
   buildRuleMeta,
   decodeConfigDisplay,
@@ -99,6 +99,34 @@ function sourceColor(source: number): "main" | "secondary" | "label" | "muted" |
   }
 }
 
+function payrollStatusLabel(status?: number) {
+  if (status === 1) return "Draft";
+  if (status === 2) return "Processed";
+  if (status === 3) return "Finalizing";
+  if (status === 4) return "Finalized";
+  if (status === 5) return "Cancelled";
+  return "None";
+}
+
+function templateCodeLabel(templateCode?: string) {
+  if (!templateCode || templateCode === ethers.constants.HashZero) {
+    return "Manual / Empty";
+  }
+  try {
+    return ethers.utils.parseBytes32String(templateCode);
+  } catch {
+    return `${templateCode.slice(0, 10)}…${templateCode.slice(-8)}`;
+  }
+}
+
+function parsePayeeNameLabel(value: string) {
+  try {
+    return ethers.utils.parseBytes32String(value);
+  } catch {
+    return value;
+  }
+}
+
 interface CurrentPayrollEarningsModalState {
   isOpen: boolean;
   mode: CurrentPayrollEarningsMode;
@@ -107,12 +135,13 @@ interface CurrentPayrollEarningsModalState {
 }
 
 export function CurrentPayrollPage() {
-  const { organizationId } = useParams<{ organizationId: string }>();
-  const navigate = useNavigate();
+  const { organizationId, payrollId } = useParams<{ organizationId: string; payrollId?: string }>();
   const slug = (organizationId ?? "").trim();
 
   const { account, provider, chainId } = useWalletProvider();
   const { version } = useTxRefresh();
+  const screenSize = useMediaQuery();
+  const showResolvedCodesColumn = screenSize === ScreenSize.Desktop;
 
   const [orgInfo, setOrgInfo] = useState<OrganizationModel | null>(null);
   const [payees, setPayees] = useState<PayeeModel[]>([]);
@@ -126,13 +155,14 @@ export function CurrentPayrollPage() {
   const [previewTotalGross, setPreviewTotalGross] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isStartingPayroll, setIsStartingPayroll] = useState(false);
   const [isProcessingPayroll, setIsProcessingPayroll] = useState(false);
-  // Default start date to 8 days ago so period 0 (ends at startDate+7d) is already complete
-  const [startDateInput, setStartDateInput] = useState<string>(
-    String(Math.floor(Date.now() / 1000) - 8 * 24 * 60 * 60)
-  );
-  const [periodIdInput, setPeriodIdInput] = useState<string>("0");
+  const [payrollStatus, setPayrollStatus] = useState<number | null>(null);
+  const [payrollTemplateCode, setPayrollTemplateCode] = useState<string>(ethers.constants.HashZero);
+  const [payrollStartTime, setPayrollStartTime] = useState<number | null>(null);
+  const [payrollEndTime, setPayrollEndTime] = useState<number | null>(null);
+  const [selectedManagePayeeId, setSelectedManagePayeeId] = useState<string>("");
+  const [isAddingPayee, setIsAddingPayee] = useState(false);
+  const [isRemovingPayee, setIsRemovingPayee] = useState(false);
   const [earningsModal, setEarningsModal] = useState<CurrentPayrollEarningsModalState>({
     isOpen: false,
     mode: CurrentPayrollEarningsMode.View,
@@ -144,7 +174,15 @@ export function CurrentPayrollPage() {
   const [modalHourlyRunData, setModalHourlyRunData] = useState("40");
   const [modalRawRunData, setModalRawRunData] = useState("0x");
 
-  const { startPayroll, processCurrentPayroll } = useProcessCurrentPayroll();
+  const { processCurrentPayroll } = useProcessCurrentPayroll();
+
+  const requestedPayrollId = useMemo(() => {
+    const raw = (payrollId ?? "").trim();
+    if (!raw) return null;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed < 0) return null;
+    return Math.floor(parsed);
+  }, [payrollId]);
 
   const config = useMemo(() => {
     if (!chainId) return null;
@@ -188,6 +226,22 @@ export function CurrentPayrollPage() {
   const selectedModalRuleMeta = useMemo(
     () => buildRuleMeta(selectedModalRule, config),
     [selectedModalRule, config]
+  );
+
+  const isViewOnly = payrollStatus === 4 || payrollStatus === 5;
+  const payeeIdsInPayroll = useMemo(
+    () => new Set(payrollPayeeRunData.map((row) => row.payeeId.toString())),
+    [payrollPayeeRunData]
+  );
+
+  const addablePayees = useMemo(
+    () => payees.filter((payee) => !payeeIdsInPayroll.has(payee.payeeId.toString())),
+    [payees, payeeIdsInPayroll]
+  );
+
+  const removablePayees = useMemo(
+    () => payees.filter((payee) => payeeIdsInPayroll.has(payee.payeeId.toString())),
+    [payees, payeeIdsInPayroll]
   );
 
   const buildSetEarningsOverrideTx = useCallback(
@@ -269,10 +323,50 @@ export function CurrentPayrollPage() {
       `Added additional earning for payee ${payeeId} in payroll ${payrollId} (${orgSlug})`
   );
 
+  const addConfiguredPayeeToPayroll = useExecuteRawTx(
+    (_: number, orgSlug: string, targetPayrollId: number, payeeIdRaw: string) => {
+      if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
+      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      return {
+        to: payrollManagerAddress,
+        data: payrollInterface.encodeFunctionData("addConfiguredPayeeToPayroll", [
+          slugBytes,
+          targetPayrollId,
+          ethers.BigNumber.from(payeeIdRaw),
+        ]),
+      } as any;
+    },
+    (_: number, orgSlug: string, targetPayrollId: number, payeeIdRaw: string) =>
+      `Added payee ${payeeIdRaw} to payroll ${targetPayrollId} (${orgSlug})`
+  );
+
+  const removePayeeFromPayroll = useExecuteRawTx(
+    (_: number, orgSlug: string, targetPayrollId: number, payeeIdRaw: string) => {
+      if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
+      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      return {
+        to: payrollManagerAddress,
+        data: payrollInterface.encodeFunctionData("removePayeeFromPayroll", [
+          slugBytes,
+          targetPayrollId,
+          ethers.BigNumber.from(payeeIdRaw),
+        ]),
+      } as any;
+    },
+    (_: number, orgSlug: string, targetPayrollId: number, payeeIdRaw: string) =>
+      `Removed payee ${payeeIdRaw} from payroll ${targetPayrollId} (${orgSlug})`
+  );
+
   useEffect(() => {
     if (!slug) return;
     fetchOrgInfo(slug);
-  }, [slug, version, provider, payrollManagerAddress, account]);
+  }, [slug, version, provider, payrollManagerAddress, account, requestedPayrollId]);
+
+  useEffect(() => {
+    if (selectedManagePayeeId) return;
+    const first = removablePayees[0]?.payeeId?.toString() ?? addablePayees[0]?.payeeId?.toString() ?? "";
+    if (first) setSelectedManagePayeeId(first);
+  }, [selectedManagePayeeId, removablePayees, addablePayees]);
 
   async function fetchOrgInfo(orgSlug: string) {
     if (!provider || !payrollManagerAddress) return;
@@ -300,13 +394,7 @@ export function CurrentPayrollPage() {
         setPayees(payeeList);
 
         if (payrollManagerAddress) {
-          const [latestPayrollId, earningRows] = await Promise.all([
-            fetchLatestPayrollId(
-              provider,
-              payrollManagerAddress,
-              orgSlug,
-              account ?? undefined
-            ),
+          const [earningRows, orgMap] = await Promise.all([
             fetchOrganizationEarningsCodes(
               provider,
               payrollManagerAddress,
@@ -314,35 +402,58 @@ export function CurrentPayrollPage() {
               undefined,
               account ?? undefined
             ),
+            contract.slugToOrgInfoMap(slugBytes),
           ]);
 
           setOrganizationEarningsCodes(earningRows);
 
-          setCurrentPayrollId(latestPayrollId);
+          const nextPayrollId = Number((orgMap?.nextPayrollId ?? orgMap?.[0] ?? ethers.BigNumber.from(0)).toString());
+          const latestPayrollId = nextPayrollId > 0 ? nextPayrollId - 1 : null;
+          const targetPayrollId = requestedPayrollId ?? latestPayrollId;
 
-          if (latestPayrollId !== null) {
+          setCurrentPayrollId(targetPayrollId);
+
+          if (targetPayrollId !== null) {
+            const run = await contract.slugToPayrollToRunMap(slugBytes, targetPayrollId);
+            setPayrollStatus(Number(run?.status ?? run?.[0] ?? 0));
+            setPayrollTemplateCode(String(run?.templateCode ?? run?.[1] ?? ethers.constants.HashZero));
+            setPayrollStartTime(Number((run?.startTime ?? run?.[2] ?? 0).toString()));
+            setPayrollEndTime(Number((run?.endTime ?? run?.[3] ?? 0).toString()));
+
             const runDataRows = await fetchPayrollPayeesWithRunData(
               provider,
               payrollManagerAddress,
               orgSlug,
-              latestPayrollId,
+              targetPayrollId,
               undefined,
               account ?? undefined
             );
             setPayrollPayeeRunData(runDataRows);
           } else {
             setPayrollPayeeRunData([]);
+            setPayrollStatus(null);
+            setPayrollTemplateCode(ethers.constants.HashZero);
+            setPayrollStartTime(null);
+            setPayrollEndTime(null);
           }
         } else {
           setCurrentPayrollId(null);
           setPayrollPayeeRunData([]);
           setOrganizationEarningsCodes([]);
+          setPayrollStatus(null);
+          setPayrollTemplateCode(ethers.constants.HashZero);
+          setPayrollStartTime(null);
+          setPayrollEndTime(null);
         }
       } else {
         setPayees([]);
         setCurrentPayrollId(null);
         setPayrollPayeeRunData([]);
         setOrganizationEarningsCodes([]);
+        setPayrollStatus(null);
+        setPayrollTemplateCode(ethers.constants.HashZero);
+        setPayrollStartTime(null);
+        setPayrollEndTime(null);
       }
     } catch (err) {
       console.error("Error fetching org info:", err);
@@ -351,26 +462,12 @@ export function CurrentPayrollPage() {
       setCurrentPayrollId(null);
       setPayrollPayeeRunData([]);
       setOrganizationEarningsCodes([]);
+      setPayrollStatus(null);
+      setPayrollTemplateCode(ethers.constants.HashZero);
+      setPayrollStartTime(null);
+      setPayrollEndTime(null);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleStartPayroll() {
-    if (!slug || !isAdmin || isStartingPayroll) return;
-
-    const parsedStartDate = Math.floor(Number(startDateInput || "0"));
-    if (!Number.isFinite(parsedStartDate) || parsedStartDate <= 0) {
-      throw new Error("Start date must be a non-zero unix timestamp");
-    }
-
-    const parsedPeriodId = Math.max(0, Math.floor(Number(periodIdInput || "0")));
-
-    setIsStartingPayroll(true);
-    try {
-      await startPayroll(slug, parsedPeriodId, parsedStartDate);
-    } finally {
-      setIsStartingPayroll(false);
     }
   }
 
@@ -393,8 +490,6 @@ export function CurrentPayrollPage() {
     try {
       const manager = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
       const slugBytes = ethers.utils.formatBytes32String(slug);
-      const latestBlock = await provider.getBlock("latest");
-      const processTimestamp = latestBlock?.timestamp ?? Math.floor(Date.now() / 1000);
       const callOverrides = account ? ({ from: account } as ethers.CallOverrides) : undefined;
 
       let cursor = 0;
@@ -410,15 +505,13 @@ export function CurrentPayrollPage() {
               currentPayrollId,
               cursor,
               limit,
-              processTimestamp,
               callOverrides
             )
           : await manager.previewPayrollChunk(
               slugBytes,
               currentPayrollId,
               cursor,
-              limit,
-              processTimestamp
+              limit
             );
 
         const rows: Array<{ payeeId: ethers.BigNumber; gross: ethers.BigNumber }> = res?.rows ?? res?.[0] ?? [];
@@ -471,6 +564,30 @@ export function CurrentPayrollPage() {
       setPreviewTotalGross(null);
     } finally {
       setIsPreviewingPayroll(false);
+    }
+  }
+
+  async function handleAddPayeeToPayroll() {
+    if (!chainId || !slug || currentPayrollId == null || !selectedManagePayeeId || isAddingPayee) return;
+    setIsAddingPayee(true);
+    try {
+      await addConfiguredPayeeToPayroll(chainId, slug, currentPayrollId, selectedManagePayeeId);
+      setPreviewGrossByPayeeId({});
+      setPreviewTotalGross(null);
+    } finally {
+      setIsAddingPayee(false);
+    }
+  }
+
+  async function handleRemovePayeeFromPayroll() {
+    if (!chainId || !slug || currentPayrollId == null || !selectedManagePayeeId || isRemovingPayee) return;
+    setIsRemovingPayee(true);
+    try {
+      await removePayeeFromPayroll(chainId, slug, currentPayrollId, selectedManagePayeeId);
+      setPreviewGrossByPayeeId({});
+      setPreviewTotalGross(null);
+    } finally {
+      setIsRemovingPayee(false);
     }
   }
 
@@ -539,7 +656,7 @@ export function CurrentPayrollPage() {
   }
 
   async function handleSubmitCurrentPayrollEarning() {
-    if (!chainId || !currentPayrollId || !earningsModal.payee || !slug) return;
+    if (!chainId || !currentPayrollId || !earningsModal.payee || !slug || isViewOnly) return;
 
     const payeeId = earningsModal.payee.payeeId.toString();
     const runData = resolveModalRunData();
@@ -605,15 +722,9 @@ export function CurrentPayrollPage() {
           <CardContent>
             <Stack>
               <Row justify="between" align="center" wrap>
-                <Text.Title align="left">Current Payroll</Text.Title>
-                <ButtonSecondary
-                  style={{ flex: 0 }}
-                  onClick={() => navigate(ROUTES.PAYMENTS_ORG(slug))}
-                  disabled={!slug}
-                >
-                  Back to Payment Page
-                </ButtonSecondary>
+                <Text.Title align="left">Payroll Details</Text.Title>
               </Row>
+              <PaymentsNavBar slug={slug} active="payrolls" />
 
               {!slug && (
                 <Text.Body color="warn">
@@ -640,45 +751,67 @@ export function CurrentPayrollPage() {
                   <Text.Body color="muted" size="sm">
                     Payroll ID: {currentPayrollId !== null ? currentPayrollId : "N/A"} · Loaded payees: {payrollPayeeRunData.length}
                   </Text.Body>
+                  <Text.Body color="muted" size="sm">
+                    Status: {payrollStatus == null ? "N/A" : payrollStatusLabel(payrollStatus)}
+                  </Text.Body>
+                  <Text.Body color="muted" size="sm">
+                    Template: {templateCodeLabel(payrollTemplateCode)}
+                  </Text.Body>
+                  <Text.Body color="muted" size="sm">
+                    Window: {payrollStartTime ? new Date(payrollStartTime * 1000).toLocaleDateString() : "-"} → {payrollEndTime ? new Date(payrollEndTime * 1000).toLocaleDateString() : "-"}
+                  </Text.Body>
+                  {isViewOnly && (
+                    <Text.Body color="warn" size="sm">
+                      This payroll is finalized/cancelled and is currently view-only.
+                    </Text.Body>
+                  )}
                   {previewTotalGross != null && (
                     <Text.Body color="secondary" size="sm">
                       Preview Total Gross: {previewTotalGross}
                     </Text.Body>
                   )}
-                  {isAdmin && (
-                    <Row gap="sm" align="end" wrap>
-                      <Stack style={{ flex: 1, minWidth: 160 }}>
-                        <Text.Body size="sm" color="muted">Start Date (unix)</Text.Body>
-                        <NumberInput
-                          value={startDateInput}
-                          onChange={(e) => setStartDateInput((e.target as HTMLInputElement).value)}
-                          allowDecimal={false}
-                        />
-                      </Stack>
-                      <Stack style={{ flex: "0 0 90px" }}>
-                        <Text.Body size="sm" color="muted">Period ID</Text.Body>
-                        <NumberInput
-                          value={periodIdInput}
-                          onChange={(e) => setPeriodIdInput((e.target as HTMLInputElement).value)}
-                          allowDecimal={false}
-                        />
-                      </Stack>
-                    </Row>
-                  )}
-                  {isAdmin && (
+                  {payrollStatus === 4 && (
                     <Text.Body size="sm" color="muted">
-                      Period {periodIdInput} ends at startDate + {(Number(periodIdInput || 0) + 1)} × 7 days.
-                      Ensure block.timestamp is past that point before starting.
+                      Historical payout recipients/amount snapshots placeholder: on-chain historical payout rendering will be added in a follow-up.
                     </Text.Body>
                   )}
+                  {isAdmin && !isViewOnly && currentPayrollId != null && (
+                    <Stack gap="sm">
+                      <Text.Body size="sm" color="muted">Manage Payroll Payees</Text.Body>
+                      <Row gap="sm" wrap align="end">
+                        <Stack style={{ flex: 1, minWidth: 280 }}>
+                          <Text.Body size="sm" color="muted">Payee</Text.Body>
+                          <Select<string>
+                            value={selectedManagePayeeId || null}
+                            onChange={(v) => setSelectedManagePayeeId(String(v))}
+                          >
+                            {payees.map((payee) => (
+                              <SelectOption
+                                key={payee.payeeId.toString()}
+                                value={payee.payeeId.toString()}
+                                label={`#${payee.payeeId.toString()} · ${parsePayeeNameLabel(payee.role)} · ${shortAddress(payee.paymentAddress)}`}
+                              />
+                            ))}
+                          </Select>
+                        </Stack>
+                        <ButtonSecondary
+                          style={{ flex: 0 }}
+                          onClick={handleAddPayeeToPayroll}
+                          disabled={!selectedManagePayeeId || payeeIdsInPayroll.has(selectedManagePayeeId) || isAddingPayee}
+                        >
+                          {isAddingPayee ? "Adding..." : "Add Payee"}
+                        </ButtonSecondary>
+                        <ButtonSecondary
+                          style={{ flex: 0 }}
+                          onClick={handleRemovePayeeFromPayroll}
+                          disabled={!selectedManagePayeeId || !payeeIdsInPayroll.has(selectedManagePayeeId) || isRemovingPayee}
+                        >
+                          {isRemovingPayee ? "Removing..." : "Remove Payee"}
+                        </ButtonSecondary>
+                      </Row>
+                    </Stack>
+                  )}
                   <Row gap="sm" justify="end">
-                    <ButtonSecondary
-                      style={{ flex: 0 }}
-                      onClick={handleStartPayroll}
-                      disabled={!isAdmin || !slug || isStartingPayroll}
-                    >
-                      {isStartingPayroll ? "Starting..." : "Start Payroll"}
-                    </ButtonSecondary>
                     <ButtonSecondary
                       style={{ flex: 0 }}
                       onClick={handlePreviewPayroll}
@@ -689,7 +822,7 @@ export function CurrentPayrollPage() {
                     <ButtonPrimary
                       style={{ flex: 0 }}
                       onClick={handleProcessPayroll}
-                      disabled={!isAdmin || !slug || isProcessingPayroll || currentPayrollId == null}
+                      disabled={!isAdmin || !slug || isProcessingPayroll || currentPayrollId == null || isViewOnly}
                     >
                       {isProcessingPayroll ? "Processing..." : "Process Payroll"}
                     </ButtonPrimary>
@@ -707,10 +840,14 @@ export function CurrentPayrollPage() {
                   payees={payees}
                   searchEnabled={true}
                   extraColumns={[
-                    {
-                      key: "resolvedCodes",
-                      header: "Resolved Codes",
-                    },
+                    ...(showResolvedCodesColumn
+                      ? [
+                          {
+                            key: "resolvedCodes",
+                            header: "Resolved Codes",
+                          },
+                        ]
+                      : []),
                     {
                       key: "payeeStatus",
                       header: "Status",
@@ -733,8 +870,8 @@ export function CurrentPayrollPage() {
                     <Card style={{ backgroundColor: "var(--colors-background)", border: "1px solid var(--colors-border)" }}>
                       <CardContent>
                         <Stack gap="sm">
-                          <Text.Label>Current Payroll Resolved Earnings</Text.Label>
-                          {isAdmin && currentPayrollId !== null && (
+                          <Text.Label>Payroll Resolved Earnings</Text.Label>
+                          {isAdmin && !isViewOnly && currentPayrollId !== null && (
                             <Row align="center" style={{ width: "100%" }}>
                               <div style={{ flex: 1, height: 1, background: "var(--colors-border)" }} />
                               <ButtonSecondary
@@ -766,7 +903,7 @@ export function CurrentPayrollPage() {
                                   return (
                                   <Card key={`${payeeId}-${codeId}-${index}`} style={{ border: "1px solid var(--colors-border)" }}>
                                     <CardContent style={{ padding: "var(--spacing-md)", position: "relative" }}>
-                                      {isAdmin && currentPayrollId !== null && (
+                                      {isAdmin && !isViewOnly && currentPayrollId !== null && (
                                         <IconButton
                                           size="xl"
                                           iconFontSize="xl"
@@ -867,7 +1004,7 @@ export function CurrentPayrollPage() {
               <Select<string>
                 value={modalCodeId || null}
                 onChange={(v) => setModalCodeId(String(v))}
-                disabled={earningsModal.mode !== CurrentPayrollEarningsMode.Additional}
+                disabled={earningsModal.mode !== CurrentPayrollEarningsMode.Additional || isViewOnly}
               >
                 {(earningsModal.mode === CurrentPayrollEarningsMode.Additional
                   ? activeOrganizationEarningsCodes
@@ -911,6 +1048,7 @@ export function CurrentPayrollPage() {
                 value={modalRate}
                 onChange={(e) => setModalRate(e.target.value)}
                 placeholder="e.g. 20"
+                disabled={isViewOnly}
               />
             </Stack>
 
@@ -921,6 +1059,7 @@ export function CurrentPayrollPage() {
                   value={modalHourlyRunData}
                   onChange={(e) => setModalHourlyRunData((e.target as HTMLInputElement).value)}
                   allowDecimal={false}
+                  disabled={isViewOnly}
                 />
               </Stack>
             )}
@@ -932,6 +1071,7 @@ export function CurrentPayrollPage() {
                   value={modalRawRunData}
                   onChange={(e) => setModalRawRunData(e.target.value)}
                   placeholder="0x"
+                  disabled={isViewOnly}
                 />
               </Stack>
             )}
@@ -940,7 +1080,7 @@ export function CurrentPayrollPage() {
               <ButtonSecondary style={{ flex: 0 }} onClick={closeEarningsModal}>
                 Close
               </ButtonSecondary>
-              {isAdmin && earningsModal.mode !== CurrentPayrollEarningsMode.View && (
+              {isAdmin && !isViewOnly && earningsModal.mode !== CurrentPayrollEarningsMode.View && (
                 <ButtonPrimary
                   style={{ flex: 0 }}
                   onClick={handleSubmitCurrentPayrollEarning}
