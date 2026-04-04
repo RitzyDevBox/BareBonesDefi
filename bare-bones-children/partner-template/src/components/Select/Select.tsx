@@ -121,7 +121,14 @@ export function Select<T extends string | number>({
         }}
       >
         {/* Value */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            minWidth: 0,
+          }}
+        >
           {selectedOption
             ? renderValue
               ? renderValue(selectedOption)

@@ -21,6 +21,9 @@ export function SelectOption<T extends string | number>({
           : "var(--colors-surface)",
         color: highlighted ? "#fff" : "var(--colors-text-main)",
         transition: "background 0.15s ease",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
       }}
     >
       {label ?? value}

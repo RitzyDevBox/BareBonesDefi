@@ -194,6 +194,7 @@ export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = fals
 
         const match = rows.find(
           (row) =>
+            Boolean(row.isActive) &&
             String(row.rule || "").toLowerCase() === String(earningsRule).toLowerCase()
         );
 

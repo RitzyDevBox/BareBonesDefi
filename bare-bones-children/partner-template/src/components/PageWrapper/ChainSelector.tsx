@@ -51,13 +51,13 @@ export function ChainSelector({
       value={isUnknownChain ? null : chainId}
       onChange={onChainChange}
       placeholder="Select chain"
-      style={{ width: 56 }}
+      style={{ width: 68 }}
       dropdownAlignment={DropdownAlignment.RIGHT}
       renderValue={(opt) => {
         const iconProps = getChainIconProps(chainId, opt);
         if (!iconProps) return null;
 
-        return <ImageWithFallback {...iconProps} />;
+        return <ImageWithFallback {...iconProps} size={16} />;
       }}
     >
       {chains.map((c) => (

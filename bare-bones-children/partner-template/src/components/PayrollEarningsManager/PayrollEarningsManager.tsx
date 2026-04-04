@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { ethers } from "ethers";
 import { Stack, Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
-import { ButtonPrimary } from "../Button/ButtonPrimary";
+import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
+import { Input } from "../BasicComponents";
 import { NumberInput } from "../Inputs/NumberInput";
 import { Select, SelectOption } from "../Select";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
@@ -58,6 +59,8 @@ export function PayrollEarningsManager({
   );
 
   const [ruleType, setRuleType] = useState<RuleType>("hourly");
+  const [earningsCodeName, setEarningsCodeName] = useState("HOURLY");
+  const [showAddForm, setShowAddForm] = useState(false);
   const [hourlyBands, setHourlyBands] = useState<HourlyBandRow[]>([
     { maxHours: "40", multiplier: "1", isRemaining: false },
     { maxHours: UINT32_MAX_NUM.toString(), multiplier: "1.5", isRemaining: true },
@@ -166,6 +169,11 @@ export function PayrollEarningsManager({
     }
 
     const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+    const codeName = earningsCodeName.trim().toUpperCase();
+    if (!codeName) {
+      throw new Error("Earnings code name is required");
+    }
+    const codeNameBytes = ethers.utils.formatBytes32String(codeName);
 
     const ruleAddress =
       ruleType === "hourly"
@@ -202,6 +210,7 @@ export function PayrollEarningsManager({
       to: payrollManagerAddress,
       data: payrollManagerInterface.encodeFunctionData("registerEarningsCode", [
         slugBytes,
+        codeNameBytes,
         ruleAddress,
         encodedConfig,
       ]),
@@ -229,146 +238,172 @@ export function PayrollEarningsManager({
           backgroundColor: "var(--colors-surface)",
         }}
       >
-        <Text.Label>Register Earnings Code</Text.Label>
-
-        <Stack>
-          <Text.Body size="sm" color="muted">Rule Type</Text.Body>
-          <Select<RuleType>
-            value={ruleType}
-            onChange={setRuleType}
+        {!showAddForm ? (
+          <EarningsDividerButton
+            label="+ Add Earnings Code"
+            onClick={() => setShowAddForm(true)}
             disabled={!canEdit}
-          >
-            <SelectOption value="hourly" label="Hourly" />
-            <SelectOption value="oneTime" label="One-Time Payment" />
-            <SelectOption value="salary" label="Salary" />
-          </Select>
-        </Stack>
+          />
+        ) : (
+          <>
+            <Text.Label>Register Earnings Code</Text.Label>
 
-        {ruleType === "hourly" && (
-          <Stack
-            gap="xs"
-            style={{
-              border: "1px solid var(--colors-border)",
-              borderRadius: "var(--radius-md)",
-              padding: "var(--spacing-sm)",
-            }}
-          >
-            {hourlyBands.map((band, index) => (
-              <Row
-                key={`hourly-band-${index}`}
-                gap="sm"
-                wrap
-                align="end"
+            <Stack>
+              <Text.Body size="sm" color="muted">Rule Type</Text.Body>
+              <Select<RuleType>
+                value={ruleType}
+                onChange={setRuleType}
+                disabled={!canEdit}
+              >
+                <SelectOption value="hourly" label="Hourly" />
+                <SelectOption value="oneTime" label="One-Time Payment" />
+                <SelectOption value="salary" label="Salary" />
+              </Select>
+            </Stack>
+
+            <Stack>
+              <Text.Body size="sm" color="muted">Earnings Code Name</Text.Body>
+              <Input
+                value={earningsCodeName}
+                onChange={(e) => setEarningsCodeName(e.target.value)}
+                placeholder="e.g. HOURLY_OT"
+                disabled={!canEdit}
+              />
+            </Stack>
+
+            {ruleType === "hourly" && (
+              <Stack
+                gap="xs"
                 style={{
-                  position: "relative",
-                  paddingBottom: "var(--spacing-xs)",
-                  paddingRight: "34px",
-                  borderBottom:
-                    index === hourlyBands.length - 1
-                      ? "none"
-                      : "1px dashed var(--colors-border)",
+                  border: "1px solid var(--colors-border)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "var(--spacing-sm)",
                 }}
               >
-                <button
-                  aria-label="Delete band"
-                  type="button"
-                  disabled={!canEdit || hourlyBands.length <= 1}
-                  onClick={() => removeHourlyBand(index)}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    right: 0,
-                    width: 30,
-                    height: 30,
-                    borderRadius: 6,
-                    border: "1px solid var(--colors-border)",
-                    background: "var(--colors-background)",
-                    color: "var(--colors-text)",
-                    cursor: !canEdit || hourlyBands.length <= 1 ? "not-allowed" : "pointer",
-                    lineHeight: 1,
-                    fontSize: 20,
-                    fontWeight: 500,
-                  }}
-                >
-                  ×
-                </button>
+                {hourlyBands.map((band, index) => (
+                  <Row
+                    key={`hourly-band-${index}`}
+                    gap="sm"
+                    wrap
+                    align="end"
+                    style={{
+                      position: "relative",
+                      paddingBottom: "var(--spacing-xs)",
+                      paddingRight: "34px",
+                      borderBottom:
+                        index === hourlyBands.length - 1
+                          ? "none"
+                          : "1px dashed var(--colors-border)",
+                    }}
+                  >
+                    <button
+                      aria-label="Delete band"
+                      type="button"
+                      disabled={!canEdit || hourlyBands.length <= 1}
+                      onClick={() => removeHourlyBand(index)}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        right: 0,
+                        width: 30,
+                        height: 30,
+                        borderRadius: 6,
+                        border: "1px solid var(--colors-border)",
+                        background: "var(--colors-background)",
+                        color: "var(--colors-text)",
+                        cursor: !canEdit || hourlyBands.length <= 1 ? "not-allowed" : "pointer",
+                        lineHeight: 1,
+                        fontSize: 20,
+                        fontWeight: 500,
+                      }}
+                    >
+                      ×
+                    </button>
 
-                <Stack style={{ flex: 1, minWidth: 140 }}>
-                  <Text.Body size="sm" color="muted">Multiplier</Text.Body>
-                  <NumberInput
-                    value={band.multiplier}
-                    onChange={(e) => updateHourlyBand(index, "multiplier", (e.target as HTMLInputElement).value)}
-                    allowDecimal
-                    disabled={!canEdit}
-                  />
-                </Stack>
-
-                {!band.isRemaining && (
-                  <Stack style={{ flex: 1, minWidth: 130 }}>
-                    <Text.Body size="sm" color="muted">Max Hours</Text.Body>
-                    <NumberInput
-                      value={band.maxHours}
-                      onChange={(e) => updateHourlyBand(index, "maxHours", (e.target as HTMLInputElement).value)}
-                      onBlur={() => commitHourlyBandMaxHours(index)}
-                      allowDecimal={false}
-                      disabled={!canEdit}
-                    />
-                  </Stack>
-                )}
-
-                <Stack style={{ minWidth: 160, paddingBottom: "var(--spacing-xs)" }}>
-                  {index === hourlyBands.length - 1 ? (
-                    <label style={{ display: "flex", alignItems: "center", gap: "var(--spacing-xs)" }}>
-                      <input
-                        type="checkbox"
-                        checked={band.isRemaining}
+                    <Stack style={{ flex: 1, minWidth: 140 }}>
+                      <Text.Body size="sm" color="muted">Multiplier</Text.Body>
+                      <NumberInput
+                        value={band.multiplier}
+                        onChange={(e) => updateHourlyBand(index, "multiplier", (e.target as HTMLInputElement).value)}
+                        allowDecimal
                         disabled={!canEdit}
-                        onChange={(e) => updateHourlyBand(index, "isRemaining", String(e.target.checked))}
                       />
-                      <Text.Body size="sm">Remaining Hours</Text.Body>
-                    </label>
-                  ) : (
-                    <Text.Body size="sm" color="muted">Bounded Band</Text.Body>
-                  )}
-                </Stack>
-              </Row>
-            ))}
+                    </Stack>
 
-            <EarningsDividerButton
-              label="+ Add Band"
-              onClick={addHourlyBand}
-              disabled={!canEdit}
-            />
-          </Stack>
+                    {!band.isRemaining && (
+                      <Stack style={{ flex: 1, minWidth: 130 }}>
+                        <Text.Body size="sm" color="muted">Max Hours</Text.Body>
+                        <NumberInput
+                          value={band.maxHours}
+                          onChange={(e) => updateHourlyBand(index, "maxHours", (e.target as HTMLInputElement).value)}
+                          onBlur={() => commitHourlyBandMaxHours(index)}
+                          allowDecimal={false}
+                          disabled={!canEdit}
+                        />
+                      </Stack>
+                    )}
+
+                    <Stack style={{ minWidth: 160, paddingBottom: "var(--spacing-xs)" }}>
+                      {index === hourlyBands.length - 1 ? (
+                        <label style={{ display: "flex", alignItems: "center", gap: "var(--spacing-xs)" }}>
+                          <input
+                            type="checkbox"
+                            checked={band.isRemaining}
+                            disabled={!canEdit}
+                            onChange={(e) => updateHourlyBand(index, "isRemaining", String(e.target.checked))}
+                          />
+                          <Text.Body size="sm">Remaining Hours</Text.Body>
+                        </label>
+                      ) : (
+                        <Text.Body size="sm" color="muted">Bounded Band</Text.Body>
+                      )}
+                    </Stack>
+                  </Row>
+                ))}
+
+                <EarningsDividerButton
+                  label="+ Add Band"
+                  onClick={addHourlyBand}
+                  disabled={!canEdit}
+                />
+              </Stack>
+            )}
+
+            {ruleType === "salary" && (
+              <Stack style={{ maxWidth: 260 }}>
+                <Text.Body size="sm" color="muted">Salary Period (days)</Text.Body>
+                <NumberInput
+                  value={salaryPeriodDays}
+                  onChange={(e) => setSalaryPeriodDays((e.target as HTMLInputElement).value)}
+                  allowDecimal={false}
+                  disabled={!canEdit}
+                />
+              </Stack>
+            )}
+
+            {ruleType === "oneTime" && (
+              <Text.Body size="sm" color="muted">
+                One-Time rule uses empty config.
+              </Text.Body>
+            )}
+
+            <Row justify="end" gap="sm">
+              <ButtonSecondary
+                style={{ flex: 0, minWidth: 132 }}
+                onClick={() => setShowAddForm(false)}
+              >
+                Cancel
+              </ButtonSecondary>
+              <ButtonPrimary
+                style={{ flex: 0, minWidth: 132 }}
+                disabled={!canRegister}
+                onClick={() => registerEarningsCode(chainId!, slug)}
+              >
+                Register
+              </ButtonPrimary>
+            </Row>
+          </>
         )}
-
-        {ruleType === "salary" && (
-          <Stack style={{ maxWidth: 260 }}>
-            <Text.Body size="sm" color="muted">Salary Period (days)</Text.Body>
-            <NumberInput
-              value={salaryPeriodDays}
-              onChange={(e) => setSalaryPeriodDays((e.target as HTMLInputElement).value)}
-              allowDecimal={false}
-              disabled={!canEdit}
-            />
-          </Stack>
-        )}
-
-        {ruleType === "oneTime" && (
-          <Text.Body size="sm" color="muted">
-            One-Time rule uses empty config.
-          </Text.Body>
-        )}
-
-        <Row justify="end">
-          <ButtonPrimary
-            style={{ flex: 0, minWidth: 132 }}
-            disabled={!canRegister}
-            onClick={() => registerEarningsCode(chainId!, slug)}
-          >
-            Register
-          </ButtonPrimary>
-        </Row>
       </Stack>
 
       <PayrollEarningsCatalogManager

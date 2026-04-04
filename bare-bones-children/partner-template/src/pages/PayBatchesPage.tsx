@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent, Input } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
+import { IconButton } from "../components/Button/IconButton";
 import { NumberInput } from "../components/Inputs/NumberInput";
 import { AddressInput } from "../components/Inputs/AddressInput";
 import { Select, SelectOption } from "../components/Select";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
+import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
@@ -21,9 +23,11 @@ import {
   type OrganizationEarningsCodeView,
   type PayeeDefaultsView,
 } from "../utils/payroll/fetchPayrollViews";
+import { TrashBinIcon } from "../assets/icons/TrashBinIcon";
 import { fetchPayBatchCodes, fetchPayBatchPayeesWithDefaults } from "../utils/payroll/fetchPayBatchViews";
 import { buildRuleMeta, decodeRunDataDisplay } from "../utils/payroll/earningsDisplay";
-import { ROUTES } from "../routes";
+import { PaymentsNavBar } from "../components/Payments/PaymentsNavBar";
+import { EarningsDividerButton } from "../components/PayrollEarningsManager/EarningsDividerButton";
 
 interface AssignmentDraft {
   earningsCodeId: string;
@@ -36,6 +40,14 @@ interface BatchConfigDraft {
   assignments: AssignmentDraft[];
 }
 
+interface EarningDraftRow {
+  id: string;
+  codeId: string;
+  rate: string;
+  hourlyRunData: string;
+  rawRunData: string;
+}
+
 interface BatchOnboardDraft {
   id: string;
   name: string;
@@ -44,6 +56,14 @@ interface BatchOnboardDraft {
   rate: string;
   hourlyRunData: string;
   rawRunData: string;
+}
+
+function parsePayeeNameLabel(value: string) {
+  try {
+    return ethers.utils.parseBytes32String(value);
+  } catch {
+    return value;
+  }
 }
 
 function parseBytes32Label(value: string) {
@@ -74,11 +94,12 @@ function formatNameInput(input: string) {
 
 export function PayBatchesPage() {
   const { organizationId } = useParams<{ organizationId: string }>();
-  const navigate = useNavigate();
   const slug = (organizationId ?? "").trim();
 
   const { account, provider, chainId } = useWalletProvider();
   const { version } = useTxRefresh();
+  const screenSize = useMediaQuery();
+  const isPhone = screenSize === ScreenSize.Phone;
 
   const [loading, setLoading] = useState(false);
   const [orgInfo, setOrgInfo] = useState<OrganizationModel | null>(null);
@@ -92,10 +113,7 @@ export function PayBatchesPage() {
   const [batchRows, setBatchRows] = useState<PayeeDefaultsView[]>([]);
 
   const [selectedPayeeId, setSelectedPayeeId] = useState("");
-  const [selectedCodeId, setSelectedCodeId] = useState("");
-  const [rateInput, setRateInput] = useState("0");
-  const [hourlyRunDataInput, setHourlyRunDataInput] = useState("40");
-  const [rawRunDataInput, setRawRunDataInput] = useState("0x");
+  const [earningDraftRows, setEarningDraftRows] = useState<EarningDraftRow[]>([]);
   const [stagedConfigs, setStagedConfigs] = useState<BatchConfigDraft[]>([]);
 
   const [onboardDrafts, setOnboardDrafts] = useState<BatchOnboardDraft[]>([]);
@@ -113,14 +131,41 @@ export function PayBatchesPage() {
     [earningsCodes]
   );
 
-  const selectedEarningsCode = selectedCodeId ? earningsCodeById.get(selectedCodeId) ?? null : null;
-  const selectedRuleMeta = useMemo(
-    () => buildRuleMeta(selectedEarningsCode?.rule ?? ethers.constants.AddressZero, config),
-    [selectedEarningsCode, config]
+  const activeEarningsCodes = useMemo(
+    () => earningsCodes.filter((code) => Boolean(code.isActive)),
+    [earningsCodes]
   );
+
+  const payeeById = useMemo(
+    () => new Map(payees.map((payee) => [payee.payeeId.toString(), payee] as const)),
+    [payees]
+  );
+
+  useEffect(() => {
+    if (!selectedPayeeId) {
+      setEarningDraftRows([]);
+      return;
+    }
+
+    setEarningDraftRows((prev) => {
+      if (prev.length > 0) return prev;
+      return [
+        {
+          id: `${Date.now()}-${Math.random()}`,
+          codeId: activeEarningsCodes[0]?.earningsCodeId.toString() || "",
+          rate: "0",
+          hourlyRunData: "40",
+          rawRunData: "0x",
+        },
+      ];
+    });
+  }, [selectedPayeeId, activeEarningsCodes]);
 
   function resolveRunData(ruleAddress: string, hourlyInput: string, rawInput: string) {
     const meta = buildRuleMeta(ruleAddress, config);
+    if (!meta.runDataRequired) {
+      return "0x";
+    }
     if (meta.kind === "hourly") {
       return ethers.utils.defaultAbiCoder.encode(["uint32"], [Math.max(0, Math.floor(Number(hourlyInput) || 0))]);
     }
@@ -285,28 +330,54 @@ export function PayBatchesPage() {
       `Onboarded ${drafts.length} payee(s) into ${parseBytes32Label(payBatchCode)}`
   );
 
-  function stageAssignment() {
-    if (!selectedPayeeId || !selectedCodeId || !selectedEarningsCode) return;
+  function addEarningDraftRow() {
+    setEarningDraftRows((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random()}`,
+        codeId: activeEarningsCodes[0]?.earningsCodeId.toString() || "",
+        rate: "0",
+        hourlyRunData: "40",
+        rawRunData: "0x",
+      },
+    ]);
+  }
 
-    const assignment: AssignmentDraft = {
-      earningsCodeId: selectedCodeId,
-      rate: rateInput || "0",
-      runData: resolveRunData(selectedEarningsCode.rule, hourlyRunDataInput, rawRunDataInput),
-    };
+  function removeEarningDraftRow(id: string) {
+    setEarningDraftRows((prev) => prev.filter((row) => row.id !== id));
+  }
+
+  function updateEarningDraftRow(id: string, patch: Partial<EarningDraftRow>) {
+    setEarningDraftRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  }
+
+  function stageAssignment() {
+    if (!selectedPayeeId || earningDraftRows.length === 0) return;
+
+    const assignments: AssignmentDraft[] = earningDraftRows
+      .filter((row) => row.codeId)
+      .map((row) => {
+        const selected = earningsCodeById.get(row.codeId);
+        if (!selected) {
+          throw new Error("Invalid earnings code in earning draft row");
+        }
+
+        return {
+          earningsCodeId: row.codeId,
+          rate: row.rate || "0",
+          runData: resolveRunData(selected.rule, row.hourlyRunData, row.rawRunData),
+        };
+      });
+
+    if (assignments.length === 0) return;
 
     setStagedConfigs((prev) => {
-      const idx = prev.findIndex((entry) => entry.payeeId === selectedPayeeId);
-      if (idx === -1) {
-        return [...prev, { payeeId: selectedPayeeId, assignments: [assignment] }];
-      }
-
-      const next = [...prev];
-      next[idx] = {
-        ...next[idx],
-        assignments: [...next[idx].assignments, assignment],
-      };
-      return next;
+      const remaining = prev.filter((entry) => entry.payeeId !== selectedPayeeId);
+      return [...remaining, { payeeId: selectedPayeeId, assignments }];
     });
+
+    // Clear the inline form after staging; staged edits remain visible below.
+    setEarningDraftRows([]);
   }
 
   function removeStagedAssignment(payeeId: string, assignmentIndex: number) {
@@ -331,7 +402,7 @@ export function PayBatchesPage() {
         id: `${Date.now()}-${Math.random()}`,
         name: "",
         paymentAddress: "",
-        codeId: selectedCodeId || earningsCodes[0]?.earningsCodeId.toString() || "",
+        codeId: activeEarningsCodes[0]?.earningsCodeId.toString() || "",
         rate: "0",
         hourlyRunData: "40",
         rawRunData: "0x",
@@ -358,16 +429,20 @@ export function PayBatchesPage() {
 
   async function handleBatchConfigure() {
     if (!chainId || !slug || !selectedBatchCode || stagedConfigs.length === 0) return;
-    await batchConfigurePayBatch(chainId, slug, selectedBatchCode, stagedConfigs);
-    setStagedConfigs([]);
-    await refreshData(slug, selectedBatchCode);
+    const tx = await batchConfigurePayBatch(chainId, slug, selectedBatchCode, stagedConfigs);
+    if (tx) {
+      setStagedConfigs([]);
+      await refreshData(slug, selectedBatchCode);
+    }
   }
 
   async function handleBatchOnboard() {
     if (!chainId || !slug || !selectedBatchCode || onboardDrafts.length === 0) return;
-    await batchOnboardAndConfigure(chainId, slug, selectedBatchCode, onboardDrafts);
-    setOnboardDrafts([]);
-    await refreshData(slug, selectedBatchCode);
+    const tx = await batchOnboardAndConfigure(chainId, slug, selectedBatchCode, onboardDrafts);
+    if (tx) {
+      setOnboardDrafts([]);
+      await refreshData(slug, selectedBatchCode);
+    }
   }
 
   return (
@@ -377,26 +452,8 @@ export function PayBatchesPage() {
           <CardContent>
             <Row justify="between" align="center" wrap>
               <Text.Title align="left">Pay Batches</Text.Title>
-              <Row gap="sm" wrap>
-                <ButtonSecondary style={{ flex: 0 }} onClick={() => navigate(ROUTES.PAYMENTS_ORG(slug))}>
-                  Back to Org
-                </ButtonSecondary>
-                <ButtonSecondary
-                  style={{ flex: 0 }}
-                  onClick={() => navigate(ROUTES.PAYMENTS_MANAGE_PAYEES(slug))}
-                  disabled={!slug}
-                >
-                  Manage Payees
-                </ButtonSecondary>
-                <ButtonPrimary
-                  style={{ flex: 0 }}
-                  onClick={() => navigate(ROUTES.PAYROLL_CURRENT(slug))}
-                  disabled={!slug}
-                >
-                  Current Payroll
-                </ButtonPrimary>
-              </Row>
             </Row>
+            <PaymentsNavBar slug={slug} active="payBatches" />
 
             {!slug && <Text.Body color="warn">Missing organization slug in route.</Text.Body>}
             {slug && (
@@ -421,7 +478,7 @@ export function PayBatchesPage() {
                   {isAdmin ? "✓ Admin Mode" : "Read Only Mode"}
                 </Text.Body>
                 <Text.Body color="muted" size="sm">
-                  Batch codes: {batchCodes.length} · Payees: {payees.length} · Earnings codes: {earningsCodes.length}
+                  Batch codes: {batchCodes.length} · Payees: {payees.length} · Active earnings codes: {activeEarningsCodes.length}
                 </Text.Body>
               </Stack>
             )}
@@ -464,66 +521,186 @@ export function PayBatchesPage() {
             <CardContent>
               <Text.Title style={{ fontSize: 20 }}>Configure Batch: {parseBytes32Label(selectedBatchCode)}</Text.Title>
 
-              <Row gap="sm" align="end" wrap>
-                <Stack style={{ minWidth: 180 }}>
+              <Stack
+                gap="sm"
+                style={{
+                  border: "1px solid var(--colors-border)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "var(--spacing-md)",
+                }}
+              >
+                <Stack style={{ minWidth: 220, maxWidth: 620 }}>
                   <Text.Body size="sm" color="muted">Payee</Text.Body>
                   <Select<string>
                     value={selectedPayeeId || null}
                     onChange={(value) => setSelectedPayeeId(String(value))}
                     disabled={payees.length === 0 || !isAdmin}
+                    renderValue={(opt) => (
+                      <span
+                        style={{
+                          display: "block",
+                          maxWidth: "100%",
+                          overflow: "hidden",
+                          whiteSpace: "nowrap",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {String(opt?.props?.label ?? "")}
+                      </span>
+                    )}
                   >
                     {payees.map((payee) => (
                       <SelectOption
                         key={payee.payeeId.toString()}
                         value={payee.payeeId.toString()}
-                        label={`#${payee.payeeId.toString()} · ${payee.paymentAddress.slice(0, 8)}...`}
+                        label={`${parsePayeeNameLabel(payee.role)} · #${payee.payeeId.toString()} · ${payee.paymentAddress}`}
                       />
                     ))}
                   </Select>
                 </Stack>
 
-                <Stack style={{ minWidth: 220 }}>
-                  <Text.Body size="sm" color="muted">Earnings Code</Text.Body>
-                  <Select<string>
-                    value={selectedCodeId || null}
-                    onChange={(value) => setSelectedCodeId(String(value))}
-                    disabled={earningsCodes.length === 0 || !isAdmin}
-                  >
-                    {earningsCodes.map((code) => {
-                      const id = code.earningsCodeId.toString();
-                      const meta = buildRuleMeta(code.rule, config);
-                      return <SelectOption key={id} value={id} label={`#${id} · ${meta.name}`} />;
+                {selectedPayeeId && (
+                  <>
+                    <Row align="center" wrap={false} style={{ width: "100%" }}>
+                      <div style={{ flex: 1, height: 1, background: "var(--colors-border)" }} />
+                      <Text.Body size="sm" color="muted" style={{ paddingInline: "var(--spacing-sm)" }}>
+                        Earnings
+                      </Text.Body>
+                      <div style={{ flex: 1, height: 1, background: "var(--colors-border)" }} />
+                    </Row>
+
+                    {earningDraftRows.map((draft, idx) => {
+                      const selectedCode = draft.codeId ? earningsCodeById.get(draft.codeId) ?? null : null;
+                      const selectedMeta = buildRuleMeta(selectedCode?.rule ?? ethers.constants.AddressZero, config);
+
+                      return (
+                        <Stack
+                          key={draft.id}
+                          gap="sm"
+                          style={{
+                            borderTop: idx === 0 ? "none" : "1px dashed var(--colors-border)",
+                            paddingTop: idx === 0 ? 0 : "var(--spacing-sm)",
+                            marginInline: "auto",
+                            width: "100%",
+                            maxWidth: 820,
+                          }}
+                        >
+                          {isPhone && (
+                            <Row justify="between" align="center" wrap={false} style={{ width: "100%" }}>
+                              <Text.Body size="sm" color="muted">Earnings Code</Text.Body>
+                              <IconButton
+                                size="xl"
+                                iconFontSize="lg"
+                                shape="square"
+                                aria-label="Remove earning"
+                                title="Remove earning"
+                                style={{
+                                  flex: 0,
+                                  borderColor: "var(--colors-borderHover)",
+                                  color: "var(--colors-error)",
+                                }}
+                                onClick={() => removeEarningDraftRow(draft.id)}
+                                disabled={earningDraftRows.length <= 1}
+                              >
+                                <TrashBinIcon size={22} />
+                              </IconButton>
+                            </Row>
+                          )}
+
+                          <Row gap="sm" align="center" justify="center" wrap style={{ width: "100%" }}>
+                            <Stack style={{ minWidth: 220, flex: "1 1 280px" }}>
+                              {!isPhone && <Text.Body size="sm" color="muted">Earnings Code</Text.Body>}
+                              <Select<string>
+                                value={draft.codeId || null}
+                                onChange={(value) => updateEarningDraftRow(draft.id, { codeId: String(value) })}
+                                disabled={activeEarningsCodes.length === 0 || !isAdmin}
+                              >
+                                {activeEarningsCodes.map((code) => {
+                                  const id = code.earningsCodeId.toString();
+                                  const meta = buildRuleMeta(code.rule, config);
+                                  return <SelectOption key={id} value={id} label={`#${id} · ${meta.name}`} />;
+                                })}
+                              </Select>
+                            </Stack>
+
+                            <Stack style={{ minWidth: 140, flex: "1 1 140px" }}>
+                              <Text.Body size="sm" color="muted">Rate</Text.Body>
+                              <Input
+                                value={draft.rate}
+                                onChange={(e) => updateEarningDraftRow(draft.id, { rate: e.target.value })}
+                                placeholder="0"
+                              />
+                            </Stack>
+
+                            {selectedMeta.runDataRequired && selectedMeta.kind === "hourly" ? (
+                              <Stack style={{ minWidth: 150, flex: "1 1 150px" }}>
+                                <Text.Body size="sm" color="muted">Hours (runData)</Text.Body>
+                                <NumberInput
+                                  value={draft.hourlyRunData}
+                                  onChange={(e) =>
+                                    updateEarningDraftRow(draft.id, {
+                                      hourlyRunData: (e.target as HTMLInputElement).value,
+                                    })
+                                  }
+                                  allowDecimal={false}
+                                />
+                              </Stack>
+                            ) : selectedMeta.runDataRequired ? (
+                              <Stack style={{ minWidth: 180, flex: "1 1 180px" }}>
+                                <Text.Body size="sm" color="muted">Run Data (raw hex)</Text.Body>
+                                <Input
+                                  value={draft.rawRunData}
+                                  onChange={(e) => updateEarningDraftRow(draft.id, { rawRunData: e.target.value })}
+                                  placeholder="0x"
+                                />
+                              </Stack>
+                            ) : null}
+
+                            {!isPhone && (
+                              <Stack style={{ minWidth: 44, alignItems: "center" }}>
+                                <Text.Body size="sm" color="muted" style={{ visibility: "hidden" }}>
+                                  Remove
+                                </Text.Body>
+                                <IconButton
+                                  size="xl"
+                                  iconFontSize="lg"
+                                  shape="square"
+                                  aria-label="Remove earning"
+                                  title="Remove earning"
+                                  style={{
+                                    flex: 0,
+                                    borderColor: "var(--colors-borderHover)",
+                                    color: "var(--colors-error)",
+                                  }}
+                                  onClick={() => removeEarningDraftRow(draft.id)}
+                                  disabled={earningDraftRows.length <= 1}
+                                >
+                                  <TrashBinIcon size={22} />
+                                </IconButton>
+                              </Stack>
+                            )}
+                          </Row>
+                        </Stack>
+                      );
                     })}
-                  </Select>
-                </Stack>
 
-                <Stack style={{ minWidth: 140 }}>
-                  <Text.Body size="sm" color="muted">Rate</Text.Body>
-                  <Input value={rateInput} onChange={(e) => setRateInput(e.target.value)} placeholder="0" />
-                </Stack>
-
-                {selectedRuleMeta.kind === "hourly" ? (
-                  <Stack style={{ minWidth: 150 }}>
-                    <Text.Body size="sm" color="muted">Hours (runData)</Text.Body>
-                    <NumberInput
-                      value={hourlyRunDataInput}
-                      onChange={(e) => setHourlyRunDataInput((e.target as HTMLInputElement).value)}
-                      allowDecimal={false}
+                    <EarningsDividerButton
+                      label="Add Earning"
+                      onClick={addEarningDraftRow}
+                      disabled={!isAdmin}
+                      minWidth={150}
                     />
-                  </Stack>
-                ) : (
-                  <Stack style={{ minWidth: 180 }}>
-                    <Text.Body size="sm" color="muted">Run Data (raw hex)</Text.Body>
-                    <Input value={rawRunDataInput} onChange={(e) => setRawRunDataInput(e.target.value)} placeholder="0x" />
-                  </Stack>
+                  </>
                 )}
+              </Stack>
 
+              <Row justify="end">
                 <ButtonSecondary
                   style={{ flex: 0 }}
                   onClick={stageAssignment}
-                  disabled={!isAdmin || !selectedPayeeId || !selectedCodeId}
+                  disabled={!isAdmin || !selectedPayeeId || earningDraftRows.length === 0}
                 >
-                  Stage Assignment
+                  Stage Payee Earnings
                 </ButtonSecondary>
               </Row>
 
@@ -537,18 +714,26 @@ export function PayBatchesPage() {
                       <CardContent>
                         <Stack gap="xs">
                           <Text.Body>
-                            Payee #{entry.payeeId} · {entry.assignments.length} assignment(s)
+                            {(() => {
+                              const payee = payeeById.get(entry.payeeId);
+                              if (!payee) return `Payee #${entry.payeeId}`;
+                              return `${parsePayeeNameLabel(payee.role)} · #${entry.payeeId}`;
+                            })()} · {entry.assignments.length} assignment(s)
                           </Text.Body>
                           {entry.assignments.map((assignment, idx) => {
                             const code = earningsCodeById.get(assignment.earningsCodeId);
+                            const meta = buildRuleMeta(code?.rule ?? ethers.constants.AddressZero, config);
                             return (
                               <Row key={`${entry.payeeId}-${idx}`} justify="between" align="center" wrap>
                                 <Text.Body size="sm" color="muted">
-                                  Code #{assignment.earningsCodeId} · Rate {assignment.rate} · RunData {decodeRunDataDisplay(
-                                    assignment.runData,
-                                    code?.rule ?? ethers.constants.AddressZero,
-                                    config
-                                  )}
+                                  -- Earnings #{assignment.earningsCodeId} · {meta.name} · Rate {assignment.rate}
+                                  {meta.runDataRequired
+                                    ? ` · RunData ${decodeRunDataDisplay(
+                                        assignment.runData,
+                                        code?.rule ?? ethers.constants.AddressZero,
+                                        config
+                                      )}`
+                                    : ""}
                                 </Text.Body>
                                 <ButtonSecondary
                                   style={{ flex: 0 }}
@@ -624,7 +809,7 @@ export function PayBatchesPage() {
                               value={draft.codeId || null}
                               onChange={(value) => updateOnboardDraft(draft.id, { codeId: String(value) })}
                             >
-                              {earningsCodes.map((item) => {
+                              {activeEarningsCodes.map((item) => {
                                 const id = item.earningsCodeId.toString();
                                 const rule = buildRuleMeta(item.rule, config);
                                 return <SelectOption key={id} value={id} label={`#${id} · ${rule.name}`} />;
@@ -641,7 +826,7 @@ export function PayBatchesPage() {
                             />
                           </Stack>
 
-                          {meta.kind === "hourly" ? (
+                          {meta.runDataRequired && meta.kind === "hourly" ? (
                             <Stack style={{ minWidth: 140 }}>
                               <Text.Body size="sm" color="muted">Hours</Text.Body>
                               <NumberInput
@@ -654,7 +839,7 @@ export function PayBatchesPage() {
                                 allowDecimal={false}
                               />
                             </Stack>
-                          ) : (
+                          ) : meta.runDataRequired ? (
                             <Stack style={{ minWidth: 180 }}>
                               <Text.Body size="sm" color="muted">Run Data</Text.Body>
                               <Input
@@ -663,7 +848,7 @@ export function PayBatchesPage() {
                                 placeholder="0x"
                               />
                             </Stack>
-                          )}
+                          ) : null}
 
                           <ButtonSecondary style={{ flex: 0 }} onClick={() => removeOnboardDraft(draft.id)}>
                             Remove
@@ -700,7 +885,11 @@ export function PayBatchesPage() {
                     <CardContent>
                       <Stack gap="xs">
                         <Text.Body weight={600}>
-                          Payee #{row.payeeId.toString()} · {row.paymentAddress}
+                          {(() => {
+                            const payee = payeeById.get(row.payeeId.toString());
+                            if (!payee) return `Payee #${row.payeeId.toString()}`;
+                            return `${parsePayeeNameLabel(payee.role)} · #${row.payeeId.toString()}`;
+                          })()} · {row.paymentAddress}
                         </Text.Body>
                         {row.earnings.length === 0 ? (
                           <Text.Body color="muted">No default earnings assigned.</Text.Body>
@@ -709,7 +898,10 @@ export function PayBatchesPage() {
                             const meta = buildRuleMeta(earning.rule, config);
                             return (
                               <Text.Body key={`${row.payeeId.toString()}-${idx}`} size="sm" color="muted">
-                                Code #{earning.earningsCodeId.toString()} · {meta.name} · Rate {ethers.utils.formatEther(earning.rate)} · RunData {decodeRunDataDisplay(earning.runData, earning.rule, config)}
+                                -- Earnings #{earning.earningsCodeId.toString()} · {meta.name} · Rate {ethers.utils.formatEther(earning.rate)}
+                                {meta.runDataRequired
+                                  ? ` · RunData ${decodeRunDataDisplay(earning.runData, earning.rule, config)}`
+                                  : ""}
                               </Text.Body>
                             );
                           })

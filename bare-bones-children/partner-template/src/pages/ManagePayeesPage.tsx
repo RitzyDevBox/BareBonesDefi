@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
-import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
 import { IconButton } from "../components/Button/IconButton";
 import { Select, SelectOption } from "../components/Select";
 import { AddressInput } from "../components/Inputs/AddressInput";
@@ -18,8 +17,8 @@ import { PayeesTable } from "../components/PayeesTable";
 import type { OrganizationModel, PayeeModel } from "../models/payments";
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";
 import { shortAddress } from "../utils/formatUtils";
-import { ROUTES } from "../routes";
 import { SaveIcon } from "../assets/icons/SaveIcon";
+import { PaymentsNavBar } from "../components/Payments/PaymentsNavBar";
 
 function parseNameLabel(name: string) {
   try {
@@ -38,7 +37,6 @@ function payeeStatusLabel(status?: number) {
 
 export function ManagePayeesPage() {
   const { organizationId } = useParams<{ organizationId: string }>();
-  const navigate = useNavigate();
   const slug = (organizationId ?? "").trim();
 
   const { account, provider, chainId } = useWalletProvider();
@@ -183,26 +181,8 @@ export function ManagePayeesPage() {
           <CardContent>
             <Row justify="between" align="center" wrap>
               <Text.Title align="left">Manage Payees</Text.Title>
-              <Row gap="sm" wrap>
-                <ButtonSecondary style={{ flex: 0 }} onClick={() => navigate(ROUTES.PAYMENTS_ORG(slug))}>
-                  Back to Org
-                </ButtonSecondary>
-                <ButtonSecondary
-                  style={{ flex: 0 }}
-                  onClick={() => navigate(ROUTES.PAYMENTS_PAY_BATCHES(slug))}
-                  disabled={!slug}
-                >
-                  Go to Pay Batches
-                </ButtonSecondary>
-                <ButtonPrimary
-                  style={{ flex: 0 }}
-                  onClick={() => navigate(ROUTES.PAYROLL_CURRENT(slug))}
-                  disabled={!slug}
-                >
-                  Current Payroll
-                </ButtonPrimary>
-              </Row>
             </Row>
+            <PaymentsNavBar slug={slug} active="managePayees" />
 
             {!slug && <Text.Body color="warn">Missing organization slug in route.</Text.Body>}
             {slug && (

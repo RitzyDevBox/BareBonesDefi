@@ -4,7 +4,6 @@ import { Stack, Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
 import { NumberInput } from "../Inputs/NumberInput";
-import { Select, SelectOption } from "../Select";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
 import { getBareBonesConfiguration } from "../../constants/misc";
@@ -183,13 +182,8 @@ export function PayrollEarningsCatalogManager({
   }
 
   useEffect(() => {
-    if (earningsCodes.length === 0) {
+    if (earningsCodes.length === 0 || (selectedCodeId && !earningsById.has(selectedCodeId))) {
       setSelectedCodeId("");
-      return;
-    }
-
-    if (!selectedCodeId || !earningsById.has(selectedCodeId)) {
-      setSelectedCodeId(earningsCodes[0].earningsCodeId.toString());
     }
   }, [earningsCodes, selectedCodeId, earningsById]);
 
@@ -351,14 +345,17 @@ export function PayrollEarningsCatalogManager({
     >
       <Text.Label>Manage Earnings Codes</Text.Label>
 
-      <Stack>
-        <Text.Body size="sm" color="muted">Earnings Code</Text.Body>
-        <Select<string>
-          value={selectedCodeId || null}
-          onChange={(v) => setSelectedCodeId(String(v))}
-          disabled={!canEdit}
+      <Stack gap="xs">
+        <Text.Body size="sm" color="muted">Earnings Codes</Text.Body>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
+            gap: "var(--spacing-sm)",
+          }}
         >
           {earningsCodes.map((code) => {
+            const id = code.earningsCodeId.toString();
             const type = resolveRuleType(code.rule);
             const typeLabel =
               type === "hourly"
@@ -368,17 +365,44 @@ export function PayrollEarningsCatalogManager({
                 : type === "oneTime"
                 ? "One-Time"
                 : "Custom";
+            const selected = id === selectedCodeId;
 
             return (
-              <SelectOption
-                key={code.earningsCodeId.toString()}
-                value={code.earningsCodeId.toString()}
-                label={`#${code.earningsCodeId.toString()} · ${typeLabel} · ${code.isActive ? "Active" : "Inactive"}`}
-              />
+              <button
+                key={id}
+                type="button"
+                onClick={() => setSelectedCodeId(id)}
+                style={{
+                  textAlign: "left",
+                  border: selected
+                    ? "1px solid var(--colors-primary)"
+                    : "1px solid var(--colors-border)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "var(--spacing-sm)",
+                  background: selected
+                    ? "color-mix(in srgb, var(--colors-primary) 12%, var(--colors-surface))"
+                    : "var(--colors-surface)",
+                  cursor: "pointer",
+                }}
+              >
+                <Stack gap="xs">
+                  <Text.Body weight={600}>#{id}</Text.Body>
+                  <Text.Body size="sm" color="muted">{typeLabel}</Text.Body>
+                  <Text.Body size="sm" color={code.isActive ? "success" : "warn"}>
+                    {code.isActive ? "Active" : "Inactive"}
+                  </Text.Body>
+                </Stack>
+              </button>
             );
           })}
-        </Select>
+        </div>
       </Stack>
+
+      {!selectedCode && (
+        <Text.Body size="sm" color="muted">
+          Select an earnings code from the grid to edit.
+        </Text.Body>
+      )}
 
       {selectedCode && (
         <>

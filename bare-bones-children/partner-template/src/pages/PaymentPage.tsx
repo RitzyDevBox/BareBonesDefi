@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent, Input } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
@@ -19,8 +19,7 @@ import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import { PayeesTable } from "../components/PayeesTable";
-import { PayrollEarningsManager } from "../components/PayrollEarningsManager";
-import { ROUTES } from "../routes";
+import { PaymentsNavBar } from "../components/Payments/PaymentsNavBar";
 import type { OrganizationModel, PayeeModel } from "../models/payments";
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";
 import {
@@ -69,7 +68,6 @@ interface PayeeAssignmentDraft {
 
 export function PaymentPage() {
   const { organizationId } = useParams<{ organizationId?: string }>();
-  const navigate = useNavigate();
   const { account, provider, chainId } = useWalletProvider();
   const { version } = useTxRefresh();
   const [slug, setSlug] = useState<string>(organizationId ?? "");
@@ -120,6 +118,11 @@ export function PaymentPage() {
       new Map(
         organizationEarningsCodes.map((row) => [row.earningsCodeId.toString(), row] as const)
       ),
+    [organizationEarningsCodes]
+  );
+
+  const activeOrganizationEarningsCodes = useMemo(
+    () => organizationEarningsCodes.filter((row) => Boolean(row.isActive)),
     [organizationEarningsCodes]
   );
 
@@ -277,11 +280,6 @@ export function PaymentPage() {
       `Ownership transferred to ${newOwnerAddr}`
   );
 
-  const payrollManagerInterface = useMemo(
-    () => new ethers.utils.Interface(PayrollManagerABI as any),
-    []
-  );
-
   const buildConfigurePayeeEarningsTx = useCallback(
     (
       _: number,
@@ -303,14 +301,19 @@ export function PaymentPage() {
 
       return {
         to: payrollManagerAddress,
-        data: payrollManagerInterface.encodeFunctionData("configurePayeePayroll", [
+        data: iface.encodeFunctionData("batchConfigurePayBatch", [
           slugBytes,
-          payeeId,
-          assignments,
+          defaultPayBatchCode,
+          [
+            {
+              payeeId,
+              assignments,
+            },
+          ],
         ]),
       } as any;
     },
-    [payrollManagerAddress, payrollManagerInterface]
+    [payrollManagerAddress, iface, defaultPayBatchCode]
   );
 
   const configurePayeeEarnings = useExecuteRawTx(
@@ -320,7 +323,7 @@ export function PaymentPage() {
       orgSlug: string,
       payeeIdRaw: string,
       assignmentsRaw: PayeeAssignmentDraft[]
-    ) => `Configured payee ${payeeIdRaw} with ${assignmentsRaw.length} earnings code(s) for ${orgSlug}`
+    ) => `Configured default pay-batch earnings for payee ${payeeIdRaw} with ${assignmentsRaw.length} assignment(s) for ${orgSlug}`
   );
 
   function handleFetchOrg() {
@@ -386,7 +389,7 @@ export function PaymentPage() {
     setModalHourlyRunData("40");
 
     if (payeeEarningsModal.mode === "add") {
-      const firstAvailable = organizationEarningsCodes.find(
+      const firstAvailable = activeOrganizationEarningsCodes.find(
         (code) => !assignedCodeIdsForModalPayee.has(code.earningsCodeId.toString())
       );
       setModalCodeId(firstAvailable ? firstAvailable.earningsCodeId.toString() : "");
@@ -396,7 +399,7 @@ export function PaymentPage() {
   }, [
     payeeEarningsModal,
     config,
-    organizationEarningsCodes,
+    activeOrganizationEarningsCodes,
     assignedCodeIdsForModalPayee,
   ]);
 
@@ -461,7 +464,7 @@ export function PaymentPage() {
     }
 
     if (includeAllCatalog) {
-      for (const orgCode of organizationEarningsCodes) {
+      for (const orgCode of activeOrganizationEarningsCodes) {
         const codeId = orgCode.earningsCodeId.toString();
         if (!assignmentMap.has(codeId)) {
           const ruleMeta = buildRuleMeta(orgCode.rule, config);
@@ -480,6 +483,14 @@ export function PaymentPage() {
     return Array.from(assignmentMap.values()).sort((a, b) =>
       ethers.BigNumber.from(a.earningsCodeId).lt(ethers.BigNumber.from(b.earningsCodeId)) ? -1 : 1
     );
+  }
+
+  function getActiveDefaultsForPayee(payeeId: string) {
+    const defaults = defaultsByPayeeId.get(payeeId);
+    return (defaults?.earnings ?? []).filter((earning) => {
+      const codeMeta = earningsCodeById.get(earning.earningsCodeId.toString());
+      return codeMeta?.isActive ?? earning.isActive;
+    });
   }
 
   async function handleSubmitPayeeEarningsModal(includeAllCatalog: boolean) {
@@ -522,28 +533,7 @@ export function PaymentPage() {
                 </Row>
               </Stack>
 
-              {!!slug.trim() && (
-                <Row gap="sm" justify="end" wrap>
-                  <ButtonSecondary
-                    style={{ flex: 0 }}
-                    onClick={() => navigate(ROUTES.PAYMENTS_MANAGE_PAYEES(slug.trim()))}
-                  >
-                    Manage Payees
-                  </ButtonSecondary>
-                  <ButtonSecondary
-                    style={{ flex: 0 }}
-                    onClick={() => navigate(ROUTES.PAYMENTS_PAY_BATCHES(slug.trim()))}
-                  >
-                    Pay Batches
-                  </ButtonSecondary>
-                  <ButtonSecondary
-                    style={{ flex: 0 }}
-                    onClick={() => navigate(ROUTES.PAYROLL_CURRENT(slug.trim()))}
-                  >
-                    Go to Current Payroll
-                  </ButtonSecondary>
-                </Row>
-              )}
+              {!!slug.trim() && <PaymentsNavBar slug={slug.trim()} active="overview" />}
 
               {orgInfo && (
                 <>
@@ -576,13 +566,6 @@ export function PaymentPage() {
                         </Row>
                       </Stack>
 
-                      {orgInfo.exists && (
-                        <PayrollEarningsManager
-                          slug={slug.trim()}
-                          canEdit={isAdmin}
-                          earningsCodes={organizationEarningsCodes}
-                        />
-                      )}
                     </>
                   )}
 
@@ -617,14 +600,16 @@ export function PaymentPage() {
                 getExtraCells={(payee) => {
                   const payeeId = payee.payeeId.toString();
                   const defaults = defaultsByPayeeId.get(payeeId);
+                  const activeDefaults = getActiveDefaultsForPayee(payeeId);
                   return {
-                    defaultCodes: defaults?.earnings.length ?? 0,
+                    defaultCodes: activeDefaults.length,
                     payeeStatus: payeeStatusLabel(defaults?.payeeStatus ?? payee.status),
                   };
                 }}
                 renderExpandedRow={(payee) => {
                   const payeeId = payee.payeeId.toString();
                   const defaults = defaultsByPayeeId.get(payeeId);
+                  const activeDefaults = getActiveDefaultsForPayee(payeeId);
 
                   return (
                     <Card style={{ backgroundColor: "var(--colors-background)", border: "1px solid var(--colors-border)" }}>
@@ -643,13 +628,13 @@ export function PaymentPage() {
                               <div style={{ flex: 1, height: 1, background: "var(--colors-border)" }} />
                             </Row>
                           )}
-                          {!defaults || defaults.earnings.length === 0 ? (
+                          {!defaults || activeDefaults.length === 0 ? (
                             <Text.Body color="muted">
-                              No default earnings assignments found for this payee.
+                              No active default earnings assignments found for this payee.
                             </Text.Body>
                           ) : (
                             <Stack gap="sm">
-                              {defaults.earnings.map((earning) => {
+                              {activeDefaults.map((earning) => {
                                 const codeId = earning.earningsCodeId.toString();
                                 const codeMeta = earningsCodeById.get(codeId);
                                 const active = codeMeta?.isActive ?? earning.isActive;
@@ -800,7 +785,7 @@ export function PaymentPage() {
                 onChange={(v) => setModalCodeId(String(v))}
                 disabled={payeeEarningsModal.mode === "view" || payeeEarningsModal.mode === "delete"}
               >
-                {organizationEarningsCodes.map((code) => {
+                {activeOrganizationEarningsCodes.map((code) => {
                   const ruleMeta = buildRuleMeta(code.rule, config);
                   return (
                     <SelectOption
@@ -915,7 +900,7 @@ export function PaymentPage() {
                   <ButtonPrimary
                     style={{ flex: 0 }}
                     onClick={() => handleSubmitPayeeEarningsModal(true)}
-                    disabled={organizationEarningsCodes.length === 0}
+                    disabled={activeOrganizationEarningsCodes.length === 0}
                   >
                     Save All
                   </ButtonPrimary>

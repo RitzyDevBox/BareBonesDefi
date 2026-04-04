@@ -173,6 +173,11 @@ export function CurrentPayrollPage() {
     [organizationEarningsCodes]
   );
 
+  const activeOrganizationEarningsCodes = useMemo(
+    () => organizationEarningsCodes.filter((row) => Boolean(row.isActive)),
+    [organizationEarningsCodes]
+  );
+
   const selectedModalCode = useMemo(
     () => (modalCodeId ? earningsCodeById.get(modalCodeId) ?? null : null),
     [modalCodeId, earningsCodeById]
@@ -492,12 +497,12 @@ export function CurrentPayrollPage() {
       return;
     }
 
-    const firstCode = organizationEarningsCodes[0]?.earningsCodeId?.toString() ?? "";
+    const firstCode = activeOrganizationEarningsCodes[0]?.earningsCodeId?.toString() ?? "";
     setModalCodeId(firstCode);
     setModalRate("0");
     setModalRawRunData("0x");
     setModalHourlyRunData("40");
-  }, [earningsModal, organizationEarningsCodes, config]);
+  }, [earningsModal, activeOrganizationEarningsCodes, config]);
 
   function openEarningsModal(
     mode: CurrentPayrollEarningsMode,
@@ -865,7 +870,7 @@ export function CurrentPayrollPage() {
                 disabled={earningsModal.mode !== CurrentPayrollEarningsMode.Additional}
               >
                 {(earningsModal.mode === CurrentPayrollEarningsMode.Additional
-                  ? organizationEarningsCodes
+                  ? activeOrganizationEarningsCodes
                   : earningsModal.earning
                   ? [{
                       earningsCodeId: earningsModal.earning.earningsCodeId,
