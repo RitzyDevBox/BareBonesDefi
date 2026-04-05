@@ -1,0 +1,100 @@
+[
+  {
+    "type": "function",
+    "name": "compute",
+    "inputs": [
+      {
+        "name": "ctx",
+        "type": "tuple",
+        "internalType": "struct SimplePayrollEngine.PayrollContext",
+        "components": [
+          {
+            "name": "payee",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "payeeId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "startTime",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "endTime",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "earnings",
+            "type": "tuple[]",
+            "internalType": "struct SimplePayrollEngine.EarningsCode[]",
+            "components": [
+              {
+                "name": "rule",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "rate",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "config",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "runData",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "rate",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "config",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "runData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "payDelta",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "error",
+    "name": "InvalidPayrollWindow",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidWeeklyPremiumConfig",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ScheduleLengthMismatch",
+    "inputs": []
+  }
+]
