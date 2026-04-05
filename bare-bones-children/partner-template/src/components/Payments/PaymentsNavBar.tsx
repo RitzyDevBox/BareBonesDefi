@@ -39,7 +39,7 @@ export function PaymentsNavBar({ slug, active }: PaymentsNavBarProps) {
     { key: "managePayees", label: "Manage Payees", to: ROUTES.PAYMENTS_MANAGE_PAYEES(slug) },
     { key: "payBatches", label: "Pay Batches", to: ROUTES.PAYMENTS_PAY_BATCHES(slug) },
     { key: "earnings", label: "Earnings", to: ROUTES.PAYMENTS_EARNINGS(slug) },
-    { key: "payrolls", label: "Active Payroll", to: ROUTES.PAYROLLS(slug) },
+    { key: "payrolls", label: "Payrolls", to: ROUTES.PAYROLLS(slug) },
   ];
 
   const activeIndex = tabs.findIndex((tab) => tab.key === active);

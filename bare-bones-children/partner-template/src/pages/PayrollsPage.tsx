@@ -7,7 +7,7 @@ import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
 import { Select, SelectOption } from "../components/Select";
-import { PaymentsNavBar } from "../components/Payments/PaymentsNavBar";
+import { PayrollNavigation } from "../components/PayrollNavigation";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
@@ -239,8 +239,7 @@ export function PayrollsPage() {
         <Card style={{ width: "100%", maxWidth: 920, alignSelf: "center" }}>
           <CardContent>
             <Stack gap="md">
-              <Text.Title align="left">Payrolls</Text.Title>
-              <PaymentsNavBar slug={slug} active="payrolls" />
+              <PayrollNavigation slug={slug} active="payrolls" title="Payrolls" />
 
               {!slug && <Text.Body color="warn">Missing organization slug in route.</Text.Body>}
 
@@ -267,7 +266,7 @@ export function PayrollsPage() {
                     {isAdmin ? "✓ Admin Mode" : "Read Only Mode"}
                   </Text.Body>
                   <Text.Body size="sm" color="muted">
-                    Active payrolls: {activePayrolls.length}
+                    Payrolls: {activePayrolls.length}
                   </Text.Body>
                 </Stack>
               )}
@@ -359,9 +358,9 @@ export function PayrollsPage() {
           <Card style={{ width: "100%" }}>
             <CardContent>
               <Stack gap="md">
-                <Text.Label>Active Payrolls</Text.Label>
+                <Text.Label>Payrolls</Text.Label>
                 {activePayrolls.length === 0 ? (
-                  <Text.Body color="muted">No active payrolls found.</Text.Body>
+                  <Text.Body color="muted">No payrolls found.</Text.Body>
                 ) : (
                   <Stack gap="sm">
                     {activePayrolls.map((row) => (

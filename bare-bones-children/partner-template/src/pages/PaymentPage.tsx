@@ -19,7 +19,7 @@ import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import { PayeesTable } from "../components/PayeesTable";
-import { PaymentsNavBar } from "../components/Payments/PaymentsNavBar";
+import { PayrollNavigation } from "../components/PayrollNavigation";
 import type { OrganizationModel, PayeeModel } from "../models/payments";
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";
 import {
@@ -35,6 +35,10 @@ import {
   decodeConfigDisplay,
   decodeRunDataDisplay,
 } from "../utils/payroll/earningsDisplay";
+import {
+  formatEarningsCodeIdLabel,
+  formatEarningsCodeName,
+} from "../utils/payroll/earningsCodeDisplay";
 
 function formatRate(rate: ethers.BigNumber) {
   try {
@@ -360,6 +364,49 @@ export function PaymentPage() {
     [selectedModalRule, config]
   );
 
+  const modalApplicationSummary = useMemo(() => {
+    if (payeeEarningsModal.mode === "view") return null;
+
+    if (payeeEarningsModal.mode === "delete") {
+      return "This will soft-remove this default for the selected payee by setting rate to 0 and runData to 0x.";
+    }
+
+    const effectiveRuleAddress =
+      selectedModalCode?.rule ?? payeeEarningsModal.earning?.rule ?? ethers.constants.AddressZero;
+
+    const effectiveConfig =
+      selectedModalCode?.config ?? payeeEarningsModal.earning?.config ?? "0x";
+
+    const rateLabel = modalRate || "0";
+
+    if (selectedModalRuleMeta.kind === "hourly") {
+      const bandSummary = decodeConfigDisplay(effectiveConfig, effectiveRuleAddress, config);
+      const hoursWorked = Math.max(0, Math.floor(Number(modalHourlyRunData) || 0));
+      return `Payee will be paid at base rate ${rateLabel} per hour. Hourly bands: ${bandSummary} Run data for this default is ${hoursWorked} hour(s).`;
+    }
+
+    if (selectedModalRuleMeta.kind === "perPayroll") {
+      return `Payee will receive ${rateLabel} each payroll run when this code is active.`;
+    }
+
+    if (selectedModalRuleMeta.kind === "salary") {
+      const salarySummary = decodeConfigDisplay(effectiveConfig, effectiveRuleAddress, config);
+      return `Payee salary uses rate ${rateLabel} with salary config: ${salarySummary}.`;
+    }
+
+    const runDataSummary = modalRawRunData?.trim() || "0x";
+    return `Custom rule uses rate ${rateLabel} and runData ${runDataSummary}.`;
+  }, [
+    payeeEarningsModal.mode,
+    payeeEarningsModal.earning,
+    selectedModalCode,
+    selectedModalRuleMeta,
+    modalRate,
+    modalHourlyRunData,
+    modalRawRunData,
+    config,
+  ]);
+
   useEffect(() => {
     if (!payeeEarningsModal.isOpen) return;
 
@@ -516,8 +563,6 @@ export function PaymentPage() {
         <Card style={{ width: "100%", maxWidth: 860, alignSelf: "center" }}>
           <CardContent>
             <Stack>
-              <Text.Title>Organization Management</Text.Title>
-
               <Stack>
                 <Text.Label>Organization Slug</Text.Label>
                 <Row gap="sm">
@@ -533,7 +578,9 @@ export function PaymentPage() {
                 </Row>
               </Stack>
 
-              {!!slug.trim() && <PaymentsNavBar slug={slug.trim()} active="overview" />}
+              {!!slug.trim() && (
+                <PayrollNavigation slug={slug.trim()} active="overview" title="Organization Management" />
+              )}
 
               {orgInfo && (
                 <>
@@ -636,6 +683,7 @@ export function PaymentPage() {
                             <Stack gap="sm">
                               {activeDefaults.map((earning) => {
                                 const codeId = earning.earningsCodeId.toString();
+                                const codeLabel = formatEarningsCodeIdLabel(earning.earningsCodeId);
                                 const codeMeta = earningsCodeById.get(codeId);
                                 const active = codeMeta?.isActive ?? earning.isActive;
                                 const ruleMeta = buildRuleMeta(earning.rule, config);
@@ -699,7 +747,7 @@ export function PaymentPage() {
                                         </Row>
                                       )}
                                       <Stack gap="xs">
-                                        <Text.Body weight={600}>Rule {ruleMeta.name}: {codeId}</Text.Body>
+                                        <Text.Body weight={600}>Rule {ruleMeta.name}: {codeLabel}</Text.Body>
                                         <Text.Body color={active ? "success" : "warn"} size="sm">
                                           State: {active ? "Active" : "Inactive"}
                                         </Text.Body>
@@ -791,7 +839,7 @@ export function PaymentPage() {
                     <SelectOption
                       key={code.earningsCodeId.toString()}
                       value={code.earningsCodeId.toString()}
-                      label={`#${code.earningsCodeId.toString()} · ${ruleMeta.name} · ${code.isActive ? "Active" : "Inactive"}`}
+                      label={`${formatEarningsCodeIdLabel(code.earningsCodeId)} · ${formatEarningsCodeName(code.name)} · ${ruleMeta.name} · ${code.isActive ? "Active" : "Inactive"}`}
                     />
                   );
                 })}
@@ -811,6 +859,12 @@ export function PaymentPage() {
                   <CopyButton value={selectedModalCode.rule} ariaLabel="Copy rule address" />
                 </Row>
               </Row>
+            )}
+
+            {modalApplicationSummary && (
+              <Text.Body size="sm" color="muted">
+                {modalApplicationSummary}
+              </Text.Body>
             )}
 
             {payeeEarningsModal.mode !== "view" && (

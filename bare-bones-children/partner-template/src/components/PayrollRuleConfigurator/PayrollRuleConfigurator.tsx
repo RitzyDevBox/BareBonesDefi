@@ -214,10 +214,13 @@ export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = fals
         throw new Error("No earnings code found for selected rule");
       }
 
+      const defaultPayBatchCode = ethers.utils.formatBytes32String("DEFAULT_PAY_BATCH");
+
       const encoded = payrollManagerInterface.encodeFunctionData(
-        "configurePayeePayroll",
+        "configurePayBatch",
         [
           slugBytes,
+          defaultPayBatchCode,
           payeeIdInput,
           [{ earningsCodeId: selectedEarningsCodeId, rate: parsedRate, runData: encodedConfig }],
         ]

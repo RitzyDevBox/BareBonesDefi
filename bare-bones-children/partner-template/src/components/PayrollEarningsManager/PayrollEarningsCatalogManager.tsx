@@ -9,6 +9,11 @@ import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
 import { getBareBonesConfiguration } from "../../constants/misc";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 import type { OrganizationEarningsCodeView } from "../../utils/payroll/fetchPayrollViews";
+import {
+  formatEarningsCodeIdLabel,
+  formatEarningsCodeName,
+  isSystemEarningsCodeId,
+} from "../../utils/payroll/earningsCodeDisplay";
 import { EarningsDividerButton } from "./EarningsDividerButton";
 
 type RuleType = "hourly" | "oneTime" | "salary" | "custom";
@@ -75,6 +80,10 @@ export function PayrollEarningsCatalogManager({
   );
 
   const selectedCode = selectedCodeId ? earningsById.get(selectedCodeId) ?? null : null;
+  const isSelectedSystemCode = Boolean(
+    selectedCode && isSystemEarningsCodeId(selectedCode.earningsCodeId)
+  );
+  const canEditSelectedCode = Boolean(canEdit && !isSelectedSystemCode);
 
   const resolveRuleType = useCallback(
     (ruleAddress: string): RuleType => {
@@ -310,7 +319,7 @@ export function PayrollEarningsCatalogManager({
   );
 
   async function submitUpdate(nextIsActive: boolean) {
-    if (!chainId || !slug || !selectedCodeId) return;
+    if (!chainId || !slug || !selectedCodeId || isSelectedSystemCode) return;
     await setEarningsCode(chainId, slug, selectedCodeId, encodeSelectedConfig(), nextIsActive);
   }
 
@@ -356,6 +365,9 @@ export function PayrollEarningsCatalogManager({
         >
           {earningsCodes.map((code) => {
             const id = code.earningsCodeId.toString();
+            const displayId = formatEarningsCodeIdLabel(code.earningsCodeId);
+            const displayName = formatEarningsCodeName(code.name);
+            const isSystem = isSystemEarningsCodeId(code.earningsCodeId);
             const type = resolveRuleType(code.rule);
             const typeLabel =
               type === "hourly"
@@ -386,8 +398,12 @@ export function PayrollEarningsCatalogManager({
                 }}
               >
                 <Stack gap="xs">
-                  <Text.Body weight={600}>#{id}</Text.Body>
+                  <Text.Body weight={600}>{displayId}</Text.Body>
+                  <Text.Body size="sm">{displayName}</Text.Body>
                   <Text.Body size="sm" color="muted">{typeLabel}</Text.Body>
+                  {isSystem && (
+                    <Text.Body size="sm" color="secondary">System</Text.Body>
+                  )}
                   <Text.Body size="sm" color={code.isActive ? "success" : "warn"}>
                     {code.isActive ? "Active" : "Inactive"}
                   </Text.Body>
@@ -406,6 +422,19 @@ export function PayrollEarningsCatalogManager({
 
       {selectedCode && (
         <>
+          {isSelectedSystemCode && (
+            <Text.Body size="sm" color="muted">
+              System earnings code is read-only and cannot be modified.
+            </Text.Body>
+          )}
+          <Text.Body size="sm" color="warn">
+            Warning: updating this earnings code will apply to all payees currently using this code.
+          </Text.Body>
+
+          <Text.Body size="sm" color="muted">
+            Code: {formatEarningsCodeIdLabel(selectedCode.earningsCodeId)} · Name: {formatEarningsCodeName(selectedCode.name)}
+          </Text.Body>
+
           <Text.Body size="sm" color={isActive ? "success" : "warn"}>
             State: {isActive ? "Active" : "Inactive"}
           </Text.Body>
@@ -438,7 +467,7 @@ export function PayrollEarningsCatalogManager({
                   <button
                     aria-label="Delete band"
                     type="button"
-                    disabled={!canEdit || hourlyBands.length <= 1}
+                    disabled={!canEditSelectedCode || hourlyBands.length <= 1}
                     onClick={() => removeHourlyBand(index)}
                     style={{
                       position: "absolute",
@@ -450,7 +479,7 @@ export function PayrollEarningsCatalogManager({
                       border: "1px solid var(--colors-border)",
                       background: "var(--colors-background)",
                       color: "var(--colors-text)",
-                      cursor: !canEdit || hourlyBands.length <= 1 ? "not-allowed" : "pointer",
+                      cursor: !canEditSelectedCode || hourlyBands.length <= 1 ? "not-allowed" : "pointer",
                       lineHeight: 1,
                       fontSize: 20,
                       fontWeight: 500,
@@ -465,7 +494,7 @@ export function PayrollEarningsCatalogManager({
                       value={band.multiplier}
                       onChange={(e) => updateHourlyBand(index, "multiplier", (e.target as HTMLInputElement).value)}
                       allowDecimal
-                      disabled={!canEdit}
+                      disabled={!canEditSelectedCode}
                     />
                   </Stack>
 
@@ -477,7 +506,7 @@ export function PayrollEarningsCatalogManager({
                         onChange={(e) => updateHourlyBand(index, "maxHours", (e.target as HTMLInputElement).value)}
                         onBlur={() => commitHourlyBandMaxHours(index)}
                         allowDecimal={false}
-                        disabled={!canEdit}
+                        disabled={!canEditSelectedCode}
                       />
                     </Stack>
                   )}
@@ -488,7 +517,7 @@ export function PayrollEarningsCatalogManager({
                         <input
                           type="checkbox"
                           checked={band.isRemaining}
-                          disabled={!canEdit}
+                          disabled={!canEditSelectedCode}
                           onChange={(e) => updateHourlyBand(index, "isRemaining", String(e.target.checked))}
                         />
                         <Text.Body size="sm">Remaining Hours</Text.Body>
@@ -503,7 +532,7 @@ export function PayrollEarningsCatalogManager({
               <EarningsDividerButton
                 label="+ Add Band"
                 onClick={addHourlyBand}
-                disabled={!canEdit}
+                disabled={!canEditSelectedCode}
               />
             </Stack>
           )}
@@ -515,7 +544,7 @@ export function PayrollEarningsCatalogManager({
                 value={salaryPeriodDays}
                 onChange={(e) => setSalaryPeriodDays((e.target as HTMLInputElement).value)}
                 allowDecimal={false}
-                disabled={!canEdit}
+                disabled={!canEditSelectedCode}
               />
             </Stack>
           )}
@@ -535,14 +564,14 @@ export function PayrollEarningsCatalogManager({
           <Row gap="sm" justify="end" wrap>
             <ButtonSecondary
               style={{ flex: 0 }}
-              disabled={!canEdit}
+              disabled={!canEditSelectedCode}
               onClick={() => submitUpdate(!isActive)}
             >
               {isActive ? "Deactivate" : "Activate"}
             </ButtonSecondary>
             <ButtonPrimary
               style={{ flex: 0 }}
-              disabled={!canEdit}
+              disabled={!canEditSelectedCode}
               onClick={() => submitUpdate(isActive)}
             >
               Save

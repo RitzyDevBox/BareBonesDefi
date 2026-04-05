@@ -13,6 +13,7 @@ export function Select<T extends string | number>({
   dropdownAlignment,
   renderValue,
   disabled = false,
+  compact = false,
 }: {
   value: T | null;
   onChange: (v: T) => void;
@@ -22,6 +23,7 @@ export function Select<T extends string | number>({
   dropdownAlignment?: DropdownAlignment;
   renderValue?: (opt: React.ReactElement | null) => React.ReactNode;
   disabled?: boolean;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -109,7 +111,7 @@ export function Select<T extends string | number>({
           alignItems: "center",
           justifyContent: "space-between",
           gap: "var(--spacing-sm)",
-          padding: "var(--spacing-md)",
+          padding: compact ? "5px var(--spacing-md)" : "var(--spacing-md)",
           borderRadius: "var(--radius-md)",
           border: "1px solid var(--colors-border)",
           background: "var(--colors-background)",

@@ -16,6 +16,7 @@ export interface TableRowData {
   id: string | number;
   cells: Record<string, any>;
   expandedContent?: (rowData: TableRowData) => React.ReactNode;
+  rowStyle?: React.CSSProperties;
 }
 
 export interface TableProps {
@@ -120,6 +121,7 @@ export function Table({
                   expandedContentRender={row.expandedContent}
                   rowIndex={idx}
                   totalRows={filteredData.length}
+                  rowStyle={row.rowStyle}
                 />
               ))
             ) : (

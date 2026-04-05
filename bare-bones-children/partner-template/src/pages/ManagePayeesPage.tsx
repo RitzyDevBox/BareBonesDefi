@@ -18,7 +18,7 @@ import type { OrganizationModel, PayeeModel } from "../models/payments";
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";
 import { shortAddress } from "../utils/formatUtils";
 import { SaveIcon } from "../assets/icons/SaveIcon";
-import { PaymentsNavBar } from "../components/Payments/PaymentsNavBar";
+import { PayrollNavigation } from "../components/PayrollNavigation";
 
 function parseNameLabel(name: string) {
   try {
@@ -179,10 +179,7 @@ export function ManagePayeesPage() {
       <Stack gap="lg" style={{ width: "100%" }}>
         <Card style={{ width: "100%", maxWidth: 900, alignSelf: "center" }}>
           <CardContent>
-            <Row justify="between" align="center" wrap>
-              <Text.Title align="left">Manage Payees</Text.Title>
-            </Row>
-            <PaymentsNavBar slug={slug} active="managePayees" />
+            <PayrollNavigation slug={slug} active="managePayees" title="Manage Payees" />
 
             {!slug && <Text.Body color="warn">Missing organization slug in route.</Text.Body>}
             {slug && (

@@ -7,6 +7,7 @@ const DEFAULT_PAY_BATCH_CODE = ethers.utils.formatBytes32String("DEFAULT_PAY_BAT
 export interface OrganizationEarningsCodeView {
   earningsCodeId: ethers.BigNumber;
   isActive: boolean;
+  name: string;
   rule: string;
   config: string;
 }
@@ -30,6 +31,7 @@ export interface PayeeDefaultsView {
 export interface PayrollResolvedEarningView {
   source: number;
   earningsCodeId: ethers.BigNumber;
+  name?: string;
   rule: string;
   rate: ethers.BigNumber;
   config: string;
@@ -143,13 +145,33 @@ export async function fetchPayrollPayeesWithRunData(
   const slugBytes = toSlugBytes(slug);
   const overrides = getFromOverride(from);
 
-  return readAllPages<PayrollPayeeRunDataView>(
-    (cursor, limit) =>
-      overrides
-        ? contract.getPayrollPayeesWithRunData(slugBytes, payrollId, cursor, limit, overrides)
-        : contract.getPayrollPayeesWithRunData(slugBytes, payrollId, cursor, limit),
-    pageSize
-  );
+  const allRows: PayrollPayeeRunDataView[] = [];
+  let cursor = 0;
+  let remaining = 1;
+
+  while (remaining > 0) {
+    const page = overrides
+      ? await contract.getPayrollPage(slugBytes, payrollId, cursor, pageSize, overrides)
+      : await contract.getPayrollPage(slugBytes, payrollId, cursor, pageSize);
+
+    const rows: PayrollPayeeRunDataView[] = (page?.payees ?? page?.[0] ?? []) as PayrollPayeeRunDataView[];
+    const nextRemaining: ethers.BigNumber = page?.remaining ?? page?.[1] ?? ethers.BigNumber.from(0);
+    const nextCursor: ethers.BigNumber = page?.nextCursor ?? page?.[2] ?? ethers.BigNumber.from(cursor);
+
+    allRows.push(...rows);
+
+    const nextRemainingNumber = Number(nextRemaining.toString());
+    const nextCursorNumber = Number(nextCursor.toString());
+
+    if (nextRemainingNumber <= 0 || rows.length === 0) {
+      break;
+    }
+
+    remaining = nextRemainingNumber;
+    cursor = nextCursorNumber;
+  }
+
+  return allRows;
 }
 
 export async function fetchLatestPayrollId(

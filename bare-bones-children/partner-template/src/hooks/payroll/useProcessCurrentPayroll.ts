@@ -157,12 +157,52 @@ export function useProcessCurrentPayroll() {
         throw new Error("Payroll ID is required to process payroll");
       }
 
-      for (let i = 0; i < chunkLoopCount; i++) {
-        await executeManagerStep(chainId, PayrollManagerStep.ProcessChunk, slugInput, payrollId, chunkLimit);
+      const slugBytes = ethers.utils.formatBytes32String(slugInput);
+      const manager = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
+      const readStatus = async () => {
+        const run = await manager.slugToPayrollToRunMap(slugBytes, payrollId);
+        return Number(run?.status ?? run?.[0] ?? 0);
+      };
+
+      let status = await readStatus();
+
+      // Terminal states: Finalized (5) and Cancelled (6)
+      if (status >= 5) {
+        return;
       }
 
-      for (let i = 0; i < chunkLoopCount; i++) {
-        await executeManagerStep(chainId, PayrollManagerStep.FinalizeChunk, slugInput, payrollId, chunkLimit);
+      // Draft (1) or Processing (2) should continue processing chunks.
+      if (status === 1 || status === 2) {
+        for (let i = 0; i < chunkLoopCount; i++) {
+          const tx = await executeManagerStep(
+            chainId,
+            PayrollManagerStep.ProcessChunk,
+            slugInput,
+            payrollId,
+            chunkLimit
+          );
+          if (!tx) {
+            throw new Error("Payroll processing cancelled or failed during process chunk");
+          }
+        }
+
+        status = await readStatus();
+      }
+
+      // Processed (3) or Finalizing (4) should continue finalize chunks.
+      if (status === 3 || status === 4) {
+        for (let i = 0; i < chunkLoopCount; i++) {
+          const tx = await executeManagerStep(
+            chainId,
+            PayrollManagerStep.FinalizeChunk,
+            slugInput,
+            payrollId,
+            chunkLimit
+          );
+          if (!tx) {
+            throw new Error("Payroll processing cancelled or failed during finalize chunk");
+          }
+        }
       }
     },
     [

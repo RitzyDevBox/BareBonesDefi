@@ -15,7 +15,7 @@ import {
   type OrganizationEarningsCodeView,
 } from "../utils/payroll/fetchPayrollViews";
 import { PayrollEarningsManager } from "../components/PayrollEarningsManager";
-import { PaymentsNavBar } from "../components/Payments/PaymentsNavBar";
+import { PayrollNavigation } from "../components/PayrollNavigation";
 
 export function PayrollEarningsPage() {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -81,8 +81,7 @@ export function PayrollEarningsPage() {
         <Card style={{ width: "100%", maxWidth: 980, alignSelf: "center" }}>
           <CardContent>
             <Stack gap="sm">
-              <Text.Title align="left">Earnings Management</Text.Title>
-              <PaymentsNavBar slug={slug} active="earnings" />
+              <PayrollNavigation slug={slug} active="earnings" title="Earnings Management" />
 
               {!slug && <Text.Body color="warn">Missing organization slug in route.</Text.Body>}
 

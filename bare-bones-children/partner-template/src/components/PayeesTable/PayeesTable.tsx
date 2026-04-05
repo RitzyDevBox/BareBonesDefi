@@ -28,6 +28,7 @@ export interface PayeesTableProps {
 	renderExpandedRow: (payee: Payee, rowData: any) => React.ReactNode;
 	extraColumns?: TableColumn[];
 	getExtraCells?: (payee: Payee) => Record<string, any>;
+	getRowStyle?: (payee: Payee) => React.CSSProperties;
 	onAddPayee?: {
 		onSubmit: (name: string, address: string) => Promise<any>;
 		onSubmitBatch?: (rows: Array<{ name: string; address: string }>) => Promise<any>;
@@ -49,6 +50,7 @@ export function PayeesTable({
 	renderExpandedRow,
 	extraColumns = [],
 	getExtraCells,
+	getRowStyle,
 	onAddPayee,
 }: PayeesTableProps) {
 	const [searchQuery, setSearchQuery] = useState("");
@@ -255,6 +257,7 @@ export function PayeesTable({
 							...(getExtraCells ? getExtraCells(payee) : {}),
 						},
 						expandedContent: (rowData) => renderExpandedRow(payee, rowData),
+						rowStyle: getRowStyle?.(payee),
 					}))}
 					showSearch={false}
 				/>
