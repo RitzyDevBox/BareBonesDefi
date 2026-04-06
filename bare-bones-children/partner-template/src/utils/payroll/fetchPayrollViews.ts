@@ -52,10 +52,6 @@ function makePayrollManager(
   return new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
 }
 
-function getFromOverride(from?: string) {
-  return from ? ({ from } as ethers.CallOverrides) : undefined;
-}
-
 function normalizePagedResult<T>(result: any): { rows: T[]; hasMore: boolean } {
   return {
     rows: (result?.rows ?? result?.[0] ?? []) as T[],
@@ -96,18 +92,14 @@ export async function fetchOrganizationEarningsCodes(
   provider: ethers.providers.Provider,
   payrollManagerAddress: string,
   slug: string,
-  pageSize = DEFAULT_PAGE_SIZE,
-  from?: string
+  pageSize = DEFAULT_PAGE_SIZE
 ): Promise<OrganizationEarningsCodeView[]> {
   const contract = makePayrollManager(provider, payrollManagerAddress);
   const slugBytes = toSlugBytes(slug);
-  const overrides = getFromOverride(from);
 
   return readAllPages<OrganizationEarningsCodeView>(
     (cursor, limit) =>
-      overrides
-        ? contract.getOrganizationEarningsCodes(slugBytes, cursor, limit, overrides)
-        : contract.getOrganizationEarningsCodes(slugBytes, cursor, limit),
+      contract.getOrganizationEarningsCodes(slugBytes, cursor, limit),
     pageSize
   );
 }
@@ -117,18 +109,14 @@ export async function fetchPayeesWithDefaults(
   payrollManagerAddress: string,
   slug: string,
   payBatchCode: string = DEFAULT_PAY_BATCH_CODE,
-  pageSize = DEFAULT_PAGE_SIZE,
-  from?: string
+  pageSize = DEFAULT_PAGE_SIZE
 ): Promise<PayeeDefaultsView[]> {
   const contract = makePayrollManager(provider, payrollManagerAddress);
   const slugBytes = toSlugBytes(slug);
-  const overrides = getFromOverride(from);
 
   return readAllPages<PayeeDefaultsView>(
     (cursor, limit) =>
-      overrides
-        ? contract.getPayBatchPayeesWithDefaults(slugBytes, payBatchCode, cursor, limit, overrides)
-        : contract.getPayBatchPayeesWithDefaults(slugBytes, payBatchCode, cursor, limit),
+      contract.getPayBatchPayeesWithDefaults(slugBytes, payBatchCode, cursor, limit),
     pageSize
   );
 }
@@ -138,21 +126,17 @@ export async function fetchPayrollPayeesWithRunData(
   payrollManagerAddress: string,
   slug: string,
   payrollId: ethers.BigNumberish,
-  pageSize = DEFAULT_PAGE_SIZE,
-  from?: string
+  pageSize = DEFAULT_PAGE_SIZE
 ): Promise<PayrollPayeeRunDataView[]> {
   const contract = makePayrollManager(provider, payrollManagerAddress);
   const slugBytes = toSlugBytes(slug);
-  const overrides = getFromOverride(from);
 
   const allRows: PayrollPayeeRunDataView[] = [];
   let cursor = 0;
   let remaining = 1;
 
   while (remaining > 0) {
-    const page = overrides
-      ? await contract.getPayrollPage(slugBytes, payrollId, cursor, pageSize, overrides)
-      : await contract.getPayrollPage(slugBytes, payrollId, cursor, pageSize);
+    const page = await contract.getPayrollPage(slugBytes, payrollId, cursor, pageSize);
 
     const rows: PayrollPayeeRunDataView[] = (page?.payees ?? page?.[0] ?? []) as PayrollPayeeRunDataView[];
     const nextRemaining: ethers.BigNumber = page?.remaining ?? page?.[1] ?? ethers.BigNumber.from(0);
@@ -184,21 +168,17 @@ export async function fetchPayrollGrosses(
   payrollManagerAddress: string,
   slug: string,
   payrollId: ethers.BigNumberish,
-  pageSize = DEFAULT_PAGE_SIZE,
-  from?: string
+  pageSize = DEFAULT_PAGE_SIZE
 ): Promise<PayrollGrossView[]> {
   const contract = makePayrollManager(provider, payrollManagerAddress);
   const slugBytes = toSlugBytes(slug);
-  const overrides = getFromOverride(from);
 
   const allRows: PayrollGrossView[] = [];
   let cursor = 0;
   let hasMore = true;
 
   while (hasMore) {
-    const page = overrides
-      ? await contract.getPayrollGrosses(slugBytes, payrollId, cursor, pageSize, overrides)
-      : await contract.getPayrollGrosses(slugBytes, payrollId, cursor, pageSize);
+    const page = await contract.getPayrollGrosses(slugBytes, payrollId, cursor, pageSize);
 
     const rows: PayrollGrossView[] = (page?.rows ?? page?.[0] ?? []) as PayrollGrossView[];
     const nextCursor: ethers.BigNumber = page?.nextCursor ?? page?.[1] ?? ethers.BigNumber.from(0);
@@ -220,15 +200,11 @@ export async function fetchPayrollGrosses(
 export async function fetchLatestPayrollId(
   provider: ethers.providers.Provider,
   payrollManagerAddress: string,
-  slug: string,
-  from?: string
+  slug: string
 ): Promise<number | null> {
   const contract = makePayrollManager(provider, payrollManagerAddress);
   const slugBytes = toSlugBytes(slug);
-  const overrides = getFromOverride(from);
-  const orgInfo = overrides
-    ? await contract.slugToOrgInfoMap(slugBytes, overrides)
-    : await contract.slugToOrgInfoMap(slugBytes);
+  const orgInfo = await contract.slugToOrgInfoMap(slugBytes);
   const nextPayrollId: ethers.BigNumber = orgInfo.nextPayrollId;
 
   if (!nextPayrollId || nextPayrollId.isZero()) {
@@ -238,9 +214,7 @@ export async function fetchLatestPayrollId(
   const candidate = nextPayrollId.sub(1);
 
   try {
-    const payrollInfo = overrides
-      ? await contract.getPayrollInfo(slugBytes, candidate, overrides)
-      : await contract.getPayrollInfo(slugBytes, candidate);
+    const payrollInfo = await contract.getPayrollInfo(slugBytes, candidate);
     
     // getPayrollInfo returns a PayrollRun struct; check the status property
     const status = payrollInfo?.status ?? payrollInfo?.[0];

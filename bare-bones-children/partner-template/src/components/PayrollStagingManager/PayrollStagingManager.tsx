@@ -1,0 +1,177 @@
+import { useCallback, useMemo, useState } from "react";
+import { ethers } from "ethers";
+
+/**
+ * PayrollConfigActionKind: Types of staged payroll actions
+ */
+export enum PayrollConfigActionKind {
+  Upsert = 0,
+  Remove = 1,
+}
+
+/**
+ * PayrollConfigActionPayload: The actual change to apply
+ */
+export interface PayrollConfigActionPayload {
+  action: PayrollConfigActionKind;
+  payeeId: ethers.BigNumberish;
+  earningsCodeIds: ethers.BigNumberish[];
+  rates: ethers.BigNumberish[];
+  runData: string[];
+}
+
+/**
+ * StagedPayrollAction: A labeled staged action
+ */
+export interface StagedPayrollAction {
+  id: string;
+  label: string;
+  payload: PayrollConfigActionPayload;
+}
+
+/**
+ * Derived state for viewing staged payee removals
+ */
+export interface StagedPayeeRemovalSet {
+  has(payeeId: string): boolean;
+}
+
+/**
+ * Derived state for viewing staged payee additions
+ */
+export interface StagedPayeeAdditionSet {
+  has(payeeId: string): boolean;
+}
+
+/**
+ * Derived state for viewing staged earning removals by payee
+ */
+export interface StagedEarningRemovalMap {
+  get(payeeId: string): Set<string> | undefined;
+}
+
+/**
+ * Derived state for viewing staged earning upserts by payee
+ */
+export interface StagedEarningUpsertMap {
+  get(payeeId: string): Map<string, { rate: ethers.BigNumberish; runData: string }> | undefined;
+}
+
+/**
+ * Hook to manage staged payroll changes.
+ * Handles staging, unstaging, and computing derived state.
+ *
+ * @param onSave Callback to execute when applying staged changes. Receives the actions to apply.
+ * @returns Object with staged actions, derived state, handlers, and helpers
+ */
+export function usePayrollStagingManager(
+  onSave: (actions: PayrollConfigActionPayload[]) => Promise<boolean>
+) {
+  const [stagedActions, setStagedActions] = useState<StagedPayrollAction[]>([]);
+  const [isApplying, setIsApplying] = useState(false);
+
+  const hasStagedChanges = stagedActions.length > 0;
+
+  const stageAction = useCallback((label: string, payload: PayrollConfigActionPayload) => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setStagedActions((prev) => [...prev, { id, label, payload }]);
+  }, []);
+
+  const stagedPayeeRemovals = useMemo(() => {
+    const set = new Set<string>();
+    for (const action of stagedActions) {
+      if (action.payload.action === PayrollConfigActionKind.Remove && action.payload.earningsCodeIds.length === 0) {
+        set.add(action.payload.payeeId.toString());
+      }
+    }
+    return set;
+  }, [stagedActions]);
+
+  const stagedPayeeAdditions = useMemo(() => {
+    const set = new Set<string>();
+    for (const action of stagedActions) {
+      if (action.payload.action === PayrollConfigActionKind.Upsert && action.payload.earningsCodeIds.length === 0) {
+        set.add(action.payload.payeeId.toString());
+      }
+    }
+    return set;
+  }, [stagedActions]);
+
+  const stagedEarningRemovals = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const action of stagedActions) {
+      if (action.payload.action === PayrollConfigActionKind.Remove && action.payload.earningsCodeIds.length > 0) {
+        const pid = action.payload.payeeId.toString();
+        if (!map.has(pid)) map.set(pid, new Set());
+        for (const codeId of action.payload.earningsCodeIds) {
+          map.get(pid)!.add(codeId.toString());
+        }
+      }
+    }
+    return map;
+  }, [stagedActions]);
+
+  const stagedEarningUpserts = useMemo(() => {
+    const map = new Map<string, Map<string, { rate: ethers.BigNumberish; runData: string }>>();
+    for (const action of stagedActions) {
+      if (action.payload.action === PayrollConfigActionKind.Upsert && action.payload.earningsCodeIds.length > 0) {
+        const pid = action.payload.payeeId.toString();
+        if (!map.has(pid)) map.set(pid, new Map());
+        for (let i = 0; i < action.payload.earningsCodeIds.length; i++) {
+          const codeId = action.payload.earningsCodeIds[i].toString();
+          map.get(pid)!.set(codeId, {
+            rate: action.payload.rates[i] ?? ethers.BigNumber.from(0),
+            runData: action.payload.runData[i] ?? "0x",
+          });
+        }
+      }
+    }
+    return map;
+  }, [stagedActions]);
+
+  const clearStaged = useCallback(() => {
+    setStagedActions([]);
+  }, []);
+
+  const applyStagedChanges = useCallback(async () => {
+    if (stagedActions.length === 0 || isApplying) return false;
+
+    setIsApplying(true);
+    try {
+      const payloads = stagedActions.map((row) => row.payload);
+      const success = await onSave(payloads);
+      if (success) {
+        clearStaged();
+      }
+      return success;
+    } finally {
+      setIsApplying(false);
+    }
+  }, [stagedActions, onSave, isApplying, clearStaged]);
+
+  const unstageAction = useCallback((id: string) => {
+    setStagedActions((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  return {
+    // State
+    stagedActions,
+    setStagedActions,
+    isApplying,
+    hasStagedChanges,
+
+    // Derived state
+    stagedPayeeRemovals,
+    stagedPayeeAdditions,
+    stagedEarningRemovals,
+    stagedEarningUpserts,
+
+    // Actions
+    stageAction,
+    clearStaged,
+    applyStagedChanges,
+    unstageAction,
+  };
+}
+
+export type PayrollStagingManager = ReturnType<typeof usePayrollStagingManager>;

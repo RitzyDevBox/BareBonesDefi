@@ -46,6 +46,11 @@ import {
   formatEarningsCodeIdLabel,
   formatEarningsCodeName,
 } from "../utils/payroll/earningsCodeDisplay";
+import {
+  usePayrollStagingManager,
+  PayrollConfigActionKind,
+  type PayrollConfigActionPayload,
+} from "../components/PayrollStagingManager";
 
 function formatRate(rate: ethers.BigNumber) {
   try {
@@ -154,25 +159,6 @@ interface CurrentPayrollEarningsModalState {
   earning: PayrollResolvedEarningView | null;
 }
 
-enum PayrollConfigActionKind {
-  Upsert = 0,
-  Remove = 1,
-}
-
-interface PayrollConfigActionPayload {
-  action: PayrollConfigActionKind;
-  payeeId: ethers.BigNumberish;
-  earningsCodeIds: ethers.BigNumberish[];
-  rates: ethers.BigNumberish[];
-  runData: string[];
-}
-
-interface StagedPayrollAction {
-  id: string;
-  label: string;
-  payload: PayrollConfigActionPayload;
-}
-
 export function CurrentPayrollPage() {
   const { organizationId, payrollId } = useParams<{ organizationId: string; payrollId?: string }>();
   const slug = (organizationId ?? "").trim();
@@ -201,8 +187,6 @@ export function CurrentPayrollPage() {
   const [payrollStartTime, setPayrollStartTime] = useState<number | null>(null);
   const [payrollEndTime, setPayrollEndTime] = useState<number | null>(null);
   const [selectedManagePayeeId, setSelectedManagePayeeId] = useState<string>("");
-  const [isApplyingStaged, setIsApplyingStaged] = useState(false);
-  const [stagedActions, setStagedActions] = useState<StagedPayrollAction[]>([]);
   const [isProcessFlowOpen, setIsProcessFlowOpen] = useState(false);
   const [processFlowError, setProcessFlowError] = useState<string | null>(null);
   const [earningsModal, setEarningsModal] = useState<CurrentPayrollEarningsModalState>({
@@ -217,6 +201,25 @@ export function CurrentPayrollPage() {
   const [modalRawRunData, setModalRawRunData] = useState("0x");
 
   const { processCurrentPayroll } = useProcessCurrentPayroll();
+
+  const stagingManager = usePayrollStagingManager(async (actions) => {
+    if (!chainId || !slug || currentPayrollId == null) return false;
+    const tx = await configurePayroll(chainId, slug, currentPayrollId, actions);
+    return tx !== undefined;
+  });
+
+  const {
+    stagedActions,
+    setStagedActions,
+    isApplying: isApplyingStaged,
+    hasStagedChanges,
+    stagedPayeeRemovals,
+    stagedPayeeAdditions,
+    stagedEarningRemovals,
+    stagedEarningUpserts,
+    stageAction,
+    clearStaged,
+  } = stagingManager;
 
   const requestedPayrollId = useMemo(() => {
     const raw = (payrollId ?? "").trim();
@@ -262,7 +265,6 @@ export function CurrentPayrollPage() {
     () => (modalCodeId ? earningsCodeById.get(modalCodeId) ?? null : null),
     [modalCodeId, earningsCodeById]
   );
-  const hasStagedChanges = stagedActions.length > 0;
 
   const selectedModalRule =
     selectedModalCode?.rule ?? earningsModal.earning?.rule ?? ethers.constants.AddressZero;
@@ -292,58 +294,6 @@ export function CurrentPayrollPage() {
     () => new Map(payees.map((p) => [p.payeeId.toString(), p])),
     [payees]
   );
-
-  const stagedPayeeRemovals = useMemo(() => {
-    const set = new Set<string>();
-    for (const action of stagedActions) {
-      if (action.payload.action === PayrollConfigActionKind.Remove && action.payload.earningsCodeIds.length === 0) {
-        set.add(action.payload.payeeId.toString());
-      }
-    }
-    return set;
-  }, [stagedActions]);
-
-  const stagedPayeeAdditions = useMemo(() => {
-    const set = new Set<string>();
-    for (const action of stagedActions) {
-      if (action.payload.action === PayrollConfigActionKind.Upsert && action.payload.earningsCodeIds.length === 0) {
-        set.add(action.payload.payeeId.toString());
-      }
-    }
-    return set;
-  }, [stagedActions]);
-
-  const stagedEarningRemovals = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const action of stagedActions) {
-      if (action.payload.action === PayrollConfigActionKind.Remove && action.payload.earningsCodeIds.length > 0) {
-        const pid = action.payload.payeeId.toString();
-        if (!map.has(pid)) map.set(pid, new Set());
-        for (const codeId of action.payload.earningsCodeIds) {
-          map.get(pid)!.add(codeId.toString());
-        }
-      }
-    }
-    return map;
-  }, [stagedActions]);
-
-  const stagedEarningUpserts = useMemo(() => {
-    const map = new Map<string, Map<string, { rate: ethers.BigNumberish; runData: string }>>();
-    for (const action of stagedActions) {
-      if (action.payload.action === PayrollConfigActionKind.Upsert && action.payload.earningsCodeIds.length > 0) {
-        const pid = action.payload.payeeId.toString();
-        if (!map.has(pid)) map.set(pid, new Map());
-        for (let i = 0; i < action.payload.earningsCodeIds.length; i++) {
-          const codeId = action.payload.earningsCodeIds[i].toString();
-          map.get(pid)!.set(codeId, {
-            rate: action.payload.rates[i] ?? ethers.BigNumber.from(0),
-            runData: action.payload.runData[i] ?? "0x",
-          });
-        }
-      }
-    }
-    return map;
-  }, [stagedActions]);
 
   const effectiveDisplayPayees = useMemo(
     () => [
@@ -422,9 +372,15 @@ export function CurrentPayrollPage() {
     ];
   }, [payrollStatus]);
 
-  const stagePayrollAction = useCallback((label: string, payload: PayrollConfigActionPayload) => {
-    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    setStagedActions((prev) => [...prev, { id, label, payload }]);
+  const resetPayrollState = useCallback(() => {
+    setCurrentPayrollId(null);
+    setPayrollPayeeRunData([]);
+    setOrganizationEarningsCodes([]);
+    setPayrollStatus(null);
+    setPayrollTemplateCode(ethers.constants.HashZero);
+    setPayrollStartTime(null);
+    setPayrollEndTime(null);
+    setFinalizedGrosses([]);
   }, []);
 
   const buildConfigurePayrollTx = useCallback(
@@ -497,8 +453,6 @@ export function CurrentPayrollPage() {
               provider,
               payrollManagerAddress,
               orgSlug,
-              undefined,
-              account ?? undefined
             ),
             contract.slugToOrgInfoMap(slugBytes),
           ]);
@@ -524,8 +478,6 @@ export function CurrentPayrollPage() {
               payrollManagerAddress,
               orgSlug,
               targetPayrollId,
-              undefined,
-              account ?? undefined
             );
             setPayrollPayeeRunData(runDataRows);
 
@@ -535,54 +487,26 @@ export function CurrentPayrollPage() {
                 payrollManagerAddress,
                 orgSlug,
                 targetPayrollId,
-                undefined,
-                account ?? undefined
-              );
+            );
               setFinalizedGrosses(grosses);
             } else {
               setFinalizedGrosses([]);
             }
           } else {
-            setPayrollPayeeRunData([]);
-            setPayrollStatus(null);
-            setPayrollTemplateCode(ethers.constants.HashZero);
-            setPayrollStartTime(null);
-            setPayrollEndTime(null);
-            setFinalizedGrosses([]);
+            resetPayrollState();
           }
         } else {
-          setCurrentPayrollId(null);
-          setPayrollPayeeRunData([]);
-          setOrganizationEarningsCodes([]);
-          setPayrollStatus(null);
-          setPayrollTemplateCode(ethers.constants.HashZero);
-          setPayrollStartTime(null);
-          setPayrollEndTime(null);
-          setFinalizedGrosses([]);
+          resetPayrollState();
         }
       } else {
         setPayees([]);
-        setCurrentPayrollId(null);
-        setPayrollPayeeRunData([]);
-        setOrganizationEarningsCodes([]);
-        setPayrollStatus(null);
-        setPayrollTemplateCode(ethers.constants.HashZero);
-        setPayrollStartTime(null);
-        setPayrollEndTime(null);
-        setFinalizedGrosses([]);
+        resetPayrollState();
       }
     } catch (err) {
       console.error("Error fetching org info:", err);
       setOrgInfo(null);
       setPayees([]);
-      setCurrentPayrollId(null);
-      setPayrollPayeeRunData([]);
-      setOrganizationEarningsCodes([]);
-      setPayrollStatus(null);
-      setPayrollTemplateCode(ethers.constants.HashZero);
-      setPayrollStartTime(null);
-      setPayrollEndTime(null);
-      setFinalizedGrosses([]);
+      resetPayrollState();
     } finally {
       setLoading(false);
     }
@@ -631,7 +555,6 @@ export function CurrentPayrollPage() {
     try {
       const manager = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
       const slugBytes = ethers.utils.formatBytes32String(slug);
-      const callOverrides = account ? ({ from: account } as ethers.CallOverrides) : undefined;
 
       let cursor = 0;
       const limit = Math.max(1, payees.length * 2);
@@ -640,20 +563,12 @@ export function CurrentPayrollPage() {
       let totalGross = ethers.BigNumber.from(0);
 
       while (hasMore) {
-        const res = callOverrides
-          ? await manager.previewPayrollChunk(
-              slugBytes,
-              currentPayrollId,
-              cursor,
-              limit,
-              callOverrides
-            )
-          : await manager.previewPayrollChunk(
-              slugBytes,
-              currentPayrollId,
-              cursor,
-              limit
-            );
+        const res = await manager.previewPayrollChunk(
+          slugBytes,
+          currentPayrollId,
+          cursor,
+          limit
+        );
 
         const rows: Array<{ payeeId: ethers.BigNumber; gross: ethers.BigNumber }> = res?.rows ?? res?.[0] ?? [];
         const chunkGross: ethers.BigNumber = res?.chunkGross ?? res?.[1] ?? ethers.BigNumber.from(0);
@@ -672,24 +587,15 @@ export function CurrentPayrollPage() {
       // Fallback path: some statuses may return empty preview chunks.
       // In that case, derive gross per payee from roster + getPayrollGross.
       if (Object.keys(grossByPayeeId).length === 0) {
-        const roster: ethers.BigNumber[] = callOverrides
-          ? await manager.getPayrollRoster(slugBytes, currentPayrollId, callOverrides)
-          : await manager.getPayrollRoster(slugBytes, currentPayrollId);
+        const roster: ethers.BigNumber[] = await manager.getPayrollRoster(slugBytes, currentPayrollId);
         let rosterTotal = ethers.BigNumber.from(0);
 
         for (const payeeId of roster) {
-          const gross: ethers.BigNumber = callOverrides
-            ? await manager.getPayrollGross(
-                slugBytes,
-                currentPayrollId,
-                payeeId,
-                callOverrides
-              )
-            : await manager.getPayrollGross(
-                slugBytes,
-                currentPayrollId,
-                payeeId
-              );
+          const gross: ethers.BigNumber = await manager.getPayrollGross(
+            slugBytes,
+            currentPayrollId,
+            payeeId
+          );
           grossByPayeeId[payeeId.toString()] = ethers.utils.formatEther(gross);
           rosterTotal = rosterTotal.add(gross);
         }
@@ -714,7 +620,7 @@ export function CurrentPayrollPage() {
     // Guard: already on payroll or already staged for addition
     if (payeeIdsInPayroll.has(selectedManagePayeeId) || stagedPayeeAdditions.has(selectedManagePayeeId)) return;
 
-    stagePayrollAction(`Add payee #${selectedManagePayeeId} to payroll roster`, {
+    stageAction(`Add payee #${selectedManagePayeeId} to payroll roster`, {
       action: PayrollConfigActionKind.Upsert,
       payeeId: ethers.BigNumber.from(selectedManagePayeeId),
       earningsCodeIds: [],
@@ -767,7 +673,7 @@ export function CurrentPayrollPage() {
       )
     );
 
-    stagePayrollAction(`Remove payee #${payeeIdRaw} from payroll roster`, {
+    stageAction(`Remove payee #${payeeIdRaw} from payroll roster`, {
       action: PayrollConfigActionKind.Remove,
       payeeId: ethers.BigNumber.from(payeeIdRaw),
       earningsCodeIds: [],
@@ -807,7 +713,7 @@ export function CurrentPayrollPage() {
       return;
     }
 
-    stagePayrollAction(
+    stageAction(
       `Remove earning code ${formatEarningsCodeIdLabel(earningsCodeIdRaw)} for payee #${payeeIdRaw}`,
       {
         action: PayrollConfigActionKind.Remove,
@@ -820,23 +726,12 @@ export function CurrentPayrollPage() {
   }
 
   async function handleApplyStagedChanges() {
-    if (!chainId || !slug || currentPayrollId == null || stagedActions.length === 0 || isApplyingStaged) return;
-
-    setIsApplyingStaged(true);
-    try {
-      const tx = await configurePayroll(
-        chainId,
-        slug,
-        currentPayrollId,
-        stagedActions.map((row) => row.payload)
-      );
-      if (tx !== undefined) {
-        setStagedActions([]);
+    if (!isApplyingStaged) {
+      const success = await stagingManager.applyStagedChanges();
+      if (success) {
         setPreviewGrossByPayeeId({});
         setPreviewTotalGross(null);
       }
-    } finally {
-      setIsApplyingStaged(false);
     }
   }
 
@@ -1432,7 +1327,7 @@ export function CurrentPayrollPage() {
                   <Row gap="sm" justify="end">
                     <ButtonSecondary
                       style={{ flex: 0 }}
-                      onClick={() => setStagedActions([])}
+                      onClick={() => clearStaged()}
                       disabled={isApplyingStaged}
                     >
                       Clear
