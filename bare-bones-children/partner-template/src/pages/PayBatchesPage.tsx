@@ -45,6 +45,11 @@ interface BatchConfigDraft {
   assignments: AssignmentDraft[];
 }
 
+enum PayBatchConfigActionKind {
+  Upsert = 0,
+  Remove = 1,
+}
+
 interface EarningDraftRow {
   id: string;
   codeId: string;
@@ -260,23 +265,33 @@ export function PayBatchesPage() {
     (_: number, __: string, payBatchCodeRaw: string) => `Created pay batch ${payBatchCodeRaw}`
   );
 
-  const batchConfigurePayBatch = useExecuteRawTx(
+  const configurePayBatch = useExecuteRawTx(
     (_: number, orgSlug: string, payBatchCode: string, configs: BatchConfigDraft[]) => {
       if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
+      if (!configs || !Array.isArray(configs) || configs.length === 0) {
+        throw new Error("No configurations to apply");
+      }
       const slugBytes = ethers.utils.formatBytes32String(orgSlug);
 
-      const encodedConfigs = configs.map((cfg) => ({
-        payeeId: ethers.BigNumber.from(cfg.payeeId),
-        assignments: cfg.assignments.map((assignment) => ({
-          earningsCodeId: ethers.BigNumber.from(assignment.earningsCodeId),
-          rate: ethers.utils.parseEther(assignment.rate || "0"),
-          runData: assignment.runData || "0x",
-        })),
-      }));
+      const actions = (configs as any[]).map((cfg) => {
+        if (!cfg || !cfg.payeeId || !cfg.assignments) {
+          throw new Error("Invalid config structure");
+        }
+        return {
+          action: PayBatchConfigActionKind.Upsert,
+          payeeId: ethers.BigNumber.from(cfg.payeeId),
+          assignments: (cfg.assignments as any[]).map((assignment) => ({
+            earningsCodeId: ethers.BigNumber.from(assignment.earningsCodeId),
+            rate: ethers.utils.parseEther(assignment.rate || "0"),
+            runData: assignment.runData || "0x",
+          })),
+          earningsCodeIds: [],
+        };
+      });
 
       return {
         to: payrollManagerAddress,
-        data: iface.encodeFunctionData("batchConfigurePayBatch", [slugBytes, payBatchCode, encodedConfigs]),
+        data: iface.encodeFunctionData("configurePayBatch(bytes32,bytes32,(uint8,uint256,(uint256,uint256,bytes)[],uint256[])[])", [slugBytes, payBatchCode, actions]),
       } as any;
     },
     (_: number, __: string, payBatchCode: string, configs: BatchConfigDraft[]) =>
@@ -359,7 +374,7 @@ export function PayBatchesPage() {
 
   async function handleBatchConfigure() {
     if (!chainId || !slug || !selectedBatchCode || stagedConfigs.length === 0) return;
-    const tx = await batchConfigurePayBatch(chainId, slug, selectedBatchCode, stagedConfigs);
+    const tx = await configurePayBatch(chainId, slug, selectedBatchCode, stagedConfigs);
     if (tx) {
       setStagedConfigs([]);
       await refreshData(slug, selectedBatchCode);

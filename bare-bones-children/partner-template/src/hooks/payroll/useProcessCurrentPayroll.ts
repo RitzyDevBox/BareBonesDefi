@@ -7,13 +7,10 @@ import { getBareBonesConfiguration } from "../../constants/misc";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 
 enum PayrollManagerStep {
-  InitializePayroll = "initializePayroll",
-  CreatePayroll = "createPayroll",
   ProcessChunk = "processChunk",
   FinalizeChunk = "finalizeChunk",
 }
 const DEFAULT_CHUNK_LIMIT = 100;
-const DEFAULT_PERIOD_ID = 0;
 
 export function useProcessCurrentPayroll() {
   const { chainId, provider } = useWalletProvider();
@@ -37,9 +34,7 @@ export function useProcessCurrentPayroll() {
       step: PayrollManagerStep,
       slugInput: string,
       payrollIdInput?: ethers.BigNumberish,
-      chunkLimit: ethers.BigNumberish = DEFAULT_CHUNK_LIMIT,
-      periodId: ethers.BigNumberish = DEFAULT_PERIOD_ID,
-      startDate: ethers.BigNumberish = 0
+      chunkLimit: ethers.BigNumberish = DEFAULT_CHUNK_LIMIT
     ) => {
       if (!payrollManagerAddress) {
         throw new Error("Payroll manager address is not configured");
@@ -48,11 +43,7 @@ export function useProcessCurrentPayroll() {
       const slugBytes = ethers.utils.formatBytes32String(slugInput);
 
       const data =
-        step === PayrollManagerStep.InitializePayroll
-          ? payrollManagerInterface.encodeFunctionData("initializePayroll", [slugBytes, startDate])
-          : step === PayrollManagerStep.CreatePayroll
-          ? payrollManagerInterface.encodeFunctionData("createPayroll", [slugBytes, periodId])
-          : step === PayrollManagerStep.ProcessChunk
+        step === PayrollManagerStep.ProcessChunk
           ? payrollManagerInterface.encodeFunctionData("processPayrollChunk", [
               slugBytes,
               payrollIdInput,
@@ -75,73 +66,13 @@ export function useProcessCurrentPayroll() {
       step: PayrollManagerStep,
       slugInput: string,
       payrollIdInput?: ethers.BigNumberish,
-      chunkLimit: ethers.BigNumberish = DEFAULT_CHUNK_LIMIT,
-      periodId: ethers.BigNumberish = DEFAULT_PERIOD_ID,
-      startDate: ethers.BigNumberish = 0
+      chunkLimit: ethers.BigNumberish = DEFAULT_CHUNK_LIMIT
     ) => {
-      if (step === PayrollManagerStep.InitializePayroll) {
-        return `Initialized payroll for ${slugInput} at startDate ${String(startDate)}`;
-      }
-      if (step === PayrollManagerStep.CreatePayroll) {
-        return `Created payroll period ${String(periodId)} for ${slugInput}`;
-      }
       if (step === PayrollManagerStep.ProcessChunk) {
         return `Processed payroll #${String(payrollIdInput)} chunk (limit ${String(chunkLimit)}) for ${slugInput}`;
       }
       return `Finalized payroll #${String(payrollIdInput)} chunk (limit ${String(chunkLimit)}) for ${slugInput}`;
     }
-  );
-
-  const startPayroll = useCallback(
-    async (
-      slugInput: string,
-      periodId: ethers.BigNumberish = DEFAULT_PERIOD_ID,
-      startDateInput?: ethers.BigNumberish
-    ) => {
-      if (!chainId || !provider || !payrollManagerAddress) return;
-
-      const slugBytes = ethers.utils.formatBytes32String(slugInput);
-      const manager = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
-
-      const orgInfo = await manager.slugToOrgInfoMap(slugBytes);
-      const nextPayrollId: ethers.BigNumber = orgInfo.nextPayrollId;
-      const configuredStartDate: ethers.BigNumber = orgInfo.startDate;
-
-      if (!configuredStartDate || configuredStartDate.isZero()) {
-        if (!startDateInput || ethers.BigNumber.from(startDateInput).isZero()) {
-          throw new Error("Payroll start date is required before starting payroll");
-        }
-
-        await executeManagerStep(
-          chainId,
-          PayrollManagerStep.InitializePayroll,
-          slugInput,
-          undefined,
-          DEFAULT_CHUNK_LIMIT,
-          DEFAULT_PERIOD_ID,
-          startDateInput
-        );
-      }
-
-      await executeManagerStep(
-        chainId,
-        PayrollManagerStep.CreatePayroll,
-        slugInput,
-        undefined,
-        DEFAULT_CHUNK_LIMIT,
-        periodId,
-        0
-      );
-
-      return nextPayrollId;
-    },
-    [
-      chainId,
-      provider,
-      payrollManagerAddress,
-      executeManagerStep,
-      version,
-    ]
   );
 
   const processCurrentPayroll = useCallback(
@@ -215,7 +146,6 @@ export function useProcessCurrentPayroll() {
   );
 
   return {
-    startPayroll,
     processCurrentPayroll,
   };
 }

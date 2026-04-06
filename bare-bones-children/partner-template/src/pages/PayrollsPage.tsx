@@ -30,21 +30,33 @@ interface PayrollRunRow {
   finalizationRemaining: number;
 }
 
+enum PayrollStatus {
+  None = 0,
+  Draft = 1,
+  Processing = 2,
+  Processed = 3,
+  Finalizing = 4,
+  Finalized = 5,
+  Cancelled = 6,
+}
+
 function payrollStatusLabel(status: number) {
-  if (status === 1) return "Draft";
-  if (status === 2) return "Processed";
-  if (status === 3) return "Finalizing";
-  if (status === 4) return "Finalized";
-  if (status === 5) return "Cancelled";
+  if (status === PayrollStatus.Draft) return "Draft";
+  if (status === PayrollStatus.Processing) return "Processing";
+  if (status === PayrollStatus.Processed) return "Processed";
+  if (status === PayrollStatus.Finalizing) return "Finalizing";
+  if (status === PayrollStatus.Finalized) return "Finalized";
+  if (status === PayrollStatus.Cancelled) return "Cancelled";
   return "None";
 }
 
 function payrollStatusColor(status: number): "main" | "secondary" | "label" | "muted" | "danger" | "warn" | "success" {
-  if (status === 1) return "warn";
-  if (status === 2) return "secondary";
-  if (status === 3) return "warn";
-  if (status === 4) return "success";
-  if (status === 5) return "danger";
+  if (status === PayrollStatus.Draft) return "warn";
+  if (status === PayrollStatus.Processing) return "secondary";
+  if (status === PayrollStatus.Processed) return "secondary";
+  if (status === PayrollStatus.Finalizing) return "warn";
+  if (status === PayrollStatus.Finalized) return "success";
+  if (status === PayrollStatus.Cancelled) return "danger";
   return "muted";
 }
 
@@ -130,7 +142,7 @@ export function PayrollsPage() {
       const slugBytes = ethers.utils.formatBytes32String(orgSlug);
       const data = payBatchCode
         ? iface.encodeFunctionData("createPayroll", [slugBytes, payBatchCode, startTime, endTime])
-        : iface.encodeFunctionData("createEmptyPayroll", [slugBytes, startTime, endTime]);
+        : iface.encodeFunctionData("createPayroll", [slugBytes, ethers.constants.HashZero, startTime, endTime]);
 
       return {
         to: payrollManagerAddress,
@@ -196,7 +208,15 @@ export function PayrollsPage() {
         })
       );
 
-      setActivePayrolls(rows.filter((row) => row.status === 1 || row.status === 2 || row.status === 3));
+      setActivePayrolls(
+        rows.filter(
+          (row) =>
+            row.status === PayrollStatus.Draft ||
+            row.status === PayrollStatus.Processing ||
+            row.status === PayrollStatus.Processed ||
+            row.status === PayrollStatus.Finalizing
+        )
+      );
     } catch (error) {
       console.error("Failed to load payrolls", error);
       setOrgInfo(null);

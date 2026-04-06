@@ -20,15 +20,18 @@ import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { getBareBonesConfiguration } from "../constants/misc";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import { PayeesTable } from "../components/PayeesTable";
+import { Table } from "../components/Table";
 import type { OrganizationModel, PayeeModel } from "../models/payments";
 import { useProcessCurrentPayroll } from "../hooks/payroll/useProcessCurrentPayroll";
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";
 import {
   fetchOrganizationEarningsCodes,
   fetchPayrollPayeesWithRunData,
+  fetchPayrollGrosses,
   type OrganizationEarningsCodeView,
   type PayrollResolvedEarningView,
   type PayrollPayeeRunDataView,
+  type PayrollGrossView,
 } from "../utils/payroll/fetchPayrollViews";
 import { shortAddress } from "../utils/formatUtils";
 import { PayrollNavigation } from "../components/PayrollNavigation";
@@ -193,6 +196,7 @@ export function CurrentPayrollPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isProcessingPayroll, setIsProcessingPayroll] = useState(false);
   const [payrollStatus, setPayrollStatus] = useState<number | null>(null);
+  const [finalizedGrosses, setFinalizedGrosses] = useState<PayrollGrossView[]>([]);
   const [payrollTemplateCode, setPayrollTemplateCode] = useState<string>(ethers.constants.HashZero);
   const [payrollStartTime, setPayrollStartTime] = useState<number | null>(null);
   const [payrollEndTime, setPayrollEndTime] = useState<number | null>(null);
@@ -282,6 +286,11 @@ export function CurrentPayrollPage() {
   const payrollPayees = useMemo(
     () => payees.filter((payee) => payeeIdsInPayroll.has(payee.payeeId.toString())),
     [payees, payeeIdsInPayroll]
+  );
+
+  const payeeById = useMemo(
+    () => new Map(payees.map((p) => [p.payeeId.toString(), p])),
+    [payees]
   );
 
   const stagedPayeeRemovals = useMemo(() => {
@@ -504,7 +513,8 @@ export function CurrentPayrollPage() {
 
           if (targetPayrollId !== null) {
             const run = await contract.slugToPayrollToRunMap(slugBytes, targetPayrollId);
-            setPayrollStatus(Number(run?.status ?? run?.[0] ?? 0));
+            const fetchedStatus = Number(run?.status ?? run?.[0] ?? 0);
+            setPayrollStatus(fetchedStatus);
             setPayrollTemplateCode(String(run?.templateCode ?? run?.[1] ?? ethers.constants.HashZero));
             setPayrollStartTime(Number((run?.startTime ?? run?.[2] ?? 0).toString()));
             setPayrollEndTime(Number((run?.endTime ?? run?.[3] ?? 0).toString()));
@@ -518,12 +528,27 @@ export function CurrentPayrollPage() {
               account ?? undefined
             );
             setPayrollPayeeRunData(runDataRows);
+
+            if (fetchedStatus === PayrollStatus.Finalized) {
+              const grosses = await fetchPayrollGrosses(
+                provider,
+                payrollManagerAddress,
+                orgSlug,
+                targetPayrollId,
+                undefined,
+                account ?? undefined
+              );
+              setFinalizedGrosses(grosses);
+            } else {
+              setFinalizedGrosses([]);
+            }
           } else {
             setPayrollPayeeRunData([]);
             setPayrollStatus(null);
             setPayrollTemplateCode(ethers.constants.HashZero);
             setPayrollStartTime(null);
             setPayrollEndTime(null);
+            setFinalizedGrosses([]);
           }
         } else {
           setCurrentPayrollId(null);
@@ -533,6 +558,7 @@ export function CurrentPayrollPage() {
           setPayrollTemplateCode(ethers.constants.HashZero);
           setPayrollStartTime(null);
           setPayrollEndTime(null);
+          setFinalizedGrosses([]);
         }
       } else {
         setPayees([]);
@@ -543,6 +569,7 @@ export function CurrentPayrollPage() {
         setPayrollTemplateCode(ethers.constants.HashZero);
         setPayrollStartTime(null);
         setPayrollEndTime(null);
+        setFinalizedGrosses([]);
       }
     } catch (err) {
       console.error("Error fetching org info:", err);
@@ -555,6 +582,7 @@ export function CurrentPayrollPage() {
       setPayrollTemplateCode(ethers.constants.HashZero);
       setPayrollStartTime(null);
       setPayrollEndTime(null);
+      setFinalizedGrosses([]);
     } finally {
       setLoading(false);
     }
@@ -683,6 +711,9 @@ export function CurrentPayrollPage() {
   async function handleAddPayeeToPayroll() {
     if (!slug || currentPayrollId == null || !selectedManagePayeeId) return;
 
+    // Guard: already on payroll or already staged for addition
+    if (payeeIdsInPayroll.has(selectedManagePayeeId) || stagedPayeeAdditions.has(selectedManagePayeeId)) return;
+
     stagePayrollAction(`Add payee #${selectedManagePayeeId} to payroll roster`, {
       action: PayrollConfigActionKind.Upsert,
       payeeId: ethers.BigNumber.from(selectedManagePayeeId),
@@ -793,15 +824,17 @@ export function CurrentPayrollPage() {
 
     setIsApplyingStaged(true);
     try {
-      await configurePayroll(
+      const tx = await configurePayroll(
         chainId,
         slug,
         currentPayrollId,
         stagedActions.map((row) => row.payload)
       );
-      setStagedActions([]);
-      setPreviewGrossByPayeeId({});
-      setPreviewTotalGross(null);
+      if (tx !== undefined) {
+        setStagedActions([]);
+        setPreviewGrossByPayeeId({});
+        setPreviewTotalGross(null);
+      }
     } finally {
       setIsApplyingStaged(false);
     }
@@ -1057,11 +1090,6 @@ export function CurrentPayrollPage() {
                       Preview Total Gross: {previewTotalGross}
                     </Text.Body>
                   )}
-                  {payrollStatus === PayrollStatus.Finalized && (
-                    <Text.Body size="sm" color="muted">
-                      Historical payout recipients/amount snapshots placeholder: on-chain historical payout rendering will be added in a follow-up.
-                    </Text.Body>
-                  )}
                   <Row gap="sm" justify="end">
                     <ButtonSecondary
                       style={{ flex: 0 }}
@@ -1088,7 +1116,34 @@ export function CurrentPayrollPage() {
           <Card style={{ width: "100%" }}>
             <CardContent>
               <Stack gap="md">
-                {payrollPayees.length > 0 ? (
+                {payrollStatus === PayrollStatus.Finalized ? (
+                  <Stack gap="sm">
+                    <Text.Label>Finalized Payment Summary</Text.Label>
+                    {finalizedGrosses.length === 0 ? (
+                      <Text.Body color="muted">No payout records found.</Text.Body>
+                    ) : (
+                      <Table
+                        showSearch={false}
+                        columns={[
+                          { key: "payeeId", header: "#", width: "80px" },
+                          { key: "name", header: "Name" },
+                          { key: "paidAmount", header: "Paid Amount" },
+                        ]}
+                        data={finalizedGrosses.map((gross) => {
+                          const payee = payeeById.get(gross.payeeId.toString());
+                          return {
+                            id: gross.payeeId.toString(),
+                            cells: {
+                              payeeId: gross.payeeId.toString(),
+                              name: payee ? parsePayeeNameLabel(payee.role) : `Payee #${gross.payeeId.toString()}`,
+                              paidAmount: ethers.utils.formatEther(gross.gross),
+                            },
+                          };
+                        })}
+                      />
+                    )}
+                  </Stack>
+                ) : payrollPayees.length > 0 ? (
                   <PayeesTable
                     payees={effectiveDisplayPayees}
                     searchEnabled={true}

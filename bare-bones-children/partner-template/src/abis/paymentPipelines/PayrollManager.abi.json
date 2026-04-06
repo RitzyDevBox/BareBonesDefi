@@ -39,58 +39,6 @@
   },
   {
     "type": "function",
-    "name": "batchConfigurePayBatch",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payBatchCode",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "configs",
-        "type": "tuple[]",
-        "internalType": "struct IPayrollEarningManager.BatchPayeeConfig[]",
-        "components": [
-          {
-            "name": "payeeId",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "assignments",
-            "type": "tuple[]",
-            "internalType": "struct IPayrollEarningManager.PayeeEarningsAssignment[]",
-            "components": [
-              {
-                "name": "earningsCodeId",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "rate",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "runData",
-                "type": "bytes",
-                "internalType": "bytes"
-              }
-            ]
-          }
-        ]
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "batchOnboardPayeesAndConfigurePayBatch",
     "inputs": [
       {
@@ -170,6 +118,68 @@
         "name": "payrollId",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "configurePayBatch",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "payBatchCode",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actions",
+        "type": "tuple[]",
+        "internalType": "struct IPayBatchManager.PayBatchConfigAction[]",
+        "components": [
+          {
+            "name": "action",
+            "type": "uint8",
+            "internalType": "enum IPayBatchManager.PayBatchConfigActionKind"
+          },
+          {
+            "name": "payeeId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "assignments",
+            "type": "tuple[]",
+            "internalType": "struct IPayrollEarningManager.PayeeEarningsAssignment[]",
+            "components": [
+              {
+                "name": "earningsCodeId",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "rate",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "runData",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "earningsCodeIds",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          }
+        ]
       }
     ],
     "outputs": [],
@@ -272,35 +282,6 @@
   },
   {
     "type": "function",
-    "name": "createEmptyPayroll",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "startTime",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "endTime",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "payrollId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "createPayBatch",
     "inputs": [
       {
@@ -392,86 +373,6 @@
   },
   {
     "type": "function",
-    "name": "getAdditionalEarnings",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payrollId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "tuple[]",
-        "internalType": "struct SimplePayrollEngine.EarningsCode[]",
-        "components": [
-          {
-            "name": "rule",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "rate",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "config",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "runData",
-            "type": "bytes",
-            "internalType": "bytes"
-          }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getAdditionalEarningsCodeIds",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payrollId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "codeIds",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getEarningsCode",
     "inputs": [
       {
@@ -508,57 +409,6 @@
           },
           {
             "name": "config",
-            "type": "bytes",
-            "internalType": "bytes"
-          }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getEarningsOverride",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payrollId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "earningsCodeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "tuple",
-        "internalType": "struct IPayrollEarningManager.EarningsOverride",
-        "components": [
-          {
-            "name": "isActive",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "rate",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "runData",
             "type": "bytes",
             "internalType": "bytes"
           }
@@ -630,12 +480,12 @@
   },
   {
     "type": "function",
-    "name": "getPayBatchCodes",
+    "name": "getOrganizationsByOwner",
     "inputs": [
       {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [
@@ -649,68 +499,19 @@
   },
   {
     "type": "function",
-    "name": "getPayBatchPayeeEarningsCodeIds",
+    "name": "getPayBatchCodes",
     "inputs": [
       {
         "name": "slug",
         "type": "bytes32",
         "internalType": "bytes32"
-      },
-      {
-        "name": "payBatchCode",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "outputs": [
       {
         "name": "",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getPayBatchPayeeEarningsDefaults",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payBatchCode",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "earningsCodeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "rate",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "runData",
-        "type": "bytes",
-        "internalType": "bytes"
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
       }
     ],
     "stateMutability": "view"
@@ -958,6 +759,62 @@
   },
   {
     "type": "function",
+    "name": "getPayrollGrosses",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "payrollId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "cursor",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "limit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "rows",
+        "type": "tuple[]",
+        "internalType": "struct IPayrollEarningManager.PreviewPayeeGross[]",
+        "components": [
+          {
+            "name": "payeeId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "gross",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      },
+      {
+        "name": "nextCursor",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "hasMore",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getPayrollInfo",
     "inputs": [
       {
@@ -1151,104 +1008,6 @@
   },
   {
     "type": "function",
-    "name": "getPayrollPayeesWithRunData",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payrollId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "cursor",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "limit",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "rows",
-        "type": "tuple[]",
-        "internalType": "struct IPayrollEarningManager.PayrollPayeeRunDataView[]",
-        "components": [
-          {
-            "name": "payeeId",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "paymentAddress",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "payeeStatus",
-            "type": "uint8",
-            "internalType": "uint8"
-          },
-          {
-            "name": "earnings",
-            "type": "tuple[]",
-            "internalType": "struct IPayrollEarningManager.PayrollResolvedEarningView[]",
-            "components": [
-              {
-                "name": "source",
-                "type": "uint8",
-                "internalType": "uint8"
-              },
-              {
-                "name": "earningsCodeId",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "name",
-                "type": "bytes32",
-                "internalType": "bytes32"
-              },
-              {
-                "name": "rule",
-                "type": "address",
-                "internalType": "address"
-              },
-              {
-                "name": "rate",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "config",
-                "type": "bytes",
-                "internalType": "bytes"
-              },
-              {
-                "name": "runData",
-                "type": "bytes",
-                "internalType": "bytes"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "name": "hasMore",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getPayrollRoster",
     "inputs": [
       {
@@ -1267,30 +1026,6 @@
         "name": "",
         "type": "uint256[]",
         "internalType": "uint256[]"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getPayrollStatus",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payrollId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "enum IPayrollEarningManager.PayrollStatus"
       }
     ],
     "stateMutability": "view"
@@ -1818,57 +1553,6 @@
   },
   {
     "type": "function",
-    "name": "removePayBatchEarningDefault",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payBatchCode",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "earningsCodeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "removePayBatchPayee",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payBatchCode",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "setEarningsCode",
     "inputs": [
       {
@@ -2099,44 +1783,6 @@
     "stateMutability": "nonpayable"
   },
   {
-    "type": "function",
-    "name": "upsertPayBatchEarningDefault",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payBatchCode",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "earningsCodeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "rate",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "runData",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
     "type": "event",
     "name": "AdditionalEarningsAdded",
     "inputs": [
@@ -2155,33 +1801,26 @@
       {
         "name": "payeeId",
         "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "earningsCodeId",
+        "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "AdditionalEarningsCleared",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
       },
       {
-        "name": "payrollId",
+        "name": "rate",
         "type": "uint256",
-        "indexed": true,
+        "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "payeeId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
+        "name": "runData",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
       }
     ],
     "anonymous": false
@@ -2209,7 +1848,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "index",
+        "name": "earningsCodeId",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -2305,7 +1944,7 @@
       {
         "name": "payeeId",
         "type": "uint256",
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint256"
       },
       {
@@ -2336,7 +1975,7 @@
       {
         "name": "payeeId",
         "type": "uint256",
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint256"
       },
       {
@@ -2344,6 +1983,18 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      },
+      {
+        "name": "rate",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "runData",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
       }
     ],
     "anonymous": false
@@ -2463,6 +2114,18 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      },
+      {
+        "name": "rate",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "runData",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
       }
     ],
     "anonymous": false
@@ -2831,7 +2494,45 @@
   },
   {
     "type": "event",
+    "name": "PayrollFinalizingStarted",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "payrollId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "PayrollProcessed",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "payrollId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PayrollProcessingStarted",
     "inputs": [
       {
         "name": "slug",
@@ -2869,11 +2570,6 @@
   },
   {
     "type": "error",
-    "name": "AdditionalEarningNotFound",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "AddressAlreadyInUse",
     "inputs": []
   },
@@ -2905,6 +2601,11 @@
   {
     "type": "error",
     "name": "InvalidPayBatchCode",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidPayBatchConfigAction",
     "inputs": []
   },
   {
@@ -2965,6 +2666,11 @@
   {
     "type": "error",
     "name": "PayBatchAlreadyExists",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PayBatchLockedByOpenPayroll",
     "inputs": []
   },
   {

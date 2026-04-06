@@ -156,17 +156,23 @@ export function PayrollTreasuryFund({
   );
 
   async function handleDepositFunds() {
-    if (!chainId || !amount || disabled || !organizationSlug) return;
+    if (!chainId || !amount || disabled || !organizationSlug || !provider || !account) return;
 
     try {
-      // Step 1: Approve
-      await approve(chainId, organizationSlug, amount);
+      const parsed = ethers.utils.parseUnits(amount, DEFAULT_DECIMALS);
 
-      // Step 2: Deposit
+      // Only approve if current allowance is insufficient
+      const tokenContract = new ethers.Contract(mockERC20Address, MockERC20ABI as any, provider);
+      const currentAllowance: ethers.BigNumber = await tokenContract.allowance(account, resolvedTreasuryAddress);
+
+      if (currentAllowance.lt(parsed)) {
+        await approve(chainId, organizationSlug, amount);
+      }
+
+      // Deposit
       await deposit(chainId, organizationSlug, amount);
 
       setAmount("");
-      // Balance will refresh automatically via version change from useTxRefresh
     } catch (err) {
       console.error("Error depositing funds:", err);
     }

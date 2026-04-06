@@ -174,6 +174,49 @@ export async function fetchPayrollPayeesWithRunData(
   return allRows;
 }
 
+export interface PayrollGrossView {
+  payeeId: ethers.BigNumber;
+  gross: ethers.BigNumber;
+}
+
+export async function fetchPayrollGrosses(
+  provider: ethers.providers.Provider,
+  payrollManagerAddress: string,
+  slug: string,
+  payrollId: ethers.BigNumberish,
+  pageSize = DEFAULT_PAGE_SIZE,
+  from?: string
+): Promise<PayrollGrossView[]> {
+  const contract = makePayrollManager(provider, payrollManagerAddress);
+  const slugBytes = toSlugBytes(slug);
+  const overrides = getFromOverride(from);
+
+  const allRows: PayrollGrossView[] = [];
+  let cursor = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const page = overrides
+      ? await contract.getPayrollGrosses(slugBytes, payrollId, cursor, pageSize, overrides)
+      : await contract.getPayrollGrosses(slugBytes, payrollId, cursor, pageSize);
+
+    const rows: PayrollGrossView[] = (page?.rows ?? page?.[0] ?? []) as PayrollGrossView[];
+    const nextCursor: ethers.BigNumber = page?.nextCursor ?? page?.[1] ?? ethers.BigNumber.from(0);
+    const more: boolean = Boolean(page?.hasMore ?? page?.[2] ?? false);
+
+    allRows.push(...rows);
+
+    if (!more || rows.length === 0) {
+      break;
+    }
+
+    cursor = Number(nextCursor.toString());
+    hasMore = more;
+  }
+
+  return allRows;
+}
+
 export async function fetchLatestPayrollId(
   provider: ethers.providers.Provider,
   payrollManagerAddress: string,
@@ -195,10 +238,14 @@ export async function fetchLatestPayrollId(
   const candidate = nextPayrollId.sub(1);
 
   try {
-    if (overrides) {
-      await contract.getPayrollStatus(slugBytes, candidate, overrides);
-    } else {
-      await contract.getPayrollStatus(slugBytes, candidate);
+    const payrollInfo = overrides
+      ? await contract.getPayrollInfo(slugBytes, candidate, overrides)
+      : await contract.getPayrollInfo(slugBytes, candidate);
+    
+    // getPayrollInfo returns a PayrollRun struct; check the status property
+    const status = payrollInfo?.status ?? payrollInfo?.[0];
+    if (status === undefined) {
+      return null;
     }
     return candidate.toNumber();
   } catch {

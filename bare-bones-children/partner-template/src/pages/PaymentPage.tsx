@@ -82,6 +82,8 @@ export function PaymentPage() {
     OrganizationEarningsCodeView[]
   >([]);
   const [loading, setLoading] = useState(false);
+  const [loadingOwnedOrgs, setLoadingOwnedOrgs] = useState(false);
+  const [ownedOrganizations, setOwnedOrganizations] = useState<string[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Transfer ownership form
@@ -129,6 +131,41 @@ export function PaymentPage() {
     () => organizationEarningsCodes.filter((row) => Boolean(row.isActive)),
     [organizationEarningsCodes]
   );
+
+  // Fetch owned organizations when account/provider changes
+  useEffect(() => {
+    if (!provider || !payrollManagerAddress || !account) {
+      setOwnedOrganizations([]);
+      return;
+    }
+
+    async function loadOwnedOrganizations() {
+      setLoadingOwnedOrgs(true);
+      try {
+        const contract = new ethers.Contract(
+          payrollManagerAddress!,
+          PayrollManagerABI as any,
+          provider
+        );
+        const orgs = await contract.getOrganizationsByOwner(account);
+        const slugs = (orgs ?? []).map((org: string) => {
+          try {
+            return ethers.utils.parseBytes32String(org);
+          } catch {
+            return org;
+          }
+        });
+        setOwnedOrganizations(slugs);
+      } catch (err) {
+        console.error("Error loading owned organizations:", err);
+        setOwnedOrganizations([]);
+      } finally {
+        setLoadingOwnedOrgs(false);
+      }
+    }
+
+    loadOwnedOrganizations();
+  }, [provider, payrollManagerAddress, account, chainId]);
 
   // Auto-refresh org info when version changes (after transaction)
   useEffect(() => {
@@ -305,15 +342,11 @@ export function PaymentPage() {
 
       return {
         to: payrollManagerAddress,
-        data: iface.encodeFunctionData("batchConfigurePayBatch", [
+        data: iface.encodeFunctionData("configurePayBatch(bytes32,bytes32,uint256,(uint256,uint256,bytes)[])", [
           slugBytes,
           defaultPayBatchCode,
-          [
-            {
-              payeeId,
-              assignments,
-            },
-          ],
+          payeeId,
+          assignments,
         ]),
       } as any;
     },
@@ -565,6 +598,29 @@ export function PaymentPage() {
             <Stack>
               <Stack>
                 <Text.Label>Organization Slug</Text.Label>
+                {ownedOrganizations.length > 0 ? (
+                  <>
+                    <Select<string>
+                      value={slug || null}
+                      onChange={(value) => {
+                        const selected = String(value);
+                        setSlug(selected);
+                        if (provider && payrollManagerAddress && selected) {
+                          fetchOrgInfo(selected);
+                        }
+                      }}
+                      disabled={loading || ownedOrganizations.length === 0}
+                    >
+                      <SelectOption value="" label="Select an organization..." />
+                      {ownedOrganizations.map((org) => (
+                        <SelectOption key={org} value={org} label={org} />
+                      ))}
+                    </Select>
+                    <Text.Body size="xs" color="muted" style={{ marginTop: "var(--spacing-xs)" }}>
+                      Or enter a different organization slug manually:
+                    </Text.Body>
+                  </>
+                ) : null}
                 <Row gap="sm">
                   <Input
                     value={slug}
@@ -576,6 +632,7 @@ export function PaymentPage() {
                     {loading ? "Loading..." : "Fetch"}
                   </ButtonSecondary>
                 </Row>
+                {loadingOwnedOrgs && <Text.Body size="xs" color="muted">Loading your organizations...</Text.Body>}
               </Stack>
 
               {!!slug.trim() && (
