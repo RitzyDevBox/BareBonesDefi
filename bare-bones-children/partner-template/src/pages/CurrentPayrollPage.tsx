@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ethers } from "ethers";
 import { useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
@@ -21,8 +21,10 @@ import { useProcessCurrentPayroll } from "../hooks/payroll/useProcessCurrentPayr
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";
 import {
   fetchOrganizationEarningsCodes,
+  fetchPayeesWithDefaults,
   fetchPayrollPayeesWithRunData,
   fetchPayrollGrosses,
+  type PayeeDefaultsView,
   type OrganizationEarningsCodeView,
   type PayrollPayeeRunDataView,
   type PayrollGrossView,
@@ -56,6 +58,7 @@ export function CurrentPayrollPage() {
   const [payees, setPayees] = useState<PayeeModel[]>([]);
   const [currentPayrollId, setCurrentPayrollId] = useState<number | null>(null);
   const [payrollPayeeRunData, setPayrollPayeeRunData] = useState<PayrollPayeeRunDataView[]>([]);
+  const [templatePayeeDefaults, setTemplatePayeeDefaults] = useState<PayeeDefaultsView[]>([]);
   const [organizationEarningsCodes, setOrganizationEarningsCodes] = useState<
     OrganizationEarningsCodeView[]
   >([]);
@@ -108,8 +111,39 @@ export function CurrentPayrollPage() {
     [payrollPayeeRunData]
   );
 
+  // Accumulate payroll run data across refreshes so that re-added payees (who
+  // were previously removed and are no longer in the live run data) still show
+  // their on-chain earnings. The cache is reset whenever the active payroll ID
+  // changes, so it never leaks stale data across different payrolls.
+  const payrollRunCacheRef = useRef<Map<string, PayrollPayeeRunDataView>>(new Map());
+  const cachedPayrollIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (currentPayrollId !== cachedPayrollIdRef.current) {
+      payrollRunCacheRef.current = new Map();
+      cachedPayrollIdRef.current = currentPayrollId;
+    }
+    for (const row of payrollPayeeRunData) {
+      payrollRunCacheRef.current.set(row.payeeId.toString(), row);
+    }
+  }, [currentPayrollId, payrollPayeeRunData]);
+
   const isViewOnly = payrollStatus === PayrollStatus.Finalized || payrollStatus === PayrollStatus.Cancelled;
   const isPreviewDisabledByStatus = (payrollStatus ?? PayrollStatus.None) >= PayrollStatus.Processed;
+
+  const templateDefaultsByPayeeId = useMemo(
+    () => new Map(templatePayeeDefaults.map((row) => [row.payeeId.toString(), row] as const)),
+    [templatePayeeDefaults]
+  );
+
+  const earningsCodeNameById = useMemo(
+    () =>
+      new Map(
+        organizationEarningsCodes.map((code) => [code.earningsCodeId.toString(), code.name] as const)
+      ),
+    [organizationEarningsCodes]
+  );
+
   const payeeIdsInPayroll = useMemo(
     () => new Set(payrollPayeeRunData.map((row) => row.payeeId.toString())),
     [payrollPayeeRunData]
@@ -125,6 +159,7 @@ export function CurrentPayrollPage() {
   const resetPayrollState = useCallback(() => {
     setCurrentPayrollId(null);
     setPayrollPayeeRunData([]);
+    setTemplatePayeeDefaults([]);
     setOrganizationEarningsCodes([]);
     setPayrollStatus(null);
     setPayrollTemplateCode(ethers.constants.HashZero);
@@ -247,6 +282,23 @@ export function CurrentPayrollPage() {
         targetPayrollId,
       );
       setPayrollPayeeRunData(runDataRows);
+
+      if (parsedRun.templateCode && parsedRun.templateCode !== ethers.constants.HashZero) {
+        try {
+          const defaults = await fetchPayeesWithDefaults(
+            provider,
+            payrollManagerAddress,
+            orgSlug,
+            parsedRun.templateCode
+          );
+          setTemplatePayeeDefaults(defaults);
+        } catch (defaultsErr) {
+          console.warn("Failed to fetch template payee defaults:", defaultsErr);
+          setTemplatePayeeDefaults([]);
+        }
+      } else {
+        setTemplatePayeeDefaults([]);
+      }
 
       if (fetchedStatus === PayrollStatus.Finalized) {
         const grosses = await fetchPayrollGrosses(
@@ -550,8 +602,34 @@ export function CurrentPayrollPage() {
                     panelTitle="Payroll Resolved Earnings"
                     panelAddLabel="+ Add Additional"
                     getOnChainEarnings={(payee) => {
-                      const payeeRunData = payrollRunByPayeeId.get(payee.payeeId.toString());
-                      return (payeeRunData?.earnings ?? []).filter((earning) => {
+                      const payeeId = payee.payeeId.toString();
+                      // Fall back to cached data for payees who were removed then
+                      // re-added — the contract restores their batch earnings on apply.
+                      const payeeRunData =
+                        payrollRunByPayeeId.get(payeeId) ??
+                        payrollRunCacheRef.current.get(payeeId);
+                      const resolvedEarnings = payeeRunData?.earnings;
+
+                      const templateFallbackEarnings =
+                        (templateDefaultsByPayeeId.get(payeeId)?.earnings ?? []).map((earning) => {
+                          const codeId = earning.earningsCodeId.toString();
+                          return {
+                            earningsCodeId: earning.earningsCodeId,
+                            name: earningsCodeNameById.get(codeId),
+                            rule: earning.rule,
+                            rate: earning.rate,
+                            config: earning.config,
+                            runData: earning.runData,
+                            source: 0,
+                          };
+                        });
+
+                      const effectiveEarnings =
+                        resolvedEarnings && resolvedEarnings.length > 0
+                          ? resolvedEarnings
+                          : templateFallbackEarnings;
+
+                      return effectiveEarnings.filter((earning) => {
                         if (!config?.weeklyScheduleRuleAddress) return true;
                         return earning.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
                       });
