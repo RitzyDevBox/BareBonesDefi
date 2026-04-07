@@ -8,6 +8,9 @@ import { PayeesTable } from "../PayeesTable";
 import type { TableColumn } from "../Table";
 import type { PayeeModel } from "../../models/payments";
 
+const UNDO_LABEL = "Undo";
+const DELETE_LABEL = "Delete";
+
 interface EditablePayrollTableProps {
   payees: PayeeModel[];
   searchEnabled?: boolean;
@@ -87,8 +90,8 @@ export function EditablePayrollTable({
                 size="xl"
                 iconFontSize="xl"
                 shape="square"
-                aria-label={isStagedRemoval ? "Undo" : isStagedAdd ? "Undo" : "Delete"}
-                title={isStagedRemoval ? "Undo" : isStagedAdd ? "Undo" : "Delete"}
+                aria-label={isStagedRemoval ? UNDO_LABEL : isStagedAdd ? UNDO_LABEL : DELETE_LABEL}
+                title={isStagedRemoval ? UNDO_LABEL : isStagedAdd ? UNDO_LABEL : DELETE_LABEL}
                 onClick={(e: React.MouseEvent) => {
                   e.stopPropagation();
                   onTogglePayeeRemoval(payeeIdStr);

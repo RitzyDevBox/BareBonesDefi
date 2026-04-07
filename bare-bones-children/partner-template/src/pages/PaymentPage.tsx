@@ -35,6 +35,8 @@ import {
   buildRuleMeta,
   decodeConfigDisplay,
   decodeRunDataDisplay,
+  RuleKind,
+  DEFAULT_HOURS,
 } from "../utils/payroll/earningsDisplay";
 import {
   formatEarningsCodeIdLabel,
@@ -90,7 +92,7 @@ export function PaymentPage() {
   });
   const [modalCodeId, setModalCodeId] = useState<string>("");
   const [modalRate, setModalRate] = useState<string>("0");
-  const [modalHourlyRunData, setModalHourlyRunData] = useState<string>("40");
+  const [modalHourlyRunData, setModalHourlyRunData] = useState<string>(DEFAULT_HOURS);
   const [modalRawRunData, setModalRawRunData] = useState<string>("0x");
 
   const config = useMemo(() => {
@@ -405,17 +407,17 @@ export function PaymentPage() {
 
     const rateLabel = modalRate || "0";
 
-    if (selectedModalRuleMeta.kind === "hourly") {
+    if (selectedModalRuleMeta.kind === RuleKind.Hourly) {
       const bandSummary = decodeConfigDisplay(effectiveConfig, effectiveRuleAddress, config);
       const hoursWorked = Math.max(0, Math.floor(Number(modalHourlyRunData) || 0));
       return `Payee will be paid at base rate ${rateLabel} per hour. Hourly bands: ${bandSummary} Run data for this default is ${hoursWorked} hour(s).`;
     }
 
-    if (selectedModalRuleMeta.kind === "perPayroll") {
+    if (selectedModalRuleMeta.kind === RuleKind.PerPayroll) {
       return `Payee will receive ${rateLabel} each payroll run when this code is active.`;
     }
 
-    if (selectedModalRuleMeta.kind === "salary") {
+    if (selectedModalRuleMeta.kind === RuleKind.Salary) {
       const salarySummary = decodeConfigDisplay(effectiveConfig, effectiveRuleAddress, config);
       return `Payee salary uses rate ${rateLabel} with salary config: ${salarySummary}.`;
     }
@@ -445,21 +447,21 @@ export function PaymentPage() {
 
       try {
         const ruleMeta = buildRuleMeta(earning.rule, config);
-        if (ruleMeta.kind === "hourly" && earning.runData && earning.runData !== "0x") {
+        if (ruleMeta.kind === RuleKind.Hourly && earning.runData && earning.runData !== "0x") {
           const decoded = ethers.utils.defaultAbiCoder.decode(["uint32"], earning.runData);
           setModalHourlyRunData(String(Number((decoded?.[0] as ethers.BigNumber).toString())));
         } else {
-          setModalHourlyRunData("40");
+          setModalHourlyRunData(DEFAULT_HOURS);
         }
       } catch {
-        setModalHourlyRunData("40");
+        setModalHourlyRunData(DEFAULT_HOURS);
       }
       return;
     }
 
     setModalRate("0");
     setModalRawRunData("0x");
-    setModalHourlyRunData("40");
+    setModalHourlyRunData(DEFAULT_HOURS);
 
     if (payeeEarningsModal.mode === "add") {
       const firstAvailable = activeOrganizationEarningsCodes.find(
@@ -491,10 +493,10 @@ export function PaymentPage() {
 
   function resolveModalRunData(ruleAddress: string) {
     const ruleMeta = buildRuleMeta(ruleAddress, config);
-    if (ruleMeta.kind === "hourly") {
+    if (ruleMeta.kind === RuleKind.Hourly) {
       return ethers.utils.defaultAbiCoder.encode(["uint32"], [Math.max(0, Math.floor(Number(modalHourlyRunData) || 0))]);
     }
-    if (ruleMeta.kind === "custom") {
+    if (ruleMeta.kind === RuleKind.Custom) {
       return modalRawRunData?.trim() || "0x";
     }
     return "0x";
@@ -545,7 +547,7 @@ export function PaymentPage() {
             earningsCodeId: codeId,
             rate: "0",
             runData:
-              ruleMeta.kind === "hourly"
+              ruleMeta.kind === RuleKind.Hourly
                 ? ethers.utils.defaultAbiCoder.encode(["uint32"], [0])
                 : "0x",
           });
@@ -739,10 +741,10 @@ export function PaymentPage() {
                                 const ruleMeta = buildRuleMeta(earning.rule, config);
                                 const showConfig =
                                   ruleMeta.configRequired ||
-                                  (ruleMeta.kind === "custom" && Boolean(earning.config && earning.config !== "0x"));
+                                  (ruleMeta.kind === RuleKind.Custom && Boolean(earning.config && earning.config !== "0x"));
                                 const showRunData =
                                   ruleMeta.runDataRequired ||
-                                  (ruleMeta.kind === "custom" && Boolean(earning.runData && earning.runData !== "0x"));
+                                  (ruleMeta.kind === RuleKind.Custom && Boolean(earning.runData && earning.runData !== "0x"));
 
                                 return (
                                   <Card key={`${payeeId}-${codeId}`} style={{ border: "1px solid var(--colors-border)" }}>
@@ -929,7 +931,7 @@ export function PaymentPage() {
               </Stack>
             )}
 
-            {selectedModalRuleMeta.kind === "hourly" && payeeEarningsModal.mode !== "view" && (
+            {selectedModalRuleMeta.kind === RuleKind.Hourly && payeeEarningsModal.mode !== "view" && (
               <Stack>
                 <Text.Body size="sm" color="muted">Hours Worked (runData)</Text.Body>
                 <NumberInput
@@ -941,7 +943,7 @@ export function PaymentPage() {
               </Stack>
             )}
 
-            {selectedModalRuleMeta.kind === "custom" && payeeEarningsModal.mode !== "view" && (
+            {selectedModalRuleMeta.kind === RuleKind.Custom && payeeEarningsModal.mode !== "view" && (
               <Stack>
                 <Text.Body size="sm" color="muted">Run Data (raw hex)</Text.Body>
                 <Input
@@ -958,12 +960,12 @@ export function PaymentPage() {
                 <Text.Body size="sm" color="muted">
                   Rate: {formatRate(payeeEarningsModal.earning.rate)}
                 </Text.Body>
-                {(selectedModalRuleMeta.configRequired || selectedModalRuleMeta.kind === "custom") && (
+                {(selectedModalRuleMeta.configRequired || selectedModalRuleMeta.kind === RuleKind.Custom) && (
                   <Text.Body size="sm" color="muted">
                     Config: {decodeConfigDisplay(payeeEarningsModal.earning.config, payeeEarningsModal.earning.rule, config)}
                   </Text.Body>
                 )}
-                {(selectedModalRuleMeta.runDataRequired || selectedModalRuleMeta.kind === "custom") && (
+                {(selectedModalRuleMeta.runDataRequired || selectedModalRuleMeta.kind === RuleKind.Custom) && (
                   <Text.Body size="sm" color="muted">
                     Run Data: {decodeRunDataDisplay(payeeEarningsModal.earning.runData, payeeEarningsModal.earning.rule, config)}
                   </Text.Body>

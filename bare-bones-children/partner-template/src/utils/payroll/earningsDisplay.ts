@@ -1,7 +1,15 @@
 import { ethers } from "ethers";
 import type { BareBonesConfiguration } from "../../constants/misc";
 
-export type RuleKind = "hourly" | "commission" | "perPayroll" | "salary" | "custom";
+export enum RuleKind {
+  Hourly = "hourly",
+  Commission = "commission",
+  PerPayroll = "perPayroll",
+  Salary = "salary",
+  Custom = "custom",
+}
+
+export const DEFAULT_HOURS = "40";
 
 export interface RuleMeta {
   name: string;
@@ -33,7 +41,7 @@ export function buildRuleMeta(
   if (cfg && normalized === cfg.hoursRuleAddress.toLowerCase()) {
     return {
       name: "Hourly Earnings",
-      kind: "hourly",
+      kind: RuleKind.Hourly,
       configRequired: true,
       runDataRequired: true,
     };
@@ -42,7 +50,7 @@ export function buildRuleMeta(
   if (cfg && normalized === cfg.commissionRuleAddress.toLowerCase()) {
     return {
       name: "Commish Earnings",
-      kind: "commission",
+      kind: RuleKind.Commission,
       configRequired: false,
       runDataRequired: false,
     };
@@ -51,7 +59,7 @@ export function buildRuleMeta(
   if (cfg && normalized === cfg.oneTimePaymentAddress.toLowerCase()) {
     return {
       name: "PerPayroll Earnings",
-      kind: "perPayroll",
+      kind: RuleKind.PerPayroll,
       configRequired: false,
       runDataRequired: false,
     };
@@ -60,7 +68,7 @@ export function buildRuleMeta(
   if (cfg && normalized === cfg.salaryPerSecondRuleAddress.toLowerCase()) {
     return {
       name: "Salary Earnings",
-      kind: "salary",
+      kind: RuleKind.Salary,
       configRequired: true,
       runDataRequired: false,
     };
@@ -68,7 +76,7 @@ export function buildRuleMeta(
 
   return {
     name: "Custom Rule",
-    kind: "custom",
+    kind: RuleKind.Custom,
     configRequired: false,
     runDataRequired: false,
   };
@@ -86,7 +94,7 @@ export function decodeConfigDisplay(
   const ruleMeta = buildRuleMeta(ruleAddress, cfg);
 
   try {
-    if (ruleMeta.kind === "hourly") {
+    if (ruleMeta.kind === RuleKind.Hourly) {
       const decoded = ethers.utils.defaultAbiCoder.decode(["uint32[]"], configBytes);
       const bands = (decoded?.[0] ?? []) as ethers.BigNumber[];
       const values = bands.map((v) => Number(v.toString()));
@@ -116,7 +124,7 @@ export function decodeConfigDisplay(
       }
     }
 
-    if (ruleMeta.kind === "salary") {
+    if (ruleMeta.kind === RuleKind.Salary) {
       const decoded = ethers.utils.defaultAbiCoder.decode(["uint32"], configBytes);
       const periodDays = Number((decoded?.[0] as ethers.BigNumber).toString());
       return `Period ${periodDays} day(s)`;
@@ -140,7 +148,7 @@ export function decodeRunDataDisplay(
   const ruleMeta = buildRuleMeta(ruleAddress, cfg);
 
   try {
-    if (ruleMeta.kind === "hourly") {
+    if (ruleMeta.kind === RuleKind.Hourly) {
       const decoded = ethers.utils.defaultAbiCoder.decode(["uint32"], runDataBytes);
       const hoursWorked = Number((decoded?.[0] as ethers.BigNumber).toString());
       return `${hoursWorked} hour(s)`;

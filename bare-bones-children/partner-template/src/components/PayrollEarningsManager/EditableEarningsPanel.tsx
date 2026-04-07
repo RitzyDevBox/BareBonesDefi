@@ -11,6 +11,7 @@ import {
   buildRuleMeta,
   decodeConfigDisplay,
   decodeRunDataDisplay,
+  RuleKind,
 } from "../../utils/payroll/earningsDisplay";
 import {
   formatEarningsCodeIdLabel,
@@ -192,10 +193,10 @@ export function EditableEarningsPanel({
                             ? `${formatRate(ethers.BigNumber.from(overrideData.rate))} (staged)`
                             : formatRate(ethers.BigNumber.from(earning.rate))}
                         </Text.Body>
-                        {(ruleMeta.configRequired || (ruleMeta.kind === "custom" && earning.config !== "0x")) && (
+                        {(ruleMeta.configRequired || (ruleMeta.kind === RuleKind.Custom && earning.config !== "0x")) && (
                           <Text.Body size="sm" color="muted">Config: {decodeConfigDisplay(earning.config, earning.rule, config)}</Text.Body>
                         )}
-                        {(ruleMeta.runDataRequired || (ruleMeta.kind === "custom" && effectiveRunData !== "0x")) && (
+                        {(ruleMeta.runDataRequired || (ruleMeta.kind === RuleKind.Custom && effectiveRunData !== "0x")) && (
                           <Text.Body size="sm" color="muted">
                             Run Data: {decodeRunDataDisplay(effectiveRunData, earning.rule, config)}
                           </Text.Body>
@@ -273,7 +274,7 @@ export function EditableEarningsPanel({
                           <CopyButton value={rule} ariaLabel="Copy rule address" />
                         </Row>
                         <Text.Body size="sm" color="muted">Rate: {formatRate(ethers.BigNumber.from(upsert.rate))}</Text.Body>
-                        {(ruleMeta.configRequired || (ruleMeta.kind === "custom" && (codeMeta?.config ?? "0x") !== "0x")) && (
+                        {(ruleMeta.configRequired || (ruleMeta.kind === RuleKind.Custom && (codeMeta?.config ?? "0x") !== "0x")) && (
                           <Text.Body size="sm" color="muted">Config: {decodeConfigDisplay(codeMeta?.config ?? "0x", rule, config)}</Text.Body>
                         )}
                         {ruleMeta.runDataRequired && (

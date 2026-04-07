@@ -15,6 +15,8 @@ import { shortAddress } from "../../utils/formatUtils";
 import {
   buildRuleMeta,
   decodeConfigDisplay,
+  RuleKind,
+  DEFAULT_HOURS,
 } from "../../utils/payroll/earningsDisplay";
 import {
   formatEarningsCodeIdLabel,
@@ -146,7 +148,7 @@ export function PayrollEarningsStagingSection({
   });
   const [modalCodeId, setModalCodeId] = useState("");
   const [modalRate, setModalRate] = useState("0");
-  const [modalHourlyRunData, setModalHourlyRunData] = useState("40");
+  const [modalHourlyRunData, setModalHourlyRunData] = useState(DEFAULT_HOURS);
   const [modalRawRunData, setModalRawRunData] = useState("0x");
 
   useEffect(() => {
@@ -285,7 +287,7 @@ export function PayrollEarningsStagingSection({
     setModalCodeId(firstCode?.earningsCodeId?.toString() ?? "");
     setModalRate("0");
     setModalRawRunData("0x");
-    setModalHourlyRunData("40");
+    setModalHourlyRunData(DEFAULT_HOURS);
   }
 
   function openEditEarningModal(
@@ -314,25 +316,25 @@ export function PayrollEarningsStagingSection({
     try {
       const code = earningsCodeById.get(codeId);
       const ruleMeta = buildRuleMeta(code?.rule ?? ethers.constants.AddressZero, config);
-      if (ruleMeta.kind === "hourly" && staged.runData && staged.runData !== "0x") {
+      if (ruleMeta.kind === RuleKind.Hourly && staged.runData && staged.runData !== "0x") {
         const decoded = ethers.utils.defaultAbiCoder.decode(["uint32"], staged.runData);
         setModalHourlyRunData(String(Number((decoded?.[0] as ethers.BigNumber).toString())));
       } else {
-        setModalHourlyRunData("40");
+        setModalHourlyRunData(DEFAULT_HOURS);
       }
     } catch {
-      setModalHourlyRunData("40");
+      setModalHourlyRunData(DEFAULT_HOURS);
     }
   }
 
   function resolveModalRunData() {
-    if (selectedModalRuleMeta.kind === "hourly") {
+    if (selectedModalRuleMeta.kind === RuleKind.Hourly) {
       return ethers.utils.defaultAbiCoder.encode(["uint32"], [
         Math.max(0, Math.floor(Number(modalHourlyRunData) || 0)),
       ]);
     }
 
-    if (selectedModalRuleMeta.kind === "custom") {
+    if (selectedModalRuleMeta.kind === RuleKind.Custom) {
       return modalRawRunData?.trim() || "0x";
     }
 
@@ -550,7 +552,7 @@ export function PayrollEarningsStagingSection({
             />
           </Stack>
 
-          {selectedModalRuleMeta.kind === "hourly" && (
+          {selectedModalRuleMeta.kind === RuleKind.Hourly && (
             <Stack>
               <Text.Body size="sm" color="muted">Hours Worked (runData)</Text.Body>
               <NumberInput
@@ -564,7 +566,7 @@ export function PayrollEarningsStagingSection({
             </Stack>
           )}
 
-          {selectedModalRuleMeta.kind === "custom" && (
+          {selectedModalRuleMeta.kind === RuleKind.Custom && (
             <Stack>
               <Text.Body size="sm" color="muted">Run Data (raw hex)</Text.Body>
               <Input
