@@ -77,6 +77,238 @@ export function usePayrollStagingManager(
     setStagedActions((prev) => [...prev, { id, label, payload }]);
   }, []);
 
+  const stagePayeeAddition = useCallback(
+    (payeeId: ethers.BigNumberish, label?: string) => {
+      const payeeIdRaw = payeeId.toString();
+      if (!payeeIdRaw) return;
+
+      setStagedActions((prev) => {
+        if (
+          prev.some(
+            (a) =>
+              a.payload.payeeId.toString() === payeeIdRaw &&
+              a.payload.action === PayrollConfigActionKind.Upsert &&
+              a.payload.earningsCodeIds.length === 0
+          )
+        ) {
+          return prev;
+        }
+
+        const filtered = prev.filter(
+          (a) =>
+            !(
+              a.payload.payeeId.toString() === payeeIdRaw &&
+              a.payload.action === PayrollConfigActionKind.Remove &&
+              a.payload.earningsCodeIds.length === 0
+            )
+        );
+
+        return [
+          ...filtered,
+          {
+            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            label: label ?? `Add payee #${payeeIdRaw}`,
+            payload: {
+              action: PayrollConfigActionKind.Upsert,
+              payeeId: ethers.BigNumber.from(payeeIdRaw),
+              earningsCodeIds: [],
+              rates: [],
+              runData: [],
+            },
+          },
+        ];
+      });
+    },
+    []
+  );
+
+  const togglePayeeRemoval = useCallback(
+    (payeeId: ethers.BigNumberish, label?: string) => {
+      const payeeIdRaw = payeeId.toString();
+      if (!payeeIdRaw) return;
+
+      setStagedActions((prev) => {
+        const hasStagedAdd = prev.some(
+          (a) =>
+            a.payload.payeeId.toString() === payeeIdRaw &&
+            a.payload.action === PayrollConfigActionKind.Upsert &&
+            a.payload.earningsCodeIds.length === 0
+        );
+
+        if (hasStagedAdd) {
+          return prev.filter(
+            (a) =>
+              !(
+                a.payload.payeeId.toString() === payeeIdRaw &&
+                ((a.payload.action === PayrollConfigActionKind.Upsert &&
+                  a.payload.earningsCodeIds.length === 0) ||
+                  a.payload.earningsCodeIds.length > 0)
+              )
+          );
+        }
+
+        const hasStagedRemoval = prev.some(
+          (a) =>
+            a.payload.action === PayrollConfigActionKind.Remove &&
+            a.payload.earningsCodeIds.length === 0 &&
+            a.payload.payeeId.toString() === payeeIdRaw
+        );
+
+        if (hasStagedRemoval) {
+          return prev.filter(
+            (a) =>
+              !(
+                a.payload.action === PayrollConfigActionKind.Remove &&
+                a.payload.earningsCodeIds.length === 0 &&
+                a.payload.payeeId.toString() === payeeIdRaw
+              )
+          );
+        }
+
+        const filtered = prev.filter(
+          (a) => !(a.payload.payeeId.toString() === payeeIdRaw && a.payload.earningsCodeIds.length > 0)
+        );
+
+        return [
+          ...filtered,
+          {
+            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            label: label ?? `Remove payee #${payeeIdRaw}`,
+            payload: {
+              action: PayrollConfigActionKind.Remove,
+              payeeId: ethers.BigNumber.from(payeeIdRaw),
+              earningsCodeIds: [],
+              rates: [],
+              runData: [],
+            },
+          },
+        ];
+      });
+    },
+    []
+  );
+
+  const toggleEarningRemoval = useCallback(
+    (payeeId: ethers.BigNumberish, earningsCodeId: ethers.BigNumberish, label?: string) => {
+      const payeeIdRaw = payeeId.toString();
+      const earningsCodeIdRaw = earningsCodeId.toString();
+      if (!payeeIdRaw || !earningsCodeIdRaw) return;
+
+      setStagedActions((prev) => {
+        const hasMatchingUpsert = prev.some(
+          (action) =>
+            action.payload.action === PayrollConfigActionKind.Upsert &&
+            action.payload.payeeId.toString() === payeeIdRaw &&
+            action.payload.earningsCodeIds.some((id) => id.toString() === earningsCodeIdRaw)
+        );
+
+        if (hasMatchingUpsert) {
+          return prev
+            .map((action) => {
+              if (
+                action.payload.action !== PayrollConfigActionKind.Upsert ||
+                action.payload.payeeId.toString() !== payeeIdRaw
+              ) {
+                return action;
+              }
+
+              const keptIndexes = action.payload.earningsCodeIds
+                .map((id, idx) => ({ id: id.toString(), idx }))
+                .filter((row) => row.id !== earningsCodeIdRaw)
+                .map((row) => row.idx);
+
+              if (keptIndexes.length === 0) return null;
+
+              return {
+                ...action,
+                payload: {
+                  ...action.payload,
+                  earningsCodeIds: keptIndexes.map((idx) => action.payload.earningsCodeIds[idx]),
+                  rates: keptIndexes.map((idx) => action.payload.rates[idx]),
+                  runData: keptIndexes.map((idx) => action.payload.runData[idx]),
+                },
+              };
+            })
+            .filter((row): row is NonNullable<typeof row> => row !== null);
+        }
+
+        const hasMatchingRemoval = prev.some(
+          (action) =>
+            action.payload.action === PayrollConfigActionKind.Remove &&
+            action.payload.payeeId.toString() === payeeIdRaw &&
+            action.payload.earningsCodeIds.some((id) => id.toString() === earningsCodeIdRaw)
+        );
+
+        if (hasMatchingRemoval) {
+          return prev.filter(
+            (action) =>
+              !(
+                action.payload.action === PayrollConfigActionKind.Remove &&
+                action.payload.payeeId.toString() === payeeIdRaw &&
+                action.payload.earningsCodeIds.some((id) => id.toString() === earningsCodeIdRaw)
+              )
+          );
+        }
+
+        return [
+          ...prev,
+          {
+            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            label: label ?? `Remove earning code ${earningsCodeIdRaw} for payee #${payeeIdRaw}`,
+            payload: {
+              action: PayrollConfigActionKind.Remove,
+              payeeId: ethers.BigNumber.from(payeeIdRaw),
+              earningsCodeIds: [ethers.BigNumber.from(earningsCodeIdRaw)],
+              rates: [],
+              runData: [],
+            },
+          },
+        ];
+      });
+    },
+    []
+  );
+
+  const stageOrReplaceEarningUpsert = useCallback(
+    (
+      payeeId: ethers.BigNumberish,
+      earningsCodeId: ethers.BigNumberish,
+      rate: ethers.BigNumberish,
+      runData: string,
+      label?: string
+    ) => {
+      const payeeIdRaw = payeeId.toString();
+      const earningsCodeIdRaw = earningsCodeId.toString();
+      if (!payeeIdRaw || !earningsCodeIdRaw) return;
+
+      setStagedActions((prev) => {
+        const filtered = prev.filter(
+          (a) =>
+            !(
+              a.payload.payeeId.toString() === payeeIdRaw &&
+              a.payload.earningsCodeIds.some((id) => id.toString() === earningsCodeIdRaw)
+            )
+        );
+
+        return [
+          ...filtered,
+          {
+            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            label: label ?? `Upsert earning code ${earningsCodeIdRaw} for payee #${payeeIdRaw}`,
+            payload: {
+              action: PayrollConfigActionKind.Upsert,
+              payeeId: ethers.BigNumber.from(payeeIdRaw),
+              earningsCodeIds: [ethers.BigNumber.from(earningsCodeIdRaw)],
+              rates: [rate],
+              runData: [runData || "0x"],
+            },
+          },
+        ];
+      });
+    },
+    []
+  );
+
   const stagedPayeeRemovals = useMemo(() => {
     const set = new Set<string>();
     for (const action of stagedActions) {
@@ -168,6 +400,10 @@ export function usePayrollStagingManager(
 
     // Actions
     stageAction,
+    stagePayeeAddition,
+    togglePayeeRemoval,
+    toggleEarningRemoval,
+    stageOrReplaceEarningUpsert,
     clearStaged,
     applyStagedChanges,
     unstageAction,

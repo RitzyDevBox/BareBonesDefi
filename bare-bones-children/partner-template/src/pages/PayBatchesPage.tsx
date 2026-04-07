@@ -334,31 +334,13 @@ export function PayBatchesPage() {
     if (stagedPayeeRemovals.has(payeeId)) return;
 
     const runData = resolveModalRunData();
-    setStagedActions((prev) => {
-      const filtered = prev.filter(
-        (a) =>
-          !(
-            a.payload.payeeId.toString() === payeeId &&
-            a.payload.earningsCodeIds.some((id) => id.toString() === modalCodeId)
-          )
-      );
-
-      const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      return [
-        ...filtered,
-        {
-          id,
-          label: `Upsert earning code ${formatEarningsCodeIdLabel(modalCodeId)} for payee #${payeeId}`,
-          payload: {
-            action: PayrollConfigActionKind.Upsert,
-            payeeId: ethers.BigNumber.from(payeeId),
-            earningsCodeIds: [ethers.BigNumber.from(modalCodeId)],
-            rates: [ethers.utils.parseEther(modalRate || "0")],
-            runData: [runData],
-          },
-        },
-      ];
-    });
+    stageOrReplaceEarningUpsert(
+      payeeId,
+      modalCodeId,
+      ethers.utils.parseEther(modalRate || "0"),
+      runData,
+      `Upsert earning code ${formatEarningsCodeIdLabel(modalCodeId)} for payee #${payeeId}`
+    );
 
     closeEarningModal();
   }
@@ -506,14 +488,16 @@ export function PayBatchesPage() {
 
   const {
     stagedActions,
-    setStagedActions,
     isApplying: isApplyingStaged,
     hasStagedChanges,
     stagedPayeeRemovals,
     stagedPayeeAdditions,
     stagedEarningRemovals,
     stagedEarningUpserts,
-    stageAction,
+    stagePayeeAddition,
+    togglePayeeRemoval,
+    toggleEarningRemoval,
+    stageOrReplaceEarningUpsert,
     clearStaged,
   } = stagingManager;
 
@@ -547,146 +531,22 @@ export function PayBatchesPage() {
   function stageAddPayeeToBatch(payeeIdRaw: string) {
     if (!payeeIdRaw) return;
 
-    setStagedActions((prev) => {
-      if (prev.some((a) => a.payload.payeeId.toString() === payeeIdRaw && a.payload.action === PayrollConfigActionKind.Upsert && a.payload.earningsCodeIds.length === 0)) {
-        return prev;
-      }
-
-      const filtered = prev.filter(
-        (a) =>
-          !(
-            a.payload.payeeId.toString() === payeeIdRaw &&
-            a.payload.action === PayrollConfigActionKind.Remove &&
-            a.payload.earningsCodeIds.length === 0
-          )
-      );
-      const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      return [
-        ...filtered,
-        {
-          id,
-          label: `Add payee #${payeeIdRaw} to pay batch`,
-          payload: {
-            action: PayrollConfigActionKind.Upsert,
-            payeeId: ethers.BigNumber.from(payeeIdRaw),
-            earningsCodeIds: [],
-            rates: [],
-            runData: [],
-          },
-        },
-      ];
-    });
+    stagePayeeAddition(payeeIdRaw, `Add payee #${payeeIdRaw} to pay batch`);
   }
 
   function stageRemovePayeeFromBatch(payeeIdRaw: string) {
     if (!payeeIdRaw) return;
 
-    setStagedActions((prev) => {
-      if (
-        stagedPayeeAdditions.has(payeeIdRaw)
-      ) {
-        return prev.filter(
-          (a) =>
-            !(
-              a.payload.payeeId.toString() === payeeIdRaw &&
-              ((a.payload.action === PayrollConfigActionKind.Upsert && a.payload.earningsCodeIds.length === 0) ||
-                a.payload.earningsCodeIds.length > 0)
-            )
-        );
-      }
-
-      if (stagedPayeeRemovals.has(payeeIdRaw)) {
-        return prev.filter(
-          (a) =>
-            !(
-              a.payload.action === PayrollConfigActionKind.Remove &&
-              a.payload.earningsCodeIds.length === 0 &&
-              a.payload.payeeId.toString() === payeeIdRaw
-            )
-        );
-      }
-
-      const filtered = prev.filter(
-        (a) => !(a.payload.payeeId.toString() === payeeIdRaw && a.payload.earningsCodeIds.length > 0)
-      );
-
-      const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      return [
-        ...filtered,
-        {
-          id,
-          label: `Remove payee #${payeeIdRaw} from pay batch`,
-          payload: {
-            action: PayrollConfigActionKind.Remove,
-            payeeId: ethers.BigNumber.from(payeeIdRaw),
-            earningsCodeIds: [],
-            rates: [],
-            runData: [],
-          },
-        },
-      ];
-    });
+    togglePayeeRemoval(payeeIdRaw, `Remove payee #${payeeIdRaw} from pay batch`);
   }
 
   function stageRemoveEarningFromBatch(payeeIdRaw: string, earningsCodeIdRaw: string) {
     if (!payeeIdRaw || !earningsCodeIdRaw) return;
 
-    if (stagedEarningUpserts.get(payeeIdRaw)?.has(earningsCodeIdRaw)) {
-      setStagedActions((prev) =>
-        prev
-          .map((action) => {
-            if (
-              action.payload.action !== PayrollConfigActionKind.Upsert ||
-              action.payload.payeeId.toString() !== payeeIdRaw
-            ) {
-              return action;
-            }
-
-            const keptIndexes = action.payload.earningsCodeIds
-              .map((id, idx) => ({ id: id.toString(), idx }))
-              .filter((row) => row.id !== earningsCodeIdRaw)
-              .map((row) => row.idx);
-
-            if (keptIndexes.length === 0) return null;
-
-            return {
-              ...action,
-              payload: {
-                ...action.payload,
-                earningsCodeIds: keptIndexes.map((idx) => action.payload.earningsCodeIds[idx]),
-                rates: keptIndexes.map((idx) => action.payload.rates[idx]),
-                runData: keptIndexes.map((idx) => action.payload.runData[idx]),
-              },
-            };
-          })
-          .filter((row): row is NonNullable<typeof row> => row !== null)
-      );
-      return;
-    }
-
-    if (stagedEarningRemovals.get(payeeIdRaw)?.has(earningsCodeIdRaw)) {
-      setStagedActions((prev) =>
-        prev.filter(
-          (action) =>
-            !(
-              action.payload.action === PayrollConfigActionKind.Remove &&
-              action.payload.payeeId.toString() === payeeIdRaw &&
-              action.payload.earningsCodeIds.some((id) => id.toString() === earningsCodeIdRaw)
-            )
-        )
-      );
-      return;
-    }
-
-    stageAction(
-      `Remove earning code ${formatEarningsCodeIdLabel(earningsCodeIdRaw)} for payee #${payeeIdRaw}`,
-      {
-        action: PayrollConfigActionKind.Remove,
-        payeeId: ethers.BigNumber.from(payeeIdRaw),
-        earningsCodeIds: [ethers.BigNumber.from(earningsCodeIdRaw)],
-        rates: [],
-        runData: [],
-      }
+    toggleEarningRemoval(
+      payeeIdRaw,
+      earningsCodeIdRaw,
+      `Remove earning code ${formatEarningsCodeIdLabel(earningsCodeIdRaw)} for payee #${payeeIdRaw}`
     );
   }
 
