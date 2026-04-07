@@ -60,6 +60,16 @@ function formatRate(rate: ethers.BigNumber) {
   }
 }
 
+function formatAmountDisplay(value: string, maxDecimals = 4) {
+  const normalized = (value ?? "").trim();
+  if (!normalized) return "0";
+  if (!normalized.includes(".")) return normalized;
+
+  const [whole, fraction = ""] = normalized.split(".");
+  const trimmed = fraction.slice(0, maxDecimals).replace(/0+$/, "");
+  return trimmed ? `${whole}.${trimmed}` : whole;
+}
+
 enum PayeeStatus {
   Active = 0,
   OnLeave = 1,
@@ -178,6 +188,7 @@ export function CurrentPayrollPage() {
   const [isPreviewingPayroll, setIsPreviewingPayroll] = useState(false);
   const [previewGrossByPayeeId, setPreviewGrossByPayeeId] = useState<Record<string, string>>({});
   const [previewTotalGross, setPreviewTotalGross] = useState<string | null>(null);
+  const [isCancellingPayroll, setIsCancellingPayroll] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isProcessingPayroll, setIsProcessingPayroll] = useState(false);
@@ -257,8 +268,13 @@ export function CurrentPayrollPage() {
   );
 
   const activeOrganizationEarningsCodes = useMemo(
-    () => organizationEarningsCodes.filter((row) => Boolean(row.isActive)),
-    [organizationEarningsCodes]
+    () =>
+      organizationEarningsCodes.filter((row) => {
+        if (!row.isActive) return false;
+        if (!config?.weeklyScheduleRuleAddress) return true;
+        return row.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
+      }),
+    [organizationEarningsCodes, config]
   );
 
   const selectedModalCode = useMemo(
@@ -409,6 +425,22 @@ export function CurrentPayrollPage() {
       `Configured payroll ${payrollId} for ${orgSlug} (${actions.length} staged changes)`
   );
 
+  const cancelPayroll = useExecuteRawTx(
+    (_: number, orgSlug: string, payrollId: number) => {
+      if (!payrollManagerAddress) {
+        throw new Error("Payroll manager address missing");
+      }
+
+      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      return {
+        to: payrollManagerAddress,
+        data: payrollInterface.encodeFunctionData("cancelPayroll", [slugBytes, payrollId]),
+      } as any;
+    },
+    (_: number, orgSlug: string, payrollId: number) =>
+      `Cancelled payroll ${payrollId} for ${orgSlug}`
+  );
+
   useEffect(() => {
     if (!slug) return;
     fetchOrgInfo(slug);
@@ -540,6 +572,21 @@ export function CurrentPayrollPage() {
     }
   }
 
+  async function handleCancelPayroll() {
+    if (!slug || !isAdmin || currentPayrollId == null || hasStagedChanges || isViewOnly || isCancellingPayroll) return;
+    if (!chainId) return;
+
+    setIsCancellingPayroll(true);
+    try {
+      const tx = await cancelPayroll(chainId, slug, currentPayrollId);
+      if (tx !== undefined) {
+        await fetchOrgInfo(slug);
+      }
+    } finally {
+      setIsCancellingPayroll(false);
+    }
+  }
+
   async function handlePreviewPayroll() {
     if (
       !provider ||
@@ -576,7 +623,7 @@ export function CurrentPayrollPage() {
         const nextHasMore: boolean = Boolean(res?.hasMore ?? res?.[3]);
 
         for (const row of rows) {
-          grossByPayeeId[row.payeeId.toString()] = ethers.utils.formatEther(row.gross);
+          grossByPayeeId[row.payeeId.toString()] = formatAmountDisplay(ethers.utils.formatEther(row.gross));
         }
 
         totalGross = totalGross.add(chunkGross);
@@ -596,7 +643,7 @@ export function CurrentPayrollPage() {
             currentPayrollId,
             payeeId
           );
-          grossByPayeeId[payeeId.toString()] = ethers.utils.formatEther(gross);
+          grossByPayeeId[payeeId.toString()] = formatAmountDisplay(ethers.utils.formatEther(gross));
           rosterTotal = rosterTotal.add(gross);
         }
 
@@ -604,7 +651,7 @@ export function CurrentPayrollPage() {
       }
 
       setPreviewGrossByPayeeId(grossByPayeeId);
-      setPreviewTotalGross(ethers.utils.formatEther(totalGross));
+      setPreviewTotalGross(formatAmountDisplay(ethers.utils.formatEther(totalGross)));
     } catch (err) {
       console.error("Error previewing payroll:", err);
       setPreviewGrossByPayeeId({});
@@ -988,6 +1035,13 @@ export function CurrentPayrollPage() {
                   <Row gap="sm" justify="end">
                     <ButtonSecondary
                       style={{ flex: 0 }}
+                      onClick={handleCancelPayroll}
+                      disabled={!isAdmin || !slug || isCancellingPayroll || isProcessingPayroll || currentPayrollId == null || isViewOnly || hasStagedChanges}
+                    >
+                      {isCancellingPayroll ? "Cancelling..." : "Cancel Payroll"}
+                    </ButtonSecondary>
+                    <ButtonSecondary
+                      style={{ flex: 0 }}
                       onClick={handlePreviewPayroll}
                       disabled={currentPayrollId == null || isPreviewingPayroll || hasStagedChanges || isPreviewDisabledByStatus}
                     >
@@ -1038,7 +1092,7 @@ export function CurrentPayrollPage() {
                       />
                     )}
                   </Stack>
-                ) : payrollPayees.length > 0 ? (
+                ) : (
                   <PayeesTable
                     payees={effectiveDisplayPayees}
                     searchEnabled={true}
@@ -1111,7 +1165,11 @@ export function CurrentPayrollPage() {
                       const isStagedPayeeRemoval = stagedPayeeRemovals.has(payeeId);
                       const payeeUpserts = stagedEarningUpserts.get(payeeId) ?? new Map<string, { rate: ethers.BigNumberish; runData: string }>();
                       const payeeRemovals = stagedEarningRemovals.get(payeeId) ?? new Set<string>();
-                      const onChainCodeIds = new Set((payeeRunData?.earnings ?? []).map((e) => e.earningsCodeId.toString()));
+                      const visibleOnChainEarnings = (payeeRunData?.earnings ?? []).filter((earning) => {
+                        if (!config?.weeklyScheduleRuleAddress) return true;
+                        return earning.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
+                      });
+                      const onChainCodeIds = new Set(visibleOnChainEarnings.map((e) => e.earningsCodeId.toString()));
                       const newStagedEarnings = Array.from(payeeUpserts.entries()).filter(([codeId]) => !onChainCodeIds.has(codeId));
 
                       return (
@@ -1136,11 +1194,11 @@ export function CurrentPayrollPage() {
                                 <Text.Body color="muted">No payroll has been created yet.</Text.Body>
                               ) : !payeeRunData && !isStagedAdd ? (
                                 <Text.Body color="muted">This payee is not included in payroll #{currentPayrollId}.</Text.Body>
-                              ) : (payeeRunData?.earnings.length ?? 0) === 0 && newStagedEarnings.length === 0 ? (
+                              ) : visibleOnChainEarnings.length === 0 && newStagedEarnings.length === 0 ? (
                                 <Text.Body color="muted">No earnings assigned.</Text.Body>
                               ) : (
                                 <Stack gap="sm">
-                                  {(payeeRunData?.earnings ?? []).map((earning, index) => {
+                                  {visibleOnChainEarnings.map((earning, index) => {
                                     const codeId = earning.earningsCodeId.toString();
                                     const codeLabel = formatEarningsCodeIdLabel(earning.earningsCodeId);
                                     const ruleMeta = buildRuleMeta(earning.rule, config);
@@ -1288,8 +1346,6 @@ export function CurrentPayrollPage() {
                       );
                     }}
                   />
-                ) : (
-                  <Text.Body color="muted">No payees are currently included in this payroll.</Text.Body>
                 )}
                 {isAdmin && !isViewOnly && currentPayrollId != null && (
                   <Stack gap="xs" style={{ maxWidth: 560 }}>

@@ -73,7 +73,7 @@ function parseBatchCodeLabel(value: string) {
 
 function formatDateTime(ts: number) {
   if (!Number.isFinite(ts) || ts <= 0) return "-";
-  return `${new Date(ts * 1000).toLocaleString()} (${ts})`;
+  return new Date(ts * 1000).toLocaleString();
 }
 
 function formatDateInputValue(date: Date) {
@@ -120,6 +120,11 @@ export function PayrollsPage() {
   const [startDateInput, setStartDateInput] = useState<string>(formatDateInputValue(new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)));
   const [endDateInput, setEndDateInput] = useState<string>(formatDateInputValue(today));
   const [selectedBatchCode, setSelectedBatchCode] = useState<string | null>(null);
+
+  const defaultPayBatchCode = useMemo(
+    () => ethers.utils.formatBytes32String("DEFAULT_PAY_BATCH"),
+    []
+  );
 
   useEffect(() => {
     if (windowPreset === "custom") return;
@@ -176,8 +181,11 @@ export function PayrollsPage() {
       const codes = await fetchPayBatchCodes(provider, payrollManagerAddress, orgSlug, account ?? undefined);
       setPayBatchCodes(codes);
 
-      if (selectedBatchCode && !codes.includes(selectedBatchCode)) {
-        setSelectedBatchCode(null);
+      const hasDefaultBatch = codes.includes(defaultPayBatchCode);
+      if (!selectedBatchCode) {
+        setSelectedBatchCode(hasDefaultBatch ? defaultPayBatchCode : (codes[0] ?? null));
+      } else if (!codes.includes(selectedBatchCode)) {
+        setSelectedBatchCode(hasDefaultBatch ? defaultPayBatchCode : (codes[0] ?? null));
       }
 
       const orgMap = await manager.slugToOrgInfoMap(slugBytes);
@@ -232,7 +240,7 @@ export function PayrollsPage() {
     refreshData(slug);
   }, [slug, provider, payrollManagerAddress, account, version]);
 
-  async function handleCreatePayroll() {
+  async function handleCreatePayroll(payBatchCode: string | null) {
     if (!chainId || !isAdmin || !slug.trim() || creatingPayroll) return;
 
     const startTime = localDateStartUnix(startDateInput);
@@ -247,7 +255,7 @@ export function PayrollsPage() {
 
     setCreatingPayroll(true);
     try {
-      await createPayrollTx(chainId, slug.trim(), startTime, endTime, selectedBatchCode);
+      await createPayrollTx(chainId, slug.trim(), startTime, endTime, payBatchCode);
     } finally {
       setCreatingPayroll(false);
     }
@@ -300,17 +308,16 @@ export function PayrollsPage() {
               <Stack gap="md">
                 <Text.Label>Start New Payroll</Text.Label>
                 <Text.Body size="sm" color="muted">
-                  Choose a pay batch template for standard payroll creation, or leave it empty to create a manual payroll.
+                  Choose a pay batch template for payroll creation. Default is DEFAULT_PAY_BATCH.
                 </Text.Body>
 
                 <Stack>
-                  <Text.Body size="sm" color="muted">Pay Batch Template (optional)</Text.Body>
+                  <Text.Body size="sm" color="muted">Pay Batch Template</Text.Body>
                   <Select<string>
                     value={selectedBatchCode}
                     onChange={(value) => setSelectedBatchCode(value ? String(value) : null)}
                     disabled={!isAdmin}
                   >
-                    <SelectOption value="" label="No batch (create empty payroll)" />
                     {payBatchCodes.map((code) => (
                       <SelectOption
                         key={code}
@@ -361,10 +368,17 @@ export function PayrollsPage() {
                 </Row>
 
                 <Row justify="end">
+                  <ButtonSecondary
+                    style={{ flex: 0 }}
+                    onClick={() => handleCreatePayroll(null)}
+                    disabled={!isAdmin || !slug || creatingPayroll}
+                  >
+                    {creatingPayroll ? "Starting..." : "Create Empty Payroll"}
+                  </ButtonSecondary>
                   <ButtonPrimary
                     style={{ flex: 0 }}
-                    onClick={handleCreatePayroll}
-                    disabled={!isAdmin || !slug || creatingPayroll}
+                    onClick={() => handleCreatePayroll(selectedBatchCode)}
+                    disabled={!isAdmin || !slug || creatingPayroll || !selectedBatchCode}
                   >
                     {creatingPayroll ? "Starting..." : "Start Payroll"}
                   </ButtonPrimary>
@@ -407,7 +421,7 @@ export function PayrollsPage() {
                                 style={{ flex: 0 }}
                                 onClick={() => navigate(ROUTES.PAYROLL_DETAIL(slug, row.payrollId))}
                               >
-                                Open Payroll Details
+                                Open
                               </ButtonSecondary>
                             </Row>
                           </Stack>

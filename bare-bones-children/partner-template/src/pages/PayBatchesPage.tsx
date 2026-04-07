@@ -118,8 +118,13 @@ export function PayBatchesPage() {
   );
 
   const activeEarningsCodes = useMemo(
-    () => earningsCodes.filter((code) => Boolean(code.isActive)),
-    [earningsCodes]
+    () =>
+      earningsCodes.filter((code) => {
+        if (!code.isActive) return false;
+        if (!config?.weeklyScheduleRuleAddress) return true;
+        return code.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
+      }),
+    [earningsCodes, config]
   );
 
   const batchPayeeIds = useMemo(
@@ -132,15 +137,118 @@ export function PayBatchesPage() {
     [batchRows]
   );
 
-  const addablePayees = useMemo(
-    () => payees.filter((p) => !batchPayeeIds.has(p.payeeId.toString())),
-    [payees, batchPayeeIds]
-  );
-
   const payeeById = useMemo(
     () => new Map(payees.map((p) => [p.payeeId.toString(), p] as const)),
     [payees]
   );
+
+  function normalizeConfigureActions(actions: PayrollConfigActionPayload[]): PayrollConfigActionPayload[] {
+    const byPayee = new Map<
+      string,
+      {
+        payeeId: ethers.BigNumberish;
+        removeAll: boolean;
+        includeEmptyUpsert: boolean;
+        upserts: Map<string, { rate: ethers.BigNumberish; runData: string }>;
+        removeCodes: Set<string>;
+      }
+    >();
+
+    for (const action of actions) {
+      const payeeId = action.payeeId.toString();
+      if (!byPayee.has(payeeId)) {
+        byPayee.set(payeeId, {
+          payeeId: action.payeeId,
+          removeAll: false,
+          includeEmptyUpsert: false,
+          upserts: new Map(),
+          removeCodes: new Set(),
+        });
+      }
+
+      const state = byPayee.get(payeeId)!;
+
+      if (action.action === PayrollConfigActionKind.Remove) {
+        if (action.earningsCodeIds.length === 0) {
+          state.removeAll = true;
+          state.includeEmptyUpsert = false;
+          state.upserts.clear();
+          state.removeCodes.clear();
+          continue;
+        }
+
+        if (state.removeAll) continue;
+
+        for (const codeIdRaw of action.earningsCodeIds) {
+          const codeId = codeIdRaw.toString();
+          state.upserts.delete(codeId);
+          state.removeCodes.add(codeId);
+        }
+        continue;
+      }
+
+      if (state.removeAll) continue;
+
+      if (action.earningsCodeIds.length === 0) {
+        state.includeEmptyUpsert = true;
+        continue;
+      }
+
+      for (let i = 0; i < action.earningsCodeIds.length; i++) {
+        const codeId = action.earningsCodeIds[i].toString();
+        state.removeCodes.delete(codeId);
+        state.upserts.set(codeId, {
+          rate: action.rates[i] ?? ethers.BigNumber.from(0),
+          runData: action.runData[i] ?? "0x",
+        });
+      }
+    }
+
+    const normalized: PayrollConfigActionPayload[] = [];
+    for (const state of byPayee.values()) {
+      if (state.removeAll) {
+        normalized.push({
+          action: PayrollConfigActionKind.Remove,
+          payeeId: state.payeeId,
+          earningsCodeIds: [],
+          rates: [],
+          runData: [],
+        });
+        continue;
+      }
+
+      if (state.upserts.size > 0) {
+        const entries = Array.from(state.upserts.entries());
+        normalized.push({
+          action: PayrollConfigActionKind.Upsert,
+          payeeId: state.payeeId,
+          earningsCodeIds: entries.map(([codeId]) => ethers.BigNumber.from(codeId)),
+          rates: entries.map(([, value]) => value.rate),
+          runData: entries.map(([, value]) => value.runData),
+        });
+      } else if (state.includeEmptyUpsert) {
+        normalized.push({
+          action: PayrollConfigActionKind.Upsert,
+          payeeId: state.payeeId,
+          earningsCodeIds: [],
+          rates: [],
+          runData: [],
+        });
+      }
+
+      if (state.removeCodes.size > 0) {
+        normalized.push({
+          action: PayrollConfigActionKind.Remove,
+          payeeId: state.payeeId,
+          earningsCodeIds: Array.from(state.removeCodes).map((codeId) => ethers.BigNumber.from(codeId)),
+          rates: [],
+          runData: [],
+        });
+      }
+    }
+
+    return normalized;
+  }
 
   function formatRate(rate: ethers.BigNumber) {
     try {
@@ -382,8 +490,9 @@ export function PayBatchesPage() {
         throw new Error("No actions to apply");
       }
       const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      const normalizedActions = normalizeConfigureActions(actions);
 
-      const txActions = actions.map((action) => {
+      const txActions = normalizedActions.map((action) => {
         const earningsCodeIds = action.earningsCodeIds.map((id) => ethers.BigNumber.from(id));
         const assignments =
           action.action === PayrollConfigActionKind.Upsert
@@ -418,6 +527,7 @@ export function PayBatchesPage() {
   });
 
   const {
+    stagedActions,
     setStagedActions,
     isApplying: isApplyingStaged,
     hasStagedChanges,
@@ -429,13 +539,32 @@ export function PayBatchesPage() {
     clearStaged,
   } = stagingManager;
 
+  const stagedAddedPayeeIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const action of stagedActions) {
+      const payeeId = action.payload.payeeId.toString();
+      if (action.payload.action === PayrollConfigActionKind.Upsert) {
+        ids.add(payeeId);
+      }
+      if (action.payload.action === PayrollConfigActionKind.Remove && action.payload.earningsCodeIds.length === 0) {
+        ids.delete(payeeId);
+      }
+    }
+    return ids;
+  }, [stagedActions]);
+
   const effectiveBatchPayees = useMemo(() => {
     const ids = new Set<string>(batchPayeeIds);
-    for (const id of stagedPayeeAdditions.values()) {
+    for (const id of stagedAddedPayeeIds.values()) {
       ids.add(id);
     }
     return payees.filter((payee) => ids.has(payee.payeeId.toString()));
-  }, [payees, batchPayeeIds, stagedPayeeAdditions]);
+  }, [payees, batchPayeeIds, stagedAddedPayeeIds]);
+
+  const addablePayees = useMemo(
+    () => payees.filter((p) => !batchPayeeIds.has(p.payeeId.toString()) && !stagedAddedPayeeIds.has(p.payeeId.toString())),
+    [payees, batchPayeeIds, stagedAddedPayeeIds]
+  );
 
   function stageAddPayeeToBatch(payeeIdRaw: string) {
     if (!payeeIdRaw) return;
@@ -733,7 +862,11 @@ export function PayBatchesPage() {
                     const isStagedPayeeRemoval = stagedPayeeRemovals.has(payeeId);
                     const payeeUpserts = stagedEarningUpserts.get(payeeId) ?? new Map<string, { rate: ethers.BigNumberish; runData: string }>();
                     const payeeRemovals = stagedEarningRemovals.get(payeeId) ?? new Set<string>();
-                    const onChainCodeIds = new Set((row?.earnings ?? []).map((e) => e.earningsCodeId.toString()));
+                    const visibleOnChainEarnings = (row?.earnings ?? []).filter((earning) => {
+                      if (!config?.weeklyScheduleRuleAddress) return true;
+                      return earning.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
+                    });
+                    const onChainCodeIds = new Set(visibleOnChainEarnings.map((e) => e.earningsCodeId.toString()));
                     const newStagedEarnings = Array.from(payeeUpserts.entries()).filter(([codeId]) => !onChainCodeIds.has(codeId));
 
                     return (
@@ -754,11 +887,11 @@ export function PayBatchesPage() {
                                 minWidth={170}
                               />
                             )}
-                            {(row?.earnings.length ?? 0) === 0 && newStagedEarnings.length === 0 ? (
+                            {visibleOnChainEarnings.length === 0 && newStagedEarnings.length === 0 ? (
                               <Text.Body color="muted">No earnings assigned.</Text.Body>
                             ) : (
                               <Stack gap="sm">
-                                {(row?.earnings ?? []).map((earning, index) => {
+                                {visibleOnChainEarnings.map((earning, index) => {
                                   const codeId = earning.earningsCodeId.toString();
                                   const codeLabel = formatEarningsCodeIdLabel(earning.earningsCodeId);
                                   const ruleMeta = buildRuleMeta(earning.rule, config);
@@ -872,20 +1005,34 @@ export function PayBatchesPage() {
                                           {ruleMeta.runDataRequired && (
                                             <Text.Body size="sm" color="muted">Run Data: {decodeRunDataDisplay(upsert.runData as string, code?.rule ?? ethers.constants.AddressZero, config)}</Text.Body>
                                           )}
+                                          {!isStagedPayeeRemoval && isAdmin && (
+                                            <Row gap="xs" justify="end">
+                                              <IconButton
+                                                size="xl"
+                                                iconFontSize="xl"
+                                                shape="rounded"
+                                                aria-label="Edit staged earning"
+                                                title="Edit staged earning"
+                                                onClick={() =>
+                                                  openEditEarningModal(
+                                                    payeeId,
+                                                    codeId,
+                                                    upsert.rate,
+                                                    upsert.runData
+                                                  )
+                                                }
+                                                style={{ borderColor: "var(--colors-borderHover)", color: "var(--colors-text-main)" }}
+                                              >
+                                                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "1em", height: "1em", transform: "translate(-2px,0) rotate(90deg)", fontSize: "26px", lineHeight: "1em", fontWeight: 400 }}>✎</span>
+                                              </IconButton>
+                                            </Row>
+                                          )}
                                         </Stack>
                                       </CardContent>
                                     </Card>
                                   );
                                 })}
                               </Stack>
-                            )}
-
-                            {isAdmin && !isStagedPayeeRemoval && (
-                              <Row justify="end">
-                                <ButtonSecondary style={{ flex: 0 }} onClick={() => openAddEarningModal(payeeId)}>
-                                  Edit Earnings
-                                </ButtonSecondary>
-                              </Row>
                             )}
                           </Stack>
                         </CardContent>
@@ -928,14 +1075,14 @@ export function PayBatchesPage() {
 
                 <Row justify="end" gap="sm">
                   <ButtonSecondary style={{ flex: 0 }} onClick={clearStaged} disabled={!hasStagedChanges || isApplyingStaged}>
-                    Clear Staged
+                    Clear
                   </ButtonSecondary>
                   <ButtonPrimary
                     style={{ flex: 0 }}
                     onClick={handleBatchConfigure}
                     disabled={!isAdmin || !chainId || !selectedBatchCode || !hasStagedChanges || isApplyingStaged}
                   >
-                    {isApplyingStaged ? "Applying..." : "Submit Batch Configure"}
+                    {isApplyingStaged ? "Applying..." : "Apply"}
                   </ButtonPrimary>
                 </Row>
               </Stack>
