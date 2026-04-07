@@ -16,7 +16,9 @@ import {
   DEFAULT_PAY_BATCH_LABEL,
   DEFAULT_PAY_BATCH_CODE,
   PAYROLL_WINDOW_DAYS,
+  PayrollStatus,
   PayrollWindowPreset,
+  payrollStatusLabel,
 } from "../constants/payroll";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import type { OrganizationModel } from "../models/payments";
@@ -32,26 +34,6 @@ import {
   type PayrollRunRowView,
 } from "../utils/payroll/payrollFormatters";
 import { ROUTES } from "../routes";
-
-enum PayrollStatus {
-  None = 0,
-  Draft = 1,
-  Processing = 2,
-  Processed = 3,
-  Finalizing = 4,
-  Finalized = 5,
-  Cancelled = 6,
-}
-
-function payrollStatusLabel(status: number) {
-  if (status === PayrollStatus.Draft) return "Draft";
-  if (status === PayrollStatus.Processing) return "Processing";
-  if (status === PayrollStatus.Processed) return "Processed";
-  if (status === PayrollStatus.Finalizing) return "Finalizing";
-  if (status === PayrollStatus.Finalized) return "Finalized";
-  if (status === PayrollStatus.Cancelled) return "Cancelled";
-  return "None";
-}
 
 function payrollStatusColor(status: number): "main" | "secondary" | "label" | "muted" | "danger" | "warn" | "success" {
   if (status === PayrollStatus.Draft) return "warn";

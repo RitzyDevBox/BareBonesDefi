@@ -129,3 +129,24 @@ export function localDateEndUnix(dateValue: string) {
   const date = new Date(`${dateValue}T23:59:59`);
   return Math.floor(date.getTime() / 1000);
 }
+
+export interface PreviewPayrollChunkRow {
+  payeeId: ethers.BigNumber;
+  gross: ethers.BigNumber;
+}
+
+export interface PreviewPayrollChunkView {
+  rows: PreviewPayrollChunkRow[];
+  chunkGross: ethers.BigNumber;
+  nextCursor: ethers.BigNumber;
+  hasMore: boolean;
+}
+
+export function parsePreviewPayrollChunk(result: any, cursor: number): PreviewPayrollChunkView {
+  return {
+    rows: readStructField(result, "rows", 0, []) as PreviewPayrollChunkRow[],
+    chunkGross: readStructField(result, "chunkGross", 1, ethers.BigNumber.from(0)) as ethers.BigNumber,
+    nextCursor: readStructField(result, "nextCursor", 2, ethers.BigNumber.from(cursor)) as ethers.BigNumber,
+    hasMore: Boolean(readStructField(result, "hasMore", 3, false)),
+  };
+}

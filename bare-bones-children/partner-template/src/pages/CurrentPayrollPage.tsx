@@ -18,6 +18,7 @@ import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { getBareBonesConfiguration } from "../constants/misc";
+import { PayrollStatus, payeeStatusLabel, payrollStatusLabel } from "../constants/payroll";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import { PayeesTable } from "../components/PayeesTable";
 import { Table } from "../components/Table";
@@ -42,6 +43,8 @@ import {
   formatDateTime,
   formatRate,
   parseBatchCodeLabel,
+  parsePreviewPayrollChunk,
+  parsePayrollRunRow,
   parsePayeeNameLabel,
 } from "../utils/payroll/payrollFormatters";
 import {
@@ -59,49 +62,10 @@ import {
   type PayrollConfigActionPayload,
 } from "../components/PayrollStagingManager";
 
-enum PayeeStatus {
-  Active = 0,
-  OnLeave = 1,
-  Inactive = 2,
-}
-
 enum CurrentPayrollEarningsMode {
   View = "view",
   Override = "override",
   Additional = "additional",
-}
-
-enum PayrollStatus {
-  None = 0,
-  Draft = 1,
-  Processing = 2,
-  Processed = 3,
-  Finalizing = 4,
-  Finalized = 5,
-  Cancelled = 6,
-}
-
-function payeeStatusLabel(status?: number) {
-  switch (status) {
-    case PayeeStatus.Active:
-      return "Active";
-    case PayeeStatus.OnLeave:
-      return "On Leave";
-    case PayeeStatus.Inactive:
-      return "Inactive";
-    default:
-      return `Status ${String(status ?? 0)}`;
-  }
-}
-
-function payrollStatusLabel(status?: number) {
-  if (status === PayrollStatus.Draft) return "Draft";
-  if (status === PayrollStatus.Processing) return "Processing";
-  if (status === PayrollStatus.Processed) return "Processed";
-  if (status === PayrollStatus.Finalizing) return "Finalizing";
-  if (status === PayrollStatus.Finalized) return "Finalized";
-  if (status === PayrollStatus.Cancelled) return "Cancelled";
-  return "None";
 }
 
 
@@ -388,64 +352,63 @@ export function CurrentPayrollPage() {
 
       setIsAdmin(org.exists && org.owner.toLowerCase() === account?.toLowerCase());
 
-      if (org.exists) {
-        const payeeList = await fetchPayeesByOrganization(provider, payrollManagerAddress, slugBytes);
-        setPayees(payeeList);
-
-        if (payrollManagerAddress) {
-          const [earningRows, orgMap] = await Promise.all([
-            fetchOrganizationEarningsCodes(
-              provider,
-              payrollManagerAddress,
-              orgSlug,
-            ),
-            contract.slugToOrgInfoMap(slugBytes),
-          ]);
-
-          setOrganizationEarningsCodes(earningRows);
-
-          const nextPayrollId = Number((orgMap?.nextPayrollId ?? orgMap?.[0] ?? ethers.BigNumber.from(0)).toString());
-          const latestPayrollId = nextPayrollId > 0 ? nextPayrollId - 1 : null;
-          const targetPayrollId = requestedPayrollId ?? latestPayrollId;
-
-          setCurrentPayrollId(targetPayrollId);
-
-          if (targetPayrollId !== null) {
-            const run = await contract.slugToPayrollToRunMap(slugBytes, targetPayrollId);
-            const fetchedStatus = Number(run?.status ?? run?.[0] ?? 0);
-            setPayrollStatus(fetchedStatus);
-            setPayrollTemplateCode(String(run?.templateCode ?? run?.[1] ?? ethers.constants.HashZero));
-            setPayrollStartTime(Number((run?.startTime ?? run?.[2] ?? 0).toString()));
-            setPayrollEndTime(Number((run?.endTime ?? run?.[3] ?? 0).toString()));
-
-            const runDataRows = await fetchPayrollPayeesWithRunData(
-              provider,
-              payrollManagerAddress,
-              orgSlug,
-              targetPayrollId,
-            );
-            setPayrollPayeeRunData(runDataRows);
-
-            if (fetchedStatus === PayrollStatus.Finalized) {
-              const grosses = await fetchPayrollGrosses(
-                provider,
-                payrollManagerAddress,
-                orgSlug,
-                targetPayrollId,
-            );
-              setFinalizedGrosses(grosses);
-            } else {
-              setFinalizedGrosses([]);
-            }
-          } else {
-            resetPayrollState();
-          }
-        } else {
-          resetPayrollState();
-        }
-      } else {
+      if (!org.exists) {
         setPayees([]);
         resetPayrollState();
+        return;
+      }
+
+      const payeeList = await fetchPayeesByOrganization(provider, payrollManagerAddress, slugBytes);
+      setPayees(payeeList);
+
+      const [earningRows, orgMap] = await Promise.all([
+        fetchOrganizationEarningsCodes(
+          provider,
+          payrollManagerAddress,
+          orgSlug,
+        ),
+        contract.slugToOrgInfoMap(slugBytes),
+      ]);
+
+      setOrganizationEarningsCodes(earningRows);
+
+      const nextPayrollId = Number((orgMap?.nextPayrollId ?? orgMap?.[0] ?? ethers.BigNumber.from(0)).toString());
+      const latestPayrollId = nextPayrollId > 0 ? nextPayrollId - 1 : null;
+      const targetPayrollId = requestedPayrollId ?? latestPayrollId;
+
+      setCurrentPayrollId(targetPayrollId);
+
+      if (targetPayrollId === null) {
+        resetPayrollState();
+        return;
+      }
+
+      const run = await contract.slugToPayrollToRunMap(slugBytes, targetPayrollId);
+      const parsedRun = parsePayrollRunRow(targetPayrollId, run, undefined);
+      const fetchedStatus = parsedRun.status;
+      setPayrollStatus(fetchedStatus);
+      setPayrollTemplateCode(parsedRun.templateCode);
+      setPayrollStartTime(parsedRun.startTime);
+      setPayrollEndTime(parsedRun.endTime);
+
+      const runDataRows = await fetchPayrollPayeesWithRunData(
+        provider,
+        payrollManagerAddress,
+        orgSlug,
+        targetPayrollId,
+      );
+      setPayrollPayeeRunData(runDataRows);
+
+      if (fetchedStatus === PayrollStatus.Finalized) {
+        const grosses = await fetchPayrollGrosses(
+          provider,
+          payrollManagerAddress,
+          orgSlug,
+          targetPayrollId,
+      );
+        setFinalizedGrosses(grosses);
+      } else {
+        setFinalizedGrosses([]);
       }
     } catch (err) {
       console.error("Error fetching org info:", err);
@@ -530,10 +493,7 @@ export function CurrentPayrollPage() {
           limit
         );
 
-        const rows: Array<{ payeeId: ethers.BigNumber; gross: ethers.BigNumber }> = res?.rows ?? res?.[0] ?? [];
-        const chunkGross: ethers.BigNumber = res?.chunkGross ?? res?.[1] ?? ethers.BigNumber.from(0);
-        const nextCursor: ethers.BigNumber = res?.nextCursor ?? res?.[2] ?? ethers.BigNumber.from(cursor);
-        const nextHasMore: boolean = Boolean(res?.hasMore ?? res?.[3]);
+        const { rows, chunkGross, nextCursor, hasMore: nextHasMore } = parsePreviewPayrollChunk(res, cursor);
 
         for (const row of rows) {
           grossByPayeeId[row.payeeId.toString()] = formatAmountDisplay(ethers.utils.formatEther(row.gross));
@@ -998,7 +958,7 @@ export function CurrentPayrollPage() {
                             cells: {
                               payeeId: gross.payeeId.toString(),
                               name: payee ? parsePayeeNameLabel(payee.role) : `Payee #${gross.payeeId.toString()}`,
-                              paidAmount: ethers.utils.formatEther(gross.gross),
+                              paidAmount: formatAmountDisplay(ethers.utils.formatEther(gross.gross)),
                             },
                           };
                         })}

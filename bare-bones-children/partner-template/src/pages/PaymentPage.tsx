@@ -17,7 +17,7 @@ import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
-import { DEFAULT_PAY_BATCH_CODE } from "../constants/payroll";
+import { DEFAULT_PAY_BATCH_CODE, payeeStatusLabel } from "../constants/payroll";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import { PayeesTable } from "../components/PayeesTable";
 import { PayrollNavigation } from "../components/PayrollNavigation";
@@ -47,13 +47,6 @@ function formatRate(rate: ethers.BigNumber) {
   } catch {
     return "0";
   }
-}
-
-function payeeStatusLabel(status?: number) {
-  if (status === 0) return "Active";
-  if (status === 1) return "On Leave";
-  if (status === 2) return "Inactive";
-  return `Status ${String(status ?? 0)}`;
 }
 
 type PayeeEarningsMode = "view" | "add" | "edit" | "delete";
