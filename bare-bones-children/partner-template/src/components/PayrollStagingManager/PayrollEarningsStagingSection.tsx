@@ -57,7 +57,7 @@ interface PayrollEarningsStagingSectionProps {
   extraColumns?: TableColumn[];
   getExtraCells?: (payee: PayeeModel) => Record<string, any>;
 
-  formatAddPayeeLabel: (payee: PayeeModel) => string;
+  formatAddPayeeLabel?: (payee: PayeeModel) => string;
   addPayeeButtonLabel?: string;
   addableEmptyMessage?: string;
   addSectionMaxWidth?: number;
@@ -69,8 +69,7 @@ interface PayrollEarningsStagingSectionProps {
   panelTitle: string;
   panelAddLabel: string;
   getOnChainEarnings: (payee: PayeeModel) => StagingEarningSourceRow[];
-  earningsCodeById: Map<string, EarningsCodeOption>;
-  activeEarningsCodes: EarningsCodeOption[];
+  earningsCodes: EarningsCodeOption[];
   config: any;
 
   onSave: (actions: PayrollConfigActionPayload[]) => Promise<boolean>;
@@ -102,7 +101,8 @@ export function PayrollEarningsStagingSection({
   searchEnabled = true,
   extraColumns = [],
   getExtraCells,
-  formatAddPayeeLabel,
+  formatAddPayeeLabel = (payee) =>
+    `${parsePayeeNameLabel(payee.role)} · #${payee.payeeId.toString()}`,
   addPayeeButtonLabel = "+ Add Payee",
   addableEmptyMessage,
   addSectionMaxWidth = 420,
@@ -113,8 +113,7 @@ export function PayrollEarningsStagingSection({
   panelTitle,
   panelAddLabel,
   getOnChainEarnings,
-  earningsCodeById,
-  activeEarningsCodes,
+  earningsCodes,
   config,
   onSave,
   onAfterApply,
@@ -172,6 +171,21 @@ export function PayrollEarningsStagingSection({
           !stagedPayeeAdditions.has(p.payeeId.toString())
       ),
     [payees, baseIncludedPayeeIds, stagedPayeeAdditions]
+  );
+
+  const earningsCodeById = useMemo(
+    () => new Map(earningsCodes.map((code) => [code.earningsCodeId.toString(), code] as const)),
+    [earningsCodes]
+  );
+
+  const activeEarningsCodes = useMemo(
+    () =>
+      earningsCodes.filter((code) => {
+        if (!code.isActive) return false;
+        if (!config?.weeklyScheduleRuleAddress) return true;
+        return code.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
+      }),
+    [earningsCodes, config]
   );
 
   useEffect(() => {

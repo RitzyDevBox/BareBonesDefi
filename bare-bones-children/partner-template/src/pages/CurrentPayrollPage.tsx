@@ -108,24 +108,6 @@ export function CurrentPayrollPage() {
     [payrollPayeeRunData]
   );
 
-  const earningsCodeById = useMemo(
-    () =>
-      new Map(
-        organizationEarningsCodes.map((row) => [row.earningsCodeId.toString(), row] as const)
-      ),
-    [organizationEarningsCodes]
-  );
-
-  const activeOrganizationEarningsCodes = useMemo(
-    () =>
-      organizationEarningsCodes.filter((row) => {
-        if (!row.isActive) return false;
-        if (!config?.weeklyScheduleRuleAddress) return true;
-        return row.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
-      }),
-    [organizationEarningsCodes, config]
-  );
-
   const isViewOnly = payrollStatus === PayrollStatus.Finalized || payrollStatus === PayrollStatus.Cancelled;
   const isPreviewDisabledByStatus = (payrollStatus ?? PayrollStatus.None) >= PayrollStatus.Processed;
   const payeeIdsInPayroll = useMemo(
@@ -543,7 +525,6 @@ export function CurrentPayrollPage() {
                     payees={payees}
                     baseIncludedPayeeIds={payeeIdsInPayroll}
                     canEdit={isAdmin && !isViewOnly && currentPayrollId != null}
-                    searchEnabled={true}
                     extraColumns={[
                       ...(showResolvedCodesColumn ? [{ key: "resolvedCodes", header: "Codes" }] : []),
                       { key: "payeeStatus", header: "Status" },
@@ -561,7 +542,6 @@ export function CurrentPayrollPage() {
                     formatAddPayeeLabel={(payee) =>
                       `#${payee.payeeId.toString()} · ${parsePayeeNameLabel(payee.role)} · ${shortAddress(payee.paymentAddress)}`
                     }
-                    addPayeeButtonLabel="+ Add Payee"
                     addableEmptyMessage="All organization payees are already in this payroll."
                     addSectionMaxWidth={560}
                     addSelectMinWidth={showResolvedCodesColumn ? 320 : 220}
@@ -576,8 +556,7 @@ export function CurrentPayrollPage() {
                         return earning.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
                       });
                     }}
-                    earningsCodeById={earningsCodeById}
-                    activeEarningsCodes={activeOrganizationEarningsCodes}
+                    earningsCodes={organizationEarningsCodes}
                     config={config}
                     onSave={async (actions) => {
                       if (!chainId || !slug || currentPayrollId == null) return false;
@@ -590,7 +569,6 @@ export function CurrentPayrollPage() {
                       await fetchOrgInfo(slug);
                     }}
                     onStagingMetaChange={setStagingMeta}
-                    disableApply={isApplyingStaged}
                   />
                 )}
               </Stack>

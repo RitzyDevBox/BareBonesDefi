@@ -24,7 +24,6 @@ import { fetchPayBatchCodes, fetchPayBatchPayeesWithDefaults } from "../utils/pa
 import { PayrollNavigation } from "../components/PayrollNavigation";
 import {
   parseBatchCodeLabel,
-  parsePayeeNameLabel,
 } from "../utils/payroll/payrollFormatters";
 import {
   PayrollEarningsStagingSection,
@@ -69,21 +68,6 @@ export function PayBatchesPage() {
 
   const payrollManagerAddress = config?.payrollManagerAddress;
   const iface = useMemo(() => new ethers.utils.Interface(PayrollManagerABI as any), []);
-
-  const earningsCodeById = useMemo(
-    () => new Map(earningsCodes.map((code) => [code.earningsCodeId.toString(), code] as const)),
-    [earningsCodes]
-  );
-
-  const activeEarningsCodes = useMemo(
-    () =>
-      earningsCodes.filter((code) => {
-        if (!code.isActive) return false;
-        if (!config?.weeklyScheduleRuleAddress) return true;
-        return code.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
-      }),
-    [earningsCodes, config]
-  );
 
   const batchPayeeIds = useMemo(
     () => new Set(batchRows.map((row) => row.payeeId.toString())),
@@ -378,7 +362,7 @@ export function PayBatchesPage() {
                   {isAdmin ? "✓ Admin Mode" : "Read Only Mode"}
                 </Text.Body>
                 <Text.Body color="muted" size="sm">
-                  Batch codes: {batchCodes.length} · Payees: {payees.length} · Active earnings codes: {activeEarningsCodes.length}
+                  Batch codes: {batchCodes.length} · Payees: {payees.length}
                 </Text.Body>
               </Stack>
             )}
@@ -424,9 +408,6 @@ export function PayBatchesPage() {
                   payees={payees}
                   baseIncludedPayeeIds={batchPayeeIds}
                   canEdit={isAdmin}
-                  searchEnabled={true}
-                  formatAddPayeeLabel={(payee) => `${parsePayeeNameLabel(payee.role)} · #${payee.payeeId.toString()}`}
-                  addPayeeButtonLabel="+ Add Payee"
                   addableEmptyMessage="All organization payees are already in this pay batch."
                   panelTitle="Batch Default Earnings"
                   panelAddLabel="+ Add Default Earning"
@@ -437,8 +418,7 @@ export function PayBatchesPage() {
                       return earning.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
                     });
                   }}
-                  earningsCodeById={earningsCodeById}
-                  activeEarningsCodes={activeEarningsCodes}
+                  earningsCodes={earningsCodes}
                   config={config}
                   onSave={async (actions) => {
                     if (!chainId || !slug || !selectedBatchCode) return false;
