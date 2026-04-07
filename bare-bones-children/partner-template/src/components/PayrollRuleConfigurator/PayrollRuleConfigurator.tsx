@@ -12,6 +12,7 @@ import { ToastType, ToastBehavior, ToastPosition } from "../Toasts/toast.types";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
 import { getBareBonesConfiguration } from "../../constants/misc";
+import { DEFAULT_PAY_BATCH_CODE } from "../../constants/payroll";
 import { shortAddress } from "../../utils/formatUtils";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 
@@ -79,9 +80,8 @@ export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = fals
       try {
         const contract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
         const slugBytes = ethers.utils.formatBytes32String(slug);
-        const defaultPayBatchCode = ethers.utils.formatBytes32String("DEFAULT_PAY_BATCH");
 
-        const page = await contract.getPayBatchPayeesWithDefaults(slugBytes, defaultPayBatchCode, 0, 500);
+        const page = await contract.getPayBatchPayeesWithDefaults(slugBytes, DEFAULT_PAY_BATCH_CODE, 0, 500);
         const rows: any[] = page?.rows ?? page?.[0] ?? [];
         const payee = rows.find((row) => Number(row.payeeId?.toString?.() ?? "0") === payeeId);
         const earnings: any[] = payee?.earnings ?? [];
@@ -214,13 +214,11 @@ export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = fals
         throw new Error("No earnings code found for selected rule");
       }
 
-      const defaultPayBatchCode = ethers.utils.formatBytes32String("DEFAULT_PAY_BATCH");
-
       const encoded = payrollManagerInterface.encodeFunctionData(
         "configurePayBatch",
         [
           slugBytes,
-          defaultPayBatchCode,
+          DEFAULT_PAY_BATCH_CODE,
           payeeIdInput,
           [{ earningsCodeId: selectedEarningsCodeId, rate: parsedRate, runData: encodedConfig }],
         ]

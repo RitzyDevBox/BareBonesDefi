@@ -1,8 +1,8 @@
 import { ethers } from "ethers";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
+import { DEFAULT_PAY_BATCH_CODE } from "../../constants/payroll";
 
 const DEFAULT_PAGE_SIZE = 100;
-const DEFAULT_PAY_BATCH_CODE = ethers.utils.formatBytes32String("DEFAULT_PAY_BATCH");
 
 export interface OrganizationEarningsCodeView {
   earningsCodeId: ethers.BigNumber;

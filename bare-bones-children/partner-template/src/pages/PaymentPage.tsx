@@ -17,6 +17,7 @@ import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
+import { DEFAULT_PAY_BATCH_CODE } from "../constants/payroll";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import { PayeesTable } from "../components/PayeesTable";
 import { PayrollNavigation } from "../components/PayrollNavigation";
@@ -109,7 +110,6 @@ export function PaymentPage() {
     () => new ethers.utils.Interface(PayrollManagerABI as any),
     []
   );
-  const defaultPayBatchCode = useMemo(() => ethers.utils.formatBytes32String("DEFAULT_PAY_BATCH"), []);
 
   const defaultsByPayeeId = useMemo(
     () =>
@@ -214,8 +214,8 @@ export function PaymentPage() {
       if (org.exists) {
         const [payeeListResult, defaultsRowsResult, earningsRowsResult] = await Promise.allSettled([
           fetchPayeesByOrganization(provider, payrollManagerAddress, slugBytes),
-          fetchPayeesWithDefaults(provider, payrollManagerAddress, orgSlug, undefined, undefined, account ?? undefined),
-          fetchOrganizationEarningsCodes(provider, payrollManagerAddress, orgSlug, undefined, account ?? undefined),
+          fetchPayeesWithDefaults(provider, payrollManagerAddress, orgSlug),
+          fetchOrganizationEarningsCodes(provider, payrollManagerAddress, orgSlug),
         ]);
 
         setPayees(payeeListResult.status === "fulfilled" ? payeeListResult.value : []);
@@ -295,7 +295,7 @@ export function PaymentPage() {
         to: payrollManagerAddress,
         data: iface.encodeFunctionData("batchOnboardPayeesAndConfigurePayBatch", [
           slugBytes,
-          defaultPayBatchCode,
+          DEFAULT_PAY_BATCH_CODE,
           configs,
         ]),
       } as any;
@@ -344,13 +344,13 @@ export function PaymentPage() {
         to: payrollManagerAddress,
         data: iface.encodeFunctionData("configurePayBatch(bytes32,bytes32,uint256,(uint256,uint256,bytes)[])", [
           slugBytes,
-          defaultPayBatchCode,
+          DEFAULT_PAY_BATCH_CODE,
           payeeId,
           assignments,
         ]),
       } as any;
     },
-    [payrollManagerAddress, iface, defaultPayBatchCode]
+    [payrollManagerAddress, iface]
   );
 
   const configurePayeeEarnings = useExecuteRawTx(

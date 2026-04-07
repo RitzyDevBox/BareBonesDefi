@@ -12,23 +12,26 @@ import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
+import {
+  DEFAULT_PAY_BATCH_LABEL,
+  DEFAULT_PAY_BATCH_CODE,
+  PAYROLL_WINDOW_DAYS,
+  PayrollWindowPreset,
+} from "../constants/payroll";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import type { OrganizationModel } from "../models/payments";
 import { fetchPayBatchCodes } from "../utils/payroll/fetchPayBatchViews";
+import {
+  formatDateInputValue,
+  formatDateTime,
+  localDateEndUnix,
+  localDateStartUnix,
+  parseBatchCodeLabel,
+  parsePayrollRunRow,
+  shiftDateValue,
+  type PayrollRunRowView,
+} from "../utils/payroll/payrollFormatters";
 import { ROUTES } from "../routes";
-
-type PayrollWindowPreset = "weekly" | "biweekly" | "monthly" | "custom";
-
-interface PayrollRunRow {
-  payrollId: number;
-  status: number;
-  templateCode: string;
-  startTime: number;
-  endTime: number;
-  totalNodes: number;
-  processingRemaining: number;
-  finalizationRemaining: number;
-}
 
 enum PayrollStatus {
   None = 0,
@@ -60,45 +63,6 @@ function payrollStatusColor(status: number): "main" | "secondary" | "label" | "m
   return "muted";
 }
 
-function parseBatchCodeLabel(value: string) {
-  if (!value || value === ethers.constants.HashZero) {
-    return "Manual / Empty";
-  }
-  try {
-    return ethers.utils.parseBytes32String(value);
-  } catch {
-    return `${value.slice(0, 10)}…${value.slice(-8)}`;
-  }
-}
-
-function formatDateTime(ts: number) {
-  if (!Number.isFinite(ts) || ts <= 0) return "-";
-  return new Date(ts * 1000).toLocaleString();
-}
-
-function formatDateInputValue(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function shiftDateValue(value: string, days: number) {
-  const base = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(base.getTime())) return value;
-  const next = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
-  return formatDateInputValue(next);
-}
-
-function localDateStartUnix(dateValue: string) {
-  const date = new Date(`${dateValue}T00:00:00`);
-  return Math.floor(date.getTime() / 1000);
-}
-
-function localDateEndUnix(dateValue: string) {
-  const date = new Date(`${dateValue}T23:59:59`);
-  return Math.floor(date.getTime() / 1000);
-}
 
 export function PayrollsPage() {
   const navigate = useNavigate();
@@ -113,22 +77,17 @@ export function PayrollsPage() {
   const [orgInfo, setOrgInfo] = useState<OrganizationModel | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [payBatchCodes, setPayBatchCodes] = useState<string[]>([]);
-  const [activePayrolls, setActivePayrolls] = useState<PayrollRunRow[]>([]);
+  const [activePayrolls, setActivePayrolls] = useState<PayrollRunRowView[]>([]);
 
   const today = useMemo(() => new Date(), []);
-  const [windowPreset, setWindowPreset] = useState<PayrollWindowPreset>("weekly");
+  const [windowPreset, setWindowPreset] = useState<PayrollWindowPreset>(PayrollWindowPreset.Weekly);
   const [startDateInput, setStartDateInput] = useState<string>(formatDateInputValue(new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)));
   const [endDateInput, setEndDateInput] = useState<string>(formatDateInputValue(today));
   const [selectedBatchCode, setSelectedBatchCode] = useState<string | null>(null);
 
-  const defaultPayBatchCode = useMemo(
-    () => ethers.utils.formatBytes32String("DEFAULT_PAY_BATCH"),
-    []
-  );
-
   useEffect(() => {
-    if (windowPreset === "custom") return;
-    const windowDays = windowPreset === "weekly" ? 7 : windowPreset === "biweekly" ? 14 : 30;
+    if (windowPreset === PayrollWindowPreset.Custom) return;
+    const windowDays = PAYROLL_WINDOW_DAYS[windowPreset];
     setEndDateInput(shiftDateValue(startDateInput, windowDays - 1));
   }, [windowPreset, startDateInput]);
 
@@ -181,11 +140,11 @@ export function PayrollsPage() {
       const codes = await fetchPayBatchCodes(provider, payrollManagerAddress, orgSlug, account ?? undefined);
       setPayBatchCodes(codes);
 
-      const hasDefaultBatch = codes.includes(defaultPayBatchCode);
+      const hasDefaultBatch = codes.includes(DEFAULT_PAY_BATCH_CODE);
       if (!selectedBatchCode) {
-        setSelectedBatchCode(hasDefaultBatch ? defaultPayBatchCode : (codes[0] ?? null));
+        setSelectedBatchCode(hasDefaultBatch ? DEFAULT_PAY_BATCH_CODE : (codes[0] ?? null));
       } else if (!codes.includes(selectedBatchCode)) {
-        setSelectedBatchCode(hasDefaultBatch ? defaultPayBatchCode : (codes[0] ?? null));
+        setSelectedBatchCode(hasDefaultBatch ? DEFAULT_PAY_BATCH_CODE : (codes[0] ?? null));
       }
 
       const orgMap = await manager.slugToOrgInfoMap(slugBytes);
@@ -203,16 +162,7 @@ export function PayrollsPage() {
           const run = await manager.slugToPayrollToRunMap(slugBytes, payrollId);
           const progress = await manager.getPayrollNodeProgress(slugBytes, payrollId);
 
-          return {
-            payrollId,
-            status: Number(run.status ?? run[0] ?? 0),
-            templateCode: String(run.templateCode ?? run[1] ?? ethers.constants.HashZero),
-            startTime: Number((run.startTime ?? run[2] ?? 0).toString()),
-            endTime: Number((run.endTime ?? run[3] ?? 0).toString()),
-            totalNodes: Number((progress.totalNodes ?? progress[0] ?? 0).toString()),
-            processingRemaining: Number((progress.processingRemaining ?? progress[1] ?? 0).toString()),
-            finalizationRemaining: Number((progress.finalizationRemaining ?? progress[2] ?? 0).toString()),
-          } as PayrollRunRow;
+          return parsePayrollRunRow(payrollId, run, progress);
         })
       );
 
@@ -308,7 +258,7 @@ export function PayrollsPage() {
               <Stack gap="md">
                 <Text.Label>Start New Payroll</Text.Label>
                 <Text.Body size="sm" color="muted">
-                  Choose a pay batch template for payroll creation. Default is DEFAULT_PAY_BATCH.
+                  Choose a pay batch template for payroll creation. Default is {DEFAULT_PAY_BATCH_LABEL}.
                 </Text.Body>
 
                 <Stack>
@@ -335,13 +285,13 @@ export function PayrollsPage() {
                   <Text.Body size="sm" color="muted">Payroll Window</Text.Body>
                   <Select<PayrollWindowPreset>
                     value={windowPreset}
-                    onChange={(value) => setWindowPreset((value as PayrollWindowPreset) ?? "weekly")}
+                    onChange={(value) => setWindowPreset((value as PayrollWindowPreset) ?? PayrollWindowPreset.Weekly)}
                     disabled={!isAdmin}
                   >
-                    <SelectOption value="weekly" label="Weekly (7 days)" />
-                    <SelectOption value="biweekly" label="Biweekly (14 days)" />
-                    <SelectOption value="monthly" label="Monthly (30 days)" />
-                    <SelectOption value="custom" label="Custom" />
+                    <SelectOption value={PayrollWindowPreset.Weekly} label="Weekly (7 days)" />
+                    <SelectOption value={PayrollWindowPreset.Biweekly} label="Biweekly (14 days)" />
+                    <SelectOption value={PayrollWindowPreset.Monthly} label="Monthly (30 days)" />
+                    <SelectOption value={PayrollWindowPreset.Custom} label="Custom" />
                   </Select>
                 </Stack>
 
@@ -362,7 +312,7 @@ export function PayrollsPage() {
                       type="date"
                       value={endDateInput}
                       onChange={(e) => setEndDateInput((e.target as HTMLInputElement).value)}
-                      disabled={!isAdmin || windowPreset !== "custom"}
+                      disabled={!isAdmin || windowPreset !== PayrollWindowPreset.Custom}
                     />
                   </Stack>
                 </Row>

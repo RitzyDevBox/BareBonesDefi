@@ -12,6 +12,7 @@ import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
+import { DEFAULT_PAY_BATCH_CODE } from "../constants/payroll";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import { PayeesTable } from "../components/PayeesTable";
 import type { OrganizationModel, PayeeModel } from "../models/payments";
@@ -57,7 +58,6 @@ export function ManagePayeesPage() {
 
   const payrollManagerAddress = config?.payrollManagerAddress;
   const iface = useMemo(() => new ethers.utils.Interface(PayrollManagerABI as any), []);
-  const defaultPayBatchCode = useMemo(() => ethers.utils.formatBytes32String("DEFAULT_PAY_BATCH"), []);
 
   async function fetchOrgInfo(orgSlug: string) {
     if (!provider || !payrollManagerAddress) return;
@@ -126,7 +126,7 @@ export function ManagePayeesPage() {
         to: payrollManagerAddress,
         data: iface.encodeFunctionData("batchOnboardPayeesAndConfigurePayBatch", [
           slugBytes,
-          defaultPayBatchCode,
+          DEFAULT_PAY_BATCH_CODE,
           configs,
         ]),
       } as any;
