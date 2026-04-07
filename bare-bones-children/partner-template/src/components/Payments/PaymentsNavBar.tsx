@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 
 export type PaymentsNavTab =
   | "overview"
-  | "managePayees"
   | "payBatches"
   | "earnings"
   | "payrolls";
@@ -36,7 +35,6 @@ export function PaymentsNavBar({ slug, active }: PaymentsNavBarProps) {
   const disabled = !slug.trim();
   const tabs: Array<{ key: PaymentsNavTab; label: string; to: string }> = [
     { key: "overview", label: "Overview", to: ROUTES.PAYMENTS_ORG(slug) },
-    { key: "managePayees", label: "Manage Payees", to: ROUTES.PAYMENTS_MANAGE_PAYEES(slug) },
     { key: "payBatches", label: "Pay Batches", to: ROUTES.PAYMENTS_PAY_BATCHES(slug) },
     { key: "earnings", label: "Earnings", to: ROUTES.PAYMENTS_EARNINGS(slug) },
     { key: "payrolls", label: "Payrolls", to: ROUTES.PAYROLLS(slug) },

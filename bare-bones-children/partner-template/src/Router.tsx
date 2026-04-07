@@ -11,7 +11,6 @@ import { VaultPage } from "./pages/VaultPage";
 import { VaultWalletPage } from "./pages/VaultWalletPage";
 import { PaymentPage } from "./pages/PaymentPage";
 import { CurrentPayrollPage } from "./pages/CurrentPayrollPage.tsx";
-import { ManagePayeesPage } from "./pages/ManagePayeesPage";
 import { PayBatchesPage } from "./pages/PayBatchesPage";
 import { PayrollEarningsPage } from "./pages/PayrollEarningsPage";
 import { PayrollsPage } from "./pages/PayrollsPage.tsx";
@@ -30,7 +29,6 @@ export const router = createHashRouter([
       { path: `${ROUTES.DAPP_BROWSER}`, element: <DappBrowserPage/> },
       { path: `${ROUTES.PAYMENTS}`, element: <PaymentPage/> },
       { path: `${ROUTES.PAYMENTS_ORG_ROUTE}`, element: <PaymentPage/> },
-      { path: `${ROUTES.PAYMENTS_MANAGE_PAYEES_ROUTE}`, element: <ManagePayeesPage/> },
       { path: `${ROUTES.PAYMENTS_PAY_BATCHES_ROUTE}`, element: <PayBatchesPage/> },
       { path: `${ROUTES.PAYMENTS_EARNINGS_ROUTE}`, element: <PayrollEarningsPage/> },
       { path: `${ROUTES.PAYROLLS_ROUTE}`, element: <PayrollsPage/> },

@@ -36,7 +36,7 @@ function ArrowRight() {
   );
 }
 
-export type PayrollNavTab = "overview" | "managePayees" | "payBatches" | "earnings" | "payrolls";
+export type PayrollNavTab = "overview" | "payBatches" | "earnings" | "payrolls";
 
 interface PayrollNavigationProps {
   slug: string;
@@ -66,7 +66,6 @@ export function PayrollNavigation({ slug, active }: PayrollNavigationProps) {
   const tabs = useMemo(
     () => [
       { key: "overview" as const, label: "Overview", to: ROUTES.PAYMENTS_ORG(slug) },
-      { key: "managePayees" as const, label: "Manage Payees", to: ROUTES.PAYMENTS_MANAGE_PAYEES(slug) },
       { key: "payBatches" as const, label: "Pay Batches", to: ROUTES.PAYMENTS_PAY_BATCHES(slug) },
       { key: "earnings" as const, label: "Earnings", to: ROUTES.PAYMENTS_EARNINGS(slug) },
       { key: "payrolls" as const, label: "Payrolls", to: ROUTES.PAYROLLS(slug) },
