@@ -38,6 +38,13 @@ import { PayrollNavigation } from "../components/PayrollNavigation";
 import { EarningsDividerButton } from "../components/PayrollEarningsManager/EarningsDividerButton";
 import { TrashBinIcon } from "../assets/icons/TrashBinIcon";
 import {
+  formatAmountDisplay,
+  formatDateTime,
+  formatRate,
+  parseBatchCodeLabel,
+  parsePayeeNameLabel,
+} from "../utils/payroll/payrollFormatters";
+import {
   buildRuleMeta,
   decodeConfigDisplay,
   decodeRunDataDisplay,
@@ -49,26 +56,9 @@ import {
 import {
   usePayrollStagingManager,
   PayrollConfigActionKind,
+  ProcessPayrollFlowModal,
   type PayrollConfigActionPayload,
 } from "../components/PayrollStagingManager";
-
-function formatRate(rate: ethers.BigNumber) {
-  try {
-    return ethers.utils.formatEther(rate);
-  } catch {
-    return "0";
-  }
-}
-
-function formatAmountDisplay(value: string, maxDecimals = 4) {
-  const normalized = (value ?? "").trim();
-  if (!normalized) return "0";
-  if (!normalized.includes(".")) return normalized;
-
-  const [whole, fraction = ""] = normalized.split(".");
-  const trimmed = fraction.slice(0, maxDecimals).replace(/0+$/, "");
-  return trimmed ? `${whole}.${trimmed}` : whole;
-}
 
 enum PayeeStatus {
   Active = 0,
@@ -143,24 +133,6 @@ function payrollStatusLabel(status?: number) {
   return "None";
 }
 
-function templateCodeLabel(templateCode?: string) {
-  if (!templateCode || templateCode === ethers.constants.HashZero) {
-    return "Manual / Empty";
-  }
-  try {
-    return ethers.utils.parseBytes32String(templateCode);
-  } catch {
-    return `${templateCode.slice(0, 10)}…${templateCode.slice(-8)}`;
-  }
-}
-
-function parsePayeeNameLabel(value: string) {
-  try {
-    return ethers.utils.parseBytes32String(value);
-  } catch {
-    return value;
-  }
-}
 
 interface CurrentPayrollEarningsModalState {
   isOpen: boolean;
@@ -357,36 +329,6 @@ export function CurrentPayrollPage() {
     activeOrganizationEarningsCodes,
     modalCodeId,
   ]);
-
-  const processFlowSteps = useMemo(() => {
-    const status = payrollStatus ?? PayrollStatus.None;
-    return [
-      {
-        key: "draft",
-        label: "Payroll is in Draft state",
-        done: status >= PayrollStatus.Draft,
-        active: status < PayrollStatus.Draft,
-      },
-      {
-        key: "process",
-        label: "Process payroll chunks",
-        done: status >= PayrollStatus.Processed,
-        active: status === PayrollStatus.Draft || status === PayrollStatus.Processing,
-      },
-      {
-        key: "finalize",
-        label: "Finalize payroll chunks",
-        done: status >= PayrollStatus.Finalized,
-        active: status === PayrollStatus.Processed || status === PayrollStatus.Finalizing,
-      },
-      {
-        key: "complete",
-        label: "Payroll finalized",
-        done: status >= PayrollStatus.Finalized,
-        active: false,
-      },
-    ];
-  }, [payrollStatus]);
 
   const resetPayrollState = useCallback(() => {
     setCurrentPayrollId(null);
@@ -1007,10 +949,10 @@ export function CurrentPayrollPage() {
                     Status: {payrollStatus == null ? "N/A" : payrollStatusLabel(payrollStatus)}
                   </Text.Body>
                   <Text.Body color="muted" size="sm">
-                    Template: {templateCodeLabel(payrollTemplateCode)}
+                    Template: {parseBatchCodeLabel(payrollTemplateCode)}
                   </Text.Body>
                   <Text.Body color="muted" size="sm">
-                    Window: {payrollStartTime ? new Date(payrollStartTime * 1000).toLocaleDateString() : "-"} → {payrollEndTime ? new Date(payrollEndTime * 1000).toLocaleDateString() : "-"}
+                    Window: {payrollStartTime ? formatDateTime(payrollStartTime) : "-"} → {payrollEndTime ? formatDateTime(payrollEndTime) : "-"}
                   </Text.Body>
                   {stagedActions.length > 0 && (
                     <Text.Body color="warn" size="sm">
@@ -1402,70 +1344,16 @@ export function CurrentPayrollPage() {
           </Card>
         )}
 
-        <Modal
+        <ProcessPayrollFlowModal
           isOpen={isProcessFlowOpen}
-          onClose={() => {
-            if (isProcessingPayroll) return;
-            setIsProcessFlowOpen(false);
-          }}
-          title="Process Payroll Flow"
-          width={560}
-        >
-          <Stack gap="md">
-            <Text.Body size="sm" color="muted">
-              Payroll #{currentPayrollId ?? "-"} · {payrollStatusLabel(payrollStatus ?? 0)}
-            </Text.Body>
-
-            <Stack gap="xs">
-              {processFlowSteps.map((step) => (
-                <Row key={step.key} gap="sm" align="center">
-                  <Text.Body
-                    style={{ width: 20, display: "inline-flex", justifyContent: "center" }}
-                    color={step.done ? "success" : step.active ? "warn" : "muted"}
-                  >
-                    {step.done ? "✓" : step.active ? "•" : "○"}
-                  </Text.Body>
-                  <Text.Body color={step.done ? "main" : step.active ? "warn" : "muted"}>
-                    {step.label}
-                  </Text.Body>
-                </Row>
-              ))}
-            </Stack>
-
-            {processFlowError && (
-              <Text.Body size="sm" color="danger">
-                {processFlowError}
-              </Text.Body>
-            )}
-
-            {payrollStatus === PayrollStatus.Finalized ? (
-              <Text.Body size="sm" color="success">Payroll is already finalized.</Text.Body>
-            ) : payrollStatus === PayrollStatus.Cancelled ? (
-              <Text.Body size="sm" color="warn">Payroll is cancelled and cannot continue.</Text.Body>
-            ) : (
-              <Text.Body size="sm" color="muted">
-                If processing fails, click Continue again to resume from the last completed step.
-              </Text.Body>
-            )}
-
-            <Row justify="end" gap="sm">
-              <ButtonSecondary
-                style={{ flex: 0 }}
-                onClick={() => setIsProcessFlowOpen(false)}
-                disabled={isProcessingPayroll}
-              >
-                Close
-              </ButtonSecondary>
-              <ButtonPrimary
-                style={{ flex: 0 }}
-                onClick={handleProcessPayroll}
-                disabled={isProcessingPayroll || payrollStatus === PayrollStatus.Finalized || payrollStatus === PayrollStatus.Cancelled}
-              >
-                {isProcessingPayroll ? "Working..." : processFlowError ? "Continue" : "Continue"}
-              </ButtonPrimary>
-            </Row>
-          </Stack>
-        </Modal>
+          onClose={() => setIsProcessFlowOpen(false)}
+          onContinue={handleProcessPayroll}
+          isProcessing={isProcessingPayroll}
+          currentPayrollId={currentPayrollId}
+          payrollStatus={payrollStatus}
+          processFlowError={processFlowError}
+          payrollStatusLabel={payrollStatusLabel}
+        />
 
         <Modal
           isOpen={earningsModal.isOpen}

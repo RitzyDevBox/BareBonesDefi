@@ -5,3 +5,5 @@ export {
   type StagedPayrollAction,
   type PayrollStagingManager,
 } from "./PayrollStagingManager";
+
+export { ProcessPayrollFlowModal } from "./ProcessPayrollFlowModal";

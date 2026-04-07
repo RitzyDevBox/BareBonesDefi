@@ -75,6 +75,32 @@ export function parseBatchCodeLabel(value: string) {
   }
 }
 
+export function parsePayeeNameLabel(value: string) {
+  try {
+    return ethers.utils.parseBytes32String(value);
+  } catch {
+    return value;
+  }
+}
+
+export function formatRate(rate: ethers.BigNumber) {
+  try {
+    return ethers.utils.formatEther(rate);
+  } catch {
+    return "0";
+  }
+}
+
+export function formatAmountDisplay(value: string, maxDecimals = 4) {
+  const normalized = (value ?? "").trim();
+  if (!normalized) return "0";
+  if (!normalized.includes(".")) return normalized;
+
+  const [whole, fraction = ""] = normalized.split(".");
+  const trimmed = fraction.slice(0, maxDecimals).replace(/0+$/, "");
+  return trimmed ? `${whole}.${trimmed}` : whole;
+}
+
 export function formatDateTime(ts: number) {
   if (!Number.isFinite(ts) || ts <= 0) return "-";
   return new Date(ts * 1000).toLocaleString();
