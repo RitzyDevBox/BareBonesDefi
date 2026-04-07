@@ -72,11 +72,6 @@ export function usePayrollStagingManager(
 
   const hasStagedChanges = stagedActions.length > 0;
 
-  const stageAction = useCallback((label: string, payload: PayrollConfigActionPayload) => {
-    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    setStagedActions((prev) => [...prev, { id, label, payload }]);
-  }, []);
-
   const stagePayeeAddition = useCallback(
     (payeeId: ethers.BigNumberish, label?: string) => {
       const payeeIdRaw = payeeId.toString();
@@ -388,7 +383,6 @@ export function usePayrollStagingManager(
   return {
     // State
     stagedActions,
-    setStagedActions,
     isApplying,
     hasStagedChanges,
 
@@ -399,7 +393,6 @@ export function usePayrollStagingManager(
     stagedEarningUpserts,
 
     // Actions
-    stageAction,
     stagePayeeAddition,
     togglePayeeRemoval,
     toggleEarningRemoval,

@@ -2,15 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
 import { useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
-import { Card, CardContent, Input } from "../components/BasicComponents";
+import { Card, CardContent } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
-import { Modal } from "../components/Modal/Modal";
-import { Select, SelectOption } from "../components/Select";
-import { NumberInput } from "../components/Inputs/NumberInput";
-import { CopyButton } from "../components/Button/Actions/CopyButton";
-import { IconButton } from "../components/Button/IconButton";
 import { ERC20Mintable } from "../components/ERC20Mintable/ERC20Mintable";
 import { PayrollTreasuryFund } from "../components/PayrollTreasuryFund/PayrollTreasuryFund";
 import { useWalletProvider } from "../hooks/useWalletProvider";
@@ -20,7 +15,6 @@ import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { getBareBonesConfiguration } from "../constants/misc";
 import { PayrollStatus, payeeStatusLabel, payrollStatusLabel } from "../constants/payroll";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
-import { PayeesTable } from "../components/PayeesTable";
 import { Table } from "../components/Table";
 import type { OrganizationModel, PayeeModel } from "../models/payments";
 import { useProcessCurrentPayroll } from "../hooks/payroll/useProcessCurrentPayroll";
@@ -30,50 +24,24 @@ import {
   fetchPayrollPayeesWithRunData,
   fetchPayrollGrosses,
   type OrganizationEarningsCodeView,
-  type PayrollResolvedEarningView,
   type PayrollPayeeRunDataView,
   type PayrollGrossView,
 } from "../utils/payroll/fetchPayrollViews";
 import { shortAddress } from "../utils/formatUtils";
 import { PayrollNavigation } from "../components/PayrollNavigation";
-import { TrashBinIcon } from "../assets/icons/TrashBinIcon";
-import { EditableEarningsPanel } from "../components/PayrollEarningsManager";
 import {
   formatAmountDisplay,
   formatDateTime,
-  formatRate,
   parseBatchCodeLabel,
   parsePreviewPayrollChunk,
   parsePayrollRunRow,
   parsePayeeNameLabel,
 } from "../utils/payroll/payrollFormatters";
 import {
-  buildRuleMeta,
-  decodeConfigDisplay,
-} from "../utils/payroll/earningsDisplay";
-import {
-  formatEarningsCodeIdLabel,
-  formatEarningsCodeName,
-} from "../utils/payroll/earningsCodeDisplay";
-import {
-  usePayrollStagingManager,
+  PayrollEarningsStagingSection,
   ProcessPayrollFlowModal,
   type PayrollConfigActionPayload,
 } from "../components/PayrollStagingManager";
-
-enum CurrentPayrollEarningsMode {
-  View = "view",
-  Override = "override",
-  Additional = "additional",
-}
-
-
-interface CurrentPayrollEarningsModalState {
-  isOpen: boolean;
-  mode: CurrentPayrollEarningsMode;
-  payee: PayeeModel | null;
-  earning: PayrollResolvedEarningView | null;
-}
 
 export function CurrentPayrollPage() {
   const { organizationId, payrollId } = useParams<{ organizationId: string; payrollId?: string }>();
@@ -103,42 +71,15 @@ export function CurrentPayrollPage() {
   const [payrollTemplateCode, setPayrollTemplateCode] = useState<string>(ethers.constants.HashZero);
   const [payrollStartTime, setPayrollStartTime] = useState<number | null>(null);
   const [payrollEndTime, setPayrollEndTime] = useState<number | null>(null);
-  const [selectedManagePayeeId, setSelectedManagePayeeId] = useState<string>("");
   const [isProcessFlowOpen, setIsProcessFlowOpen] = useState(false);
   const [processFlowError, setProcessFlowError] = useState<string | null>(null);
-  const [earningsModal, setEarningsModal] = useState<CurrentPayrollEarningsModalState>({
-    isOpen: false,
-    mode: CurrentPayrollEarningsMode.View,
-    payee: null,
-    earning: null,
+  const [stagingMeta, setStagingMeta] = useState({
+    hasStagedChanges: false,
+    stagedCount: 0,
+    isApplying: false,
   });
-  const [modalCodeId, setModalCodeId] = useState("");
-  const [modalRate, setModalRate] = useState("0");
-  const [modalHourlyRunData, setModalHourlyRunData] = useState("40");
-  const [modalRawRunData, setModalRawRunData] = useState("0x");
 
   const { processCurrentPayroll } = useProcessCurrentPayroll();
-
-  const stagingManager = usePayrollStagingManager(async (actions) => {
-    if (!chainId || !slug || currentPayrollId == null) return false;
-    const tx = await configurePayroll(chainId, slug, currentPayrollId, actions);
-    return tx !== undefined;
-  });
-
-  const {
-    stagedActions,
-    isApplying: isApplyingStaged,
-    hasStagedChanges,
-    stagedPayeeRemovals,
-    stagedPayeeAdditions,
-    stagedEarningRemovals,
-    stagedEarningUpserts,
-    stagePayeeAddition,
-    togglePayeeRemoval,
-    toggleEarningRemoval,
-    stageOrReplaceEarningUpsert,
-    clearStaged,
-  } = stagingManager;
 
   const requestedPayrollId = useMemo(() => {
     const raw = (payrollId ?? "").trim();
@@ -185,18 +126,6 @@ export function CurrentPayrollPage() {
     [organizationEarningsCodes, config]
   );
 
-  const selectedModalCode = useMemo(
-    () => (modalCodeId ? earningsCodeById.get(modalCodeId) ?? null : null),
-    [modalCodeId, earningsCodeById]
-  );
-
-  const selectedModalRule =
-    selectedModalCode?.rule ?? earningsModal.earning?.rule ?? ethers.constants.AddressZero;
-  const selectedModalRuleMeta = useMemo(
-    () => buildRuleMeta(selectedModalRule, config),
-    [selectedModalRule, config]
-  );
-
   const isViewOnly = payrollStatus === PayrollStatus.Finalized || payrollStatus === PayrollStatus.Cancelled;
   const isPreviewDisabledByStatus = (payrollStatus ?? PayrollStatus.None) >= PayrollStatus.Processed;
   const payeeIdsInPayroll = useMemo(
@@ -204,67 +133,12 @@ export function CurrentPayrollPage() {
     [payrollPayeeRunData]
   );
 
-  const addablePayees = useMemo(
-    () => payees.filter((payee) => !payeeIdsInPayroll.has(payee.payeeId.toString())),
-    [payees, payeeIdsInPayroll]
-  );
-
-  const payrollPayees = useMemo(
-    () => payees.filter((payee) => payeeIdsInPayroll.has(payee.payeeId.toString())),
-    [payees, payeeIdsInPayroll]
-  );
-
   const payeeById = useMemo(
     () => new Map(payees.map((p) => [p.payeeId.toString(), p])),
     [payees]
   );
 
-  const effectiveDisplayPayees = useMemo(
-    () => [
-      ...payrollPayees,
-      ...addablePayees.filter((p) => stagedPayeeAdditions.has(p.payeeId.toString())),
-    ],
-    [payrollPayees, addablePayees, stagedPayeeAdditions]
-  );
-
-  const additionalModalCodes = useMemo(() => {
-    if (earningsModal.mode !== CurrentPayrollEarningsMode.Additional || !earningsModal.payee) {
-      return [] as OrganizationEarningsCodeView[];
-    }
-
-    const payeeId = earningsModal.payee.payeeId.toString();
-    const takenCodeIds = new Set<string>();
-
-    for (const earning of payrollRunByPayeeId.get(payeeId)?.earnings ?? []) {
-      takenCodeIds.add(earning.earningsCodeId.toString());
-    }
-
-    for (const codeId of stagedEarningUpserts.get(payeeId)?.keys() ?? []) {
-      takenCodeIds.add(codeId);
-    }
-
-    const filtered = activeOrganizationEarningsCodes.filter(
-      (row) => !takenCodeIds.has(row.earningsCodeId.toString())
-    );
-
-    if (modalCodeId) {
-      const selected = activeOrganizationEarningsCodes.find(
-        (row) => row.earningsCodeId.toString() === modalCodeId
-      );
-      if (selected && !filtered.some((row) => row.earningsCodeId.eq(selected.earningsCodeId))) {
-        return [selected, ...filtered];
-      }
-    }
-
-    return filtered;
-  }, [
-    earningsModal.mode,
-    earningsModal.payee,
-    payrollRunByPayeeId,
-    stagedEarningUpserts,
-    activeOrganizationEarningsCodes,
-    modalCodeId,
-  ]);
+  const { hasStagedChanges, stagedCount, isApplying: isApplyingStaged } = stagingMeta;
 
   const resetPayrollState = useCallback(() => {
     setCurrentPayrollId(null);
@@ -323,14 +197,6 @@ export function CurrentPayrollPage() {
     if (!slug) return;
     fetchOrgInfo(slug);
   }, [slug, version, provider, payrollManagerAddress, account, requestedPayrollId]);
-
-  useEffect(() => {
-    if (selectedManagePayeeId && addablePayees.some((row) => row.payeeId.toString() === selectedManagePayeeId)) {
-      return;
-    }
-    const first = addablePayees[0]?.payeeId?.toString() ?? "";
-    setSelectedManagePayeeId(first);
-  }, [selectedManagePayeeId, addablePayees]);
 
   async function fetchOrgInfo(orgSlug: string) {
     if (!provider || !payrollManagerAddress) return;
@@ -535,178 +401,6 @@ export function CurrentPayrollPage() {
     }
   }
 
-  async function handleAddPayeeToPayroll() {
-    if (!slug || currentPayrollId == null || !selectedManagePayeeId) return;
-
-    // Guard: already on payroll or already staged for addition
-    if (payeeIdsInPayroll.has(selectedManagePayeeId) || stagedPayeeAdditions.has(selectedManagePayeeId)) return;
-
-    stagePayeeAddition(selectedManagePayeeId, `Add payee #${selectedManagePayeeId} to payroll roster`);
-  }
-
-  async function handleRemovePayeeFromPayroll(payeeIdRaw: string) {
-    if (!slug || currentPayrollId == null || !payeeIdRaw) return;
-
-    togglePayeeRemoval(payeeIdRaw, `Remove payee #${payeeIdRaw} from payroll roster`);
-  }
-
-  function handleStageRemoveEarning(payeeIdRaw: string, earningsCodeIdRaw: string) {
-    if (!payeeIdRaw || !earningsCodeIdRaw) return;
-
-    toggleEarningRemoval(
-      payeeIdRaw,
-      earningsCodeIdRaw,
-      `Remove earning code ${formatEarningsCodeIdLabel(earningsCodeIdRaw)} for payee #${payeeIdRaw}`
-    );
-  }
-
-  async function handleApplyStagedChanges() {
-    if (!isApplyingStaged) {
-      const success = await stagingManager.applyStagedChanges();
-      if (success) {
-        setPreviewGrossByPayeeId({});
-        setPreviewTotalGross(null);
-      }
-    }
-  }
-
-  useEffect(() => {
-    if (!earningsModal.isOpen) return;
-
-    const earning = earningsModal.earning;
-    if (earning) {
-      setModalCodeId(earning.earningsCodeId.toString());
-      setModalRate(formatRate(earning.rate));
-      setModalRawRunData(earning.runData || "0x");
-
-      try {
-        const ruleMeta = buildRuleMeta(earning.rule, config);
-        if (ruleMeta.kind === "hourly" && earning.runData && earning.runData !== "0x") {
-          const decoded = ethers.utils.defaultAbiCoder.decode(["uint32"], earning.runData);
-          setModalHourlyRunData(String(Number((decoded?.[0] as ethers.BigNumber).toString())));
-        } else {
-          setModalHourlyRunData("40");
-        }
-      } catch {
-        setModalHourlyRunData("40");
-      }
-      return;
-    }
-
-    const firstCode = activeOrganizationEarningsCodes[0]?.earningsCodeId?.toString() ?? "";
-    setModalCodeId(firstCode);
-    setModalRate("0");
-    setModalRawRunData("0x");
-    setModalHourlyRunData("40");
-  }, [earningsModal, activeOrganizationEarningsCodes, config]);
-
-  function openEarningsModal(
-    mode: CurrentPayrollEarningsMode,
-    payee: PayeeModel,
-    earning: PayrollResolvedEarningView | null = null
-  ) {
-    setEarningsModal({
-      isOpen: true,
-      mode,
-      payee,
-      earning,
-    });
-  }
-
-  function closeEarningsModal() {
-    setEarningsModal({
-      isOpen: false,
-      mode: CurrentPayrollEarningsMode.View,
-      payee: null,
-      earning: null,
-    });
-  }
-
-  function openEditStagedAdditional(
-    payee: PayeeModel,
-    codeId: string,
-    staged: { rate: ethers.BigNumberish; runData: string }
-  ) {
-    setEarningsModal({
-      isOpen: true,
-      mode: CurrentPayrollEarningsMode.Additional,
-      payee,
-      earning: null,
-    });
-
-    setModalCodeId(codeId);
-    try {
-      setModalRate(ethers.utils.formatEther(staged.rate));
-    } catch {
-      setModalRate("0");
-    }
-
-    setModalRawRunData(staged.runData || "0x");
-
-    try {
-      const code = earningsCodeById.get(codeId);
-      const ruleMeta = buildRuleMeta(code?.rule ?? ethers.constants.AddressZero, config);
-      if (ruleMeta.kind === "hourly" && staged.runData && staged.runData !== "0x") {
-        const decoded = ethers.utils.defaultAbiCoder.decode(["uint32"], staged.runData);
-        setModalHourlyRunData(String(Number((decoded?.[0] as ethers.BigNumber).toString())));
-      } else {
-        setModalHourlyRunData("40");
-      }
-    } catch {
-      setModalHourlyRunData("40");
-    }
-  }
-
-  function resolveModalRunData() {
-    if (selectedModalRuleMeta.kind === "hourly") {
-      return ethers.utils.defaultAbiCoder.encode(["uint32"], [Math.max(0, Math.floor(Number(modalHourlyRunData) || 0))]);
-    }
-
-    if (selectedModalRuleMeta.kind === "custom") {
-      return modalRawRunData?.trim() || "0x";
-    }
-
-    return "0x";
-  }
-
-  async function handleSubmitCurrentPayrollEarning() {
-    if (!chainId || currentPayrollId == null || !earningsModal.payee || !slug || isViewOnly) return;
-
-    const payeeId = earningsModal.payee.payeeId.toString();
-    if (stagedPayeeRemovals.has(payeeId)) return;
-
-    const runData = resolveModalRunData();
-
-    if (earningsModal.mode === CurrentPayrollEarningsMode.Override) {
-      const codeId = earningsModal.earning?.earningsCodeId.toString() ?? modalCodeId;
-      if (!codeId) return;
-
-      stageOrReplaceEarningUpsert(
-        payeeId,
-        codeId,
-        ethers.utils.parseEther(modalRate || "0"),
-        runData,
-        `Upsert earning code ${formatEarningsCodeIdLabel(codeId)} for payee #${payeeId}`
-      );
-      closeEarningsModal();
-      return;
-    }
-
-    if (earningsModal.mode === CurrentPayrollEarningsMode.Additional) {
-      if (!selectedModalCode) return;
-
-      const selectedCodeId = selectedModalCode.earningsCodeId.toString();
-      stageOrReplaceEarningUpsert(
-        payeeId,
-        selectedCodeId,
-        ethers.utils.parseEther(modalRate || "0"),
-        runData,
-        `Add/Upsert earning code ${formatEarningsCodeIdLabel(selectedModalCode.earningsCodeId)} for payee #${payeeId}`
-      );
-      closeEarningsModal();
-    }
-  }
-
   return (
     <PageContainer center maxWidth={1440}>
       <Stack gap="lg" style={{ width: "100%" }}>
@@ -764,9 +458,9 @@ export function CurrentPayrollPage() {
                   <Text.Body color="muted" size="sm">
                     Window: {payrollStartTime ? formatDateTime(payrollStartTime) : "-"} → {payrollEndTime ? formatDateTime(payrollEndTime) : "-"}
                   </Text.Body>
-                  {stagedActions.length > 0 && (
+                  {stagedCount > 0 && (
                     <Text.Body color="warn" size="sm">
-                      Staged edits: {stagedActions.length} pending
+                      Staged edits: {stagedCount} pending
                     </Text.Body>
                   )}
                   {hasStagedChanges && (
@@ -845,172 +539,59 @@ export function CurrentPayrollPage() {
                     )}
                   </Stack>
                 ) : (
-                  <PayeesTable
-                    payees={effectiveDisplayPayees}
+                  <PayrollEarningsStagingSection
+                    payees={payees}
+                    baseIncludedPayeeIds={payeeIdsInPayroll}
+                    canEdit={isAdmin && !isViewOnly && currentPayrollId != null}
                     searchEnabled={true}
                     extraColumns={[
-                      ...(showResolvedCodesColumn
-                        ? [{ key: "resolvedCodes", header: "Codes" }]
-                        : []),
+                      ...(showResolvedCodesColumn ? [{ key: "resolvedCodes", header: "Codes" }] : []),
                       { key: "payeeStatus", header: "Status" },
                       { key: "previewGross", header: "Preview Gross" },
-                      ...(isAdmin && !isViewOnly
-                        ? [
-                            {
-                              key: "removeAction",
-                              header: "",
-                              allowOverflow: true,
-                              render: (payeeIdStr: string) => {
-                                const isStagedRemoval = stagedPayeeRemovals.has(payeeIdStr);
-                                const isStagedAdd = stagedPayeeAdditions.has(payeeIdStr);
-                                return (
-                                  <IconButton
-                                    size="xl"
-                                    iconFontSize="xl"
-                                    shape="square"
-                                    aria-label={isStagedRemoval ? "Undo" : isStagedAdd ? "Undo" : "Delete"}
-                                    title={isStagedRemoval ? "Undo" : isStagedAdd ? "Undo" : "Delete"}
-                                    onClick={(e: React.MouseEvent) => {
-                                      e.stopPropagation();
-                                      handleRemovePayeeFromPayroll(payeeIdStr);
-                                    }}
-                                    style={{
-                                      color: isStagedRemoval
-                                        ? "var(--colors-warn)"
-                                        : isStagedAdd
-                                        ? "var(--colors-success)"
-                                        : "var(--colors-error)",
-                                    }}
-                                  >
-                                    <TrashBinIcon size={20} />
-                                  </IconButton>
-                                );
-                              },
-                            },
-                          ]
-                        : []),
                     ]}
                     getExtraCells={(payee) => {
                       const payeeId = payee.payeeId.toString();
                       const row = payrollRunByPayeeId.get(payeeId);
                       return {
-                        ...(isAdmin && !isViewOnly ? { removeAction: payeeId } : {}),
                         resolvedCodes: row?.earnings.length ?? 0,
                         previewGross: previewGrossByPayeeId[payeeId] ?? "-",
                         payeeStatus: payeeStatusLabel(row?.payeeStatus ?? payee.status),
                       };
                     }}
-                    getRowStyle={(payee) => {
-                      const pid = payee.payeeId.toString();
-                      if (stagedPayeeRemovals.has(pid)) {
-                        return { background: "rgba(220,53,69,0.08)", opacity: 0.75 };
-                      }
-                      if (stagedPayeeAdditions.has(pid)) {
-                        return { background: "rgba(25,135,84,0.08)" };
-                      }
-                      return {};
-                    }}
-                    renderExpandedRow={(payee) => {
-                      const payeeId = payee.payeeId.toString();
-                      const payeeRunData = payrollRunByPayeeId.get(payeeId);
-                      const isStagedAdd = stagedPayeeAdditions.has(payeeId);
-                      const isStagedPayeeRemoval = stagedPayeeRemovals.has(payeeId);
-                      const payeeUpserts = stagedEarningUpserts.get(payeeId) ?? new Map<string, { rate: ethers.BigNumberish; runData: string }>();
-                      const payeeRemovals = stagedEarningRemovals.get(payeeId) ?? new Set<string>();
-                      const visibleOnChainEarnings = (payeeRunData?.earnings ?? []).filter((earning) => {
+                    formatAddPayeeLabel={(payee) =>
+                      `#${payee.payeeId.toString()} · ${parsePayeeNameLabel(payee.role)} · ${shortAddress(payee.paymentAddress)}`
+                    }
+                    addPayeeButtonLabel="+ Add Payee"
+                    addableEmptyMessage="All organization payees are already in this payroll."
+                    addSectionMaxWidth={560}
+                    addSelectMinWidth={showResolvedCodesColumn ? 320 : 220}
+                    addSelectCompact={true}
+                    disableAddPayee={isApplyingStaged}
+                    panelTitle="Payroll Resolved Earnings"
+                    panelAddLabel="+ Add Additional"
+                    getOnChainEarnings={(payee) => {
+                      const payeeRunData = payrollRunByPayeeId.get(payee.payeeId.toString());
+                      return (payeeRunData?.earnings ?? []).filter((earning) => {
                         if (!config?.weeklyScheduleRuleAddress) return true;
                         return earning.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
                       });
-                      const onChainItems = visibleOnChainEarnings.map((earning) => ({
-                        codeId: earning.earningsCodeId.toString(),
-                        name: earning.name,
-                        rule: earning.rule,
-                        rate: earning.rate,
-                        config: earning.config,
-                        runData: earning.runData,
-                        source: earning.source,
-                        original: earning,
-                      }));
-
-                      return (
-                        <EditableEarningsPanel
-                          title="Payroll Resolved Earnings"
-                          addLabel="+ Add Additional"
-                          canEdit={isAdmin && !isViewOnly && currentPayrollId !== null}
-                          isStagedAdd={isStagedAdd}
-                          isStagedPayeeRemoval={isStagedPayeeRemoval}
-                          onChainEarnings={onChainItems}
-                          stagedUpserts={payeeUpserts}
-                          stagedRemovals={payeeRemovals}
-                          earningsCodeById={earningsCodeById}
-                          config={config}
-                          onAdd={() => openEarningsModal(CurrentPayrollEarningsMode.Additional, payee, null)}
-                          onEdit={(item, staged) => {
-                            if (item.original) {
-                              openEarningsModal(
-                                CurrentPayrollEarningsMode.Override,
-                                payee,
-                                item.original as PayrollResolvedEarningView
-                              );
-                              return;
-                            }
-                            openEditStagedAdditional(payee, item.codeId, staged);
-                          }}
-                          onToggleRemove={(codeId) => handleStageRemoveEarning(payeeId, codeId)}
-                        />
-                      );
                     }}
+                    earningsCodeById={earningsCodeById}
+                    activeEarningsCodes={activeOrganizationEarningsCodes}
+                    config={config}
+                    onSave={async (actions) => {
+                      if (!chainId || !slug || currentPayrollId == null) return false;
+                      const tx = await configurePayroll(chainId, slug, currentPayrollId, actions);
+                      return tx !== undefined;
+                    }}
+                    onAfterApply={async () => {
+                      setPreviewGrossByPayeeId({});
+                      setPreviewTotalGross(null);
+                      await fetchOrgInfo(slug);
+                    }}
+                    onStagingMetaChange={setStagingMeta}
+                    disableApply={isApplyingStaged}
                   />
-                )}
-                {isAdmin && !isViewOnly && currentPayrollId != null && (
-                  <Stack gap="xs" style={{ maxWidth: 560 }}>
-                    <Row gap="sm" align="center" wrap>
-                      <div style={{ flex: 1, minWidth: showResolvedCodesColumn ? 320 : 220 }}>
-                        <Select<string>
-                          value={selectedManagePayeeId || null}
-                          onChange={(v) => setSelectedManagePayeeId(String(v ?? ""))}
-                          disabled={addablePayees.length === 0 || isApplyingStaged}
-                          compact
-                        >
-                          {addablePayees.map((payee) => (
-                            <SelectOption
-                              key={payee.payeeId.toString()}
-                              value={payee.payeeId.toString()}
-                              label={`#${payee.payeeId.toString()} · ${parsePayeeNameLabel(payee.role)} · ${shortAddress(payee.paymentAddress)}`}
-                            />
-                          ))}
-                        </Select>
-                      </div>
-                      <ButtonSecondary
-                        style={{ flex: 0 }}
-                        onClick={handleAddPayeeToPayroll}
-                        disabled={!selectedManagePayeeId || isApplyingStaged || addablePayees.length === 0}
-                      >
-                        + Add Payee
-                      </ButtonSecondary>
-                    </Row>
-                    {addablePayees.length === 0 && (
-                      <Text.Body size="sm" color="muted">All organization payees are already in this payroll.</Text.Body>
-                    )}
-                  </Stack>
-                )}
-                {isAdmin && !isViewOnly && currentPayrollId != null && stagedActions.length > 0 && (
-                  <Row gap="sm" justify="end">
-                    <ButtonSecondary
-                      style={{ flex: 0 }}
-                      onClick={() => clearStaged()}
-                      disabled={isApplyingStaged}
-                    >
-                      Clear
-                    </ButtonSecondary>
-                    <ButtonPrimary
-                      style={{ flex: 0 }}
-                      onClick={handleApplyStagedChanges}
-                      disabled={isApplyingStaged}
-                    >
-                      {isApplyingStaged ? "Applying..." : "Apply"}
-                    </ButtonPrimary>
-                  </Row>
                 )}
               </Stack>
             </CardContent>
@@ -1028,117 +609,6 @@ export function CurrentPayrollPage() {
           payrollStatusLabel={payrollStatusLabel}
         />
 
-        <Modal
-          isOpen={earningsModal.isOpen}
-          onClose={closeEarningsModal}
-          title={
-            earningsModal.mode === CurrentPayrollEarningsMode.Override
-              ? "Override Earnings"
-              : earningsModal.mode === CurrentPayrollEarningsMode.Additional
-              ? "Add Additional Earnings"
-              : "Earnings"
-          }
-          width={620}
-        >
-          <Stack gap="md">
-            <Text.Body color="muted" size="sm">
-              Payee: #{earningsModal.payee?.payeeId?.toString() ?? "-"} · {shortAddress(earningsModal.payee?.paymentAddress ?? ethers.constants.AddressZero)}
-            </Text.Body>
-
-            <Stack>
-              <Text.Body size="sm" color="muted">Earnings Code</Text.Body>
-              <Select<string>
-                value={modalCodeId || null}
-                onChange={(v) => setModalCodeId(String(v ?? ""))}
-                disabled={earningsModal.mode !== CurrentPayrollEarningsMode.Additional || isViewOnly}
-              >
-                {(earningsModal.mode === CurrentPayrollEarningsMode.Additional
-                  ? additionalModalCodes
-                  : earningsModal.earning
-                  ? [{
-                      earningsCodeId: earningsModal.earning.earningsCodeId,
-                      isActive: true,
-                      name: earningsModal.earning.name ?? "",
-                      rule: earningsModal.earning.rule,
-                      config: earningsModal.earning.config,
-                    }]
-                  : []
-                ).map((code) => (
-                  <SelectOption
-                    key={code.earningsCodeId.toString()}
-                    value={code.earningsCodeId.toString()}
-                    label={`${formatEarningsCodeIdLabel(code.earningsCodeId)} · ${formatEarningsCodeName(code.name)} · ${buildRuleMeta(code.rule, config).name}`}
-                  />
-                ))}
-              </Select>
-            </Stack>
-
-            <Row justify="between" align="center" wrap>
-              <Text.Body size="sm" color="muted">
-                Rule: {selectedModalRuleMeta.name}
-              </Text.Body>
-              <Row gap="sm" align="center">
-                <Text.Body size="sm" color="muted">{shortAddress(selectedModalRule)}</Text.Body>
-                <CopyButton value={selectedModalRule} ariaLabel="Copy rule address" />
-              </Row>
-            </Row>
-
-            {selectedModalRuleMeta.configRequired && selectedModalCode && (
-              <Text.Body size="sm" color="muted">
-                Config: {decodeConfigDisplay(selectedModalCode.config, selectedModalCode.rule, config)}
-              </Text.Body>
-            )}
-
-            <Stack>
-              <Text.Body size="sm" color="muted">Rate</Text.Body>
-              <Input
-                value={modalRate}
-                onChange={(e) => setModalRate(e.target.value)}
-                placeholder="e.g. 20"
-                disabled={isViewOnly}
-              />
-            </Stack>
-
-            {selectedModalRuleMeta.kind === "hourly" && (
-              <Stack>
-                <Text.Body size="sm" color="muted">Hours Worked (runData)</Text.Body>
-                <NumberInput
-                  value={modalHourlyRunData}
-                  onChange={(e) => setModalHourlyRunData((e.target as HTMLInputElement).value)}
-                  allowDecimal={false}
-                  disabled={isViewOnly}
-                />
-              </Stack>
-            )}
-
-            {selectedModalRuleMeta.kind === "custom" && (
-              <Stack>
-                <Text.Body size="sm" color="muted">Run Data (raw hex)</Text.Body>
-                <Input
-                  value={modalRawRunData}
-                  onChange={(e) => setModalRawRunData(e.target.value)}
-                  placeholder="0x"
-                  disabled={isViewOnly}
-                />
-              </Stack>
-            )}
-
-            <Row justify="end" gap="sm">
-              <ButtonSecondary style={{ flex: 0 }} onClick={closeEarningsModal}>
-                Close
-              </ButtonSecondary>
-              {isAdmin && !isViewOnly && earningsModal.mode !== CurrentPayrollEarningsMode.View && (
-                <ButtonPrimary
-                  style={{ flex: 0 }}
-                  onClick={handleSubmitCurrentPayrollEarning}
-                  disabled={earningsModal.mode === CurrentPayrollEarningsMode.Additional && !selectedModalCode}
-                >
-                  Stage Change
-                </ButtonPrimary>
-              )}
-            </Row>
-          </Stack>
-        </Modal>
       </Stack>
     </PageContainer>
   );

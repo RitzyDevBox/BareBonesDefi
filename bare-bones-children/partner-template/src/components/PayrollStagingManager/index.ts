@@ -7,3 +7,6 @@ export {
 } from "./PayrollStagingManager";
 
 export { ProcessPayrollFlowModal } from "./ProcessPayrollFlowModal";
+export { EditablePayrollTable } from "./EditablePayrollTable";
+export { PayrollEarningsStagingSection } from "./PayrollEarningsStagingSection";
+export type { StagingEarningSourceRow } from "./PayrollEarningsStagingSection";

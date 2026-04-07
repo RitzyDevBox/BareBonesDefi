@@ -5,40 +5,29 @@ import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent, Input } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
-import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
-import { Modal } from "../components/Modal/Modal";
-import { IconButton } from "../components/Button/IconButton";
+import { ButtonSecondary } from "../components/Button/ButtonPrimary";
 
 import { Select, SelectOption } from "../components/Select";
-import { NumberInput } from "../components/Inputs/NumberInput";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import type { OrganizationModel, PayeeModel } from "../models/payments";
-import { PayeesTable } from "../components/PayeesTable";
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";
 import {
   fetchOrganizationEarningsCodes,
   type OrganizationEarningsCodeView,
   type PayeeDefaultsView,
 } from "../utils/payroll/fetchPayrollViews";
-import {
-  formatEarningsCodeIdLabel,
-  formatEarningsCodeName,
-} from "../utils/payroll/earningsCodeDisplay";
-import { TrashBinIcon } from "../assets/icons/TrashBinIcon";
 import { fetchPayBatchCodes, fetchPayBatchPayeesWithDefaults } from "../utils/payroll/fetchPayBatchViews";
-import { buildRuleMeta } from "../utils/payroll/earningsDisplay";
 import { PayrollNavigation } from "../components/PayrollNavigation";
-import { EditableEarningsPanel } from "../components/PayrollEarningsManager";
 import {
   parseBatchCodeLabel,
   parsePayeeNameLabel,
 } from "../utils/payroll/payrollFormatters";
 import {
-  usePayrollStagingManager,
+  PayrollEarningsStagingSection,
   PayrollConfigActionKind,
   type PayrollConfigActionPayload,
 } from "../components/PayrollStagingManager";
@@ -53,12 +42,6 @@ function formatBatchCodeInput(input: string) {
     return trimmed;
   }
   return ethers.utils.formatBytes32String(trimmed);
-}
-
-interface BatchEarningModalState {
-  isOpen: boolean;
-  payee: PayeeModel | null;
-  lockedCodeId: string | null;
 }
 
 export function PayBatchesPage() {
@@ -78,17 +61,6 @@ export function PayBatchesPage() {
   const [payees, setPayees] = useState<PayeeModel[]>([]);
   const [earningsCodes, setEarningsCodes] = useState<OrganizationEarningsCodeView[]>([]);
   const [batchRows, setBatchRows] = useState<PayeeDefaultsView[]>([]);
-
-  const [selectedPayeeId, setSelectedPayeeId] = useState("");
-  const [earningModal, setEarningModal] = useState<BatchEarningModalState>({
-    isOpen: false,
-    payee: null,
-    lockedCodeId: null,
-  });
-  const [modalCodeId, setModalCodeId] = useState("");
-  const [modalRate, setModalRate] = useState("0");
-  const [modalHourlyRunData, setModalHourlyRunData] = useState("40");
-  const [modalRawRunData, setModalRawRunData] = useState("0x");
 
   const config = useMemo(() => {
     if (!chainId) return null;
@@ -121,11 +93,6 @@ export function PayBatchesPage() {
   const batchRowByPayeeId = useMemo(
     () => new Map(batchRows.map((row) => [row.payeeId.toString(), row] as const)),
     [batchRows]
-  );
-
-  const payeeById = useMemo(
-    () => new Map(payees.map((p) => [p.payeeId.toString(), p] as const)),
-    [payees]
   );
 
   function normalizeConfigureActions(actions: PayrollConfigActionPayload[]): PayrollConfigActionPayload[] {
@@ -236,114 +203,6 @@ export function PayBatchesPage() {
     return normalized;
   }
 
-  const selectedModalCode = useMemo(
-    () => (modalCodeId ? earningsCodeById.get(modalCodeId) ?? null : null),
-    [modalCodeId, earningsCodeById]
-  );
-
-  const selectedModalRule = selectedModalCode?.rule ?? ethers.constants.AddressZero;
-  const selectedModalRuleMeta = useMemo(
-    () => buildRuleMeta(selectedModalRule, config),
-    [selectedModalRule, config]
-  );
-
-  const availableModalCodes = useMemo(() => {
-    if (!earningModal.payee) return [] as OrganizationEarningsCodeView[];
-
-    const payeeId = earningModal.payee.payeeId.toString();
-    if (earningModal.lockedCodeId) {
-      const selected = activeEarningsCodes.find((c) => c.earningsCodeId.toString() === earningModal.lockedCodeId);
-      return selected ? [selected] : [];
-    }
-
-    const taken = new Set<string>();
-    for (const earning of batchRowByPayeeId.get(payeeId)?.earnings ?? []) {
-      taken.add(earning.earningsCodeId.toString());
-    }
-    const filtered = activeEarningsCodes.filter((c) => !taken.has(c.earningsCodeId.toString()));
-    if (modalCodeId) {
-      const selected = activeEarningsCodes.find((c) => c.earningsCodeId.toString() === modalCodeId);
-      if (selected && !filtered.some((c) => c.earningsCodeId.eq(selected.earningsCodeId))) {
-        return [selected, ...filtered];
-      }
-    }
-    return filtered;
-  }, [earningModal, activeEarningsCodes, batchRowByPayeeId, modalCodeId]);
-
-  function resolveModalRunData() {
-    if (selectedModalRuleMeta.kind === "hourly") {
-      return ethers.utils.defaultAbiCoder.encode(["uint32"], [Math.max(0, Math.floor(Number(modalHourlyRunData) || 0))]);
-    }
-    if (selectedModalRuleMeta.kind === "custom") {
-      return modalRawRunData?.trim() || "0x";
-    }
-    return "0x";
-  }
-
-  function openAddEarningModal(payeeId: string) {
-    const payee = payeeById.get(payeeId) ?? null;
-    if (!payee) return;
-
-    const taken = new Set<string>();
-    for (const earning of batchRowByPayeeId.get(payeeId)?.earnings ?? []) {
-      taken.add(earning.earningsCodeId.toString());
-    }
-    const firstAvailable = activeEarningsCodes.find((c) => !taken.has(c.earningsCodeId.toString()));
-    setEarningModal({ isOpen: true, payee, lockedCodeId: null });
-    setModalCodeId(firstAvailable?.earningsCodeId.toString() ?? "");
-    setModalRate("0");
-    setModalRawRunData("0x");
-    setModalHourlyRunData("40");
-  }
-
-  function openEditEarningModal(payeeId: string, codeId: string, rate: ethers.BigNumberish, runData: string) {
-    const payee = payeeById.get(payeeId) ?? null;
-    if (!payee) return;
-
-    setEarningModal({ isOpen: true, payee, lockedCodeId: codeId });
-    setModalCodeId(codeId);
-    try {
-      setModalRate(ethers.utils.formatEther(rate));
-    } catch {
-      setModalRate("0");
-    }
-    setModalRawRunData(runData || "0x");
-
-    try {
-      const code = earningsCodeById.get(codeId);
-      const meta = buildRuleMeta(code?.rule ?? ethers.constants.AddressZero, config);
-      if (meta.kind === "hourly" && runData && runData !== "0x") {
-        const decoded = ethers.utils.defaultAbiCoder.decode(["uint32"], runData);
-        setModalHourlyRunData(String(Number((decoded?.[0] as ethers.BigNumber).toString())));
-      } else {
-        setModalHourlyRunData("40");
-      }
-    } catch {
-      setModalHourlyRunData("40");
-    }
-  }
-
-  function closeEarningModal() {
-    setEarningModal({ isOpen: false, payee: null, lockedCodeId: null });
-  }
-
-  function stageEarningFromModal() {
-    if (!earningModal.payee || !modalCodeId) return;
-
-    const payeeId = earningModal.payee.payeeId.toString();
-    if (stagedPayeeRemovals.has(payeeId)) return;
-
-    const runData = resolveModalRunData();
-    stageOrReplaceEarningUpsert(
-      payeeId,
-      modalCodeId,
-      ethers.utils.parseEther(modalRate || "0"),
-      runData,
-      `Upsert earning code ${formatEarningsCodeIdLabel(modalCodeId)} for payee #${payeeId}`
-    );
-
-    closeEarningModal();
-  }
 
   async function refreshData(orgSlug: string, nextBatchCode?: string | null) {
     if (!provider || !payrollManagerAddress) return;
@@ -480,76 +339,6 @@ export function PayBatchesPage() {
       `Configured ${actions.length} staged action(s) for ${parseBatchCodeLabel(payBatchCode)}`
   );
 
-  const stagingManager = usePayrollStagingManager(async (actions) => {
-    if (!chainId || !slug || !selectedBatchCode) return false;
-    const tx = await configurePayBatch(chainId, slug, selectedBatchCode, actions);
-    return tx !== undefined;
-  });
-
-  const {
-    stagedActions,
-    isApplying: isApplyingStaged,
-    hasStagedChanges,
-    stagedPayeeRemovals,
-    stagedPayeeAdditions,
-    stagedEarningRemovals,
-    stagedEarningUpserts,
-    stagePayeeAddition,
-    togglePayeeRemoval,
-    toggleEarningRemoval,
-    stageOrReplaceEarningUpsert,
-    clearStaged,
-  } = stagingManager;
-
-  const stagedAddedPayeeIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const action of stagedActions) {
-      const payeeId = action.payload.payeeId.toString();
-      if (action.payload.action === PayrollConfigActionKind.Upsert) {
-        ids.add(payeeId);
-      }
-      if (action.payload.action === PayrollConfigActionKind.Remove && action.payload.earningsCodeIds.length === 0) {
-        ids.delete(payeeId);
-      }
-    }
-    return ids;
-  }, [stagedActions]);
-
-  const effectiveBatchPayees = useMemo(() => {
-    const ids = new Set<string>(batchPayeeIds);
-    for (const id of stagedAddedPayeeIds.values()) {
-      ids.add(id);
-    }
-    return payees.filter((payee) => ids.has(payee.payeeId.toString()));
-  }, [payees, batchPayeeIds, stagedAddedPayeeIds]);
-
-  const addablePayees = useMemo(
-    () => payees.filter((p) => !batchPayeeIds.has(p.payeeId.toString()) && !stagedAddedPayeeIds.has(p.payeeId.toString())),
-    [payees, batchPayeeIds, stagedAddedPayeeIds]
-  );
-
-  function stageAddPayeeToBatch(payeeIdRaw: string) {
-    if (!payeeIdRaw) return;
-
-    stagePayeeAddition(payeeIdRaw, `Add payee #${payeeIdRaw} to pay batch`);
-  }
-
-  function stageRemovePayeeFromBatch(payeeIdRaw: string) {
-    if (!payeeIdRaw) return;
-
-    togglePayeeRemoval(payeeIdRaw, `Remove payee #${payeeIdRaw} from pay batch`);
-  }
-
-  function stageRemoveEarningFromBatch(payeeIdRaw: string, earningsCodeIdRaw: string) {
-    if (!payeeIdRaw || !earningsCodeIdRaw) return;
-
-    toggleEarningRemoval(
-      payeeIdRaw,
-      earningsCodeIdRaw,
-      `Remove earning code ${formatEarningsCodeIdLabel(earningsCodeIdRaw)} for payee #${payeeIdRaw}`
-    );
-  }
-
   async function handleCreatePayBatch() {
     if (!chainId || !slug || !newBatchCode.trim()) return;
     await createPayBatch(chainId, slug, newBatchCode.trim());
@@ -557,14 +346,6 @@ export function PayBatchesPage() {
     const nextCode = formatBatchCodeInput(newBatchCode.trim());
     setNewBatchCode("");
     await refreshData(slug, nextCode);
-  }
-
-  async function handleBatchConfigure() {
-    if (!hasStagedChanges || isApplyingStaged || !selectedBatchCode || !slug) return;
-    const success = await stagingManager.applyStagedChanges();
-    if (success) {
-      await refreshData(slug, selectedBatchCode);
-    }
   }
 
   return (
@@ -639,229 +420,40 @@ export function PayBatchesPage() {
           <Card style={{ width: "100%" }}>
             <CardContent>
               <Stack gap="md">
-                <PayeesTable
-                  payees={effectiveBatchPayees}
+                <PayrollEarningsStagingSection
+                  payees={payees}
+                  baseIncludedPayeeIds={batchPayeeIds}
+                  canEdit={isAdmin}
                   searchEnabled={true}
-                  extraColumns={[
-                    ...(isAdmin
-                      ? [
-                          {
-                            key: "removeAction",
-                            header: "",
-                            allowOverflow: true,
-                            render: (payeeIdStr: string) => {
-                              const isStagedRemoval = stagedPayeeRemovals.has(payeeIdStr);
-                              const isStagedAdd = stagedPayeeAdditions.has(payeeIdStr);
-                              return (
-                                <IconButton
-                                  size="xl"
-                                  iconFontSize="xl"
-                                  shape="square"
-                                  aria-label={isStagedRemoval ? "Undo" : isStagedAdd ? "Undo" : "Delete"}
-                                  title={isStagedRemoval ? "Undo" : isStagedAdd ? "Undo" : "Delete"}
-                                  onClick={(e: React.MouseEvent) => {
-                                    e.stopPropagation();
-                                    stageRemovePayeeFromBatch(payeeIdStr);
-                                  }}
-                                  style={{
-                                    color: isStagedRemoval
-                                      ? "var(--colors-warn)"
-                                      : isStagedAdd
-                                      ? "var(--colors-success)"
-                                      : "var(--colors-error)",
-                                  }}
-                                >
-                                  <TrashBinIcon size={20} />
-                                </IconButton>
-                              );
-                            },
-                          },
-                        ]
-                      : []),
-                  ]}
-                  getExtraCells={(payee) => {
-                    const payeeId = payee.payeeId.toString();
-                    return isAdmin ? { removeAction: payeeId } : {};
-                  }}
-                  getRowStyle={(payee) => {
-                    const pid = payee.payeeId.toString();
-                    if (stagedPayeeRemovals.has(pid)) {
-                      return { background: "rgba(220,53,69,0.08)", opacity: 0.75 };
-                    }
-                    if (stagedPayeeAdditions.has(pid)) {
-                      return { background: "rgba(25,135,84,0.08)" };
-                    }
-                    return {};
-                  }}
-                  renderExpandedRow={(payee) => {
-                    const payeeId = payee.payeeId.toString();
-                    const row = batchRowByPayeeId.get(payeeId);
-                    const isStagedAdd = stagedPayeeAdditions.has(payeeId);
-                    const isStagedPayeeRemoval = stagedPayeeRemovals.has(payeeId);
-                    const payeeUpserts = stagedEarningUpserts.get(payeeId) ?? new Map<string, { rate: ethers.BigNumberish; runData: string }>();
-                    const payeeRemovals = stagedEarningRemovals.get(payeeId) ?? new Set<string>();
-                    const visibleOnChainEarnings = (row?.earnings ?? []).filter((earning) => {
+                  formatAddPayeeLabel={(payee) => `${parsePayeeNameLabel(payee.role)} · #${payee.payeeId.toString()}`}
+                  addPayeeButtonLabel="+ Add Payee"
+                  addableEmptyMessage="All organization payees are already in this pay batch."
+                  panelTitle="Batch Default Earnings"
+                  panelAddLabel="+ Add Default Earning"
+                  getOnChainEarnings={(payee) => {
+                    const row = batchRowByPayeeId.get(payee.payeeId.toString());
+                    return (row?.earnings ?? []).filter((earning) => {
                       if (!config?.weeklyScheduleRuleAddress) return true;
                       return earning.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
                     });
-                    const onChainItems = visibleOnChainEarnings.map((earning) => {
-                      const codeId = earning.earningsCodeId.toString();
-                      const codeMeta = earningsCodeById.get(codeId);
-                      return {
-                        codeId,
-                        name: codeMeta?.name,
-                        rule: earning.rule,
-                        rate: earning.rate,
-                        config: earning.config,
-                        runData: earning.runData,
-                        source: 0,
-                      };
-                    });
-
-                    return (
-                      <EditableEarningsPanel
-                        title="Batch Default Earnings"
-                        addLabel="+ Add Default Earning"
-                        canEdit={isAdmin}
-                        isStagedAdd={isStagedAdd}
-                        isStagedPayeeRemoval={isStagedPayeeRemoval}
-                        onChainEarnings={onChainItems}
-                        stagedUpserts={payeeUpserts}
-                        stagedRemovals={payeeRemovals}
-                        earningsCodeById={earningsCodeById}
-                        config={config}
-                        onAdd={() => openAddEarningModal(payeeId)}
-                        onEdit={(item, staged) =>
-                          openEditEarningModal(payeeId, item.codeId, staged.rate, staged.runData)
-                        }
-                        onToggleRemove={(codeId) => stageRemoveEarningFromBatch(payeeId, codeId)}
-                      />
-                    );
                   }}
+                  earningsCodeById={earningsCodeById}
+                  activeEarningsCodes={activeEarningsCodes}
+                  config={config}
+                  onSave={async (actions) => {
+                    if (!chainId || !slug || !selectedBatchCode) return false;
+                    const tx = await configurePayBatch(chainId, slug, selectedBatchCode, actions);
+                    return tx !== undefined;
+                  }}
+                  onAfterApply={async () => {
+                    await refreshData(slug, selectedBatchCode);
+                  }}
+                  disableApply={!isAdmin || !chainId || !selectedBatchCode}
                 />
-
-                {isAdmin && (
-                  <Stack gap="xs" style={{ maxWidth: 420 }}>
-                    <Row gap="sm" align="center" wrap>
-                      <div style={{ flex: 1, minWidth: 180, maxWidth: 260 }}>
-                        <Select<string>
-                          value={selectedPayeeId || null}
-                          onChange={(value) => setSelectedPayeeId(String(value ?? ""))}
-                          disabled={addablePayees.length === 0}
-                        >
-                          {addablePayees.map((payee) => (
-                            <SelectOption
-                              key={payee.payeeId.toString()}
-                              value={payee.payeeId.toString()}
-                              label={`${parsePayeeNameLabel(payee.role)} · #${payee.payeeId.toString()}`}
-                            />
-                          ))}
-                        </Select>
-                      </div>
-                      <ButtonSecondary
-                        style={{ flex: 0 }}
-                        onClick={() => stageAddPayeeToBatch(selectedPayeeId)}
-                        disabled={!selectedPayeeId || addablePayees.length === 0}
-                      >
-                        + Add Payee
-                      </ButtonSecondary>
-                    </Row>
-                    {addablePayees.length === 0 && (
-                      <Text.Body size="sm" color="muted">All organization payees are already in this pay batch.</Text.Body>
-                    )}
-                  </Stack>
-                )}
-
-                <Row justify="end" gap="sm">
-                  <ButtonSecondary style={{ flex: 0 }} onClick={clearStaged} disabled={!hasStagedChanges || isApplyingStaged}>
-                    Clear
-                  </ButtonSecondary>
-                  <ButtonPrimary
-                    style={{ flex: 0 }}
-                    onClick={handleBatchConfigure}
-                    disabled={!isAdmin || !chainId || !selectedBatchCode || !hasStagedChanges || isApplyingStaged}
-                  >
-                    {isApplyingStaged ? "Applying..." : "Apply"}
-                  </ButtonPrimary>
-                </Row>
               </Stack>
             </CardContent>
           </Card>
         )}
-
-        <Modal
-          isOpen={earningModal.isOpen}
-          onClose={closeEarningModal}
-          title={earningModal.lockedCodeId ? "Edit Default Earning" : "Add Default Earning"}
-          width={620}
-        >
-          <Stack gap="md">
-            <Text.Body color="muted" size="sm">
-              Payee: #{earningModal.payee?.payeeId?.toString() ?? "-"} · {parsePayeeNameLabel(earningModal.payee?.role ?? "")}
-            </Text.Body>
-
-            <Stack>
-              <Text.Body size="sm" color="muted">Earnings Code</Text.Body>
-              <Select<string>
-                value={modalCodeId || null}
-                onChange={(v) => setModalCodeId(String(v ?? ""))}
-                disabled={Boolean(earningModal.lockedCodeId)}
-              >
-                {availableModalCodes.map((code) => (
-                  <SelectOption
-                    key={code.earningsCodeId.toString()}
-                    value={code.earningsCodeId.toString()}
-                    label={`${formatEarningsCodeIdLabel(code.earningsCodeId)} · ${formatEarningsCodeName(code.name)} · ${buildRuleMeta(code.rule, config).name}`}
-                  />
-                ))}
-              </Select>
-            </Stack>
-
-            <Stack>
-              <Text.Body size="sm" color="muted">Rate</Text.Body>
-              <Input
-                value={modalRate}
-                onChange={(e) => setModalRate(e.target.value)}
-                placeholder="e.g. 20"
-              />
-            </Stack>
-
-            {selectedModalRuleMeta.kind === "hourly" && (
-              <Stack>
-                <Text.Body size="sm" color="muted">Hours Worked (runData)</Text.Body>
-                <NumberInput
-                  value={modalHourlyRunData}
-                  onChange={(e) => setModalHourlyRunData((e.target as HTMLInputElement).value)}
-                  allowDecimal={false}
-                />
-              </Stack>
-            )}
-
-            {selectedModalRuleMeta.kind === "custom" && (
-              <Stack>
-                <Text.Body size="sm" color="muted">Run Data (raw hex)</Text.Body>
-                <Input
-                  value={modalRawRunData}
-                  onChange={(e) => setModalRawRunData(e.target.value)}
-                  placeholder="0x"
-                />
-              </Stack>
-            )}
-
-            <Row justify="end" gap="sm">
-              <ButtonSecondary style={{ flex: 0 }} onClick={closeEarningModal}>
-                Close
-              </ButtonSecondary>
-              <ButtonPrimary
-                style={{ flex: 0 }}
-                onClick={stageEarningFromModal}
-                disabled={!modalCodeId}
-              >
-                Stage Change
-              </ButtonPrimary>
-            </Row>
-          </Stack>
-        </Modal>
       </Stack>
     </PageContainer>
   );
