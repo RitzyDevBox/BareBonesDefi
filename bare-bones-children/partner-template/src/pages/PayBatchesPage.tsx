@@ -413,10 +413,7 @@ export function PayBatchesPage() {
                   panelAddLabel="+ Add Default Earning"
                   getOnChainEarnings={(payee) => {
                     const row = batchRowByPayeeId.get(payee.payeeId.toString());
-                    return (row?.earnings ?? []).filter((earning) => {
-                      if (!config?.weeklyScheduleRuleAddress) return true;
-                      return earning.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
-                    });
+                    return row?.earnings ?? [];
                   }}
                   earningsCodes={earningsCodes}
                   config={config}

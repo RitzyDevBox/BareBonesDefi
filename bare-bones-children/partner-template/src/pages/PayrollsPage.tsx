@@ -26,7 +26,6 @@ import { fetchPayBatchCodes } from "../utils/payroll/fetchPayBatchViews";
 import {
   formatDateInputValue,
   formatDateTime,
-  localDateEndUnix,
   localDateStartUnix,
   parseBatchCodeLabel,
   parsePayrollRunRow,
@@ -56,6 +55,7 @@ export function PayrollsPage() {
 
   const [loading, setLoading] = useState(false);
   const [creatingPayroll, setCreatingPayroll] = useState(false);
+  const [createPayrollError, setCreatePayrollError] = useState<string | null>(null);
   const [orgInfo, setOrgInfo] = useState<OrganizationModel | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [payBatchCodes, setPayBatchCodes] = useState<string[]>([]);
@@ -72,6 +72,12 @@ export function PayrollsPage() {
     const windowDays = PAYROLL_WINDOW_DAYS[windowPreset];
     setEndDateInput(shiftDateValue(startDateInput, windowDays - 1));
   }, [windowPreset, startDateInput]);
+
+  useEffect(() => {
+    if (createPayrollError) {
+      setCreatePayrollError(null);
+    }
+  }, [startDateInput, endDateInput, windowPreset, selectedBatchCode]);
 
   const config = useMemo(() => {
     if (!chainId) return null;
@@ -175,19 +181,40 @@ export function PayrollsPage() {
   async function handleCreatePayroll(payBatchCode: string | null) {
     if (!chainId || !isAdmin || !slug.trim() || creatingPayroll) return;
 
+    setCreatePayrollError(null);
+
     const startTime = localDateStartUnix(startDateInput);
-    const endTime = localDateEndUnix(endDateInput);
+    // Use an exclusive end bound at next-day midnight so payroll windows are
+    // always aligned to whole hours and represent complete selected days.
+    const endTime = localDateStartUnix(endDateInput) + 24 * 60 * 60;
 
     if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || startTime <= 0 || endTime <= 0) {
-      throw new Error("Start and end date must be valid");
+      setCreatePayrollError("Start and end date must be valid.");
+      return;
     }
     if (endTime <= startTime) {
-      throw new Error("End time must be greater than start time");
+      setCreatePayrollError("End time must be greater than start time.");
+      return;
+    }
+
+    const periodSeconds = endTime - startTime;
+    if (periodSeconds % 3600 !== 0) {
+      setCreatePayrollError("Invalid payroll window: duration must align to full hours.");
+      return;
     }
 
     setCreatingPayroll(true);
     try {
       await createPayrollTx(chainId, slug.trim(), startTime, endTime, payBatchCode);
+      setCreatePayrollError(null);
+    } catch (err: any) {
+      const message =
+        err?.reason ||
+        err?.errorName ||
+        err?.error?.message ||
+        err?.message ||
+        "Failed to start payroll.";
+      setCreatePayrollError(String(message));
     } finally {
       setCreatingPayroll(false);
     }
@@ -305,7 +332,7 @@ export function PayrollsPage() {
                     onClick={() => handleCreatePayroll(null)}
                     disabled={!isAdmin || !slug || creatingPayroll}
                   >
-                    {creatingPayroll ? "Starting..." : "Create Empty Payroll"}
+                    {creatingPayroll ? "Starting..." : "Create Empty"}
                   </ButtonSecondary>
                   <ButtonPrimary
                     style={{ flex: 0 }}
@@ -315,6 +342,11 @@ export function PayrollsPage() {
                     {creatingPayroll ? "Starting..." : "Start Payroll"}
                   </ButtonPrimary>
                 </Row>
+                {createPayrollError && (
+                  <Text.Body size="sm" color="warn">
+                    {createPayrollError}
+                  </Text.Body>
+                )}
               </Stack>
             </CardContent>
           </Card>

@@ -22,6 +22,22 @@ export function useExecuteRawTx<TArgs extends any[]>(
     async (...args: TArgs) => {
       if (!provider || !account || chainId == null) return;
 
+      try {
+        const signerAddress = await provider.getSigner().getAddress();
+        if (!signerAddress) {
+          lifecycle.onError?.(new Error("Wallet account unavailable. Reconnect your wallet and try again."));
+          return;
+        }
+      } catch (error: any) {
+        const message = String(error?.message ?? error ?? "").toLowerCase();
+        if (message.includes("unknown account") || message.includes("getaddress")) {
+          lifecycle.onError?.(new Error("Wallet account unavailable. Reconnect your wallet and try again."));
+          return;
+        }
+        lifecycle.onError?.(error);
+        return;
+      }
+
       const tx = await executeTx(
         provider,
         async () => buildRawTx(...args),

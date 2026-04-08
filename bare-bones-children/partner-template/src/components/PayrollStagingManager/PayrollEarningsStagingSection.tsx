@@ -18,6 +18,7 @@ import {
   RuleKind,
   DEFAULT_HOURS,
 } from "../../utils/payroll/earningsDisplay";
+import { ScheduleGrid } from "../PayrollEarningsManager/WeeklyScheduleConfigurator";
 import {
   formatEarningsCodeIdLabel,
   formatEarningsCodeName,
@@ -89,6 +90,36 @@ enum EarningsModalMode {
   Additional = "additional",
 }
 
+
+function cloneWeeklyMask(mask?: boolean[]) {
+  const next = new Array<boolean>(168).fill(false);
+  if (!mask) return next;
+  for (let i = 0; i < Math.min(mask.length, 168); i += 1) next[i] = Boolean(mask[i]);
+  return next;
+}
+
+function maskToUint168(mask: boolean[]) {
+  let bits = 0n;
+  for (let i = 0; i < 168; i += 1) {
+    if (mask[i]) bits |= 1n << BigInt(i);
+  }
+  return bits.toString();
+}
+
+function uint168ToMask(value: string) {
+  const mask = new Array<boolean>(168).fill(false);
+  let bits = BigInt(value || "0");
+  for (let i = 0; i < 168; i += 1) {
+    mask[i] = (bits & 1n) === 1n;
+    bits >>= 1n;
+  }
+  return mask;
+}
+
+function countWeeklyMaskHours(mask: boolean[]) {
+  return mask.reduce((acc, bit) => (bit ? acc + 1 : acc), 0);
+}
+
 interface EarningsModalState {
   isOpen: boolean;
   mode: EarningsModalMode;
@@ -150,6 +181,9 @@ export function PayrollEarningsStagingSection({
   const [modalRate, setModalRate] = useState("0");
   const [modalHourlyRunData, setModalHourlyRunData] = useState(DEFAULT_HOURS);
   const [modalRawRunData, setModalRawRunData] = useState("0x");
+  const [modalWeeklyWorkedMask, setModalWeeklyWorkedMask] = useState<boolean[]>(
+    new Array<boolean>(168).fill(false)
+  );
 
   useEffect(() => {
     onStagingMetaChange?.({
@@ -181,13 +215,8 @@ export function PayrollEarningsStagingSection({
   );
 
   const activeEarningsCodes = useMemo(
-    () =>
-      earningsCodes.filter((code) => {
-        if (!code.isActive) return false;
-        if (!config?.weeklyScheduleRuleAddress) return true;
-        return code.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
-      }),
-    [earningsCodes, config]
+    () => earningsCodes.filter((code) => code.isActive),
+    [earningsCodes]
   );
 
   useEffect(() => {
@@ -211,6 +240,79 @@ export function PayrollEarningsStagingSection({
   const selectedModalRuleMeta = useMemo(
     () => buildRuleMeta(selectedModalRule, config),
     [selectedModalRule, config]
+  );
+
+  const modalWeeklyPremiumMask = useMemo(() => {
+    if (selectedModalRuleMeta.kind !== RuleKind.Weekly) {
+      return new Array<boolean>(168).fill(false);
+    }
+    if (!selectedModalCode?.config || selectedModalCode.config === "0x") {
+      return new Array<boolean>(168).fill(false);
+    }
+
+    try {
+      const decoded = ethers.utils.defaultAbiCoder.decode(
+        ["uint168[]", "uint16[]"],
+        selectedModalCode.config
+      );
+      const masks = (decoded?.[0] ?? []) as ethers.BigNumber[];
+      const union = new Array<boolean>(168).fill(false);
+
+      for (const maskValue of masks) {
+        const mask = uint168ToMask(maskValue.toString());
+        for (let i = 0; i < 168; i += 1) {
+          if (mask[i]) union[i] = true;
+        }
+      }
+      return union;
+    } catch {
+      return new Array<boolean>(168).fill(false);
+    }
+  }, [selectedModalRuleMeta.kind, selectedModalCode]);
+
+  const weeklyPremiumRateLabel = useMemo(() => {
+    if (selectedModalRuleMeta.kind !== RuleKind.Weekly) return "-";
+    if (!selectedModalCode?.config || selectedModalCode.config === "0x") return "-";
+
+    try {
+      const decoded = ethers.utils.defaultAbiCoder.decode(
+        ["uint168[]", "uint16[]"],
+        selectedModalCode.config
+      );
+      const bpsValues = (decoded?.[1] ?? []) as ethers.BigNumber[];
+      if (bpsValues.length === 0) return "-";
+
+      const rates = Array.from(
+        new Set(
+          bpsValues.map((bps) => {
+            const value = Number(bps.toString()) / 10_000;
+            const fixed = value.toFixed(4).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+            return `${fixed}x`;
+          })
+        )
+      );
+      return rates.join(", ");
+    } catch {
+      return "-";
+    }
+  }, [selectedModalRuleMeta.kind, selectedModalCode]);
+
+  const weeklyScheduledHours = useMemo(
+    () => countWeeklyMaskHours(modalWeeklyWorkedMask),
+    [modalWeeklyWorkedMask]
+  );
+
+  const weeklyPremiumOverlapHours = useMemo(() => {
+    let total = 0;
+    for (let i = 0; i < 168; i += 1) {
+      if (modalWeeklyWorkedMask[i] && modalWeeklyPremiumMask[i]) total += 1;
+    }
+    return total;
+  }, [modalWeeklyWorkedMask, modalWeeklyPremiumMask]);
+
+  const weeklyStandardHours = useMemo(
+    () => Math.max(0, weeklyScheduledHours - weeklyPremiumOverlapHours),
+    [weeklyScheduledHours, weeklyPremiumOverlapHours]
   );
 
   const additionalModalCodes = useMemo(() => {
@@ -288,6 +390,7 @@ export function PayrollEarningsStagingSection({
     setModalRate("0");
     setModalRawRunData("0x");
     setModalHourlyRunData(DEFAULT_HOURS);
+    setModalWeeklyWorkedMask(new Array<boolean>(168).fill(false));
   }
 
   function openEditEarningModal(
@@ -319,12 +422,29 @@ export function PayrollEarningsStagingSection({
       if (ruleMeta.kind === RuleKind.Hourly && staged.runData && staged.runData !== "0x") {
         const decoded = ethers.utils.defaultAbiCoder.decode(["uint32"], staged.runData);
         setModalHourlyRunData(String(Number((decoded?.[0] as ethers.BigNumber).toString())));
+        setModalWeeklyWorkedMask(new Array<boolean>(168).fill(false));
+      } else if (ruleMeta.kind === RuleKind.Weekly && staged.runData && staged.runData !== "0x") {
+        const decoded = ethers.utils.defaultAbiCoder.decode(["uint168[]"], staged.runData);
+        const workedMasks = (decoded?.[0] ?? []) as ethers.BigNumber[];
+        const firstWeekMask = workedMasks[0]?.toString() ?? "0";
+        setModalWeeklyWorkedMask(uint168ToMask(firstWeekMask));
       } else {
         setModalHourlyRunData(DEFAULT_HOURS);
+        setModalWeeklyWorkedMask(new Array<boolean>(168).fill(false));
       }
     } catch {
       setModalHourlyRunData(DEFAULT_HOURS);
+      setModalWeeklyWorkedMask(new Array<boolean>(168).fill(false));
     }
+  }
+
+  function setWeeklyWorkedHour(dayIndex: number, hour: number, value: boolean) {
+    const idx = dayIndex * 24 + hour;
+    setModalWeeklyWorkedMask((prev) => {
+      const next = cloneWeeklyMask(prev);
+      next[idx] = value;
+      return next;
+    });
   }
 
   function resolveModalRunData() {
@@ -332,6 +452,11 @@ export function PayrollEarningsStagingSection({
       return ethers.utils.defaultAbiCoder.encode(["uint32"], [
         Math.max(0, Math.floor(Number(modalHourlyRunData) || 0)),
       ]);
+    }
+
+    if (selectedModalRuleMeta.kind === RuleKind.Weekly) {
+      const weekMask = maskToUint168(modalWeeklyWorkedMask);
+      return ethers.utils.defaultAbiCoder.encode(["uint168[]"], [[weekMask]]);
     }
 
     if (selectedModalRuleMeta.kind === RuleKind.Custom) {
@@ -578,6 +703,46 @@ export function PayrollEarningsStagingSection({
             </Stack>
           )}
 
+          {selectedModalRuleMeta.kind === RuleKind.Weekly && (
+            <Stack gap="sm">
+              <Row justify="between" align="center" wrap>
+                <Stack gap="xs">
+                  <Text.Body size="sm" color="muted">Premium Rate: {weeklyPremiumRateLabel}</Text.Body>
+                  <Text.Body size="sm" color="muted">Schedule Hours: {weeklyScheduledHours}h</Text.Body>
+                  <Text.Body size="sm" color="muted">Standard Hours: {weeklyStandardHours}h</Text.Body>
+                  <Text.Body size="sm" color="muted">Premium Overlap: {weeklyPremiumOverlapHours}h</Text.Body>
+                </Stack>
+                <Row gap="sm" align="center" wrap>
+                  <ButtonSecondary
+                    style={{ flex: 0 }}
+                    onClick={() => setModalWeeklyWorkedMask(new Array<boolean>(168).fill(false))}
+                    disabled={!canEdit}
+                  >
+                    Clear Schedule
+                  </ButtonSecondary>
+                </Row>
+              </Row>
+
+              <Stack
+                style={{
+                  border: "1px solid var(--colors-border)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "var(--spacing-sm)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  <ScheduleGrid
+                    mask={modalWeeklyWorkedMask}
+                    onChange={setWeeklyWorkedHour}
+                    disabled={!canEdit}
+                    forceRows12
+                    overlapMask={modalWeeklyPremiumMask}
+                  />
+                </div>
+              </Stack>
+            </Stack>
+          )}
+
           <Row justify="end" gap="sm">
             <ButtonSecondary style={{ flex: 0 }} onClick={closeEarningsModal}>
               Close
@@ -588,7 +753,7 @@ export function PayrollEarningsStagingSection({
                 onClick={handleSubmitEarning}
                 disabled={earningsModal.mode === EarningsModalMode.Additional && !selectedModalCode}
               >
-                Stage Change
+                Stage
               </ButtonPrimary>
             )}
           </Row>

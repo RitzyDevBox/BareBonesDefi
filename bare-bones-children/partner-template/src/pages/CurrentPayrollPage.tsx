@@ -65,6 +65,7 @@ export function CurrentPayrollPage() {
   const [isPreviewingPayroll, setIsPreviewingPayroll] = useState(false);
   const [previewGrossByPayeeId, setPreviewGrossByPayeeId] = useState<Record<string, string>>({});
   const [previewTotalGross, setPreviewTotalGross] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [isCancellingPayroll, setIsCancellingPayroll] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -375,6 +376,20 @@ export function CurrentPayrollPage() {
       isPreviewDisabledByStatus
     ) return;
 
+    // Match on-chain validation:
+    // if (endTime < startTime || periodSeconds % 1 hours != 0) revert InvalidPayrollWindow();
+    if (payrollStartTime == null || payrollEndTime == null) {
+      setPreviewError("Invalid payroll window: missing start or end time.");
+      return;
+    }
+
+    const periodSeconds = payrollEndTime - payrollStartTime;
+    if (payrollEndTime < payrollStartTime || periodSeconds % 3600 !== 0) {
+      setPreviewError("Invalid payroll window. The payroll duration must be non-negative and aligned to full-hour boundaries.");
+      return;
+    }
+
+    setPreviewError(null);
     setIsPreviewingPayroll(true);
     try {
       const manager = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
@@ -428,6 +443,15 @@ export function CurrentPayrollPage() {
       setPreviewTotalGross(formatAmountDisplay(ethers.utils.formatEther(totalGross)));
     } catch (err) {
       console.error("Error previewing payroll:", err);
+      const fallbackMessage =
+        "Preview failed. Check payroll window settings (start/end) and ensure duration is aligned to whole hours.";
+      const message =
+        (err as any)?.reason ||
+        (err as any)?.errorName ||
+        (err as any)?.error?.message ||
+        (err as any)?.message ||
+        fallbackMessage;
+      setPreviewError(String(message));
       setPreviewGrossByPayeeId({});
       setPreviewTotalGross(null);
     } finally {
@@ -510,6 +534,11 @@ export function CurrentPayrollPage() {
                   {previewTotalGross != null && (
                     <Text.Body color="secondary" size="sm">
                       Preview Total Gross: {previewTotalGross}
+                    </Text.Body>
+                  )}
+                  {previewError && (
+                    <Text.Body color="warn" size="sm">
+                      {previewError}
                     </Text.Body>
                   )}
                   <Row gap="sm" justify="end">
@@ -629,10 +658,7 @@ export function CurrentPayrollPage() {
                           ? resolvedEarnings
                           : templateFallbackEarnings;
 
-                      return effectiveEarnings.filter((earning) => {
-                        if (!config?.weeklyScheduleRuleAddress) return true;
-                        return earning.rule.toLowerCase() !== config.weeklyScheduleRuleAddress.toLowerCase();
-                      });
+                      return effectiveEarnings;
                     }}
                     earningsCodes={organizationEarningsCodes}
                     config={config}

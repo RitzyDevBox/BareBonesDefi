@@ -15,8 +15,8 @@ import {
   isSystemEarningsCodeId,
 } from "../../utils/payroll/earningsCodeDisplay";
 import { EarningsDividerButton } from "./EarningsDividerButton";
+import { RuleType } from "./ruleTypes";
 
-type RuleType = "hourly" | "oneTime" | "salary" | "custom";
 const UINT32_MAX_NUM = 4294967295;
 
 interface HourlyBandRow {
@@ -66,7 +66,7 @@ export function PayrollEarningsCatalogManager({
   );
 
   const [selectedCodeId, setSelectedCodeId] = useState<string>("");
-  const [editRuleType, setEditRuleType] = useState<RuleType>("custom");
+  const [editRuleType, setEditRuleType] = useState<RuleType>(RuleType.Custom);
   const [isActive, setIsActive] = useState<boolean>(true);
   const [hourlyBands, setHourlyBands] = useState<HourlyBandRow[]>([
     { maxHours: "40", multiplier: "1", isRemaining: false },
@@ -87,12 +87,12 @@ export function PayrollEarningsCatalogManager({
 
   const resolveRuleType = useCallback(
     (ruleAddress: string): RuleType => {
-      if (!config) return "custom";
+      if (!config) return RuleType.Custom;
       const normalized = (ruleAddress || "").toLowerCase();
-      if (normalized === config.hoursRuleAddress.toLowerCase()) return "hourly";
-      if (normalized === config.salaryPerSecondRuleAddress.toLowerCase()) return "salary";
-      if (normalized === config.oneTimePaymentAddress.toLowerCase()) return "oneTime";
-      return "custom";
+      if (normalized === config.hoursRuleAddress.toLowerCase()) return RuleType.Hourly;
+      if (normalized === config.salaryPerSecondRuleAddress.toLowerCase()) return RuleType.Salary;
+      if (normalized === config.oneTimePaymentAddress.toLowerCase()) return RuleType.OneTime;
+      return RuleType.Custom;
     },
     [config]
   );
@@ -203,7 +203,7 @@ export function PayrollEarningsCatalogManager({
     setEditRuleType(ruleType);
     setIsActive(Boolean(selectedCode.isActive));
 
-    if (ruleType === "hourly") {
+    if (ruleType === RuleType.Hourly) {
       try {
         const decoded = ethers.utils.defaultAbiCoder.decode(["uint32[]"], selectedCode.config || "0x");
         const flat = (decoded?.[0] ?? []) as ethers.BigNumberish[];
@@ -236,7 +236,7 @@ export function PayrollEarningsCatalogManager({
       return;
     }
 
-    if (ruleType === "salary") {
+    if (ruleType === RuleType.Salary) {
       try {
         const decoded = ethers.utils.defaultAbiCoder.decode(["uint32"], selectedCode.config || "0x");
         setSalaryPeriodDays(ethers.BigNumber.from(decoded?.[0] ?? 7).toString());
@@ -256,7 +256,7 @@ export function PayrollEarningsCatalogManager({
   const encodeSelectedConfig = useCallback(() => {
     if (!selectedCode) return "0x";
 
-    if (editRuleType === "hourly") {
+    if (editRuleType === RuleType.Hourly) {
       let priorCap = -1;
       const flattenedBands = hourlyBands.flatMap((row, idx) => {
         const fallbackCap = idx === hourlyBands.length - 1 ? UINT32_MAX_NUM : 40;
@@ -274,12 +274,12 @@ export function PayrollEarningsCatalogManager({
       return ethers.utils.defaultAbiCoder.encode(["uint32[]"], [bands]);
     }
 
-    if (editRuleType === "salary") {
+    if (editRuleType === RuleType.Salary) {
       const periodDays = parseUint(salaryPeriodDays, 7);
       return ethers.utils.defaultAbiCoder.encode(["uint32"], [periodDays]);
     }
 
-    if (editRuleType === "oneTime") {
+    if (editRuleType === RuleType.OneTime) {
       return "0x";
     }
 
@@ -370,11 +370,11 @@ export function PayrollEarningsCatalogManager({
             const isSystem = isSystemEarningsCodeId(code.earningsCodeId);
             const type = resolveRuleType(code.rule);
             const typeLabel =
-              type === "hourly"
+              type === RuleType.Hourly
                 ? "Hourly"
-                : type === "salary"
+                : type === RuleType.Salary
                 ? "Salary"
-                : type === "oneTime"
+                : type === RuleType.OneTime
                 ? "One-Time"
                 : "Custom";
             const selected = id === selectedCodeId;
@@ -439,7 +439,7 @@ export function PayrollEarningsCatalogManager({
             State: {isActive ? "Active" : "Inactive"}
           </Text.Body>
 
-          {editRuleType === "hourly" && (
+          {editRuleType === RuleType.Hourly && (
             <Stack
               gap="xs"
               style={{
@@ -537,7 +537,7 @@ export function PayrollEarningsCatalogManager({
             </Stack>
           )}
 
-          {editRuleType === "salary" && (
+          {editRuleType === RuleType.Salary && (
             <Stack style={{ maxWidth: 260 }}>
               <Text.Body size="sm" color="muted">Salary Period (days)</Text.Body>
               <NumberInput
@@ -549,13 +549,13 @@ export function PayrollEarningsCatalogManager({
             </Stack>
           )}
 
-          {editRuleType === "oneTime" && (
+          {editRuleType === RuleType.OneTime && (
             <Text.Body size="sm" color="muted">
               One-Time rule uses empty config.
             </Text.Body>
           )}
 
-          {editRuleType === "custom" && (
+          {editRuleType === RuleType.Custom && (
             <Text.Body size="sm" color="muted">
               Custom rule detected. Config editing is disabled; activation state can still be changed.
             </Text.Body>

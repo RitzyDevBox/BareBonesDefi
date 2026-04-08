@@ -13,8 +13,14 @@ import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.js
 import type { OrganizationEarningsCodeView } from "../../utils/payroll/fetchPayrollViews";
 import { PayrollEarningsCatalogManager } from "./PayrollEarningsCatalogManager";
 import { EarningsDividerButton } from "./EarningsDividerButton";
+import {
+  WeeklyScheduleConfigurator,
+  type WeeklyPremiumMaskDraft,
+  createDefaultWeeklyPremiumRows,
+  WEEK_HOURS,
+} from "./WeeklyScheduleConfigurator";
+import { RuleType } from "./ruleTypes";
 
-type RuleType = "hourly" | "oneTime" | "salary";
 const UINT32_MAX_NUM = 4294967295;
 
 interface HourlyBandRow {
@@ -58,7 +64,7 @@ export function PayrollEarningsManager({
     []
   );
 
-  const [ruleType, setRuleType] = useState<RuleType>("hourly");
+  const [ruleType, setRuleType] = useState<RuleType>(RuleType.Hourly);
   const [earningsCodeName, setEarningsCodeName] = useState("HOURLY");
   const [showAddForm, setShowAddForm] = useState(false);
   const [hourlyBands, setHourlyBands] = useState<HourlyBandRow[]>([
@@ -66,6 +72,9 @@ export function PayrollEarningsManager({
     { maxHours: UINT32_MAX_NUM.toString(), multiplier: "1.5", isRemaining: true },
   ]);
   const [salaryPeriodDays, setSalaryPeriodDays] = useState("7");
+  const [weeklyPremiumRows, setWeeklyPremiumRows] = useState<WeeklyPremiumMaskDraft[]>(
+    createDefaultWeeklyPremiumRows()
+  );
 
   function normalizeRemainingBands(rows: HourlyBandRow[]) {
     return rows.map((row, i) => ({
@@ -176,15 +185,17 @@ export function PayrollEarningsManager({
     const codeNameBytes = ethers.utils.formatBytes32String(codeName);
 
     const ruleAddress =
-      ruleType === "hourly"
+      ruleType === RuleType.Hourly
         ? config.hoursRuleAddress
-        : ruleType === "oneTime"
+        : ruleType === RuleType.Weekly
+        ? config.weeklyScheduleRuleAddress
+        : ruleType === RuleType.OneTime
         ? config.oneTimePaymentAddress
         : config.salaryPerSecondRuleAddress;
 
     let encodedConfig = "0x";
 
-    if (ruleType === "hourly") {
+    if (ruleType === RuleType.Hourly) {
       let priorCap = -1;
       const flattenedBands = hourlyBands.flatMap((row, idx) => {
         const fallbackCap = idx === hourlyBands.length - 1 ? UINT32_MAX_NUM : 40;
@@ -201,7 +212,29 @@ export function PayrollEarningsManager({
       const bands = flattenedBands.length > 0 ? flattenedBands : [40, 10000];
 
       encodedConfig = ethers.utils.defaultAbiCoder.encode(["uint32[]"], [bands]);
-    } else if (ruleType === "salary") {
+    } else if (ruleType === RuleType.Weekly) {
+      const normalized = weeklyPremiumRows
+        .map((row) => {
+          let mask = 0n;
+          for (let i = 0; i < WEEK_HOURS; i += 1) {
+            if (row.mask[i]) mask |= 1n << BigInt(i);
+          }
+          const multiplier = Number(row.multiplier);
+          const bips = Number.isFinite(multiplier)
+            ? Math.max(0, Math.floor(multiplier * 10_000))
+            : 0;
+
+          return {
+            mask,
+            bips,
+          };
+        })
+        .filter((row) => row.mask > 0n && row.bips > 0);
+
+      const premiumMasks = normalized.map((row) => row.mask.toString());
+      const premiumBips = normalized.map((row) => row.bips.toString());
+      encodedConfig = ethers.utils.defaultAbiCoder.encode(["uint168[]", "uint16[]"], [premiumMasks, premiumBips]);
+    } else if (ruleType === RuleType.Salary) {
       const periodDays = parseUint(salaryPeriodDays, 7);
       encodedConfig = ethers.utils.defaultAbiCoder.encode(["uint32"], [periodDays]);
     }
@@ -255,9 +288,10 @@ export function PayrollEarningsManager({
                 onChange={setRuleType}
                 disabled={!canEdit}
               >
-                <SelectOption value="hourly" label="Hourly" />
-                <SelectOption value="oneTime" label="One-Time Payment" />
-                <SelectOption value="salary" label="Salary" />
+                <SelectOption value={RuleType.Hourly} label="Hourly" />
+                <SelectOption value={RuleType.Weekly} label="Weekly Schedule" />
+                <SelectOption value={RuleType.OneTime} label="One-Time Payment" />
+                <SelectOption value={RuleType.Salary} label="Salary" />
               </Select>
             </Stack>
 
@@ -271,7 +305,7 @@ export function PayrollEarningsManager({
               />
             </Stack>
 
-            {ruleType === "hourly" && (
+            {ruleType === RuleType.Hourly && (
               <Stack
                 gap="xs"
                 style={{
@@ -369,7 +403,15 @@ export function PayrollEarningsManager({
               </Stack>
             )}
 
-            {ruleType === "salary" && (
+            {ruleType === RuleType.Weekly && (
+              <WeeklyScheduleConfigurator
+                canEdit={canEdit}
+                premiumRows={weeklyPremiumRows}
+                onPremiumRowsChange={setWeeklyPremiumRows}
+              />
+            )}
+
+            {ruleType === RuleType.Salary && (
               <Stack style={{ maxWidth: 260 }}>
                 <Text.Body size="sm" color="muted">Salary Period (days)</Text.Body>
                 <NumberInput
@@ -381,7 +423,7 @@ export function PayrollEarningsManager({
               </Stack>
             )}
 
-            {ruleType === "oneTime" && (
+            {ruleType === RuleType.OneTime && (
               <Text.Body size="sm" color="muted">
                 One-Time rule uses empty config.
               </Text.Body>
