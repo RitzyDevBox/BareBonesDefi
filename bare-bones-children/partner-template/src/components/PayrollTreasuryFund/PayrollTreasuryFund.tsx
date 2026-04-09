@@ -14,12 +14,20 @@ import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../../constants/misc";
 import { shortAddress } from "../../utils/formatUtils";
+import { Loader } from "../Loader/Loader";
 
 const DEFAULT_DECIMALS = 18;
 
 interface PayrollTreasuryFundProps {
   organizationSlug: string;
   disabled?: boolean;
+}
+
+function formatTokenBalance(value: string, maxDecimals = 4) {
+  if (!value) return "0";
+  const [whole, fraction = ""] = value.split(".");
+  const trimmedFraction = fraction.slice(0, maxDecimals).replace(/0+$/, "");
+  return trimmedFraction ? `${whole}.${trimmedFraction}` : whole;
 }
 
 export function PayrollTreasuryFund({
@@ -33,6 +41,7 @@ export function PayrollTreasuryFund({
   const [treasuryBalance, setTreasuryBalance] = useState<string>("0");
   const [userBalance, setUserBalance] = useState<string>("0");
   const [loadingBalance, setLoadingBalance] = useState(false);
+  const [isDepositing, setIsDepositing] = useState(false);
 
   const config = useMemo(() => {
     if (!chainId) return null;
@@ -156,8 +165,9 @@ export function PayrollTreasuryFund({
   );
 
   async function handleDepositFunds() {
-    if (!chainId || !amount || disabled || !organizationSlug || !provider || !account) return;
+    if (!chainId || !amount || disabled || !organizationSlug || !provider || !account || isDepositing) return;
 
+    setIsDepositing(true);
     try {
       const parsed = ethers.utils.parseUnits(amount, DEFAULT_DECIMALS);
 
@@ -175,6 +185,8 @@ export function PayrollTreasuryFund({
       setAmount("");
     } catch (err) {
       console.error("Error depositing funds:", err);
+    } finally {
+      setIsDepositing(false);
     }
   }
 
@@ -197,10 +209,10 @@ export function PayrollTreasuryFund({
               <Row gap="sm" align="center">
                 <Text.Label>Your Balance:</Text.Label>
                 {loadingBalance ? (
-                  <Text.Body color="muted">Loading...</Text.Body>
+                  <Loader inline label="Loading" size={14} />
                 ) : (
                   <Text.Body color="secondary" weight={600}>
-                    {userBalance} tokens
+                    {formatTokenBalance(userBalance)} tokens
                   </Text.Body>
                 )}
               </Row>
@@ -208,10 +220,10 @@ export function PayrollTreasuryFund({
               <Row gap="sm" align="center">
                 <Text.Label>Treasury Balance:</Text.Label>
                 {loadingBalance ? (
-                  <Text.Body color="muted">Loading...</Text.Body>
+                  <Loader inline label="Loading" size={14} />
                 ) : (
                   <Text.Body color="success" weight={600}>
-                    {treasuryBalance} tokens
+                    {formatTokenBalance(treasuryBalance)} tokens
                   </Text.Body>
                 )}
               </Row>
@@ -228,8 +240,10 @@ export function PayrollTreasuryFund({
 
               <ButtonPrimary
                 onClick={handleDepositFunds}
-                disabled={!amount || disabled || !organizationSlug}
+                disabled={!amount || disabled || !organizationSlug || isDepositing}
+                style={{ minWidth: 164 }}
               >
+                {isDepositing ? <Loader inline size={14} color="currentColor" /> : null}
                 Supply Treasury
               </ButtonPrimary>
             </Stack>

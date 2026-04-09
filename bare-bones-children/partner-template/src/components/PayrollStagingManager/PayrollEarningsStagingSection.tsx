@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
 import { Input } from "../BasicComponents";
 import { Modal } from "../Modal/Modal";
+import { Sheet } from "../Primitives/Sheet";
 import { NumberInput } from "../Inputs/NumberInput";
 import { CopyButton } from "../Button/Actions/CopyButton";
 import { Row, Stack } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
 import { Select, SelectOption } from "../Select";
+import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
 import { EditableEarningsPanel } from "../PayrollEarningsManager";
 import type { TableColumn } from "../Table";
 import type { PayeeModel } from "../../models/payments";
@@ -18,7 +20,7 @@ import {
   RuleKind,
   DEFAULT_HOURS,
 } from "../../utils/payroll/earningsDisplay";
-import { ScheduleGrid } from "../PayrollEarningsManager/WeeklyScheduleConfigurator";
+import { ScheduleGrid } from "../Schedule/ScheduleGrid";
 import {
   formatEarningsCodeIdLabel,
   formatEarningsCodeName,
@@ -54,6 +56,7 @@ interface EarningsCodeOption {
 
 interface PayrollEarningsStagingSectionProps {
   payees: PayeeModel[];
+  loading?: boolean;
   baseIncludedPayeeIds: Set<string>;
   canEdit: boolean;
   searchEnabled?: boolean;
@@ -129,6 +132,7 @@ interface EarningsModalState {
 
 export function PayrollEarningsStagingSection({
   payees,
+  loading = false,
   baseIncludedPayeeIds,
   canEdit,
   searchEnabled = true,
@@ -153,6 +157,8 @@ export function PayrollEarningsStagingSection({
   onStagingMetaChange,
   disableApply = false,
 }: PayrollEarningsStagingSectionProps) {
+  const screenSize = useMediaQuery();
+  const isMobile = screenSize === ScreenSize.Phone;
   const stagingManager = usePayrollStagingManager(onSave);
   const {
     stagedActions,
@@ -512,10 +518,161 @@ export function PayrollEarningsStagingSection({
     }
   }
 
+  const earningsModalTitle =
+    earningsModal.mode === EarningsModalMode.Override
+      ? "Override Earnings"
+      : "Add Additional Earnings";
+
+  const earningsModalContent = (
+    <Stack gap="md">
+      <Text.Body color="muted" size="sm">
+        Payee: #{earningsModal.payee?.payeeId?.toString() ?? "-"} · {parsePayeeNameLabel(earningsModal.payee?.role ?? "")}
+      </Text.Body>
+
+      <Stack>
+        <Text.Body size="sm" color="muted">Earnings Code</Text.Body>
+        <Select<string>
+          value={modalCodeId || null}
+          onChange={(v) => setModalCodeId(String(v ?? ""))}
+          disabled={!canEdit || earningsModal.mode !== EarningsModalMode.Additional}
+        >
+          {(earningsModal.mode === EarningsModalMode.Additional
+            ? additionalModalCodes
+            : earningsModal.earning
+            ? [
+                {
+                  earningsCodeId: earningsModal.earning.earningsCodeId,
+                  isActive: true,
+                  name: earningsModal.earning.name ?? "",
+                  rule: earningsModal.earning.rule,
+                  config: earningsModal.earning.config,
+                },
+              ]
+            : []
+          ).map((code) => (
+            <SelectOption
+              key={code.earningsCodeId.toString()}
+              value={code.earningsCodeId.toString()}
+              label={`${formatEarningsCodeIdLabel(code.earningsCodeId)} · ${formatEarningsCodeName(code.name)} · ${buildRuleMeta(code.rule, config).name}`}
+            />
+          ))}
+        </Select>
+      </Stack>
+
+      <Row justify="between" align="center" wrap>
+        <Text.Body size="sm" color="muted">
+          Rule: {selectedModalRuleMeta.name}
+        </Text.Body>
+        <Row gap="sm" align="center">
+          <Text.Body size="sm" color="muted">{shortAddress(selectedModalRule)}</Text.Body>
+          <CopyButton value={selectedModalRule} ariaLabel="Copy rule address" />
+        </Row>
+      </Row>
+
+      {selectedModalRuleMeta.configRequired && selectedModalCode && (
+        <Text.Body size="sm" color="muted">
+          Config: {decodeConfigDisplay(selectedModalCode.config, selectedModalCode.rule, config)}
+        </Text.Body>
+      )}
+
+      <Stack>
+        <Text.Body size="sm" color="muted">Rate</Text.Body>
+        <Input
+          value={modalRate}
+          onChange={(e) => setModalRate(e.target.value)}
+          placeholder="e.g. 20"
+          disabled={!canEdit}
+        />
+      </Stack>
+
+      {selectedModalRuleMeta.kind === RuleKind.Hourly && (
+        <Stack>
+          <Text.Body size="sm" color="muted">Hours Worked (runData)</Text.Body>
+          <NumberInput
+            value={modalHourlyRunData}
+            onChange={(e) =>
+              setModalHourlyRunData((e.target as HTMLInputElement).value)
+            }
+            allowDecimal={false}
+            disabled={!canEdit}
+          />
+        </Stack>
+      )}
+
+      {selectedModalRuleMeta.kind === RuleKind.Custom && (
+        <Stack>
+          <Text.Body size="sm" color="muted">Run Data (raw hex)</Text.Body>
+          <Input
+            value={modalRawRunData}
+            onChange={(e) => setModalRawRunData(e.target.value)}
+            placeholder="0x"
+            disabled={!canEdit}
+          />
+        </Stack>
+      )}
+
+      {selectedModalRuleMeta.kind === RuleKind.Weekly && (
+        <Stack gap="sm">
+          <Row justify="between" align="center" wrap>
+            <Stack gap="xs">
+              <Text.Body size="sm" color="muted">Premium Rate: {weeklyPremiumRateLabel}</Text.Body>
+              <Text.Body size="sm" color="muted">Schedule Hours: {weeklyScheduledHours}h</Text.Body>
+              <Text.Body size="sm" color="muted">Standard Hours: {weeklyStandardHours}h</Text.Body>
+              <Text.Body size="sm" color="muted">Premium Overlap: {weeklyPremiumOverlapHours}h</Text.Body>
+            </Stack>
+            <Row gap="sm" align="center" wrap>
+              <ButtonSecondary
+                style={{ flex: 0 }}
+                onClick={() => setModalWeeklyWorkedMask(new Array<boolean>(168).fill(false))}
+                disabled={!canEdit}
+              >
+                Clear
+              </ButtonSecondary>
+            </Row>
+          </Row>
+
+          <Stack
+            style={{
+              border: "1px solid var(--colors-border)",
+              borderRadius: "var(--radius-md)",
+              padding: "var(--spacing-sm)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <ScheduleGrid
+                mask={modalWeeklyWorkedMask}
+                onChange={setWeeklyWorkedHour}
+                disabled={!canEdit}
+                forceRows12
+                overlapMask={modalWeeklyPremiumMask}
+              />
+            </div>
+          </Stack>
+        </Stack>
+      )}
+
+      <Row justify="end" gap="sm">
+        <ButtonSecondary style={{ flex: 0 }} onClick={closeEarningsModal}>
+          Close
+        </ButtonSecondary>
+        {canEdit && (
+          <ButtonPrimary
+            style={{ flex: 0 }}
+            onClick={handleSubmitEarning}
+            disabled={earningsModal.mode === EarningsModalMode.Additional && !selectedModalCode}
+          >
+            Stage
+          </ButtonPrimary>
+        )}
+      </Row>
+    </Stack>
+  );
+
   return (
     <>
       <EditablePayrollTable
         payees={effectivePayees}
+        loading={loading}
         searchEnabled={searchEnabled}
         canEdit={canEdit}
         stagedPayeeRemovals={stagedPayeeRemovals}
@@ -606,159 +763,22 @@ export function PayrollEarningsStagingSection({
         disableApply={disableApply || isApplying || !hasStagedChanges}
       />
 
-      <Modal
-        isOpen={earningsModal.isOpen}
-        onClose={closeEarningsModal}
-        title={
-          earningsModal.mode === EarningsModalMode.Override
-            ? "Override Earnings"
-            : "Add Additional Earnings"
-        }
-        width={620}
-      >
-        <Stack gap="md">
-          <Text.Body color="muted" size="sm">
-            Payee: #{earningsModal.payee?.payeeId?.toString() ?? "-"} · {parsePayeeNameLabel(earningsModal.payee?.role ?? "")}
-          </Text.Body>
-
-          <Stack>
-            <Text.Body size="sm" color="muted">Earnings Code</Text.Body>
-            <Select<string>
-              value={modalCodeId || null}
-              onChange={(v) => setModalCodeId(String(v ?? ""))}
-              disabled={!canEdit || earningsModal.mode !== EarningsModalMode.Additional}
-            >
-              {(earningsModal.mode === EarningsModalMode.Additional
-                ? additionalModalCodes
-                : earningsModal.earning
-                ? [
-                    {
-                      earningsCodeId: earningsModal.earning.earningsCodeId,
-                      isActive: true,
-                      name: earningsModal.earning.name ?? "",
-                      rule: earningsModal.earning.rule,
-                      config: earningsModal.earning.config,
-                    },
-                  ]
-                : []
-              ).map((code) => (
-                <SelectOption
-                  key={code.earningsCodeId.toString()}
-                  value={code.earningsCodeId.toString()}
-                  label={`${formatEarningsCodeIdLabel(code.earningsCodeId)} · ${formatEarningsCodeName(code.name)} · ${buildRuleMeta(code.rule, config).name}`}
-                />
-              ))}
-            </Select>
-          </Stack>
-
-          <Row justify="between" align="center" wrap>
-            <Text.Body size="sm" color="muted">
-              Rule: {selectedModalRuleMeta.name}
-            </Text.Body>
-            <Row gap="sm" align="center">
-              <Text.Body size="sm" color="muted">{shortAddress(selectedModalRule)}</Text.Body>
-              <CopyButton value={selectedModalRule} ariaLabel="Copy rule address" />
-            </Row>
-          </Row>
-
-          {selectedModalRuleMeta.configRequired && selectedModalCode && (
-            <Text.Body size="sm" color="muted">
-              Config: {decodeConfigDisplay(selectedModalCode.config, selectedModalCode.rule, config)}
-            </Text.Body>
-          )}
-
-          <Stack>
-            <Text.Body size="sm" color="muted">Rate</Text.Body>
-            <Input
-              value={modalRate}
-              onChange={(e) => setModalRate(e.target.value)}
-              placeholder="e.g. 20"
-              disabled={!canEdit}
-            />
-          </Stack>
-
-          {selectedModalRuleMeta.kind === RuleKind.Hourly && (
-            <Stack>
-              <Text.Body size="sm" color="muted">Hours Worked (runData)</Text.Body>
-              <NumberInput
-                value={modalHourlyRunData}
-                onChange={(e) =>
-                  setModalHourlyRunData((e.target as HTMLInputElement).value)
-                }
-                allowDecimal={false}
-                disabled={!canEdit}
-              />
-            </Stack>
-          )}
-
-          {selectedModalRuleMeta.kind === RuleKind.Custom && (
-            <Stack>
-              <Text.Body size="sm" color="muted">Run Data (raw hex)</Text.Body>
-              <Input
-                value={modalRawRunData}
-                onChange={(e) => setModalRawRunData(e.target.value)}
-                placeholder="0x"
-                disabled={!canEdit}
-              />
-            </Stack>
-          )}
-
-          {selectedModalRuleMeta.kind === RuleKind.Weekly && (
-            <Stack gap="sm">
-              <Row justify="between" align="center" wrap>
-                <Stack gap="xs">
-                  <Text.Body size="sm" color="muted">Premium Rate: {weeklyPremiumRateLabel}</Text.Body>
-                  <Text.Body size="sm" color="muted">Schedule Hours: {weeklyScheduledHours}h</Text.Body>
-                  <Text.Body size="sm" color="muted">Standard Hours: {weeklyStandardHours}h</Text.Body>
-                  <Text.Body size="sm" color="muted">Premium Overlap: {weeklyPremiumOverlapHours}h</Text.Body>
-                </Stack>
-                <Row gap="sm" align="center" wrap>
-                  <ButtonSecondary
-                    style={{ flex: 0 }}
-                    onClick={() => setModalWeeklyWorkedMask(new Array<boolean>(168).fill(false))}
-                    disabled={!canEdit}
-                  >
-                    Clear Schedule
-                  </ButtonSecondary>
-                </Row>
-              </Row>
-
-              <Stack
-                style={{
-                  border: "1px solid var(--colors-border)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "var(--spacing-sm)",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                  <ScheduleGrid
-                    mask={modalWeeklyWorkedMask}
-                    onChange={setWeeklyWorkedHour}
-                    disabled={!canEdit}
-                    forceRows12
-                    overlapMask={modalWeeklyPremiumMask}
-                  />
-                </div>
-              </Stack>
-            </Stack>
-          )}
-
-          <Row justify="end" gap="sm">
-            <ButtonSecondary style={{ flex: 0 }} onClick={closeEarningsModal}>
-              Close
-            </ButtonSecondary>
-            {canEdit && (
-              <ButtonPrimary
-                style={{ flex: 0 }}
-                onClick={handleSubmitEarning}
-                disabled={earningsModal.mode === EarningsModalMode.Additional && !selectedModalCode}
-              >
-                Stage
-              </ButtonPrimary>
-            )}
-          </Row>
-        </Stack>
-      </Modal>
+      {isMobile ? (
+        <Sheet open={earningsModal.isOpen} onClose={closeEarningsModal} placement="bottom">
+          <Text.Label>{earningsModalTitle}</Text.Label>
+          <div style={{ height: 8 }} />
+          {earningsModalContent}
+        </Sheet>
+      ) : (
+        <Modal
+          isOpen={earningsModal.isOpen}
+          onClose={closeEarningsModal}
+          title={earningsModalTitle}
+          width={620}
+        >
+          {earningsModalContent}
+        </Modal>
+      )}
     </>
   );
 }

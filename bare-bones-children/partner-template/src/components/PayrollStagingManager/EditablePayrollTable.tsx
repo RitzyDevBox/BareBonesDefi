@@ -13,6 +13,7 @@ const DELETE_LABEL = "Delete";
 
 interface EditablePayrollTableProps {
   payees: PayeeModel[];
+  loading?: boolean;
   searchEnabled?: boolean;
   canEdit: boolean;
   stagedPayeeRemovals: Set<string>;
@@ -46,6 +47,7 @@ interface EditablePayrollTableProps {
 
 export function EditablePayrollTable({
   payees,
+  loading = false,
   searchEnabled = true,
   canEdit,
   stagedPayeeRemovals,
@@ -118,6 +120,7 @@ export function EditablePayrollTable({
     <Stack gap="md">
       <PayeesTable
         payees={payees}
+        loading={loading}
         searchEnabled={searchEnabled}
         extraColumns={mergedColumns}
         getExtraCells={(payee) => ({

@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { Stack } from "../Primitives";
 import { Text } from "../Primitives/Text";
+import { Loader } from "../Loader/Loader";
 import { TableRow } from "./Row";
 import { TableSearch } from "./Search";
 
@@ -16,6 +17,7 @@ export interface TableRowData {
   id: string | number;
   cells: Record<string, any>;
   expandedContent?: (rowData: TableRowData) => React.ReactNode;
+  leadingCell?: React.ReactNode;
   rowStyle?: React.CSSProperties;
 }
 
@@ -27,6 +29,8 @@ export interface TableProps {
   onSearch?: (searchTerm: string) => void;
   searchValue?: string;
   style?: React.CSSProperties;
+  loading?: boolean;
+  loadingLabel?: string;
 }
 
 export function Table({
@@ -37,6 +41,8 @@ export function Table({
   onSearch,
   searchValue = "",
   style,
+  loading = false,
+  loadingLabel = "Loading...",
 }: TableProps) {
   const [internalSearchValue, setInternalSearchValue] =
     React.useState(searchValue);
@@ -61,6 +67,11 @@ export function Table({
     );
   }, [data, search, columns]);
 
+  const hasLeadingCells = useMemo(
+    () => data.some((row) => row.expandedContent || row.leadingCell),
+    [data]
+  );
+
   return (
     <Stack gap="md" style={style}>
       {showSearch && (
@@ -82,7 +93,7 @@ export function Table({
           <thead>
             <tr style={{ borderBottom: "2px solid var(--colors-border)" }}>
               {/* Expand column header (if any row has expandable content) */}
-              {filteredData.some((row) => row.expandedContent) && (
+              {hasLeadingCells && (
                 <th
                   style={{
                     textAlign: "left",
@@ -119,15 +130,28 @@ export function Table({
                   rowData={row}
                   columns={columns}
                   expandedContentRender={row.expandedContent}
+                  leadingCell={row.leadingCell}
                   rowIndex={idx}
                   totalRows={filteredData.length}
                   rowStyle={row.rowStyle}
                 />
               ))
+            ) : loading ? (
+              <tr>
+                <td
+                  colSpan={columns.length + (hasLeadingCells ? 1 : 0)}
+                  style={{
+                    padding: 0,
+                    textAlign: "center",
+                  }}
+                >
+                  <Loader kind="table" label={loadingLabel} />
+                </td>
+              </tr>
             ) : (
               <tr>
                 <td
-                  colSpan={columns.length + (filteredData.some((r) => r.expandedContent) ? 1 : 0)}
+                  colSpan={columns.length + (hasLeadingCells ? 1 : 0)}
                   style={{
                     padding: "var(--spacing-lg)",
                     textAlign: "center",

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent, Input } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
 import { Select, SelectOption } from "../components/Select";
+import { Loader } from "../components/Loader/Loader";
 import { PayrollNavigation } from "../components/PayrollNavigation";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
@@ -47,6 +48,7 @@ function payrollStatusColor(status: number): "main" | "secondary" | "label" | "m
 
 export function PayrollsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { organizationId } = useParams<{ organizationId: string }>();
   const slug = (organizationId ?? "").trim();
 
@@ -56,8 +58,9 @@ export function PayrollsPage() {
   const [loading, setLoading] = useState(false);
   const [creatingPayroll, setCreatingPayroll] = useState(false);
   const [createPayrollError, setCreatePayrollError] = useState<string | null>(null);
+  const [payrollCreateMode, setPayrollCreateMode] = useState<"empty" | "batch" | null>(null);
   const [orgInfo, setOrgInfo] = useState<OrganizationModel | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(Boolean((location.state as { isAdmin?: boolean } | null)?.isAdmin));
   const [payBatchCodes, setPayBatchCodes] = useState<string[]>([]);
   const [activePayrolls, setActivePayrolls] = useState<PayrollRunRowView[]>([]);
 
@@ -65,7 +68,12 @@ export function PayrollsPage() {
   const [windowPreset, setWindowPreset] = useState<PayrollWindowPreset>(PayrollWindowPreset.Weekly);
   const [startDateInput, setStartDateInput] = useState<string>(formatDateInputValue(new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)));
   const [endDateInput, setEndDateInput] = useState<string>(formatDateInputValue(today));
-  const [selectedBatchCode, setSelectedBatchCode] = useState<string | null>(null);
+  const [selectedBatchCode, setSelectedBatchCode] = useState<string | null>(DEFAULT_PAY_BATCH_CODE);
+
+  const batchTemplateOptions = useMemo(() => {
+    if (payBatchCodes.includes(DEFAULT_PAY_BATCH_CODE)) return payBatchCodes;
+    return [DEFAULT_PAY_BATCH_CODE, ...payBatchCodes];
+  }, [payBatchCodes]);
 
   useEffect(() => {
     if (windowPreset === PayrollWindowPreset.Custom) return;
@@ -111,6 +119,9 @@ export function PayrollsPage() {
     if (!provider || !payrollManagerAddress) return;
 
     setLoading(true);
+    setOrgInfo(null);
+    setActivePayrolls([]);
+    setPayBatchCodes([]);
     try {
       const manager = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
       const slugBytes = ethers.utils.formatBytes32String(orgSlug);
@@ -174,14 +185,22 @@ export function PayrollsPage() {
   }
 
   useEffect(() => {
+    const navIsAdmin = (location.state as { isAdmin?: boolean } | null)?.isAdmin;
+    if (typeof navIsAdmin === "boolean") {
+      setIsAdmin(navIsAdmin);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
     if (!slug) return;
     refreshData(slug);
   }, [slug, provider, payrollManagerAddress, account, version]);
 
-  async function handleCreatePayroll(payBatchCode: string | null) {
+  async function handleCreatePayroll(payBatchCode: string | null, mode: "empty" | "batch") {
     if (!chainId || !isAdmin || !slug.trim() || creatingPayroll) return;
 
     setCreatePayrollError(null);
+    setPayrollCreateMode(mode);
 
     const startTime = localDateStartUnix(startDateInput);
     // Use an exclusive end bound at next-day midnight so payroll windows are
@@ -190,16 +209,19 @@ export function PayrollsPage() {
 
     if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || startTime <= 0 || endTime <= 0) {
       setCreatePayrollError("Start and end date must be valid.");
+      setPayrollCreateMode(null);
       return;
     }
     if (endTime <= startTime) {
       setCreatePayrollError("End time must be greater than start time.");
+      setPayrollCreateMode(null);
       return;
     }
 
     const periodSeconds = endTime - startTime;
     if (periodSeconds % 3600 !== 0) {
       setCreatePayrollError("Invalid payroll window: duration must align to full hours.");
+      setPayrollCreateMode(null);
       return;
     }
 
@@ -217,6 +239,7 @@ export function PayrollsPage() {
       setCreatePayrollError(String(message));
     } finally {
       setCreatingPayroll(false);
+      setPayrollCreateMode(null);
     }
   }
 
@@ -226,7 +249,7 @@ export function PayrollsPage() {
         <Card style={{ width: "100%", maxWidth: 920, alignSelf: "center" }}>
           <CardContent>
             <Stack gap="md">
-              <PayrollNavigation slug={slug} active="payrolls" title="Payrolls" />
+              <PayrollNavigation slug={slug} active="payrolls" title="Payrolls" isAdmin={isAdmin} />
 
               {!slug && <Text.Body color="warn">Missing organization slug in route.</Text.Body>}
 
@@ -236,32 +259,14 @@ export function PayrollsPage() {
                 </Text.Body>
               )}
 
-              {loading && <Text.Body color="muted">Loading payrolls...</Text.Body>}
+              {loading && <Loader label="Loading payrolls..." />}
 
-              {orgInfo && (
-                <Stack
-                  style={{
-                    padding: "var(--spacing-md)",
-                    backgroundColor: "var(--colors-background)",
-                    borderRadius: "var(--radius-md)",
-                  }}
-                >
-                  <Text.Body>
-                    <strong>Owner:</strong> {orgInfo.owner}
-                  </Text.Body>
-                  <Text.Body color={isAdmin ? "success" : "muted"}>
-                    {isAdmin ? "✓ Admin Mode" : "Read Only Mode"}
-                  </Text.Body>
-                  <Text.Body size="sm" color="muted">
-                    Payrolls: {activePayrolls.length}
-                  </Text.Body>
-                </Stack>
-              )}
+
             </Stack>
           </CardContent>
         </Card>
 
-        {orgInfo?.exists && (
+        {!!slug && (isAdmin || orgInfo?.exists) && (
           <Card style={{ width: "100%", maxWidth: 920, alignSelf: "center" }}>
             <CardContent>
               <Stack gap="md">
@@ -277,7 +282,7 @@ export function PayrollsPage() {
                     onChange={(value) => setSelectedBatchCode(value ? String(value) : null)}
                     disabled={!isAdmin}
                   >
-                    {payBatchCodes.map((code) => (
+                    {batchTemplateOptions.map((code) => (
                       <SelectOption
                         key={code}
                         value={code}
@@ -285,9 +290,6 @@ export function PayrollsPage() {
                       />
                     ))}
                   </Select>
-                  <Text.Body size="xs" color="muted">
-                    Pay batch is an internal bytes32 identifier. The friendly label is shown above.
-                  </Text.Body>
                 </Stack>
 
                 <Stack>
@@ -328,18 +330,20 @@ export function PayrollsPage() {
 
                 <Row justify="end">
                   <ButtonSecondary
-                    style={{ flex: 0 }}
-                    onClick={() => handleCreatePayroll(null)}
+                    style={{ flex: 0, minWidth: 140 }}
+                    onClick={() => handleCreatePayroll(null, "empty")}
                     disabled={!isAdmin || !slug || creatingPayroll}
                   >
-                    {creatingPayroll ? "Starting..." : "Create Empty"}
+                    {creatingPayroll && payrollCreateMode === "empty" ? <Loader inline size={14} color="currentColor" /> : null}
+                    Create Empty
                   </ButtonSecondary>
                   <ButtonPrimary
-                    style={{ flex: 0 }}
-                    onClick={() => handleCreatePayroll(selectedBatchCode)}
+                    style={{ flex: 0, minWidth: 148 }}
+                    onClick={() => handleCreatePayroll(selectedBatchCode, "batch")}
                     disabled={!isAdmin || !slug || creatingPayroll || !selectedBatchCode}
                   >
-                    {creatingPayroll ? "Starting..." : "Start Payroll"}
+                    {creatingPayroll && payrollCreateMode === "batch" ? <Loader inline size={14} color="currentColor" /> : null}
+                    Start Payroll
                   </ButtonPrimary>
                 </Row>
                 {createPayrollError && (
@@ -352,12 +356,14 @@ export function PayrollsPage() {
           </Card>
         )}
 
-        {orgInfo?.exists && (
+        {!!slug && (loading || orgInfo?.exists) && (
           <Card style={{ width: "100%" }}>
             <CardContent>
               <Stack gap="md">
                 <Text.Label>Payrolls</Text.Label>
-                {activePayrolls.length === 0 ? (
+                {loading ? (
+                  <Loader kind="table" label="Loading payrolls..." />
+                ) : activePayrolls.length === 0 ? (
                   <Text.Body color="muted">No payrolls found.</Text.Body>
                 ) : (
                   <Stack gap="sm">

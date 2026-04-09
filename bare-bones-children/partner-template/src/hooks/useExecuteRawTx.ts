@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useToastActionLifecycle } from "../components/UniversalWalletModal/hooks/useToastActionLifeCycle";
 import { executeTx } from "../utils/transactionUtils";
@@ -17,44 +17,55 @@ export function useExecuteRawTx<TArgs extends any[]>(
   const { provider, account, chainId } = useWalletProvider();
   const lifecycle = useToastActionLifecycle();
   const { triggerRefresh } = useTxRefresh();
+  const isExecutingRef = useRef(false);
 
   return useCallback(
     async (...args: TArgs) => {
       if (!provider || !account || chainId == null) return;
-
-      try {
-        const signerAddress = await provider.getSigner().getAddress();
-        if (!signerAddress) {
-          lifecycle.onError?.(new Error("Wallet account unavailable. Reconnect your wallet and try again."));
-          return;
-        }
-      } catch (error: any) {
-        const message = String(error?.message ?? error ?? "").toLowerCase();
-        if (message.includes("unknown account") || message.includes("getaddress")) {
-          lifecycle.onError?.(new Error("Wallet account unavailable. Reconnect your wallet and try again."));
-          return;
-        }
-        lifecycle.onError?.(error);
+      if (isExecutingRef.current) {
+        lifecycle.onWarn?.("A transaction is already in progress.");
         return;
       }
 
-      const tx = await executeTx(
-        provider,
-        async () => buildRawTx(...args),
-        lifecycle,
-        () => successMessage(...args)
-      );
+      isExecutingRef.current = true;
 
-      if (tx !== undefined) {
-        await tx.wait(1);
-        triggerRefresh({
-          hash: tx?.hash,
-          message: successMessage(...args),
-        });
+      try {
+        try {
+          const signerAddress = await provider.getSigner().getAddress();
+          if (!signerAddress) {
+            lifecycle.onError?.(new Error("Wallet account unavailable. Reconnect your wallet and try again."));
+            return;
+          }
+        } catch (error: any) {
+          const message = String(error?.message ?? error ?? "").toLowerCase();
+          if (message.includes("unknown account") || message.includes("getaddress")) {
+            lifecycle.onError?.(new Error("Wallet account unavailable. Reconnect your wallet and try again."));
+            return;
+          }
+          lifecycle.onError?.(error);
+          return;
+        }
+
+        const tx = await executeTx(
+          provider,
+          async () => buildRawTx(...args),
+          lifecycle,
+          () => successMessage(...args)
+        );
+
+        if (tx !== undefined) {
+          await tx.wait(1);
+          triggerRefresh({
+            hash: tx?.hash,
+            message: successMessage(...args),
+          });
+        }
+
+        return tx;
+      } finally {
+        isExecutingRef.current = false;
       }
-
-      return tx;
     },
-    [provider, account, chainId, lifecycle, buildRawTx, successMessage]
+    [provider, account, chainId, lifecycle, buildRawTx, successMessage, triggerRefresh]
   );
 }

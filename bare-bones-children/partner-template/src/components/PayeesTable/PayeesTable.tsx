@@ -8,6 +8,8 @@ import { Input } from "../BasicComponents";
 import { ButtonPrimary } from "../Button/ButtonPrimary";
 import { IconButton } from "../Button/IconButton";
 import { AddressInput } from "../Inputs/AddressInput";
+import { Sheet } from "../Primitives/Sheet";
+import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
 import { shortAddress } from "../../utils/formatUtils";
 import { CopyButton } from "../Button/Actions/CopyButton";
 import { TrashBinIcon } from "../../assets/icons/TrashBinIcon";
@@ -30,6 +32,7 @@ interface DraftPayeeRow {
 
 export interface PayeesTableProps {
 	payees: Payee[];
+	loading?: boolean;
 	searchEnabled?: boolean;
 	renderExpandedRow?: (payee: Payee, rowData: any) => React.ReactNode;
 	extraColumns?: TableColumn[];
@@ -58,7 +61,10 @@ export function PayeesTable({
 	getExtraCells,
 	getRowStyle,
 	onAddPayee,
+	loading = false,
 }: PayeesTableProps) {
+	const screenSize = useMediaQuery();
+	const isPhone = screenSize === ScreenSize.Phone;
 	const [searchQuery, setSearchQuery] = useState("");
 
 	const filteredPayees = useMemo(() => {
@@ -80,6 +86,14 @@ export function PayeesTable({
 		{ id: "row-1", name: "", address: "", staged: false },
 	]);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
+	const [mobileDraftName, setMobileDraftName] = useState("");
+	const [mobileDraftAddress, setMobileDraftAddress] = useState("");
+
+	const stagedDraftRows = useMemo(
+		() => draftRows.filter((row) => row.staged),
+		[draftRows]
+	);
 
 	function isValidAddress(value: string) {
 		return /^0x[a-fA-F0-9]{40}$/.test(value.trim());
@@ -131,13 +145,45 @@ export function PayeesTable({
 		[extraColumns]
 	);
 
+	const tableColumns = useMemo<TableColumn[]>(() => {
+		const cols: TableColumn[] = [
+			{
+				key: "name",
+				header: "Name",
+			},
+			{
+				key: "address",
+				header: "Address",
+				render: (value: any) => {
+					if (isValidElement(value)) return value;
+					if (typeof value !== "string") return String(value ?? "");
+					return (
+						<Row gap="sm" align="center" style={{ minWidth: 0 }}>
+							<span style={{ fontFamily: "monospace", display: "inline-block", minWidth: "9ch", letterSpacing: 0 }}>{shortAddress(value)}</span>
+							<CopyButton value={value} ariaLabel="Copy address" />
+						</Row>
+					);
+				},
+			},
+			...extraColumns,
+		];
+
+		if (!isPhone) {
+			cols.unshift({
+				key: "id",
+				header: "ID",
+			});
+		}
+
+		return cols;
+	}, [extraColumns, isPhone]);
+
 	async function handleSaveAllPayees() {
 		if (!onAddPayee) {
 			return;
 		}
 
-		const stagedRows = draftRows.filter((row) => row.staged);
-		const normalizedRows = stagedRows.map((row) => ({
+		const normalizedRows = stagedDraftRows.map((row) => ({
 			name: row.name.trim(),
 			address: row.address.trim(),
 		}));
@@ -175,6 +221,26 @@ export function PayeesTable({
 		}
 	}
 
+	function handleSubmitMobileAddRow() {
+		const name = mobileDraftName.trim();
+		const address = mobileDraftAddress.trim();
+		if (!name || !isValidAddress(address)) return;
+
+		setDraftRows((prev) => [
+			...prev,
+			{
+				id: `row-${Date.now()}-${Math.random()}`,
+				name,
+				address,
+				staged: true,
+			},
+		]);
+
+		setMobileDraftName("");
+		setMobileDraftAddress("");
+		setIsAddSheetOpen(false);
+	}
+
 	return (
 		<Stack>
 			<Stack>
@@ -195,36 +261,14 @@ export function PayeesTable({
 				)}
 
 				<Table
-					columns={[
-						{
-							key: "id",
-							header: "ID",
-						},
-						{
-							key: "name",
-							header: "Name",
-						},
-						{
-							key: "address",
-							header: "Address",
-							render: (value: any) => {
-								if (isValidElement(value)) return value;
-								if (typeof value !== "string") return String(value ?? "");
-								return (
-									<Row gap="sm" align="center" style={{ minWidth: 0 }}>
-										<span>{shortAddress(value)}</span>
-										<CopyButton value={value} ariaLabel="Copy address" />
-									</Row>
-								);
-							},
-						},
-						...extraColumns,
-					]}
+					loading={loading}
+					loadingLabel="Loading payees..."
+					columns={tableColumns}
 					data={[
 						...filteredPayees.map((payee) => ({
 							id: payee.payeeId.toString(),
 							cells: {
-								id: payee.payeeId.toNumber(),
+								...(isPhone ? {} : { id: payee.payeeId.toNumber() }),
 								name: safeParseName(payee.role),
 								address: payee.paymentAddress,
 								...(getExtraCells ? getExtraCells(payee) : {}),
@@ -234,8 +278,8 @@ export function PayeesTable({
 								: undefined,
 							rowStyle: getRowStyle?.(payee),
 						})),
-						...(onAddPayee
-							? draftRows.map((row) => {
+					...(!loading && onAddPayee
+							? draftRows.filter((row) => !isPhone || row.staged).map((row) => {
 								const isStaged = row.staged;
 								const canStage = Boolean(row.name.trim()) && isValidAddress(row.address);
 								const actionCell = hasActionsColumn ? (
@@ -278,6 +322,25 @@ export function PayeesTable({
 
 								return {
 									id: `draft-${row.id}`,
+									leadingCell: isPhone && isStaged ? (
+										<IconButton
+											size="xl"
+											iconFontSize="xl"
+											shape="square"
+											aria-label="Delete staged row"
+											title="Delete staged row"
+											style={{
+												borderColor: "var(--colors-borderHover)",
+												color: "var(--colors-error)",
+											}}
+											onClick={() => removeDraftRow(row.id)}
+											disabled={isSubmitting || Boolean(onAddPayee.loading)}
+										>
+											<span style={{ display: "flex", transform: "translateX(1px)" }}>
+												<TrashBinIcon size={24} />
+											</span>
+										</IconButton>
+									) : undefined,
 									cells: {
 										id: isStaged ? "NEW" : "",
 										name: isStaged ? (
@@ -308,6 +371,27 @@ export function PayeesTable({
 									rowStyle: {
 										background: isStaged ? "rgba(25,135,84,0.10)" : "transparent",
 									},
+									// On phone: staged rows show a remove button in the expanded panel
+									// so they align with the expand-arrow column of real payee rows
+									expandedContent: (isPhone && isStaged)
+										? () => (
+											<Row justify="end">
+												<IconButton
+													size="xl"
+													iconFontSize="xl"
+													shape="square"
+													aria-label="Remove staged row"
+													title="Remove staged row"
+													style={{ color: "var(--colors-error)", borderColor: "var(--colors-borderHover)" }}
+													onClick={() => removeDraftRow(row.id)}
+												>
+													<span style={{ display: "flex", transform: "translateX(1px)" }}>
+														<TrashBinIcon size={22} />
+													</span>
+												</IconButton>
+											</Row>
+										)
+										: undefined,
 								};
 							})
 							: []),
@@ -315,7 +399,7 @@ export function PayeesTable({
 					showSearch={false}
 				/>
 
-				{onAddPayee && (
+				{onAddPayee && !loading && !isPhone && (
 					<Row justify="end" style={{ marginTop: "var(--spacing-sm)", width: "100%" }}>
 						<ButtonPrimary
 							style={{ flex: 0 }}
@@ -323,12 +407,84 @@ export function PayeesTable({
 							disabled={
 								isSubmitting ||
 								onAddPayee.loading ||
-								draftRows.filter((row) => row.staged).length === 0
+								stagedDraftRows.length === 0
 							}
 						>
 							{isSubmitting || onAddPayee.loading ? "Saving..." : "Save All"}
 						</ButtonPrimary>
 					</Row>
+				)}
+
+				{onAddPayee && !loading && isPhone && (
+					<Row justify="between" align="center" style={{ marginTop: "var(--spacing-sm)", width: "100%" }}>
+						<Text.Body size="sm" color="muted">Staged: {stagedDraftRows.length}</Text.Body>
+						<Row gap="sm" wrap>
+						<ButtonPrimary
+							shape="rounded"
+							style={{
+								flex: 0,
+								minWidth: 132,
+								minHeight: 40,
+								whiteSpace: "nowrap",
+								padding: "10px 16px",
+								borderRadius: "var(--radius-sm)",
+							}}
+							onClick={() => setIsAddSheetOpen(true)}
+							disabled={Boolean(onAddPayee.loading) || isSubmitting}
+						>
+							Add Row
+						</ButtonPrimary>
+						<ButtonPrimary
+							shape="rounded"
+							style={{
+								flex: 0,
+								minWidth: 132,
+								minHeight: 40,
+								whiteSpace: "nowrap",
+								padding: "10px 16px",
+								borderRadius: "var(--radius-sm)",
+							}}
+							onClick={handleSaveAllPayees}
+							disabled={isSubmitting || Boolean(onAddPayee.loading) || stagedDraftRows.length === 0}
+						>
+							{isSubmitting || onAddPayee.loading ? "Saving..." : "Save All"}
+						</ButtonPrimary>
+						</Row>
+					</Row>
+				)}
+
+				{onAddPayee && isPhone && (
+					<Sheet open={isAddSheetOpen} onClose={() => setIsAddSheetOpen(false)} placement="bottom">
+						<div style={{ padding: "var(--spacing-md)", overflowY: "auto" }}>
+							<Stack gap="md">
+								<Text.Label>Add Payee</Text.Label>
+								<Input
+									value={mobileDraftName}
+									onChange={(e) => setMobileDraftName(e.target.value)}
+									placeholder="Name (e.g., DEV)"
+								/>
+								<AddressInput
+									value={mobileDraftAddress}
+									onChange={(e) => setMobileDraftAddress((e.target as HTMLInputElement).value)}
+									placeholder="0x..."
+								/>
+								<Row justify="end" gap="sm">
+									<ButtonPrimary
+										shape="rounded"
+										style={{ flex: 0, minHeight: 40, padding: "10px 16px", borderRadius: "var(--radius-sm)" }}
+										onClick={handleSubmitMobileAddRow}
+										disabled={
+											Boolean(onAddPayee.loading) ||
+											!mobileDraftName.trim() ||
+											!isValidAddress(mobileDraftAddress)
+										}
+									>
+										Stage Row
+									</ButtonPrimary>
+								</Row>
+							</Stack>
+						</div>
+					</Sheet>
 				)}
 			</Stack>
 		</Stack>

@@ -16,6 +16,7 @@ import {
 } from "../../utils/payroll/earningsCodeDisplay";
 import { EarningsDividerButton } from "./EarningsDividerButton";
 import { RuleType } from "./ruleTypes";
+import { Loader } from "../Loader/Loader";
 
 const UINT32_MAX_NUM = 4294967295;
 
@@ -29,6 +30,7 @@ interface PayrollEarningsCatalogManagerProps {
   slug: string;
   canEdit: boolean;
   earningsCodes: OrganizationEarningsCodeView[];
+  loading?: boolean;
 }
 
 function parseUint(value: string, fallback = 0) {
@@ -51,6 +53,7 @@ export function PayrollEarningsCatalogManager({
   slug,
   canEdit,
   earningsCodes,
+  loading = false,
 }: PayrollEarningsCatalogManagerProps) {
   const { chainId } = useWalletProvider();
 
@@ -68,6 +71,7 @@ export function PayrollEarningsCatalogManager({
   const [selectedCodeId, setSelectedCodeId] = useState<string>("");
   const [editRuleType, setEditRuleType] = useState<RuleType>(RuleType.Custom);
   const [isActive, setIsActive] = useState<boolean>(true);
+  const [isSubmittingUpdate, setIsSubmittingUpdate] = useState(false);
   const [hourlyBands, setHourlyBands] = useState<HourlyBandRow[]>([
     { maxHours: "40", multiplier: "1", isRemaining: false },
     { maxHours: UINT32_MAX_NUM.toString(), multiplier: "1.5", isRemaining: true },
@@ -319,8 +323,13 @@ export function PayrollEarningsCatalogManager({
   );
 
   async function submitUpdate(nextIsActive: boolean) {
-    if (!chainId || !slug || !selectedCodeId || isSelectedSystemCode) return;
-    await setEarningsCode(chainId, slug, selectedCodeId, encodeSelectedConfig(), nextIsActive);
+    if (!chainId || !slug || !selectedCodeId || isSelectedSystemCode || isSubmittingUpdate) return;
+    setIsSubmittingUpdate(true);
+    try {
+      await setEarningsCode(chainId, slug, selectedCodeId, encodeSelectedConfig(), nextIsActive);
+    } finally {
+      setIsSubmittingUpdate(false);
+    }
   }
 
   if (earningsCodes.length === 0) {
@@ -335,9 +344,13 @@ export function PayrollEarningsCatalogManager({
         }}
       >
         <Text.Label>Manage Earnings Codes</Text.Label>
-        <Text.Body size="sm" color="muted">
-          No earnings codes found. Register a code first.
-        </Text.Body>
+        {loading ? (
+          <Loader kind="table" label="Loading earnings codes..." />
+        ) : (
+          <Text.Body size="sm" color="muted">
+            No earnings codes found. Register a code first.
+          </Text.Body>
+        )}
       </Stack>
     );
   }
@@ -563,17 +576,19 @@ export function PayrollEarningsCatalogManager({
 
           <Row gap="sm" justify="end" wrap>
             <ButtonSecondary
-              style={{ flex: 0 }}
-              disabled={!canEditSelectedCode}
+              style={{ flex: 0, minWidth: 124 }}
+              disabled={!canEditSelectedCode || isSubmittingUpdate}
               onClick={() => submitUpdate(!isActive)}
             >
+              {isSubmittingUpdate ? <Loader inline size={14} color="currentColor" /> : null}
               {isActive ? "Deactivate" : "Activate"}
             </ButtonSecondary>
             <ButtonPrimary
-              style={{ flex: 0 }}
-              disabled={!canEditSelectedCode}
+              style={{ flex: 0, minWidth: 104 }}
+              disabled={!canEditSelectedCode || isSubmittingUpdate}
               onClick={() => submitUpdate(isActive)}
             >
+              {isSubmittingUpdate ? <Loader inline size={14} color="currentColor" /> : null}
               Save
             </ButtonPrimary>
           </Row>

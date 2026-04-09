@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
 import { Stack } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
+import { Loader } from "../components/Loader/Loader";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../constants/misc";
@@ -18,6 +19,7 @@ import { PayrollEarningsManager } from "../components/PayrollEarningsManager";
 import { PayrollNavigation } from "../components/PayrollNavigation";
 
 export function PayrollEarningsPage() {
+  const location = useLocation();
   const { organizationId } = useParams<{ organizationId: string }>();
   const slug = (organizationId ?? "").trim();
 
@@ -26,7 +28,7 @@ export function PayrollEarningsPage() {
 
   const [loading, setLoading] = useState(false);
   const [orgInfo, setOrgInfo] = useState<OrganizationModel | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(Boolean((location.state as { isAdmin?: boolean } | null)?.isAdmin));
   const [earningsCodes, setEarningsCodes] = useState<OrganizationEarningsCodeView[]>([]);
 
   const config = useMemo(() => {
@@ -40,6 +42,9 @@ export function PayrollEarningsPage() {
     if (!provider || !payrollManagerAddress) return;
 
     setLoading(true);
+    setOrgInfo(null);
+    setIsAdmin(false);
+    setEarningsCodes([]);
     try {
       const contract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
       const slugBytes = ethers.utils.formatBytes32String(orgSlug);
@@ -56,9 +61,7 @@ export function PayrollEarningsPage() {
       const rows = await fetchOrganizationEarningsCodes(
         provider,
         payrollManagerAddress,
-        orgSlug,
-        undefined,
-        account ?? undefined
+        orgSlug
       );
       setEarningsCodes(rows);
     } catch (error) {
@@ -71,6 +74,13 @@ export function PayrollEarningsPage() {
   }
 
   useEffect(() => {
+    const navIsAdmin = (location.state as { isAdmin?: boolean } | null)?.isAdmin;
+    if (typeof navIsAdmin === "boolean") {
+      setIsAdmin(navIsAdmin);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
     if (!slug) return;
     refresh(slug);
   }, [slug, provider, payrollManagerAddress, account, version]);
@@ -81,7 +91,7 @@ export function PayrollEarningsPage() {
         <Card style={{ width: "100%", maxWidth: 980, alignSelf: "center" }}>
           <CardContent>
             <Stack gap="sm">
-              <PayrollNavigation slug={slug} active="earnings" title="Earnings Management" />
+              <PayrollNavigation slug={slug} active="earnings" title="Earnings Management" isAdmin={isAdmin} />
 
               {!slug && <Text.Body color="warn">Missing organization slug in route.</Text.Body>}
 
@@ -91,35 +101,17 @@ export function PayrollEarningsPage() {
                 </Text.Body>
               )}
 
-              {loading && <Text.Body color="muted">Loading earnings...</Text.Body>}
+              {loading && <Loader label="Loading earnings..." />}
 
-              {orgInfo && (
-                <Stack
-                  style={{
-                    padding: "var(--spacing-md)",
-                    backgroundColor: "var(--colors-background)",
-                    borderRadius: "var(--radius-md)",
-                  }}
-                >
-                  <Text.Body>
-                    <strong>Owner:</strong> {orgInfo.owner}
-                  </Text.Body>
-                  <Text.Body color={isAdmin ? "success" : "muted"}>
-                    {isAdmin ? "✓ Admin Mode" : "Read Only Mode"}
-                  </Text.Body>
-                  <Text.Body size="sm" color="muted">
-                    Earnings codes: {earningsCodes.length}
-                  </Text.Body>
-                </Stack>
-              )}
+
             </Stack>
           </CardContent>
         </Card>
 
-        {orgInfo?.exists && (
+        {!!slug && (loading || orgInfo?.exists) && (
           <Card style={{ width: "100%" }}>
             <CardContent>
-              <PayrollEarningsManager slug={slug} canEdit={isAdmin} earningsCodes={earningsCodes} />
+              <PayrollEarningsManager slug={slug} canEdit={isAdmin} earningsCodes={earningsCodes} loading={loading} />
             </CardContent>
           </Card>
         )}

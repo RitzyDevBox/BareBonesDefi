@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent, Input } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import { ButtonSecondary } from "../components/Button/ButtonPrimary";
+import { Loader } from "../components/Loader/Loader";
 
 import { Select, SelectOption } from "../components/Select";
 import { useWalletProvider } from "../hooks/useWalletProvider";
@@ -44,6 +45,7 @@ function formatBatchCodeInput(input: string) {
 }
 
 export function PayBatchesPage() {
+  const location = useLocation();
   const { organizationId } = useParams<{ organizationId: string }>();
   const slug = (organizationId ?? "").trim();
 
@@ -51,8 +53,10 @@ export function PayBatchesPage() {
   const { version } = useTxRefresh();
 
   const [loading, setLoading] = useState(false);
+  const [loadingBatchRows, setLoadingBatchRows] = useState(false);
+  const [creatingBatch, setCreatingBatch] = useState(false);
   const [orgInfo, setOrgInfo] = useState<OrganizationModel | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(Boolean((location.state as { isAdmin?: boolean } | null)?.isAdmin));
   const [batchCodes, setBatchCodes] = useState<string[]>([]);
   const [selectedBatchCode, setSelectedBatchCode] = useState<string | null>(null);
   const [newBatchCode, setNewBatchCode] = useState("");
@@ -192,6 +196,11 @@ export function PayBatchesPage() {
     if (!provider || !payrollManagerAddress) return;
 
     setLoading(true);
+    setOrgInfo(null);
+    setIsAdmin(false);
+    setPayees([]);
+    setEarningsCodes([]);
+    setBatchRows([]);
     try {
       const contract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
       const slugBytes = ethers.utils.formatBytes32String(orgSlug);
@@ -249,6 +258,13 @@ export function PayBatchesPage() {
   }
 
   useEffect(() => {
+    const navIsAdmin = (location.state as { isAdmin?: boolean } | null)?.isAdmin;
+    if (typeof navIsAdmin === "boolean") {
+      setIsAdmin(navIsAdmin);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
     if (!slug) return;
     refreshData(slug);
   }, [slug, provider, payrollManagerAddress, account, version]);
@@ -257,6 +273,7 @@ export function PayBatchesPage() {
     if (!selectedBatchCode || !slug) return;
     if (!provider || !payrollManagerAddress) return;
 
+    setLoadingBatchRows(true);
     fetchPayBatchPayeesWithDefaults(
       provider,
       payrollManagerAddress,
@@ -269,6 +286,9 @@ export function PayBatchesPage() {
       .catch((error) => {
         console.error("Failed loading selected pay batch", error);
         setBatchRows([]);
+      })
+      .finally(() => {
+        setLoadingBatchRows(false);
       });
   }, [selectedBatchCode]);
 
@@ -324,12 +344,17 @@ export function PayBatchesPage() {
   );
 
   async function handleCreatePayBatch() {
-    if (!chainId || !slug || !newBatchCode.trim()) return;
-    await createPayBatch(chainId, slug, newBatchCode.trim());
+    if (!chainId || !slug || !newBatchCode.trim() || creatingBatch) return;
+    setCreatingBatch(true);
+    try {
+      await createPayBatch(chainId, slug, newBatchCode.trim());
 
-    const nextCode = formatBatchCodeInput(newBatchCode.trim());
-    setNewBatchCode("");
-    await refreshData(slug, nextCode);
+      const nextCode = formatBatchCodeInput(newBatchCode.trim());
+      setNewBatchCode("");
+      await refreshData(slug, nextCode);
+    } finally {
+      setCreatingBatch(false);
+    }
   }
 
   return (
@@ -337,7 +362,7 @@ export function PayBatchesPage() {
       <Stack gap="lg" style={{ width: "100%" }}>
         <Card style={{ width: "100%", maxWidth: 980, alignSelf: "center" }}>
           <CardContent>
-            <PayrollNavigation slug={slug} active="payBatches" title="Pay Batches" />
+            <PayrollNavigation slug={slug} active="payBatches" title="Pay Batches" isAdmin={isAdmin} />
 
             {!slug && <Text.Body color="warn">Missing organization slug in route.</Text.Body>}
             {slug && (
@@ -345,27 +370,8 @@ export function PayBatchesPage() {
                 Organization: <strong>{slug}</strong>
               </Text.Body>
             )}
-            {loading && <Text.Body color="muted">Loading pay batch data...</Text.Body>}
+            {loading && <Loader label="Loading pay batch data..." />}
 
-            {orgInfo && (
-              <Stack
-                style={{
-                  padding: "var(--spacing-md)",
-                  backgroundColor: "var(--colors-background)",
-                  borderRadius: "var(--radius-md)",
-                }}
-              >
-                <Text.Body>
-                  <strong>Owner:</strong> {orgInfo.owner}
-                </Text.Body>
-                <Text.Body color={isAdmin ? "success" : "muted"}>
-                  {isAdmin ? "✓ Admin Mode" : "Read Only Mode"}
-                </Text.Body>
-                <Text.Body color="muted" size="sm">
-                  Batch codes: {batchCodes.length} · Payees: {payees.length}
-                </Text.Body>
-              </Stack>
-            )}
 
             <Row gap="sm" align="end" wrap>
               <Stack style={{ minWidth: 280, flex: 1 }}>
@@ -391,7 +397,8 @@ export function PayBatchesPage() {
                       placeholder="OPS_BATCH"
                     />
                   </Stack>
-                  <ButtonSecondary style={{ flex: 0 }} onClick={handleCreatePayBatch} disabled={!newBatchCode.trim() || !chainId}>
+                  <ButtonSecondary style={{ flex: 0, minWidth: 136 }} onClick={handleCreatePayBatch} disabled={!newBatchCode.trim() || !chainId || creatingBatch}>
+                    {creatingBatch ? <Loader inline size={14} color="currentColor" /> : null}
                     Create Batch
                   </ButtonSecondary>
                 </>
@@ -400,11 +407,12 @@ export function PayBatchesPage() {
           </CardContent>
         </Card>
 
-        {selectedBatchCode && (
+        {!!slug && (loading || selectedBatchCode != null || orgInfo?.exists) && (
           <Card style={{ width: "100%" }}>
             <CardContent>
               <Stack gap="md">
                 <PayrollEarningsStagingSection
+                  loading={loading || loadingBatchRows}
                   payees={payees}
                   baseIncludedPayeeIds={batchPayeeIds}
                   canEdit={isAdmin}
@@ -425,7 +433,7 @@ export function PayBatchesPage() {
                   onAfterApply={async () => {
                     await refreshData(slug, selectedBatchCode);
                   }}
-                  disableApply={!isAdmin || !chainId || !selectedBatchCode}
+                  disableApply={!isAdmin || !chainId || !selectedBatchCode || loading || loadingBatchRows}
                 />
               </Stack>
             </CardContent>

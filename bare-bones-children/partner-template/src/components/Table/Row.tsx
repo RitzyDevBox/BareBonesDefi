@@ -6,6 +6,7 @@ interface TableRowProps {
   rowData: TableRowData;
   columns: TableColumn[];
   expandedContentRender?: (rowData: TableRowData) => React.ReactNode;
+  leadingCell?: React.ReactNode;
   rowStyle?: React.CSSProperties;
   cellStyle?: React.CSSProperties;
   rowIndex?: number;
@@ -16,6 +17,7 @@ export function TableRow({
   rowData,
   columns,
   expandedContentRender,
+  leadingCell,
   rowStyle,
   cellStyle,
   rowIndex = 0,
@@ -23,6 +25,7 @@ export function TableRow({
 }: TableRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasExpandable = !!expandedContentRender;
+  const hasLeadingCell = hasExpandable || Boolean(leadingCell);
 
   const handleToggle = () => {
     if (hasExpandable) {
@@ -46,7 +49,7 @@ export function TableRow({
           ...rowStyle,
         }}
       >
-        {hasExpandable && (
+        {hasLeadingCell && (
           <td
             style={{
               padding: "var(--spacing-sm)",
@@ -55,16 +58,20 @@ export function TableRow({
               ...cellStyle,
             }}
           >
-            <span
-              style={{
-                display: "inline-block",
-                transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
-                transition: "transform 200ms ease",
-                color: "var(--colors-text-muted)",
-              }}
-            >
-              ▶
-            </span>
+            {leadingCell ? (
+              <div onClick={(e) => e.stopPropagation()}>{leadingCell}</div>
+            ) : (
+              <span
+                style={{
+                  display: "inline-block",
+                  transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                  transition: "transform 200ms ease",
+                  color: "var(--colors-text-muted)",
+                }}
+              >
+                ▶
+              </span>
+            )}
           </td>
         )}
         {cells.map((cell, idx) => (

@@ -12,6 +12,7 @@ import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
 import { getBareBonesConfiguration } from "../../constants/misc";
 import { shortAddress } from "../../utils/formatUtils";
+import { Loader } from "../Loader/Loader";
 
 const MAX_MINT = 1_000_000_000; // limit per mint (human units)
 const DEFAULT_DECIMALS = 18;
@@ -22,6 +23,7 @@ export function ERC20Mintable() {
   const [recipient, setRecipient] = useState<string | undefined>(undefined);
   const [amount, setAmount] = useState<string>("");
   const [decimals] = useState<number>(DEFAULT_DECIMALS);
+  const [isMinting, setIsMinting] = useState(false);
 
   const config = useMemo(() => {
     if (!chainId) return null;
@@ -50,12 +52,17 @@ export function ERC20Mintable() {
     (_chain: number, _to: string, _amount: string) => `Minted ${_amount} to ${_to}`
   );
 
-  function handleMint() {
-    if (!chainId) return;
+  async function handleMint() {
+    if (!chainId || isMinting) return;
     const to = (recipient && recipient.trim()) || account || "";
     if (!to) return;
 
-    mint(chainId, to, amount);
+    setIsMinting(true);
+    try {
+      await mint(chainId, to, amount);
+    } finally {
+      setIsMinting(false);
+    }
   }
 
   return (
@@ -94,8 +101,10 @@ export function ERC20Mintable() {
           <Row>
             <ButtonPrimary
               onClick={handleMint}
-              disabled={!amount}
+              disabled={!amount || isMinting}
+              style={{ minWidth: 112 }}
             >
+              {isMinting ? <Loader inline size={14} color="currentColor" /> : null}
               Mint
             </ButtonPrimary>
           </Row>

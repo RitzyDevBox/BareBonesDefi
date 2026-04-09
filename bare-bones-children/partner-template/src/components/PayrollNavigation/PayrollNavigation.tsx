@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Row } from "../Primitives";
 import { IconButton } from "../Button/IconButton";
 import { Select, SelectOption } from "../Select";
@@ -42,6 +42,7 @@ interface PayrollNavigationProps {
   slug: string;
   active: PayrollNavTab;
   title?: string;
+  isAdmin?: boolean;
 }
 
 const TAB_BUTTON_BASE: React.CSSProperties = {
@@ -57,11 +58,17 @@ const TAB_BUTTON_BASE: React.CSSProperties = {
   transition: "background 0.15s, color 0.15s",
 };
 
-export function PayrollNavigation({ slug, active }: PayrollNavigationProps) {
+export function PayrollNavigation({ slug, active, isAdmin }: PayrollNavigationProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const screen = useMediaQuery();
   const isSmall = screen !== ScreenSize.Desktop;
   const disabled = !slug.trim();
+
+  const navState = useMemo(
+    () => ({ ...(location.state as Record<string, unknown> | null), isAdmin }),
+    [location.state, isAdmin]
+  );
 
   const tabs = useMemo(
     () => [
@@ -84,7 +91,7 @@ export function PayrollNavigation({ slug, active }: PayrollNavigationProps) {
           size="xl"
           iconFontSize="xl"
           shape="square"
-          onClick={() => prevTab && navigate(prevTab.to)}
+          onClick={() => prevTab && navigate(prevTab.to, { state: navState })}
           disabled={disabled || !prevTab}
           title="Previous"
           aria-label="Previous"
@@ -96,7 +103,7 @@ export function PayrollNavigation({ slug, active }: PayrollNavigationProps) {
             value={active}
             onChange={(value) => {
               const next = tabs.find((tab) => tab.key === String(value));
-              if (next) navigate(next.to);
+              if (next) navigate(next.to, { state: navState });
             }}
             disabled={disabled}
             compact
@@ -110,7 +117,7 @@ export function PayrollNavigation({ slug, active }: PayrollNavigationProps) {
           size="xl"
           iconFontSize="xl"
           shape="square"
-          onClick={() => nextTab && navigate(nextTab.to)}
+          onClick={() => nextTab && navigate(nextTab.to, { state: navState })}
           disabled={disabled || !nextTab}
           title="Next"
           aria-label="Next"
@@ -127,7 +134,7 @@ export function PayrollNavigation({ slug, active }: PayrollNavigationProps) {
         size="xl"
         iconFontSize="xl"
         shape="square"
-        onClick={() => prevTab && navigate(prevTab.to)}
+        onClick={() => prevTab && navigate(prevTab.to, { state: navState })}
         disabled={disabled || !prevTab}
         title="Previous"
         aria-label="Previous"
@@ -143,7 +150,7 @@ export function PayrollNavigation({ slug, active }: PayrollNavigationProps) {
           return (
             <button
               key={tab.key}
-              onClick={() => !isActive && !disabled && navigate(tab.to)}
+              onClick={() => !isActive && !disabled && navigate(tab.to, { state: navState })}
               disabled={disabled}
               style={{
                 ...TAB_BUTTON_BASE,
@@ -169,7 +176,7 @@ export function PayrollNavigation({ slug, active }: PayrollNavigationProps) {
         size="xl"
         iconFontSize="xl"
         shape="square"
-        onClick={() => nextTab && navigate(nextTab.to)}
+        onClick={() => nextTab && navigate(nextTab.to, { state: navState })}
         disabled={disabled || !nextTab}
         title="Next"
         aria-label="Next"

@@ -148,7 +148,7 @@ export function EditableEarningsPanel({
                             <IconButton
                               size="xl"
                               iconFontSize="xl"
-                              shape="rounded"
+                              shape="square"
                               aria-label="Edit earning"
                               title="Edit earning"
                               onClick={() =>

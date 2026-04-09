@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ethers } from "ethers";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
+import { Loader } from "../components/Loader/Loader";
 import { ERC20Mintable } from "../components/ERC20Mintable/ERC20Mintable";
 import { PayrollTreasuryFund } from "../components/PayrollTreasuryFund/PayrollTreasuryFund";
 import { useWalletProvider } from "../hooks/useWalletProvider";
@@ -46,6 +47,7 @@ import {
 } from "../components/PayrollStagingManager";
 
 export function CurrentPayrollPage() {
+  const location = useLocation();
   const { organizationId, payrollId } = useParams<{ organizationId: string; payrollId?: string }>();
   const slug = (organizationId ?? "").trim();
 
@@ -68,7 +70,7 @@ export function CurrentPayrollPage() {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isCancellingPayroll, setIsCancellingPayroll] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(Boolean((location.state as { isAdmin?: boolean } | null)?.isAdmin));
   const [isProcessingPayroll, setIsProcessingPayroll] = useState(false);
   const [payrollStatus, setPayrollStatus] = useState<number | null>(null);
   const [finalizedGrosses, setFinalizedGrosses] = useState<PayrollGrossView[]>([]);
@@ -212,6 +214,13 @@ export function CurrentPayrollPage() {
   );
 
   useEffect(() => {
+    const navIsAdmin = (location.state as { isAdmin?: boolean } | null)?.isAdmin;
+    if (typeof navIsAdmin === "boolean") {
+      setIsAdmin(navIsAdmin);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
     if (!slug) return;
     fetchOrgInfo(slug);
   }, [slug, version, provider, payrollManagerAddress, account, requestedPayrollId]);
@@ -220,6 +229,10 @@ export function CurrentPayrollPage() {
     if (!provider || !payrollManagerAddress) return;
 
     setLoading(true);
+    setOrgInfo(null);
+    setIsAdmin(false);
+    setPayees([]);
+    resetPayrollState();
     try {
       const contract = new ethers.Contract(
         payrollManagerAddress,
@@ -480,7 +493,7 @@ export function CurrentPayrollPage() {
         <Card style={{ width: "100%", maxWidth: 860, alignSelf: "center" }}>
           <CardContent>
             <Stack>
-              <PayrollNavigation slug={slug} active="payrolls" title="Payroll Details" />
+              <PayrollNavigation slug={slug} active="payrolls" title="Payroll Details" isAdmin={isAdmin} />
 
               {!slug && (
                 <Text.Body color="warn">
@@ -494,16 +507,10 @@ export function CurrentPayrollPage() {
                 </Text.Body>
               )}
 
-              {loading && <Text.Body color="muted">Loading payroll data...</Text.Body>}
+              {loading && <Loader label="Loading payroll data..." />}
 
               {orgInfo && (
                 <Stack style={{ padding: "var(--spacing-md)", backgroundColor: "var(--colors-background)", borderRadius: "var(--radius-md)" }}>
-                  <Text.Body>
-                    <strong>Owner:</strong> {orgInfo.owner}
-                  </Text.Body>
-                  <Text.Body color={isAdmin ? "success" : "muted"}>
-                    {isAdmin ? "✓ Admin Mode" : "Read Only Mode"}
-                  </Text.Body>
                   <Text.Body color="muted" size="sm">
                     Payroll ID: {currentPayrollId !== null ? currentPayrollId : "N/A"} · Loaded payees: {payrollPayeeRunData.length}
                   </Text.Body>
@@ -570,17 +577,19 @@ export function CurrentPayrollPage() {
           </CardContent>
         </Card>
 
-        {orgInfo?.exists && currentPayrollId !== null && (
+        {!!slug && (loading || (orgInfo?.exists && currentPayrollId !== null)) && (
           <Card style={{ width: "100%" }}>
             <CardContent>
               <Stack gap="md">
-                {payrollStatus === PayrollStatus.Finalized ? (
+                {payrollStatus === PayrollStatus.Finalized && !loading ? (
                   <Stack gap="sm">
                     <Text.Label>Finalized Payment Summary</Text.Label>
                     {finalizedGrosses.length === 0 ? (
                       <Text.Body color="muted">No payout records found.</Text.Body>
                     ) : (
                       <Table
+                        loading={loading}
+                        loadingLabel="Loading payroll summary..."
                         showSearch={false}
                         columns={[
                           { key: "payeeId", header: "#", width: "80px" },
@@ -603,6 +612,7 @@ export function CurrentPayrollPage() {
                   </Stack>
                 ) : (
                   <PayrollEarningsStagingSection
+                    loading={loading}
                     payees={payees}
                     baseIncludedPayeeIds={payeeIdsInPayroll}
                     canEdit={isAdmin && !isViewOnly && currentPayrollId != null}
@@ -673,6 +683,7 @@ export function CurrentPayrollPage() {
                       await fetchOrgInfo(slug);
                     }}
                     onStagingMetaChange={setStagingMeta}
+                    disableApply={loading}
                   />
                 )}
               </Stack>

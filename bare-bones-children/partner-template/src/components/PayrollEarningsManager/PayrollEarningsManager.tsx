@@ -13,6 +13,7 @@ import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.js
 import type { OrganizationEarningsCodeView } from "../../utils/payroll/fetchPayrollViews";
 import { PayrollEarningsCatalogManager } from "./PayrollEarningsCatalogManager";
 import { EarningsDividerButton } from "./EarningsDividerButton";
+import { Loader } from "../Loader/Loader";
 import {
   WeeklyScheduleConfigurator,
   type WeeklyPremiumMaskDraft,
@@ -33,6 +34,7 @@ interface PayrollEarningsManagerProps {
   slug: string;
   canEdit: boolean;
   earningsCodes: OrganizationEarningsCodeView[];
+  loading?: boolean;
 }
 
 function parseUint(value: string, fallback = 0) {
@@ -50,6 +52,7 @@ export function PayrollEarningsManager({
   slug,
   canEdit,
   earningsCodes,
+  loading = false,
 }: PayrollEarningsManagerProps) {
   const { chainId } = useWalletProvider();
 
@@ -67,6 +70,7 @@ export function PayrollEarningsManager({
   const [ruleType, setRuleType] = useState<RuleType>(RuleType.Hourly);
   const [earningsCodeName, setEarningsCodeName] = useState("HOURLY");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   const [hourlyBands, setHourlyBands] = useState<HourlyBandRow[]>([
     { maxHours: "40", multiplier: "1", isRemaining: false },
     { maxHours: UINT32_MAX_NUM.toString(), multiplier: "1.5", isRemaining: true },
@@ -438,9 +442,18 @@ export function PayrollEarningsManager({
               </ButtonSecondary>
               <ButtonPrimary
                 style={{ flex: 0, minWidth: 132 }}
-                disabled={!canRegister}
-                onClick={() => registerEarningsCode(chainId!, slug)}
+                disabled={!canRegister || isRegistering}
+                onClick={async () => {
+                  if (!chainId || isRegistering) return;
+                  setIsRegistering(true);
+                  try {
+                    await registerEarningsCode(chainId, slug);
+                  } finally {
+                    setIsRegistering(false);
+                  }
+                }}
               >
+                {isRegistering ? <Loader inline size={14} color="currentColor" /> : null}
                 Register
               </ButtonPrimary>
             </Row>
@@ -452,6 +465,7 @@ export function PayrollEarningsManager({
         slug={slug}
         canEdit={canEdit}
         earningsCodes={earningsCodes}
+        loading={loading}
       />
     </Stack>
   );
