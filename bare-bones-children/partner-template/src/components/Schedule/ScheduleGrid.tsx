@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Stack, Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
+import { DividerLabel } from "../Primitives/DividerLabel";
 import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -41,8 +42,10 @@ export function ScheduleGrid({
   forceRows12?: boolean;
 }) {
   const screenSize = useMediaQuery();
-  const compact = screenSize !== ScreenSize.Desktop;
-  const hourButtonSize = compact ? 24 : 28;
+  const hourButtonSize =
+    screenSize === ScreenSize.Phone ? 30 : screenSize === ScreenSize.Tablet ? 27 : 28;
+  const hourButtonFontSize =
+    screenSize === ScreenSize.Phone ? 12 : screenSize === ScreenSize.Tablet ? 11 : 10;
   const cellSnapRadius = hourButtonSize;
 
   const isDraggingRef = useRef(false);
@@ -221,7 +224,7 @@ export function ScheduleGrid({
           color: active ? "#fff" : palette.textColor,
           opacity: disabled ? 0.6 : 1,
           cursor: disabled ? "not-allowed" : "pointer",
-          fontSize: 10,
+          fontSize: hourButtonFontSize,
           lineHeight: 1,
           padding: 0,
           position: "relative",
@@ -298,45 +301,42 @@ export function ScheduleGrid({
     >
       <Stack gap="xs">
         {overlapMask && (
-          <Row gap="xs" align="center">
-            <span
-              aria-hidden
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: hasConflict ? "#ff5ca8" : "transparent",
-                border: "1px solid #b10f6b",
-                display: "inline-block",
-              }}
-            />
-            <Text.Body size="xs" color="muted">
-              Premium conflict indicator
-            </Text.Body>
-          </Row>
+          <Stack gap="xs">
+            <DividerLabel label="Premium Conflict Indicator" />
+            <Row gap="xs" align="center" justify="end">
+              <span
+                aria-hidden
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: hasConflict ? "#ff5ca8" : "transparent",
+                  border: "1px solid #b10f6b",
+                  display: "inline-block",
+                }}
+              />
+              <Text.Body size="xs" color="muted">Dot = overlap exists</Text.Body>
+            </Row>
+          </Stack>
         )}
         {DAYS.map((dayLabel, dayIndex) => (
-          <Row
+          <Stack
             key={dayLabel}
             gap="xs"
-            align="center"
-            wrap
             style={{
               paddingTop: dayIndex === 0 ? 0 : 6,
               borderTop: dayIndex === 0 ? "none" : "1px solid var(--colors-border)",
             }}
           >
-            <div style={{ width: 44 }}>
-              <Text.Body size="xs" color="muted">{dayLabel}</Text.Body>
-            </div>
-            <Stack gap="xs" style={{ minWidth: 0 }}>
+            <DividerLabel label={dayLabel} />
+            <Stack gap="xs" style={{ minWidth: 0, alignItems: "center" }}>
               {rowBlocks.map((block) => (
-                <Row key={`${dayLabel}-${block.label}`} gap="xs" wrap={false}>
+                <Row key={`${dayLabel}-${block.label}`} gap="xs" wrap={false} justify="center">
                   {block.hours.map((hour) => renderHourButton(dayLabel, dayIndex, hour))}
                 </Row>
               ))}
             </Stack>
-          </Row>
+          </Stack>
         ))}
         {overlapMask && (
           <Text.Body size="xs" color="muted">

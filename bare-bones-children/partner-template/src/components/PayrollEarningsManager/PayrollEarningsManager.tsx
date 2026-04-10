@@ -6,6 +6,8 @@ import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
 import { Input } from "../BasicComponents";
 import { NumberInput } from "../Inputs/NumberInput";
 import { Select, SelectOption } from "../Select";
+import { Modal } from "../Modal/Modal";
+import { Sheet } from "../Primitives/Sheet";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
 import { getBareBonesConfiguration } from "../../constants/misc";
@@ -21,6 +23,7 @@ import {
   WEEK_HOURS,
 } from "./WeeklyScheduleConfigurator";
 import { RuleType } from "./ruleTypes";
+import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
 
 const UINT32_MAX_NUM = 4294967295;
 
@@ -55,6 +58,8 @@ export function PayrollEarningsManager({
   loading = false,
 }: PayrollEarningsManagerProps) {
   const { chainId } = useWalletProvider();
+  const screenSize = useMediaQuery({ phoneMax: 560 });
+  const isPhone = screenSize === ScreenSize.Phone;
 
   const config = useMemo(() => {
     if (!chainId) return null;
@@ -68,14 +73,13 @@ export function PayrollEarningsManager({
   );
 
   const [ruleType, setRuleType] = useState<RuleType>(RuleType.Hourly);
-  const [earningsCodeName, setEarningsCodeName] = useState("HOURLY");
+  const [earningsCodeName, setEarningsCodeName] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [hourlyBands, setHourlyBands] = useState<HourlyBandRow[]>([
     { maxHours: "40", multiplier: "1", isRemaining: false },
     { maxHours: UINT32_MAX_NUM.toString(), multiplier: "1.5", isRemaining: true },
   ]);
-  const [salaryPeriodDays, setSalaryPeriodDays] = useState("7");
   const [weeklyPremiumRows, setWeeklyPremiumRows] = useState<WeeklyPremiumMaskDraft[]>(
     createDefaultWeeklyPremiumRows()
   );
@@ -176,6 +180,26 @@ export function PayrollEarningsManager({
     });
   }
 
+  function handleRuleTypeChange(next: RuleType) {
+    setRuleType(next);
+    setEarningsCodeName("");
+
+    if (next === RuleType.Hourly) {
+      setHourlyBands([
+        { maxHours: "40", multiplier: "1", isRemaining: false },
+        { maxHours: UINT32_MAX_NUM.toString(), multiplier: "1.5", isRemaining: true },
+      ]);
+    } else {
+      setHourlyBands([]);
+    }
+
+    if (next === RuleType.Weekly) {
+      setWeeklyPremiumRows(createDefaultWeeklyPremiumRows());
+    } else {
+      setWeeklyPremiumRows([]);
+    }
+  }
+
   const buildRegisterCodeTx = async (_chainId: number, orgSlug: string) => {
     if (!payrollManagerAddress || !config) {
       throw new Error("Payroll manager config missing");
@@ -238,9 +262,6 @@ export function PayrollEarningsManager({
       const premiumMasks = normalized.map((row) => row.mask.toString());
       const premiumBips = normalized.map((row) => row.bips.toString());
       encodedConfig = ethers.utils.defaultAbiCoder.encode(["uint168[]", "uint16[]"], [premiumMasks, premiumBips]);
-    } else if (ruleType === RuleType.Salary) {
-      const periodDays = parseUint(salaryPeriodDays, 7);
-      encodedConfig = ethers.utils.defaultAbiCoder.encode(["uint32"], [periodDays]);
     }
 
     return {
@@ -262,204 +283,234 @@ export function PayrollEarningsManager({
 
   const canRegister = Boolean(canEdit && slug && payrollManagerAddress);
 
+  const registerEarningsContent = (
+    <Stack gap="sm">
+      <Stack style={{ minWidth: 220 }}>
+        <Text.Body size="sm" color="muted">Earnings Code Name</Text.Body>
+        <Input
+          value={earningsCodeName}
+          onChange={(e) => setEarningsCodeName(e.target.value)}
+          placeholder="e.g. HOURLY_OT"
+          disabled={!canEdit}
+        />
+      </Stack>
+
+      {ruleType === RuleType.Hourly && (
+        <Stack
+          gap="xs"
+          style={{
+            border: "1px solid var(--colors-border)",
+            borderRadius: "var(--radius-md)",
+            padding: "var(--spacing-sm)",
+          }}
+        >
+          {hourlyBands.map((band, index) => (
+            <Row
+              key={`hourly-band-${index}`}
+              gap="sm"
+              wrap
+              align="end"
+              style={{
+                position: "relative",
+                paddingBottom: "var(--spacing-xs)",
+                paddingRight: "34px",
+                borderBottom:
+                  index === hourlyBands.length - 1
+                    ? "none"
+                    : "1px dashed var(--colors-border)",
+              }}
+            >
+              <button
+                aria-label="Delete band"
+                type="button"
+                disabled={!canEdit || hourlyBands.length <= 1}
+                onClick={() => removeHourlyBand(index)}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  right: 0,
+                  width: 30,
+                  height: 30,
+                  borderRadius: 6,
+                  border: "1px solid var(--colors-border)",
+                  background: "var(--colors-background)",
+                  color: "var(--colors-text)",
+                  cursor: !canEdit || hourlyBands.length <= 1 ? "not-allowed" : "pointer",
+                  lineHeight: 1,
+                  fontSize: 20,
+                  fontWeight: 500,
+                }}
+              >
+                ×
+              </button>
+
+              <Stack style={{ flex: 1, minWidth: 140 }}>
+                <Text.Body size="sm" color="muted">Multiplier</Text.Body>
+                <NumberInput
+                  value={band.multiplier}
+                  onChange={(e) => updateHourlyBand(index, "multiplier", (e.target as HTMLInputElement).value)}
+                  allowDecimal
+                  disabled={!canEdit}
+                />
+              </Stack>
+
+              {!band.isRemaining && (
+                <Stack style={{ flex: 1, minWidth: 130 }}>
+                  <Text.Body size="sm" color="muted">Max Hours</Text.Body>
+                  <NumberInput
+                    value={band.maxHours}
+                    onChange={(e) => updateHourlyBand(index, "maxHours", (e.target as HTMLInputElement).value)}
+                    onBlur={() => commitHourlyBandMaxHours(index)}
+                    allowDecimal={false}
+                    disabled={!canEdit}
+                  />
+                </Stack>
+              )}
+
+              <Stack style={{ minWidth: 160, paddingBottom: "var(--spacing-xs)" }}>
+                {index === hourlyBands.length - 1 ? (
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--spacing-xs)" }}>
+                    <input
+                      type="checkbox"
+                      checked={band.isRemaining}
+                      disabled={!canEdit}
+                      onChange={(e) => updateHourlyBand(index, "isRemaining", String(e.target.checked))}
+                    />
+                    <Text.Body size="sm">Remaining Hours</Text.Body>
+                  </label>
+                ) : (
+                  <Text.Body size="sm" color="muted">Bounded Band</Text.Body>
+                )}
+              </Stack>
+            </Row>
+          ))}
+
+          <EarningsDividerButton
+            label="+ Add Band"
+            onClick={addHourlyBand}
+            disabled={!canEdit}
+          />
+        </Stack>
+      )}
+
+      {ruleType === RuleType.Weekly && (
+        <WeeklyScheduleConfigurator
+          canEdit={canEdit}
+          premiumRows={weeklyPremiumRows}
+          onPremiumRowsChange={setWeeklyPremiumRows}
+        />
+      )}
+
+      {ruleType === RuleType.OneTime && (
+        <Text.Body size="sm" color="muted">
+          One-Time rule uses empty config.
+        </Text.Body>
+      )}
+
+      <Row justify="end" gap="sm">
+        <ButtonSecondary
+          style={{ flex: 0, minWidth: 132 }}
+          onClick={() => setShowAddForm(false)}
+        >
+          Cancel
+        </ButtonSecondary>
+        <ButtonPrimary
+          style={{ flex: 0, minWidth: 132 }}
+          disabled={!canRegister || isRegistering}
+          onClick={async () => {
+            if (!chainId || isRegistering) return;
+            setIsRegistering(true);
+            try {
+              await registerEarningsCode(chainId, slug);
+              setShowAddForm(false);
+            } finally {
+              setIsRegistering(false);
+            }
+          }}
+        >
+          {isRegistering ? <Loader inline size={14} color="currentColor" /> : null}
+          Register
+        </ButtonPrimary>
+      </Row>
+    </Stack>
+  );
+
   return (
     <Stack gap="sm">
       <Text.Title align="left" size="sm">Payroll Earnings</Text.Title>
 
-      <Stack
-        gap="sm"
-        style={{
-          border: "1px solid var(--colors-border)",
-          borderRadius: "var(--radius-md)",
-          padding: "var(--spacing-md)",
-          backgroundColor: "var(--colors-surface)",
-        }}
-      >
-        {!showAddForm ? (
-          <EarningsDividerButton
-            label="+ Add Earnings Code"
+      <Row gap="sm" align="center" justify="end" wrap>
+        <Stack style={{ minWidth: 220, maxWidth: 320 }}>
+          <Select<RuleType>
+            value={ruleType}
+            onChange={handleRuleTypeChange}
+            disabled={!canEdit}
+          >
+            <SelectOption value={RuleType.Hourly} label="Hourly" />
+            <SelectOption value={RuleType.Weekly} label="Weekly Schedule" />
+            <SelectOption value={RuleType.OneTime} label="One-Time Payment" />
+            <SelectOption value={RuleType.Salary} label="Salary" />
+          </Select>
+        </Stack>
+
+        {isPhone ? (
+          <ButtonPrimary
             onClick={() => setShowAddForm(true)}
             disabled={!canEdit}
-          />
+            aria-label="Add earnings code"
+            style={{
+              flex: 0,
+              width: 40,
+              height: 40,
+              minWidth: 40,
+              minHeight: 40,
+              padding: 0,
+              borderRadius: "var(--radius-sm)",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              lineHeight: 1,
+              fontSize: 22,
+            }}
+          >
+            +
+          </ButtonPrimary>
         ) : (
-          <>
-            <Text.Label>Register Earnings Code</Text.Label>
-
-            <Stack>
-              <Text.Body size="sm" color="muted">Rule Type</Text.Body>
-              <Select<RuleType>
-                value={ruleType}
-                onChange={setRuleType}
-                disabled={!canEdit}
-              >
-                <SelectOption value={RuleType.Hourly} label="Hourly" />
-                <SelectOption value={RuleType.Weekly} label="Weekly Schedule" />
-                <SelectOption value={RuleType.OneTime} label="One-Time Payment" />
-                <SelectOption value={RuleType.Salary} label="Salary" />
-              </Select>
-            </Stack>
-
-            <Stack>
-              <Text.Body size="sm" color="muted">Earnings Code Name</Text.Body>
-              <Input
-                value={earningsCodeName}
-                onChange={(e) => setEarningsCodeName(e.target.value)}
-                placeholder="e.g. HOURLY_OT"
-                disabled={!canEdit}
-              />
-            </Stack>
-
-            {ruleType === RuleType.Hourly && (
-              <Stack
-                gap="xs"
-                style={{
-                  border: "1px solid var(--colors-border)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "var(--spacing-sm)",
-                }}
-              >
-                {hourlyBands.map((band, index) => (
-                  <Row
-                    key={`hourly-band-${index}`}
-                    gap="sm"
-                    wrap
-                    align="end"
-                    style={{
-                      position: "relative",
-                      paddingBottom: "var(--spacing-xs)",
-                      paddingRight: "34px",
-                      borderBottom:
-                        index === hourlyBands.length - 1
-                          ? "none"
-                          : "1px dashed var(--colors-border)",
-                    }}
-                  >
-                    <button
-                      aria-label="Delete band"
-                      type="button"
-                      disabled={!canEdit || hourlyBands.length <= 1}
-                      onClick={() => removeHourlyBand(index)}
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        right: 0,
-                        width: 30,
-                        height: 30,
-                        borderRadius: 6,
-                        border: "1px solid var(--colors-border)",
-                        background: "var(--colors-background)",
-                        color: "var(--colors-text)",
-                        cursor: !canEdit || hourlyBands.length <= 1 ? "not-allowed" : "pointer",
-                        lineHeight: 1,
-                        fontSize: 20,
-                        fontWeight: 500,
-                      }}
-                    >
-                      ×
-                    </button>
-
-                    <Stack style={{ flex: 1, minWidth: 140 }}>
-                      <Text.Body size="sm" color="muted">Multiplier</Text.Body>
-                      <NumberInput
-                        value={band.multiplier}
-                        onChange={(e) => updateHourlyBand(index, "multiplier", (e.target as HTMLInputElement).value)}
-                        allowDecimal
-                        disabled={!canEdit}
-                      />
-                    </Stack>
-
-                    {!band.isRemaining && (
-                      <Stack style={{ flex: 1, minWidth: 130 }}>
-                        <Text.Body size="sm" color="muted">Max Hours</Text.Body>
-                        <NumberInput
-                          value={band.maxHours}
-                          onChange={(e) => updateHourlyBand(index, "maxHours", (e.target as HTMLInputElement).value)}
-                          onBlur={() => commitHourlyBandMaxHours(index)}
-                          allowDecimal={false}
-                          disabled={!canEdit}
-                        />
-                      </Stack>
-                    )}
-
-                    <Stack style={{ minWidth: 160, paddingBottom: "var(--spacing-xs)" }}>
-                      {index === hourlyBands.length - 1 ? (
-                        <label style={{ display: "flex", alignItems: "center", gap: "var(--spacing-xs)" }}>
-                          <input
-                            type="checkbox"
-                            checked={band.isRemaining}
-                            disabled={!canEdit}
-                            onChange={(e) => updateHourlyBand(index, "isRemaining", String(e.target.checked))}
-                          />
-                          <Text.Body size="sm">Remaining Hours</Text.Body>
-                        </label>
-                      ) : (
-                        <Text.Body size="sm" color="muted">Bounded Band</Text.Body>
-                      )}
-                    </Stack>
-                  </Row>
-                ))}
-
-                <EarningsDividerButton
-                  label="+ Add Band"
-                  onClick={addHourlyBand}
-                  disabled={!canEdit}
-                />
-              </Stack>
-            )}
-
-            {ruleType === RuleType.Weekly && (
-              <WeeklyScheduleConfigurator
-                canEdit={canEdit}
-                premiumRows={weeklyPremiumRows}
-                onPremiumRowsChange={setWeeklyPremiumRows}
-              />
-            )}
-
-            {ruleType === RuleType.Salary && (
-              <Stack style={{ maxWidth: 260 }}>
-                <Text.Body size="sm" color="muted">Salary Period (days)</Text.Body>
-                <NumberInput
-                  value={salaryPeriodDays}
-                  onChange={(e) => setSalaryPeriodDays((e.target as HTMLInputElement).value)}
-                  allowDecimal={false}
-                  disabled={!canEdit}
-                />
-              </Stack>
-            )}
-
-            {ruleType === RuleType.OneTime && (
-              <Text.Body size="sm" color="muted">
-                One-Time rule uses empty config.
-              </Text.Body>
-            )}
-
-            <Row justify="end" gap="sm">
-              <ButtonSecondary
-                style={{ flex: 0, minWidth: 132 }}
-                onClick={() => setShowAddForm(false)}
-              >
-                Cancel
-              </ButtonSecondary>
-              <ButtonPrimary
-                style={{ flex: 0, minWidth: 132 }}
-                disabled={!canRegister || isRegistering}
-                onClick={async () => {
-                  if (!chainId || isRegistering) return;
-                  setIsRegistering(true);
-                  try {
-                    await registerEarningsCode(chainId, slug);
-                  } finally {
-                    setIsRegistering(false);
-                  }
-                }}
-              >
-                {isRegistering ? <Loader inline size={14} color="currentColor" /> : null}
-                Register
-              </ButtonPrimary>
-            </Row>
-          </>
+          <ButtonPrimary
+            onClick={() => setShowAddForm(true)}
+            disabled={!canEdit}
+            style={{
+              flex: 0,
+              minWidth: 128,
+              minHeight: 40,
+              padding: "10px 14px",
+              borderRadius: "var(--radius-sm)",
+              whiteSpace: "nowrap",
+              lineHeight: 1,
+            }}
+          >
+            Add Earning
+          </ButtonPrimary>
         )}
-      </Stack>
+      </Row>
+
+      {isPhone ? (
+        <Sheet open={showAddForm} onClose={() => setShowAddForm(false)} placement="bottom">
+          <Text.Label>Register Earnings Code</Text.Label>
+          <div style={{ height: 8 }} />
+          {registerEarningsContent}
+        </Sheet>
+      ) : (
+        <Modal
+          isOpen={showAddForm}
+          onClose={() => setShowAddForm(false)}
+          title="Register Earnings Code"
+          width={760}
+          maxWidth={"96vw"}
+        >
+          {registerEarningsContent}
+        </Modal>
+      )}
 
       <PayrollEarningsCatalogManager
         slug={slug}

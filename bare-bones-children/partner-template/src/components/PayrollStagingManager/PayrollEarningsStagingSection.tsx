@@ -643,7 +643,6 @@ export function PayrollEarningsStagingSection({
                 mask={modalWeeklyWorkedMask}
                 onChange={setWeeklyWorkedHour}
                 disabled={!canEdit}
-                forceRows12
                 overlapMask={modalWeeklyPremiumMask}
               />
             </div>

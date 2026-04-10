@@ -59,17 +59,32 @@ export function WalletProvider({
     setProvider(web3Provider);
     setStatus("idle");
 
-    // ---- best-effort initial read (NOT authoritative) ----
-    web3Provider.send("eth_accounts", []).then((accs: string[]) => {
-      if (accs.length > 0) {
-        setAccount(accs[0]);
-      }
-    });
+    // ---- authoritative sync helper ----
+    const syncWalletState = async () => {
+      try {
+        const [accs, id] = await Promise.all([
+          web3Provider.send("eth_accounts", []) as Promise<string[]>,
+          web3Provider.send("eth_chainId", []) as Promise<unknown>,
+        ]);
 
-    web3Provider.send("eth_chainId", []).then((id: unknown) => {
-      const parsed = normalizeChainId(id);
-      if (parsed !== null) setChainId(parsed);
-    });
+        if (!accs || accs.length === 0) {
+          setAccount(null);
+          setStatus("idle");
+        } else {
+          setAccount(accs[0]);
+          setStatus("connected");
+        }
+
+        const parsed = normalizeChainId(id);
+        if (parsed !== null) setChainId(parsed);
+      } catch {
+        setAccount(null);
+        setStatus("idle");
+      }
+    };
+
+    // initial sync
+    void syncWalletState();
 
     // ---- listeners ----
     const handleAccountsChanged = (accs: string[]) => {
@@ -87,8 +102,15 @@ export function WalletProvider({
       if (parsed !== null) setChainId(parsed);
     };
 
+    const handleVisibilityOrFocus = () => {
+      void syncWalletState();
+    };
+
     window.ethereum?.on?.("accountsChanged", handleAccountsChanged);
     window.ethereum?.on?.("chainChanged", handleChainChanged);
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    const syncInterval = window.setInterval(handleVisibilityOrFocus, 3000);
 
     return () => {
         window.ethereum?.removeListener?.(
@@ -99,6 +121,9 @@ export function WalletProvider({
             "chainChanged",
             handleChainChanged
         );
+        window.removeEventListener("focus", handleVisibilityOrFocus);
+        document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+        window.clearInterval(syncInterval);
     };
 
   }, []);

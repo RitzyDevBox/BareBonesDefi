@@ -21,7 +21,10 @@ export function useExecuteRawTx<TArgs extends any[]>(
 
   return useCallback(
     async (...args: TArgs) => {
-      if (!provider || !account || chainId == null) return;
+      if (!provider || chainId == null || !account) {
+        lifecycle.onError?.(new Error("Wallet provider unavailable. Reconnect your wallet and try again."));
+        return;
+      }
       if (isExecutingRef.current) {
         lifecycle.onWarn?.("A transaction is already in progress.");
         return;
@@ -30,22 +33,6 @@ export function useExecuteRawTx<TArgs extends any[]>(
       isExecutingRef.current = true;
 
       try {
-        try {
-          const signerAddress = await provider.getSigner().getAddress();
-          if (!signerAddress) {
-            lifecycle.onError?.(new Error("Wallet account unavailable. Reconnect your wallet and try again."));
-            return;
-          }
-        } catch (error: any) {
-          const message = String(error?.message ?? error ?? "").toLowerCase();
-          if (message.includes("unknown account") || message.includes("getaddress")) {
-            lifecycle.onError?.(new Error("Wallet account unavailable. Reconnect your wallet and try again."));
-            return;
-          }
-          lifecycle.onError?.(error);
-          return;
-        }
-
         const tx = await executeTx(
           provider,
           async () => buildRawTx(...args),

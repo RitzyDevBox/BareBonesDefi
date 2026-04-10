@@ -4,6 +4,7 @@ import { Text } from "../Primitives/Text";
 import { Input } from "../BasicComponents";
 import { NumberInput } from "../Inputs/NumberInput";
 import { ButtonSecondary } from "../Button/ButtonPrimary";
+import { IconButton } from "../Button/IconButton";
 import { ScheduleGrid } from "../Schedule/ScheduleGrid";
 
 const HOURS_IN_DAY = 24;
@@ -20,7 +21,11 @@ export interface WeeklyPremiumMaskDraft {
 interface WeeklyScheduleConfiguratorProps {
   canEdit: boolean;
   premiumRows: WeeklyPremiumMaskDraft[];
-  onPremiumRowsChange: (rows: WeeklyPremiumMaskDraft[]) => void;
+  onPremiumRowsChange: (
+    rows:
+      | WeeklyPremiumMaskDraft[]
+      | ((prev: WeeklyPremiumMaskDraft[]) => WeeklyPremiumMaskDraft[])
+  ) => void;
 }
 
 function hourIndex(day: number, hour: number) {
@@ -64,7 +69,14 @@ export function buildNightMask22to23EachDay() {
 }
 
 export function createDefaultWeeklyPremiumRows(): WeeklyPremiumMaskDraft[] {
-  return [];
+  return [
+    {
+      id: `weekly-premium-default-${Date.now()}`,
+      label: "Premium 1",
+      multiplier: "1.25",
+      mask: new Array<boolean>(WEEK_HOURS).fill(false),
+    },
+  ];
 }
 
 export function WeeklyScheduleConfigurator({
@@ -101,15 +113,26 @@ export function WeeklyScheduleConfigurator({
   }, [premiumRows, selected]);
 
   function updatePremiumRow(id: string, patch: Partial<WeeklyPremiumMaskDraft>) {
-    onPremiumRowsChange(premiumRows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+    onPremiumRowsChange((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, ...patch } : row))
+    );
   }
 
   function setSelectedPremiumHour(day: number, hour: number, value: boolean) {
-    if (!selected) return;
+    if (!selectedId) return;
     const idx = hourIndex(day, hour);
-    const nextMask = cloneMask(selected.mask);
-    nextMask[idx] = value;
-    updatePremiumRow(selected.id, { mask: nextMask });
+    onPremiumRowsChange((prev) => {
+      const selectedRowIndex = prev.findIndex((row) => row.id === selectedId);
+      if (selectedRowIndex < 0) return prev;
+
+      const target = prev[selectedRowIndex];
+      const nextMask = cloneMask(target.mask);
+      nextMask[idx] = value;
+
+      const next = [...prev];
+      next[selectedRowIndex] = { ...target, mask: nextMask };
+      return next;
+    });
   }
 
   function addPremiumRow() {
@@ -120,38 +143,72 @@ export function WeeklyScheduleConfigurator({
       multiplier: "1.25",
       mask: new Array<boolean>(WEEK_HOURS).fill(false),
     };
-    onPremiumRowsChange([...premiumRows, next]);
+    onPremiumRowsChange((prev) => [...prev, next]);
     setSelectedId(id);
   }
 
   function removePremiumRow(id: string) {
-    if (premiumRows.length <= 1) return;
-    const next = premiumRows.filter((row) => row.id !== id);
-    onPremiumRowsChange(next);
-    if (selectedId === id) {
-      setSelectedId(next[0]?.id ?? "");
-    }
+    onPremiumRowsChange((prev) => {
+      if (prev.length <= 1) return prev;
+      const next = prev.filter((row) => row.id !== id);
+      if (selectedId === id) {
+        setSelectedId(next[0]?.id ?? "");
+      }
+      return next;
+    });
   }
 
   function clearSelectedSchedule() {
-    if (!selected) return;
-    updatePremiumRow(selected.id, { mask: new Array<boolean>(WEEK_HOURS).fill(false) });
+    if (!selectedId) return;
+    onPremiumRowsChange((prev) =>
+      prev.map((row) =>
+        row.id === selectedId
+          ? { ...row, mask: new Array<boolean>(WEEK_HOURS).fill(false) }
+          : row
+      )
+    );
+  }
+
+  function renderEmbeddedCardLabel(label: string) {
+    return (
+      <Text.Label
+        style={{
+          position: "absolute",
+          top: 0,
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          background: "var(--colors-surface)",
+          padding: "0 var(--spacing-sm)",
+          whiteSpace: "nowrap",
+          lineHeight: 1,
+        }}
+      >
+        {label}
+      </Text.Label>
+    );
   }
 
   return (
     <Stack
       gap="sm"
       style={{
+        position: "relative",
         border: "1px solid var(--colors-border)",
         borderRadius: "var(--radius-md)",
         padding: "var(--spacing-sm)",
+        paddingTop: "calc(var(--spacing-sm) + 2px)",
       }}
     >
-      <Text.Label>Weekly Schedule</Text.Label>
+      {renderEmbeddedCardLabel("Weekly Schedule")}
 
-      <Row gap="sm" wrap align="center">
-        <Text.Body size="sm" color="muted">Premium Masks</Text.Body>
-        <ButtonSecondary style={{ flex: 0 }} onClick={addPremiumRow} disabled={!canEdit}>+ Add Premium</ButtonSecondary>
+      <Row gap="sm" wrap justify="end" align="center">
+        <ButtonSecondary
+          style={{ flex: 0, minWidth: 170, whiteSpace: "nowrap", lineHeight: 1 }}
+          onClick={addPremiumRow}
+          disabled={!canEdit}
+        >
+          Add Hours Premium
+        </ButtonSecondary>
       </Row>
 
       <Row gap="sm" wrap>
@@ -178,7 +235,7 @@ export function WeeklyScheduleConfigurator({
       </Row>
 
       {selected && selectedIndex >= 0 && (
-        <Stack gap="sm" style={{ border: "1px dashed var(--colors-border)", borderRadius: 8, padding: "var(--spacing-sm)" }}>
+        <Stack gap="sm">
           <Row gap="sm" wrap align="end">
             <Stack style={{ minWidth: 180 }}>
               <Text.Body size="sm" color="muted">Label</Text.Body>
@@ -197,13 +254,15 @@ export function WeeklyScheduleConfigurator({
                 disabled={!canEdit}
               />
             </Stack>
-            <ButtonSecondary
-              style={{ flex: 0, minWidth: 120 }}
+            <IconButton
+              size="sm"
+              shape="square"
+              aria-label="Delete premium row"
               onClick={() => removePremiumRow(selected.id)}
               disabled={!canEdit || premiumRows.length <= 1}
             >
-              Delete
-            </ButtonSecondary>
+              🗑
+            </IconButton>
             <ButtonSecondary
               style={{ flex: 0, minWidth: 140 }}
               onClick={clearSelectedSchedule}
@@ -218,7 +277,6 @@ export function WeeklyScheduleConfigurator({
             onChange={setSelectedPremiumHour}
             disabled={!canEdit}
             overlapMask={selectedOverlapMask}
-            forceRows12
           />
         </Stack>
       )}

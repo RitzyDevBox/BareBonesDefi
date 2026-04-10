@@ -61,6 +61,12 @@ export function Sheet({
   if (!open) return null;
 
   function onPointerDown(e: React.PointerEvent) {
+    if (
+      (placement === "bottom" || placement === "top") &&
+      !(e.target as HTMLElement).closest('[data-sheet-drag-handle="true"]')
+    ) {
+      return;
+    }
     startY.current = e.clientY;
   }
 
@@ -136,6 +142,7 @@ export function Sheet({
         {/* Drag handle (only meaningful for top/bottom) */}
         {(placement === "bottom" || placement === "top") && (
           <div
+            data-sheet-drag-handle="true"
             style={{
               padding: "10px 0",
               display: "flex",
