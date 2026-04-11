@@ -304,9 +304,17 @@ export function PayrollEarningsManager({
             padding: "var(--spacing-sm)",
           }}
         >
-          {hourlyBands.map((band, index) => (
+          {hourlyBands.map((band, index) => {
+            const startHours = index === 0 ? 0 : parseUint(hourlyBands[index - 1]?.maxHours ?? "0", 0);
+            const isRemainingBand = band.isRemaining && index === hourlyBands.length - 1;
+            const maxHours = parseUint(band.maxHours, 40);
+            const descriptor = isRemainingBand
+              ? `All remaining hours after ${startHours} will be paid at rate × ${band.multiplier}.`
+              : `${startHours} - ${maxHours} hours will be paid at rate × ${band.multiplier}.`;
+
+            return (
+            <Stack key={`hourly-band-${index}`} gap="xs">
             <Row
-              key={`hourly-band-${index}`}
               gap="sm"
               wrap
               align="end"
@@ -378,12 +386,13 @@ export function PayrollEarningsManager({
                     />
                     <Text.Body size="sm">Remaining Hours</Text.Body>
                   </label>
-                ) : (
-                  <Text.Body size="sm" color="muted">Bounded Band</Text.Body>
-                )}
+                ) : null}
               </Stack>
             </Row>
-          ))}
+            <Text.Body size="xs" color="muted">{descriptor}</Text.Body>
+            </Stack>
+            );
+          })}
 
           <EarningsDividerButton
             label="+ Add Band"
@@ -440,7 +449,7 @@ export function PayrollEarningsManager({
       <Text.Title align="left" size="sm">Payroll Earnings</Text.Title>
 
       <Row gap="sm" align="center" justify="end" wrap>
-        <Stack style={{ minWidth: 220, maxWidth: 320 }}>
+        <Stack style={{ minWidth: 220, maxWidth: 320, ...(isPhone && { flex: 1, minWidth: 0 }) }}>
           <Select<RuleType>
             value={ruleType}
             onChange={handleRuleTypeChange}

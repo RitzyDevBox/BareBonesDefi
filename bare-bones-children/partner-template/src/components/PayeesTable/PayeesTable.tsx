@@ -402,7 +402,7 @@ export function PayeesTable({
 				{onAddPayee && !loading && !isPhone && (
 					<Row justify="end" style={{ marginTop: "var(--spacing-sm)", width: "100%" }}>
 						<ButtonPrimary
-							style={{ flex: 0 }}
+							style={{ flex: 0, whiteSpace: "nowrap" }}
 							onClick={handleSaveAllPayees}
 							disabled={
 								isSubmitting ||

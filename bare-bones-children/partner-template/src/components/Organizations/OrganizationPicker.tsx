@@ -52,6 +52,8 @@ export function OrganizationPicker({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const typedSinceLastFetchRef = useRef(false);
+  const skipNextBlurFetchRef = useRef(false);
 
   const query = value.trim().toLowerCase();
   const filteredOrganizations = useMemo(() => {
@@ -123,9 +125,20 @@ export function OrganizationPicker({
             value={value}
             onChange={(e) => {
               onChange((e.target as HTMLInputElement).value);
+              typedSinceLastFetchRef.current = true;
               if (!isOpen) setIsOpen(true);
             }}
             onFocus={() => setIsOpen(true)}
+            onBlur={() => {
+              if (skipNextBlurFetchRef.current) {
+                skipNextBlurFetchRef.current = false;
+                return;
+              }
+
+              if (!typedSinceLastFetchRef.current) return;
+              typedSinceLastFetchRef.current = false;
+              handleFetch();
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") handleFetch();
               if (e.key === "Escape") setIsOpen(false);
@@ -180,8 +193,13 @@ export function OrganizationPicker({
                   <button
                     key={org}
                     type="button"
+                    onMouseDown={() => {
+                      skipNextBlurFetchRef.current = true;
+                    }}
                     onClick={() => {
                       onChange(org);
+                      typedSinceLastFetchRef.current = false;
+                      onFetch(org);
                       setIsOpen(false);
                     }}
                     style={{
@@ -233,6 +251,9 @@ export function OrganizationPicker({
 
         <ButtonSecondary
           shape="rounded"
+          onMouseDown={() => {
+            skipNextBlurFetchRef.current = true;
+          }}
           onClick={handleFetch}
           style={{ minWidth: 88, minHeight: 40, padding: "10px 14px", borderRadius: "var(--radius-sm)", whiteSpace: "nowrap", flex: 0 }}
           disabled={loadingFetch || !value.trim()}

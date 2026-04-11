@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { WalletContext } from "./models";
+import { toastStore } from "../../components/Toasts/toast.store";
+import { ToastBehavior, ToastPosition, ToastType } from "../../components/Toasts/toast.types";
 
 /* ================= TYPES ================= */
 
@@ -42,8 +44,7 @@ export function WalletProvider({
     useState<ethers.providers.Web3Provider>();
   const [account, setAccount] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
-  const [status, setStatus] =
-    useState<WalletStatus>("unavailable");
+  const [status, setStatus] = useState<WalletStatus>("unavailable");
 
   useEffect(() => {
     if (!window.ethereum) {
@@ -129,15 +130,16 @@ export function WalletProvider({
   }, []);
 
   async function connect() {
-    if (!provider) return;
+    if (!provider || !window.ethereum) return;
 
     setStatus("connecting");
 
     try {
-      const accs: string[] = await provider.send(
-        "eth_requestAccounts",
-        []
-      );
+
+      // Explicit account request after permissions
+      const accs = (await window.ethereum.request?.({
+        method: "eth_requestAccounts",
+      })) as string[] ?? [];
 
       if (accs.length > 0) {
         setAccount(accs[0]);
@@ -145,8 +147,25 @@ export function WalletProvider({
       } else {
         setStatus("idle");
       }
-    } catch {
-      // user rejected
+    } catch (err) {
+      const code = (err as { code?: number | string } | null)?.code;
+      const message = String((err as { message?: string } | null)?.message ?? "");
+
+      // Expected when user dismisses/rejects the popup.
+      // Keep silent and allow immediate retry on next click.
+      if (code === 4001 || code === "ACTION_REJECTED" || /user rejected/i.test(message)) {
+        toastStore.show({
+          id: `wallet-connect-rejected-${Date.now()}`,
+          title: "Original Wallet Connect Request was Rejected Unlock the wallet and try again,",
+          type: ToastType.Error,
+          behavior: ToastBehavior.AutoClose,
+          durationMs: 10_000,
+          position: ToastPosition.Top,
+        });
+        setStatus("idle");
+        return;
+      }
+
       setStatus("idle");
     }
   }

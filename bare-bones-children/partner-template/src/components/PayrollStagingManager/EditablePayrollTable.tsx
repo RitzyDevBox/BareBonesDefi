@@ -7,6 +7,7 @@ import { TrashBinIcon } from "../../assets/icons/TrashBinIcon";
 import { PayeesTable } from "../PayeesTable";
 import type { TableColumn } from "../Table";
 import type { PayeeModel } from "../../models/payments";
+import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
 
 const UNDO_LABEL = "Undo";
 const DELETE_LABEL = "Delete";
@@ -29,7 +30,6 @@ interface EditablePayrollTableProps {
   onSelectedAddPayeeIdChange?: (payeeId: string) => void;
   formatAddPayeeLabel?: (payee: PayeeModel) => string;
   onAddPayee?: () => void;
-  addPayeeButtonLabel?: string;
   addableEmptyMessage?: string;
   addSectionMaxWidth?: number;
   addSelectMinWidth?: number;
@@ -63,7 +63,6 @@ export function EditablePayrollTable({
   onSelectedAddPayeeIdChange,
   formatAddPayeeLabel,
   onAddPayee,
-  addPayeeButtonLabel = "+ Add Payee",
   addableEmptyMessage,
   addSectionMaxWidth = 420,
   addSelectMinWidth = 180,
@@ -78,6 +77,9 @@ export function EditablePayrollTable({
   disableApply = false,
   disableClear = false,
 }: EditablePayrollTableProps) {
+  const screenSize = useMediaQuery();
+  const isPhone = screenSize === ScreenSize.Phone;
+
   const removeColumn: TableColumn[] = canEdit && onTogglePayeeRemoval
     ? [
         {
@@ -159,13 +161,24 @@ export function EditablePayrollTable({
                 ))}
               </Select>
             </div>
-            <ButtonSecondary
-              style={{ flex: 0 }}
-              onClick={onAddPayee}
-              disabled={!selectedAddPayeeId || addablePayees.length === 0 || disableAddPayee}
-            >
-              {addPayeeButtonLabel}
-            </ButtonSecondary>
+            {isPhone ? (
+              <IconButton
+                size="lg"
+                aria-label="Add payee"
+                onClick={onAddPayee}
+                disabled={!selectedAddPayeeId || addablePayees.length === 0 || disableAddPayee}
+              >
+                +
+              </IconButton>
+            ) : (
+              <ButtonSecondary
+                style={{ flex: 0, whiteSpace: "nowrap" }}
+                onClick={onAddPayee}
+                disabled={!selectedAddPayeeId || addablePayees.length === 0 || disableAddPayee}
+              >
+                Add Payee
+              </ButtonSecondary>
+            )}
           </Row>
           {addablePayees.length === 0 && addableEmptyMessage && (
             <Text.Body size="sm" color="muted">{addableEmptyMessage}</Text.Body>

@@ -74,12 +74,12 @@ export function Toast({ toast, onClose }: ToastProps) {
 
       {/* Content */}
       <Stack gap="xs">
-        <Text.Label style={{ color: "var(--colors-text-label)" }}>
+        <Text.Label style={{ color: "var(--colors-text-main)" }}>
           {toast.title}
         </Text.Label>
 
         {toast.message && (
-          <Text.Body style={{ margin: 0 }}>
+          <Text.Body style={{ margin: 0, color: "var(--colors-text-main)" }}>
             {toast.message}
           </Text.Body>
         )}

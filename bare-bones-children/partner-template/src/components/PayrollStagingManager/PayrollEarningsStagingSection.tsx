@@ -64,7 +64,6 @@ interface PayrollEarningsStagingSectionProps {
   getExtraCells?: (payee: PayeeModel) => Record<string, any>;
 
   formatAddPayeeLabel?: (payee: PayeeModel) => string;
-  addPayeeButtonLabel?: string;
   addableEmptyMessage?: string;
   addSectionMaxWidth?: number;
   addSelectMinWidth?: number;
@@ -140,7 +139,6 @@ export function PayrollEarningsStagingSection({
   getExtraCells,
   formatAddPayeeLabel = (payee) =>
     `${parsePayeeNameLabel(payee.role)} · #${payee.payeeId.toString()}`,
-  addPayeeButtonLabel = "+ Add Payee",
   addableEmptyMessage,
   addSectionMaxWidth = 420,
   addSelectMinWidth = 180,
@@ -747,7 +745,6 @@ export function PayrollEarningsStagingSection({
         onAddPayee={() =>
           stagePayeeAddition(selectedAddPayeeId, `Add payee #${selectedAddPayeeId}`)
         }
-        addPayeeButtonLabel={addPayeeButtonLabel}
         addableEmptyMessage={addableEmptyMessage}
         addSectionMaxWidth={addSectionMaxWidth}
         addSelectMinWidth={addSelectMinWidth}

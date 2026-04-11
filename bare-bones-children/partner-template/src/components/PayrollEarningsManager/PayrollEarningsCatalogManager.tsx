@@ -391,86 +391,101 @@ export function PayrollEarningsCatalogManager({
             padding: "var(--spacing-sm)",
           }}
         >
-          {hourlyBands.map((band, index) => (
-            <Row
-              key={`manage-hourly-band-${index}`}
-              gap="sm"
-              wrap
-              align="end"
-              style={{
-                position: "relative",
-                paddingBottom: "var(--spacing-xs)",
-                paddingRight: "34px",
-                borderBottom:
-                  index === hourlyBands.length - 1
-                    ? "none"
-                    : "1px dashed var(--colors-border)",
-              }}
-            >
-              <button
-                aria-label="Delete band"
-                type="button"
-                disabled={!canEditSelectedCode || hourlyBands.length <= 1}
-                onClick={() => removeHourlyBand(index)}
+          {hourlyBands.map((band, index) => {
+            let priorMax = 0;
+            if (index > 0) {
+              const priorMaxHours = parseUint(hourlyBands[index - 1].maxHours, 0);
+              priorMax = priorMaxHours;
+            }
+            
+            const isRemaining = band.isRemaining && index === hourlyBands.length - 1;
+            const maxHours = isRemaining ? null : parseUint(band.maxHours, 40);
+            const rangeLabel = isRemaining
+              ? `All remaining hours after ${priorMax} will be paid at rate × ${band.multiplier}.`
+              : `${priorMax} - ${maxHours} hours will be paid at rate × ${band.multiplier}.`;
+            
+            return (
+            <Stack gap="xs">
+              <Row
+                key={`manage-hourly-band-${index}`}
+                gap="sm"
+                wrap
+                align="end"
                 style={{
-                  position: "absolute",
-                  top: 0,
-                  right: 0,
-                  width: 30,
-                  height: 30,
-                  borderRadius: 6,
-                  border: "1px solid var(--colors-border)",
-                  background: "var(--colors-background)",
-                  color: "var(--colors-text)",
-                  cursor: !canEditSelectedCode || hourlyBands.length <= 1 ? "not-allowed" : "pointer",
-                  lineHeight: 1,
-                  fontSize: 20,
-                  fontWeight: 500,
+                  position: "relative",
+                  paddingBottom: "var(--spacing-xs)",
+                  paddingRight: "34px",
+                  borderBottom:
+                    index === hourlyBands.length - 1
+                      ? "none"
+                      : "1px dashed var(--colors-border)",
                 }}
               >
-                ×
-              </button>
+                <button
+                  aria-label="Delete band"
+                  type="button"
+                  disabled={!canEditSelectedCode || hourlyBands.length <= 1}
+                  onClick={() => removeHourlyBand(index)}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    right: 0,
+                    width: 30,
+                    height: 30,
+                    borderRadius: 6,
+                    border: "1px solid var(--colors-border)",
+                    background: "var(--colors-background)",
+                    color: "var(--colors-text)",
+                    cursor: !canEditSelectedCode || hourlyBands.length <= 1 ? "not-allowed" : "pointer",
+                    lineHeight: 1,
+                    fontSize: 20,
+                    fontWeight: 500,
+                  }}
+                >
+                  ×
+                </button>
 
-              <Stack style={{ flex: 1, minWidth: 140 }}>
-                <Text.Body size="sm" color="muted">Multiplier</Text.Body>
-                <NumberInput
-                  value={band.multiplier}
-                  onChange={(e) => updateHourlyBand(index, "multiplier", (e.target as HTMLInputElement).value)}
-                  allowDecimal
-                  disabled={!canEditSelectedCode}
-                />
-              </Stack>
-
-              {!band.isRemaining && (
-                <Stack style={{ flex: 1, minWidth: 130 }}>
-                  <Text.Body size="sm" color="muted">Max Hours</Text.Body>
+                <Stack style={{ flex: 1, minWidth: 140 }}>
+                  <Text.Body size="sm" color="muted">Multiplier</Text.Body>
                   <NumberInput
-                    value={band.maxHours}
-                    onChange={(e) => updateHourlyBand(index, "maxHours", (e.target as HTMLInputElement).value)}
-                    onBlur={() => commitHourlyBandMaxHours(index)}
-                    allowDecimal={false}
+                    value={band.multiplier}
+                    onChange={(e) => updateHourlyBand(index, "multiplier", (e.target as HTMLInputElement).value)}
+                    allowDecimal
                     disabled={!canEditSelectedCode}
                   />
                 </Stack>
-              )}
 
-              <Stack style={{ minWidth: 160, paddingBottom: "var(--spacing-xs)" }}>
-                {index === hourlyBands.length - 1 ? (
-                  <label style={{ display: "flex", alignItems: "center", gap: "var(--spacing-xs)" }}>
-                    <input
-                      type="checkbox"
-                      checked={band.isRemaining}
+                {!band.isRemaining && (
+                  <Stack style={{ flex: 1, minWidth: 130 }}>
+                    <Text.Body size="sm" color="muted">Max Hours</Text.Body>
+                    <NumberInput
+                      value={band.maxHours}
+                      onChange={(e) => updateHourlyBand(index, "maxHours", (e.target as HTMLInputElement).value)}
+                      onBlur={() => commitHourlyBandMaxHours(index)}
+                      allowDecimal={false}
                       disabled={!canEditSelectedCode}
-                      onChange={(e) => updateHourlyBand(index, "isRemaining", String(e.target.checked))}
                     />
-                    <Text.Body size="sm">Remaining Hours</Text.Body>
-                  </label>
-                ) : (
-                  <Text.Body size="sm" color="muted">Bounded Band</Text.Body>
+                  </Stack>
                 )}
-              </Stack>
-            </Row>
-          ))}
+
+                <Stack style={{ minWidth: 160, paddingBottom: "var(--spacing-xs)" }}>
+                  {index === hourlyBands.length - 1 ? (
+                    <label style={{ display: "flex", alignItems: "center", gap: "var(--spacing-xs)" }}>
+                      <input
+                        type="checkbox"
+                        checked={band.isRemaining}
+                        disabled={!canEditSelectedCode}
+                        onChange={(e) => updateHourlyBand(index, "isRemaining", String(e.target.checked))}
+                      />
+                      <Text.Body size="sm">Remaining Hours</Text.Body>
+                    </label>
+                  ) : null}
+                </Stack>
+              </Row>
+              <Text.Body size="xs" color="muted">{rangeLabel}</Text.Body>
+            </Stack>
+            );
+          })}
 
           <EarningsDividerButton
             label="+ Add Band"
@@ -681,7 +696,6 @@ export function PayrollEarningsCatalogManager({
                       </span>
                     </Text.Body>
                     <Text.Body size="sm" color="muted">{typeLabel}</Text.Body>
-                    <Text.Body size="sm" color="muted">System</Text.Body>
                     <Text.Body size="sm" color={code.isActive ? "success" : "warn"}>
                       {code.isActive ? "Active" : "Inactive"}
                     </Text.Body>
