@@ -8,7 +8,7 @@ import {
   getUserDiamondAddresses,
 } from "../utils/computeDiamondAddress";
 import { useWalletProvider } from "../hooks/useWalletProvider";
-import { SUPPORTED_CHAIN_IDS } from "../constants/misc";
+import { DEFAULT_BROWSING_URL, SUPPORTED_CHAIN_IDS } from "../constants/misc";
 import { switchOrAddEvmChain } from "../utils/chainUtils";
 import { useOnSendTransaction } from "../hooks/wallet-connect/provider-methods/useOnSendTransaction";
 import { useOnSignTypedData } from "../hooks/wallet-connect/provider-methods/useOnSignTypedData";
@@ -16,6 +16,8 @@ import { useOnEstimateGas } from "../hooks/wallet-connect/provider-methods/useOn
 import { useOnEthCall } from "../hooks/wallet-connect/provider-methods/useOnEthCall";
 import { DappBrowserHeader } from "../components/DappBrowser/DappBrowserHeader";
 import { useOnBlockNumber } from "../hooks/wallet-connect/provider-methods/useOnBlockNumber";
+import { Text } from "../components/Primitives/Text";
+import { ButtonSecondary } from "../components/Button/ButtonPrimary";
 
 const APP_HEADER_HEIGHT = 64;
 const BROWSER_HEADER_HEIGHT = 56;
@@ -30,9 +32,10 @@ function getOrigin(url: string) {
 
 export function DappBrowserPage() {
   const { account, provider, chainId } = useWalletProvider();
-  const [url, setUrl] = useState("https://app.aave.com");
+  const [url, setUrl] = useState(DEFAULT_BROWSING_URL);
   const [lastOrigin, setLastOrigin] = useState<string | null>(getOrigin(url));
   const [inputUrl, setInputUrl] = useState(url);
+  const [showIframeWarning, setShowIframeWarning] = useState(true);
   const [activeWalletAddress, setActiveWalletAddress] =
     useState<string | null>(null);
 
@@ -130,15 +133,62 @@ export function DappBrowserPage() {
           left: 0,
           right: 0,
           bottom: 0,
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        <iframe
-          src={url}
-          title="Dapp Browser"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          allow="clipboard-write"
-          style={{ width: "100%", height: "100%", border: "none" }}
-        />
+        {showIframeWarning && (
+          <div
+            style={{
+              padding: "8px 12px",
+              borderBottom: "1px solid var(--colors-border)",
+              background: "var(--colors-surface)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <Text.Body size="sm" color="warn">
+              If refused you will need to open the site in a new tab.
+            </Text.Body>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <ButtonSecondary
+                size="sm"
+                fullWidth={false}
+                style={{ flex: 0, whiteSpace: "nowrap" }}
+                onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+              >
+                Open in New Tab
+              </ButtonSecondary>
+              <button
+                type="button"
+                aria-label="Dismiss warning"
+                onClick={() => setShowIframeWarning(false)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--colors-text-muted)",
+                  cursor: "pointer",
+                  fontSize: 18,
+                  lineHeight: 1,
+                  padding: 4,
+                }}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <iframe
+            src={url}
+            title="Dapp Browser"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            allow="clipboard-write"
+            style={{ width: "100%", height: "100%", border: "none" }}
+          />
+        </div>
       </div>
 
       <WalletConnectApprovalModal

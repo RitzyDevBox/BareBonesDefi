@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "../BasicComponents";
 import { Row, Stack } from "../Primitives";
 import { Text } from "../Primitives/Text";
@@ -54,12 +54,6 @@ export function OrganizationPicker({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const typedSinceLastFetchRef = useRef(false);
   const skipNextBlurFetchRef = useRef(false);
-
-  const query = value.trim().toLowerCase();
-  const filteredOrganizations = useMemo(() => {
-    if (!query) return organizations;
-    return organizations.filter((org) => org.toLowerCase().includes(query));
-  }, [organizations, query]);
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -188,8 +182,8 @@ export function OrganizationPicker({
                 <div style={{ padding: "10px 12px" }}>
                   <Text.Body size="sm" color="muted">Loading organizations...</Text.Body>
                 </div>
-              ) : filteredOrganizations.length > 0 ? (
-                filteredOrganizations.map((org) => (
+              ) : organizations.length > 0 ? (
+                organizations.map((org) => (
                   <button
                     key={org}
                     type="button"
@@ -220,7 +214,7 @@ export function OrganizationPicker({
                 ))
               ) : (
                 <div style={{ padding: "10px 12px" }}>
-                  <Text.Body size="sm" color="muted">No matching organizations</Text.Body>
+                  <Text.Body size="sm" color="muted">No organizations yet</Text.Body>
                 </div>
               )}
 

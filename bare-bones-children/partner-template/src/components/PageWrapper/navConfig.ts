@@ -1,6 +1,8 @@
 // header/navConfig.ts
 import { ROUTES } from "../../routes";
+import { FEATURE_FLAGS } from "../../constants/featureFlags";
 
+const ORGANIZATION_ID = "organization";
 export interface NavItem {
   id: string;
   label: string;
@@ -24,7 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
     path: ROUTES.DAPP_BROWSER,
   },
   {
-    id: "organization",
+    id: ORGANIZATION_ID,
     label: "Organizations",
     path: ROUTES.ORGANIZATIONS,
   },  
@@ -38,4 +40,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Vaults",
     path: ROUTES.VAULTS
   }
-];
+].filter((item) => {
+  if (item.id === ORGANIZATION_ID) return FEATURE_FLAGS.showOrganizationsInMainNav;
+  return true;
+});

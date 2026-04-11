@@ -12,6 +12,12 @@ type TxRefreshContextValue = {
 };
 
 const TxRefreshContext = createContext<TxRefreshContextValue | null>(null);
+const TX_REFRESH_FALLBACK: TxRefreshContextValue = {
+  version: 0,
+  triggerRefresh: () => {
+    // no-op fallback when provider is not mounted
+  },
+};
 
 export function TxRefreshProvider({ children }: { children: React.ReactNode }) {
   const [version, setVersion] = useState(0);
@@ -38,8 +44,5 @@ export function TxRefreshProvider({ children }: { children: React.ReactNode }) {
 
 export function useTxRefresh() {
   const ctx = useContext(TxRefreshContext);
-  if (!ctx) {
-    throw new Error("useTxRefresh must be used within TxRefreshProvider");
-  }
-  return ctx;
+  return ctx ?? TX_REFRESH_FALLBACK;
 }

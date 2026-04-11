@@ -14,9 +14,17 @@ import { CurrentPayrollPage } from "./pages/CurrentPayrollPage.tsx";
 import { PayBatchesPage } from "./pages/PayBatchesPage";
 import { PayrollEarningsPage } from "./pages/PayrollEarningsPage";
 import { PayrollsPage } from "./pages/PayrollsPage.tsx";
+import { FEATURE_FLAGS } from "./constants/featureFlags";
 
 const devOnlyRoutes = import.meta.env.DEV
   ? [{ path: "test-page", element: <TestPage /> }]
+  : [];
+
+const organizationRoutes = FEATURE_FLAGS.enableOrganizationsRoutes
+  ? [
+      { path: `${ROUTES.ORGANIZATIONS}`, element: <OrganizationPage/> },
+      { path: `${ROUTES.ORGANIZATIONS}/:organizationId`, element: <OrganizationDetailPage /> },
+    ]
   : [];
 
 export const router = createHashRouter([
@@ -33,8 +41,7 @@ export const router = createHashRouter([
       { path: `${ROUTES.PAYMENTS_EARNINGS_ROUTE}`, element: <PayrollEarningsPage/> },
       { path: `${ROUTES.PAYROLLS_ROUTE}`, element: <PayrollsPage/> },
       { path: `${ROUTES.PAYROLL_DETAIL_ROUTE}`, element: <CurrentPayrollPage/> },
-      { path: `${ROUTES.ORGANIZATIONS}`, element: <OrganizationPage/> },
-      { path: `${ROUTES.ORGANIZATIONS}/:organizationId`, element: <OrganizationDetailPage /> },
+      ...organizationRoutes,
       { path: `${ROUTES.VAULTS}`, element: <VaultPage/>},
       { path: `${ROUTES.VAULT_DETAIL_ROUTE}`, element: <VaultWalletPage/>},
       ...devOnlyRoutes,

@@ -135,6 +135,8 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
 
 } as const;
 
+export const DEFAULT_BROWSING_URL = "https://app.aave.com/";
+
 export const BARE_BONES_CHAIN_OVERRIDES: Partial<
   Record<number, Partial<BareBonesConfiguration>>
 > = {

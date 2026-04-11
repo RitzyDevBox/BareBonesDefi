@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
@@ -25,10 +25,12 @@ import { Loader } from "../components/Loader/Loader";
 import { Sheet } from "../components/Primitives/Sheet";
 import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { OrganizationPicker } from "../components/Organizations/OrganizationPicker";
+import { ROUTES } from "../routes";
 
 export function PaymentPage() {
   const { organizationId } = useParams<{ organizationId?: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const screenSize = useMediaQuery();
   const isPhone = screenSize === ScreenSize.Phone;
   const { account, provider, chainId } = useWalletProvider();
@@ -124,6 +126,23 @@ export function PaymentPage() {
 
     loadOwnedOrganizations();
   }, [provider, payrollManagerAddress, account]);
+
+  useEffect(() => {
+    const routeSlug = (organizationId ?? "").trim();
+    setSlug(routeSlug);
+    setFetchedSlug(routeSlug);
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (organizationId) return;
+    if (loadingOwnedOrgs) return;
+    if (ownedOrganizations.length === 0) return;
+
+    const firstOrg = ownedOrganizations[0]?.trim();
+    if (!firstOrg) return;
+
+    navigate(ROUTES.PAYMENTS_ORG(firstOrg), { replace: true });
+  }, [organizationId, loadingOwnedOrgs, ownedOrganizations, navigate]);
 
   useEffect(() => {
     const navIsAdmin = (location.state as { isAdmin?: boolean } | null)?.isAdmin;
