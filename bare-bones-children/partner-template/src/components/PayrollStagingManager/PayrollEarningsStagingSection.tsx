@@ -60,6 +60,7 @@ interface PayrollEarningsStagingSectionProps {
   baseIncludedPayeeIds: Set<string>;
   canEdit: boolean;
   searchEnabled?: boolean;
+  headerActions?: React.ReactNode;
   extraColumns?: TableColumn[];
   getExtraCells?: (payee: PayeeModel) => Record<string, any>;
 
@@ -135,6 +136,7 @@ export function PayrollEarningsStagingSection({
   baseIncludedPayeeIds,
   canEdit,
   searchEnabled = true,
+  headerActions,
   extraColumns = [],
   getExtraCells,
   formatAddPayeeLabel = (payee) =>
@@ -198,9 +200,14 @@ export function PayrollEarningsStagingSection({
   }, [hasStagedChanges, stagedActions.length, isApplying, onStagingMetaChange]);
 
   const effectivePayees = useMemo(() => {
-    const ids = new Set<string>(baseIncludedPayeeIds);
-    for (const id of stagedPayeeAdditions.values()) ids.add(id);
-    return payees.filter((payee) => ids.has(payee.payeeId.toString()));
+    const base = payees.filter((payee) => baseIncludedPayeeIds.has(payee.payeeId.toString()));
+    const baseIds = new Set(base.map((payee) => payee.payeeId.toString()));
+    const stagedAdded = payees.filter(
+      (payee) =>
+        stagedPayeeAdditions.has(payee.payeeId.toString()) &&
+        !baseIds.has(payee.payeeId.toString())
+    );
+    return [...base, ...stagedAdded];
   }, [payees, baseIncludedPayeeIds, stagedPayeeAdditions]);
 
   const addablePayees = useMemo(
@@ -671,6 +678,7 @@ export function PayrollEarningsStagingSection({
         payees={effectivePayees}
         loading={loading}
         searchEnabled={searchEnabled}
+        headerActions={headerActions}
         canEdit={canEdit}
         stagedPayeeRemovals={stagedPayeeRemovals}
         stagedPayeeAdditions={stagedPayeeAdditions}

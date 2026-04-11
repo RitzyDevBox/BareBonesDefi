@@ -25,7 +25,9 @@ import { fetchPayBatchCodes, fetchPayBatchPayeesWithDefaults } from "../utils/pa
 import { PayrollNavigation } from "../components/PayrollNavigation";
 import {
   parseBatchCodeLabel,
+  parsePayeeNameLabel,
 } from "../utils/payroll/payrollFormatters";
+import { shortAddress } from "../utils/formatUtils";
 import {
   PayrollEarningsStagingSection,
   PayrollConfigActionKind,
@@ -416,6 +418,7 @@ export function PayBatchesPage() {
                   payees={payees}
                   baseIncludedPayeeIds={batchPayeeIds}
                   canEdit={isAdmin}
+                  formatAddPayeeLabel={(payee) => `${parsePayeeNameLabel(payee.role)} · ${shortAddress(payee.paymentAddress)}`}
                   addableEmptyMessage="All organization payees are already in this pay batch."
                   panelTitle="Batch Default Earnings"
                   panelAddLabel="+ Add Default Earning"

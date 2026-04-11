@@ -16,6 +16,7 @@ interface EditablePayrollTableProps {
   payees: PayeeModel[];
   loading?: boolean;
   searchEnabled?: boolean;
+  headerActions?: React.ReactNode;
   canEdit: boolean;
   stagedPayeeRemovals: Set<string>;
   stagedPayeeAdditions: Set<string>;
@@ -31,9 +32,7 @@ interface EditablePayrollTableProps {
   formatAddPayeeLabel?: (payee: PayeeModel) => string;
   onAddPayee?: () => void;
   addableEmptyMessage?: string;
-  addSectionMaxWidth?: number;
   addSelectMinWidth?: number;
-  addSelectMaxWidth?: number;
   addSelectCompact?: boolean;
   disableAddPayee?: boolean;
 
@@ -49,6 +48,7 @@ export function EditablePayrollTable({
   payees,
   loading = false,
   searchEnabled = true,
+  headerActions,
   canEdit,
   stagedPayeeRemovals,
   stagedPayeeAdditions,
@@ -64,9 +64,7 @@ export function EditablePayrollTable({
   formatAddPayeeLabel,
   onAddPayee,
   addableEmptyMessage,
-  addSectionMaxWidth = 420,
   addSelectMinWidth = 180,
-  addSelectMaxWidth = 260,
   addSelectCompact = false,
   disableAddPayee = false,
 
@@ -80,19 +78,28 @@ export function EditablePayrollTable({
   const screenSize = useMediaQuery();
   const isPhone = screenSize === ScreenSize.Phone;
 
+  function mobileStatusColor(value: unknown): "muted" | "success" | "warn" | "danger" {
+    const label = String(value ?? "").toLowerCase();
+    if (label.includes("inactive") || label.includes("terminated")) return "danger";
+    if (label.includes("leave")) return "warn";
+    if (label.includes("active")) return "success";
+    return "muted";
+  }
+
   const removeColumn: TableColumn[] = canEdit && onTogglePayeeRemoval
     ? [
         {
           key: "removeAction",
           header: "",
+          width: isPhone ? "36px" : "48px",
           allowOverflow: true,
           render: (payeeIdStr: string) => {
             const isStagedRemoval = stagedPayeeRemovals.has(payeeIdStr);
             const isStagedAdd = stagedPayeeAdditions.has(payeeIdStr);
             return (
               <IconButton
-                size="xl"
-                iconFontSize="xl"
+                size={isPhone ? "lg" : "xl"}
+                iconFontSize={isPhone ? "md" : "xl"}
                 shape="square"
                 aria-label={isStagedRemoval ? UNDO_LABEL : isStagedAdd ? UNDO_LABEL : DELETE_LABEL}
                 title={isStagedRemoval ? UNDO_LABEL : isStagedAdd ? UNDO_LABEL : DELETE_LABEL}
@@ -101,6 +108,7 @@ export function EditablePayrollTable({
                   onTogglePayeeRemoval(payeeIdStr);
                 }}
                 style={{
+                  padding: isPhone ? 4 : undefined,
                   color: isStagedRemoval
                     ? "var(--colors-warn)"
                     : isStagedAdd
@@ -108,7 +116,7 @@ export function EditablePayrollTable({
                     : "var(--colors-error)",
                 }}
               >
-                <TrashBinIcon size={20} />
+                <TrashBinIcon size={isPhone ? 16 : 20} />
               </IconButton>
             );
           },
@@ -124,6 +132,7 @@ export function EditablePayrollTable({
         payees={payees}
         loading={loading}
         searchEnabled={searchEnabled}
+        headerActions={headerActions}
         extraColumns={mergedColumns}
         getExtraCells={(payee) => ({
           ...(canEdit ? { removeAction: payee.payeeId.toString() } : {}),
@@ -139,13 +148,26 @@ export function EditablePayrollTable({
           }
           return {};
         }}
-        renderExpandedRow={(payee) => renderExpandedRow(payee)}
+        renderExpandedRow={(payee) => {
+          const mobileStatus = getExtraCells?.(payee)?.payeeStatus;
+
+          return (
+            <Stack gap="sm">
+              {isPhone && mobileStatus != null && (
+                <Text.Body size="sm" color={mobileStatusColor(mobileStatus)}>
+                  Status: {String(mobileStatus)}
+                </Text.Body>
+              )}
+              {renderExpandedRow(payee)}
+            </Stack>
+          );
+        }}
       />
 
       {showAddSection && canEdit && (
-        <Stack gap="xs" style={{ maxWidth: addSectionMaxWidth }}>
-          <Row gap="sm" align="center" wrap>
-            <div style={{ flex: 1, minWidth: addSelectMinWidth, maxWidth: addSelectMaxWidth }}>
+        <Stack gap="xs" style={{ maxWidth: isPhone ? undefined : 420 }}>
+          <Row gap="sm" align="center" wrap={false}>
+            <div style={{ flex: 1, minWidth: addSelectMinWidth, maxWidth: isPhone ? undefined : 260 }}>
               <Select<string>
                 value={selectedAddPayeeId || null}
                 onChange={(value) => onSelectedAddPayeeIdChange?.(String(value ?? ""))}
@@ -167,6 +189,7 @@ export function EditablePayrollTable({
                 aria-label="Add payee"
                 onClick={onAddPayee}
                 disabled={!selectedAddPayeeId || addablePayees.length === 0 || disableAddPayee}
+                style={{ width: 50, height: 50, fontSize: "1.25rem", flexShrink: 0 }}
               >
                 +
               </IconButton>

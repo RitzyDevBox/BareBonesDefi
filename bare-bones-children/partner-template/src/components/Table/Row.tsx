@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Stack } from "../Primitives";
 import type { TableRowData, TableColumn } from "./Table";
+import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
 
 interface TableRowProps {
   rowData: TableRowData;
@@ -23,6 +24,8 @@ export function TableRow({
   rowIndex = 0,
   totalRows = 0,
 }: TableRowProps) {
+  const screenSize = useMediaQuery();
+  const isPhone = screenSize === ScreenSize.Phone;
   const [isExpanded, setIsExpanded] = useState(false);
   const hasExpandable = !!expandedContentRender;
   const hasLeadingCell = hasExpandable || Boolean(leadingCell);
@@ -52,8 +55,8 @@ export function TableRow({
         {hasLeadingCell && (
           <td
             style={{
-              padding: "var(--spacing-sm)",
-              width: "30px",
+              padding: isPhone ? "var(--spacing-xs)" : "var(--spacing-sm)",
+              width: isPhone ? "22px" : "30px",
               textAlign: "center",
               ...cellStyle,
             }}
@@ -67,6 +70,7 @@ export function TableRow({
                   transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
                   transition: "transform 200ms ease",
                   color: "var(--colors-text-muted)",
+                  fontSize: isPhone ? 11 : 14,
                 }}
               >
                 ▶
@@ -78,8 +82,8 @@ export function TableRow({
           <td
             key={idx}
             style={{
-              padding: "var(--spacing-sm)",
-              maxWidth: "250px",
+              padding: isPhone ? "var(--spacing-xs)" : "var(--spacing-sm)",
+              maxWidth: isPhone ? "170px" : "250px",
               overflow: columns[idx]?.allowOverflow ? "visible" : "hidden",
               textOverflow: columns[idx]?.allowOverflow ? "clip" : "ellipsis",
               color: "var(--colors-text-main)",
@@ -98,7 +102,7 @@ export function TableRow({
             borderBottom: "1px solid var(--colors-border)",
           }}
         >
-          <td colSpan={cells.length + 1} style={{ padding: "var(--spacing-md)" }}>
+          <td colSpan={cells.length + 1} style={{ padding: isPhone ? "var(--spacing-sm)" : "var(--spacing-md)" }}>
             <Stack gap="md">{expandedContentRender(rowData)}</Stack>
           </td>
         </tr>

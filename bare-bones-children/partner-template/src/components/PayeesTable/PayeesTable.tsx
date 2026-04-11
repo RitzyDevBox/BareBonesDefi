@@ -34,6 +34,7 @@ export interface PayeesTableProps {
 	payees: Payee[];
 	loading?: boolean;
 	searchEnabled?: boolean;
+	headerActions?: React.ReactNode;
 	renderExpandedRow?: (payee: Payee, rowData: any) => React.ReactNode;
 	extraColumns?: TableColumn[];
 	getExtraCells?: (payee: Payee) => Record<string, any>;
@@ -56,6 +57,7 @@ function safeParseName(value: string) {
 export function PayeesTable({
 	payees,
 	searchEnabled = false,
+	headerActions,
 	renderExpandedRow,
 	extraColumns = [],
 	getExtraCells,
@@ -157,6 +159,13 @@ export function PayeesTable({
 				render: (value: any) => {
 					if (isValidElement(value)) return value;
 					if (typeof value !== "string") return String(value ?? "");
+					if (isPhone) {
+						return (
+							<span style={{ fontFamily: "monospace", display: "inline-block", minWidth: "9ch", letterSpacing: 0 }}>
+								{shortAddress(value)}
+							</span>
+						);
+					}
 					return (
 						<Row gap="sm" align="center" style={{ minWidth: 0 }}>
 							<span style={{ fontFamily: "monospace", display: "inline-block", minWidth: "9ch", letterSpacing: 0 }}>{shortAddress(value)}</span>
@@ -245,20 +254,20 @@ export function PayeesTable({
 		<Stack>
 			<Stack>
 				{searchEnabled ? (
-					<Row justify="between" align="center" wrap style={{ marginBottom: "var(--spacing-sm)" }}>
-						<Text.Label>Payees ({filteredPayees.length})</Text.Label>
-						<div style={{ width: "100%", maxWidth: 380, marginLeft: "auto" }}>
-							<Input
-								type="text"
-								placeholder="Search by name, address, or ID..."
-								value={searchQuery}
-								onChange={(e) => setSearchQuery(e.target.value)}
-							/>
-						</div>
+					<Row justify="end" align="center" wrap style={{ marginBottom: "var(--spacing-sm)" }}>
+						<Row gap="sm" align="center" style={{ width: "100%", maxWidth: 620, marginLeft: "auto" }}>
+							<div style={{ width: "100%", maxWidth: 380, marginLeft: "auto" }}>
+								<Input
+									type="text"
+									placeholder="Search by name, address, or ID..."
+									value={searchQuery}
+									onChange={(e) => setSearchQuery(e.target.value)}
+								/>
+							</div>
+							{headerActions}
+						</Row>
 					</Row>
-				) : (
-					<Text.Label>Payees ({filteredPayees.length})</Text.Label>
-				)}
+				) : null}
 
 				<Table
 					loading={loading}

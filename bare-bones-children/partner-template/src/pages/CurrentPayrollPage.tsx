@@ -5,7 +5,7 @@ import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
-import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
+import { SplitActionDropdown } from "../components/Button/SplitActionDropdown";
 import { Loader } from "../components/Loader/Loader";
 import { ERC20Mintable } from "../components/ERC20Mintable/ERC20Mintable";
 import { PayrollTreasuryFund } from "../components/PayrollTreasuryFund/PayrollTreasuryFund";
@@ -34,7 +34,6 @@ import { shortAddress } from "../utils/formatUtils";
 import { PayrollNavigation } from "../components/PayrollNavigation";
 import {
   formatAmountDisplay,
-  formatDateTime,
   parseBatchCodeLabel,
   parsePreviewPayrollChunk,
   parsePayrollRunRow,
@@ -45,6 +44,28 @@ import {
   ProcessPayrollFlowModal,
   type PayrollConfigActionPayload,
 } from "../components/PayrollStagingManager";
+
+function payrollStatusColor(status: number | null): "main" | "secondary" | "label" | "muted" | "danger" | "warn" | "success" {
+  if (status === PayrollStatus.Draft) return "warn";
+  if (status === PayrollStatus.Processing) return "secondary";
+  if (status === PayrollStatus.Processed) return "secondary";
+  if (status === PayrollStatus.Finalizing) return "warn";
+  if (status === PayrollStatus.Finalized) return "success";
+  if (status === PayrollStatus.Cancelled) return "danger";
+  return "muted";
+}
+
+function formatPeriodHour(ts: number | null) {
+  if (!ts) return "-";
+  const date = new Date(ts * 1000);
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    hour12: true,
+  });
+}
 
 export function CurrentPayrollPage() {
   const location = useLocation();
@@ -132,7 +153,6 @@ export function CurrentPayrollPage() {
   }, [currentPayrollId, payrollPayeeRunData]);
 
   const isViewOnly = payrollStatus === PayrollStatus.Finalized || payrollStatus === PayrollStatus.Cancelled;
-  const isPreviewDisabledByStatus = (payrollStatus ?? PayrollStatus.None) >= PayrollStatus.Processed;
 
   const templateDefaultsByPayeeId = useMemo(
     () => new Map(templatePayeeDefaults.map((row) => [row.payeeId.toString(), row] as const)),
@@ -158,6 +178,19 @@ export function CurrentPayrollPage() {
   );
 
   const { hasStagedChanges, stagedCount, isApplying: isApplyingStaged } = stagingMeta;
+
+  const finalizedTotalGross = useMemo(() => {
+    if (!finalizedGrosses.length) return null;
+    const total = finalizedGrosses.reduce(
+      (acc, row) => acc.add(ethers.BigNumber.from(row.gross)),
+      ethers.BigNumber.from(0)
+    );
+    return formatAmountDisplay(ethers.utils.formatEther(total));
+  }, [finalizedGrosses]);
+
+  const totalGrossDisplay = payrollStatus === PayrollStatus.Finalized
+    ? (finalizedTotalGross ?? "-")
+    : (previewTotalGross ?? "-");
 
   const resetPayrollState = useCallback(() => {
     setCurrentPayrollId(null);
@@ -385,8 +418,7 @@ export function CurrentPayrollPage() {
       !slug ||
       currentPayrollId == null ||
       isPreviewingPayroll ||
-      hasStagedChanges ||
-      isPreviewDisabledByStatus
+      hasStagedChanges
     ) return;
 
     // Match on-chain validation:
@@ -508,71 +540,6 @@ export function CurrentPayrollPage() {
               )}
 
               {loading && <Loader label="Loading payroll data..." />}
-
-              {orgInfo && (
-                <Stack style={{ padding: "var(--spacing-md)", backgroundColor: "var(--colors-background)", borderRadius: "var(--radius-md)" }}>
-                  <Text.Body color="muted" size="sm">
-                    Payroll ID: {currentPayrollId !== null ? currentPayrollId : "N/A"} · Loaded payees: {payrollPayeeRunData.length}
-                  </Text.Body>
-                  <Text.Body color="muted" size="sm">
-                    Status: {payrollStatus == null ? "N/A" : payrollStatusLabel(payrollStatus)}
-                  </Text.Body>
-                  <Text.Body color="muted" size="sm">
-                    Template: {parseBatchCodeLabel(payrollTemplateCode)}
-                  </Text.Body>
-                  <Text.Body color="muted" size="sm">
-                    Window: {payrollStartTime ? formatDateTime(payrollStartTime) : "-"} → {payrollEndTime ? formatDateTime(payrollEndTime) : "-"}
-                  </Text.Body>
-                  {stagedCount > 0 && (
-                    <Text.Body color="warn" size="sm">
-                      Staged edits: {stagedCount} pending
-                    </Text.Body>
-                  )}
-                  {hasStagedChanges && (
-                    <Text.Body color="warn" size="sm">
-                      Clear or apply staged changes before Preview or Process.
-                    </Text.Body>
-                  )}
-                  {isViewOnly && (
-                    <Text.Body color="warn" size="sm">
-                      This payroll is finalized/cancelled and is currently view-only.
-                    </Text.Body>
-                  )}
-                  {previewTotalGross != null && (
-                    <Text.Body color="secondary" size="sm">
-                      Preview Total Gross: {previewTotalGross}
-                    </Text.Body>
-                  )}
-                  {previewError && (
-                    <Text.Body color="warn" size="sm">
-                      {previewError}
-                    </Text.Body>
-                  )}
-                  <Row gap="sm" justify="end">
-                    <ButtonSecondary
-                      style={{ flex: 0 }}
-                      onClick={handleCancelPayroll}
-                      disabled={!isAdmin || !slug || isCancellingPayroll || isProcessingPayroll || currentPayrollId == null || isViewOnly || hasStagedChanges}
-                    >
-                      {isCancellingPayroll ? "Cancelling..." : "Cancel Payroll"}
-                    </ButtonSecondary>
-                    <ButtonSecondary
-                      style={{ flex: 0 }}
-                      onClick={handlePreviewPayroll}
-                      disabled={currentPayrollId == null || isPreviewingPayroll || hasStagedChanges || isPreviewDisabledByStatus}
-                    >
-                      {isPreviewingPayroll ? "Previewing..." : "Preview Payroll"}
-                    </ButtonSecondary>
-                    <ButtonPrimary
-                      style={{ flex: 0 }}
-                      onClick={handleOpenProcessFlow}
-                      disabled={!isAdmin || !slug || isProcessingPayroll || currentPayrollId == null || isViewOnly || hasStagedChanges}
-                    >
-                      {isProcessingPayroll ? "Processing..." : "Process Payroll"}
-                    </ButtonPrimary>
-                  </Row>
-                </Stack>
-              )}
             </Stack>
           </CardContent>
         </Card>
@@ -581,6 +548,20 @@ export function CurrentPayrollPage() {
           <Card style={{ width: "100%" }}>
             <CardContent>
               <Stack gap="md">
+                <Stack gap="xs" style={{ paddingBottom: "var(--spacing-xs)" }}>
+                  <Row justify="between" align="center" wrap>
+                    <Text.Body color="muted">
+                      Batch Code: {parseBatchCodeLabel(payrollTemplateCode)}
+                    </Text.Body>
+                    <Text.Body color={payrollStatusColor(payrollStatus)}>
+                      {payrollStatus == null ? "N/A" : payrollStatusLabel(payrollStatus)}
+                    </Text.Body>
+                  </Row>
+                  <Text.Body color="muted">
+                    Period: {formatPeriodHour(payrollStartTime)} - {formatPeriodHour(payrollEndTime)}
+                  </Text.Body>
+                </Stack>
+
                 {payrollStatus === PayrollStatus.Finalized && !loading ? (
                   <Stack gap="sm">
                     <Text.Label>Finalized Payment Summary</Text.Label>
@@ -592,7 +573,7 @@ export function CurrentPayrollPage() {
                         loadingLabel="Loading payroll summary..."
                         showSearch={false}
                         columns={[
-                          { key: "payeeId", header: "#", width: "80px" },
+                          { key: "payeeId", header: "ID", width: "80px" },
                           { key: "name", header: "Name" },
                           { key: "paidAmount", header: "Paid Amount" },
                         ]}
@@ -616,22 +597,54 @@ export function CurrentPayrollPage() {
                     payees={payees}
                     baseIncludedPayeeIds={payeeIdsInPayroll}
                     canEdit={isAdmin && !isViewOnly && currentPayrollId != null}
+                    headerActions={
+                      <SplitActionDropdown
+                        label={isPreviewingPayroll ? "Previewing..." : "Preview"}
+                        onPrimaryClick={handlePreviewPayroll}
+                        primaryDisabled={currentPayrollId == null || isPreviewingPayroll || hasStagedChanges}
+                        actions={[
+                          {
+                            label: isCancellingPayroll ? "Cancelling..." : "Cancel",
+                            onClick: handleCancelPayroll,
+                            disabled: !isAdmin || !slug || isCancellingPayroll || isProcessingPayroll || currentPayrollId == null || isViewOnly || hasStagedChanges,
+                          },
+                          {
+                            label: isPreviewingPayroll ? "Previewing..." : "Preview",
+                            onClick: handlePreviewPayroll,
+                            disabled: currentPayrollId == null || isPreviewingPayroll || hasStagedChanges,
+                          },
+                          {
+                            label: isProcessingPayroll ? "Processing..." : "Process",
+                            onClick: handleOpenProcessFlow,
+                            disabled: !isAdmin || !slug || isProcessingPayroll || currentPayrollId == null || isViewOnly || hasStagedChanges,
+                          },
+                        ]}
+                      />
+                    }
                     extraColumns={[
                       ...(showResolvedCodesColumn ? [{ key: "resolvedCodes", header: "Codes" }] : []),
-                      { key: "payeeStatus", header: "Status" },
-                      { key: "previewGross", header: "Preview Gross" },
+                      ...(screenSize === ScreenSize.Phone ? [] : [{ key: "payeeStatus", header: "Status" }]),
+                      {
+                        key: "previewGross",
+                        header: screenSize === ScreenSize.Phone ? "Gross" : "Preview Gross",
+                        width: screenSize === ScreenSize.Phone ? "88px" : undefined,
+                      },
                     ]}
                     getExtraCells={(payee) => {
                       const payeeId = payee.payeeId.toString();
                       const row = payrollRunByPayeeId.get(payeeId);
+                      const fullPreviewGross = previewGrossByPayeeId[payeeId] ?? "-";
+                      const compactPreviewGross = screenSize === ScreenSize.Phone
+                        ? fullPreviewGross.split(" ")[0]
+                        : fullPreviewGross;
                       return {
                         resolvedCodes: row?.earnings.length ?? 0,
-                        previewGross: previewGrossByPayeeId[payeeId] ?? "-",
+                        previewGross: compactPreviewGross,
                         payeeStatus: payeeStatusLabel(row?.payeeStatus ?? payee.status),
                       };
                     }}
                     formatAddPayeeLabel={(payee) =>
-                      `#${payee.payeeId.toString()} · ${parsePayeeNameLabel(payee.role)} · ${shortAddress(payee.paymentAddress)}`
+                      `${parsePayeeNameLabel(payee.role)} · ${shortAddress(payee.paymentAddress)}`
                     }
                     addableEmptyMessage="All organization payees are already in this payroll."
                     addSectionMaxWidth={560}
@@ -686,6 +699,35 @@ export function CurrentPayrollPage() {
                     disableApply={loading}
                   />
                 )}
+
+                {previewError && (
+                  <Text.Body color="warn" size="sm">
+                    {previewError}
+                  </Text.Body>
+                )}
+                {isViewOnly && (
+                  <Text.Body color="warn" size="sm">
+                    This payroll is finalized/cancelled and is currently view-only.
+                  </Text.Body>
+                )}
+                {hasStagedChanges && (
+                  <Text.Body color="warn" size="sm">
+                    Staged edits: {stagedCount} pending. Clear or apply staged changes before preview/process.
+                  </Text.Body>
+                )}
+
+                <Row
+                  justify="between"
+                  align="center"
+                  wrap
+                  style={{
+                    paddingTop: "var(--spacing-sm)",
+                    borderTop: "1px solid var(--colors-border)",
+                  }}
+                >
+                  <Text.Body size="sm" color="muted">Total Payees: {payrollPayeeRunData.length}</Text.Body>
+                  <Text.Body size="sm" color="muted">Total Gross: {totalGrossDisplay}</Text.Body>
+                </Row>
               </Stack>
             </CardContent>
           </Card>

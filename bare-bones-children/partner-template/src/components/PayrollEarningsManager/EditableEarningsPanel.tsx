@@ -18,6 +18,7 @@ import {
   formatEarningsCodeName,
 } from "../../utils/payroll/earningsCodeDisplay";
 import { formatRate } from "../../utils/payroll/payrollFormatters";
+import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
 
 export interface EditableEarningItem {
   codeId: string;
@@ -84,13 +85,15 @@ export function EditableEarningsPanel({
   onEdit,
   onToggleRemove,
 }: EditableEarningsPanelProps) {
+  const screenSize = useMediaQuery();
+  const isPhone = screenSize === ScreenSize.Phone;
   const onChainCodeIds = new Set(onChainEarnings.map((e) => e.codeId));
   const newStagedEarnings = Array.from(stagedUpserts.entries()).filter(
     ([codeId]) => !onChainCodeIds.has(codeId)
   );
 
   return (
-    <Card style={{ backgroundColor: "var(--colors-background)", border: "1px solid var(--colors-border)" }}>
+    <Card style={{ backgroundColor: "var(--colors-background)", border: "1px solid var(--colors-border)", width: "100%" }}>
       <CardContent>
         <Stack gap="sm">
           <Text.Label>{title}</Text.Label>
@@ -123,6 +126,7 @@ export function EditableEarningsPanel({
                   <Card
                     key={`${codeId}-${index}`}
                     style={{
+                      width: "100%",
                       border: `1px solid ${
                         isStagedRemoval
                           ? "var(--colors-error, #dc3545)"
@@ -133,7 +137,7 @@ export function EditableEarningsPanel({
                       opacity: isStagedRemoval ? 0.65 : 1,
                     }}
                   >
-                    <CardContent style={{ padding: "var(--spacing-md)", position: "relative" }}>
+                    <CardContent style={{ padding: isPhone ? "var(--spacing-sm)" : "var(--spacing-md)", position: "relative" }}>
                       {canEdit && (
                         <Row
                           gap="xs"
@@ -194,10 +198,12 @@ export function EditableEarningsPanel({
                             : formatRate(ethers.BigNumber.from(earning.rate))}
                         </Text.Body>
                         {(ruleMeta.configRequired || (ruleMeta.kind === RuleKind.Custom && earning.config !== "0x")) && (
-                          <Text.Body size="sm" color="muted">Config: {decodeConfigDisplay(earning.config, earning.rule, config)}</Text.Body>
+                          <Text.Body size="sm" color="muted" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+                            Config: {decodeConfigDisplay(earning.config, earning.rule, config)}
+                          </Text.Body>
                         )}
                         {(ruleMeta.runDataRequired || (ruleMeta.kind === RuleKind.Custom && effectiveRunData !== "0x")) && (
-                          <Text.Body size="sm" color="muted">
+                          <Text.Body size="sm" color="muted" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
                             Run Data: {decodeRunDataDisplay(effectiveRunData, earning.rule, config)}
                           </Text.Body>
                         )}
@@ -226,8 +232,8 @@ export function EditableEarningsPanel({
                 };
 
                 return (
-                  <Card key={`staged-new-${codeId}`} style={{ border: `1px solid ${cardBorder}`, opacity: isStagedPayeeRemoval ? 0.65 : 1 }}>
-                    <CardContent style={{ padding: "var(--spacing-md)", position: "relative" }}>
+                  <Card key={`staged-new-${codeId}`} style={{ border: `1px solid ${cardBorder}`, opacity: isStagedPayeeRemoval ? 0.65 : 1, width: "100%" }}>
+                    <CardContent style={{ padding: isPhone ? "var(--spacing-sm)" : "var(--spacing-md)", position: "relative" }}>
                       {canEdit && !isStagedPayeeRemoval && (
                         <Row
                           gap="xs"
@@ -275,10 +281,14 @@ export function EditableEarningsPanel({
                         </Row>
                         <Text.Body size="sm" color="muted">Rate: {formatRate(ethers.BigNumber.from(upsert.rate))}</Text.Body>
                         {(ruleMeta.configRequired || (ruleMeta.kind === RuleKind.Custom && (codeMeta?.config ?? "0x") !== "0x")) && (
-                          <Text.Body size="sm" color="muted">Config: {decodeConfigDisplay(codeMeta?.config ?? "0x", rule, config)}</Text.Body>
+                          <Text.Body size="sm" color="muted" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+                            Config: {decodeConfigDisplay(codeMeta?.config ?? "0x", rule, config)}
+                          </Text.Body>
                         )}
                         {ruleMeta.runDataRequired && (
-                          <Text.Body size="sm" color="muted">Run Data: {decodeRunDataDisplay(upsert.runData, rule, config)}</Text.Body>
+                          <Text.Body size="sm" color="muted" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+                            Run Data: {decodeRunDataDisplay(upsert.runData, rule, config)}
+                          </Text.Body>
                         )}
                       </Stack>
                     </CardContent>

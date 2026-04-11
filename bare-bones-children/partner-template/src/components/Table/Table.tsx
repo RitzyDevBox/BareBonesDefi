@@ -4,6 +4,7 @@ import { Text } from "../Primitives/Text";
 import { Loader } from "../Loader/Loader";
 import { TableRow } from "./Row";
 import { TableSearch } from "./Search";
+import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
 
 export interface TableColumn {
   key: string;
@@ -44,6 +45,8 @@ export function Table({
   loading = false,
   loadingLabel = "Loading...",
 }: TableProps) {
+  const screenSize = useMediaQuery();
+  const isPhone = screenSize === ScreenSize.Phone;
   const [internalSearchValue, setInternalSearchValue] =
     React.useState(searchValue);
 
@@ -97,7 +100,7 @@ export function Table({
                 <th
                   style={{
                     textAlign: "left",
-                    padding: "var(--spacing-md)",
+                    padding: isPhone ? "var(--spacing-xs)" : "var(--spacing-sm)",
                     color: "var(--colors-text-muted)",
                     fontWeight: 600,
                     fontSize: "0.875rem",
@@ -110,7 +113,7 @@ export function Table({
                   key={col.key}
                   style={{
                     textAlign: "left",
-                    padding: "var(--spacing-md)",
+                    padding: isPhone ? "var(--spacing-xs)" : "var(--spacing-sm)",
                     color: "var(--colors-text-muted)",
                     fontWeight: 600,
                     fontSize: "0.875rem",
