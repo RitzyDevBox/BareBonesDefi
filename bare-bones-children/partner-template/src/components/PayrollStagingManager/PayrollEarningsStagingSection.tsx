@@ -66,9 +66,7 @@ interface PayrollEarningsStagingSectionProps {
 
   formatAddPayeeLabel?: (payee: PayeeModel) => string;
   addableEmptyMessage?: string;
-  addSectionMaxWidth?: number;
   addSelectMinWidth?: number;
-  addSelectMaxWidth?: number;
   addSelectCompact?: boolean;
   disableAddPayee?: boolean;
 
@@ -142,9 +140,7 @@ export function PayrollEarningsStagingSection({
   formatAddPayeeLabel = (payee) =>
     `${parsePayeeNameLabel(payee.role)} · #${payee.payeeId.toString()}`,
   addableEmptyMessage,
-  addSectionMaxWidth = 420,
   addSelectMinWidth = 180,
-  addSelectMaxWidth = 260,
   addSelectCompact = false,
   disableAddPayee = false,
   panelTitle,
@@ -754,9 +750,7 @@ export function PayrollEarningsStagingSection({
           stagePayeeAddition(selectedAddPayeeId, `Add payee #${selectedAddPayeeId}`)
         }
         addableEmptyMessage={addableEmptyMessage}
-        addSectionMaxWidth={addSectionMaxWidth}
         addSelectMinWidth={addSelectMinWidth}
-        addSelectMaxWidth={addSelectMaxWidth}
         addSelectCompact={addSelectCompact}
         disableAddPayee={disableAddPayee || isApplying}
         showActionsRow={canEdit && (hasStagedChanges || isApplying)}

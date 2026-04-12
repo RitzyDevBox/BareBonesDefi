@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "deploy:github-pages": "bash scripts/deploy-github-pages.sh",
     "extract-error-selectors": "node scripts/generate-error-selectors.mjs --inputFolders=src/abis --outputMap=src/utils/abiUtils.ts",
     "arweave:estimate": "node scripts/estimate-deploy-arweave.mjs",
     "arweave:fund-bundlr": "node scripts/fund-bundlr.mjs",

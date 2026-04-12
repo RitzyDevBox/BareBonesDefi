@@ -647,7 +647,6 @@ export function CurrentPayrollPage() {
                       `${parsePayeeNameLabel(payee.role)} · ${shortAddress(payee.paymentAddress)}`
                     }
                     addableEmptyMessage="All organization payees are already in this payroll."
-                    addSectionMaxWidth={560}
                     addSelectMinWidth={showResolvedCodesColumn ? 320 : 220}
                     addSelectCompact={true}
                     disableAddPayee={isApplyingStaged}
