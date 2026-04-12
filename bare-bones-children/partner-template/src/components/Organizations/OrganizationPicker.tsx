@@ -221,7 +221,11 @@ export function OrganizationPicker({
               <div style={{ borderTop: "1px solid var(--colors-border)" }} />
               <button
                 type="button"
+                onMouseDown={() => {
+                  skipNextBlurFetchRef.current = true;
+                }}
                 onClick={() => {
+                  typedSinceLastFetchRef.current = false;
                   setCreateName(value.trim());
                   setIsCreateOpen(true);
                   setIsOpen(false);

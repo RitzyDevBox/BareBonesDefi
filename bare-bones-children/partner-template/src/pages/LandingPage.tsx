@@ -5,100 +5,92 @@ import { Text } from "../components/Primitives/Text";
 import { useMediaQuery, ScreenSize } from "../hooks/useMediaQuery";
 import { VerticalFlowItem } from "../components/Landing/types";
 
-export function LandingPage() {
-  const screen = useMediaQuery();
+type LandingTile = {
+    id: string;
+    title: string;
+    body: string;
+};
 
-  // Layout knobs (keep simple for now)
-  const columns =
-    screen === ScreenSize.Phone ? 1 :
-    screen === ScreenSize.Tablet ? 2 :
-    3;
-
-  const hexSize = 160;
-  const contentScale = 1;
-  const hexSpacing = 1.02;
-
-  const items: VerticalFlowItem[] = [
+const LANDING_TILES: LandingTile[] = [
     {
         id: "overview",
-        content: (
-        <HexPanel
-            title={<Text.Title align="center">Overview</Text.Title>}
-            contentScale={contentScale}
-        >
-            <Text.Body align="center">
-            A minimal account-abstraction wallet framework built on Diamonds.
-            Owner-authorized by default. No custody.
-            </Text.Body>
-        </HexPanel>
-        ),
+        title: "Overview",
+        body: "Mission: build a shared foundation of common tools that helps teams launch and operate micro-startups.",
     },
-
     {
         id: "core-operations",
-        content: (
-        <HexPanel
-            title={<Text.Title align="center">Core Operations</Text.Title>}
-            contentScale={contentScale}
-        >
-            <Text.Body align="center">
-            Deploy smart-contract wallets, send and receive ETH and ERC-20 tokens,
-            wrap native assets, and execute batched transactions — all through a
-            single owner-authorized smart account.
-            </Text.Body>
-        </HexPanel>
-        ),
+        title: "Core Ops",
+        body: "Payment pipelines: which allow rules to process payments and configure payrolls.",
     },
-
     {
         id: "security-model",
-        content: (
-        <HexPanel
-            title={<Text.Title align="center">Security Model</Text.Title>}
-            contentScale={contentScale}
-        >
-            <Text.Body align="center">
-            Every state change is explicitly authorized by the owner.
-            Validation is enforced by default. No relayers. No automatic execution.
-            </Text.Body>
-        </HexPanel>
-        ),
+        title: "Security",
+        body: "Vaults: rule-based treasury controls to protect funds and create configurable policies that help prevent total fund loss, even if you lose your seed.",
     },
-
     {
         id: "architecture",
-        content: (
-        <HexPanel
-            title={<Text.Title align="center">Architecture</Text.Title>}
-            contentScale={contentScale}
-        >
-            <Text.Body align="center">
-            Diamond-based smart accounts with modular execution and validation,
-            deployed through a factory for consistent, upgradeable structure.
-            </Text.Body>
-        </HexPanel>
-        ),
+        title: "Architecture",
+        body: "DAO LLC framework: gives small teams a way to form and manage DAO LLC-style organizations in a decentralized manner.",
     },
-
     {
         id: "roadmap",
-        content: (
-        <HexPanel
-            title={<Text.Title align="center">Roadmap</Text.Title>}
-            contentScale={contentScale}
-        >
-            <Text.Body align="center">
-            Optional execution modules, custom authorization strategies,
-            intent-based interactions, and deeper protocol integrations.
-            </Text.Body>
-        </HexPanel>
-        ),
+        title: "Roadmap",
+        body: "Foundation tools: practical modules to manage and assist with common team challenges without requiring massive infrastructure.",
     },
-    ];
+    {
+        id: "account-abstraction",
+        title: "4337 Accounts",
+        body: "ERC-4337 support enables programmable smart accounts with owner-authorized controls and modular execution.",
+    },
+    {
+        id: "dao-llc-operations",
+        title: "DAO LLC Ops",
+        body: "Structure teams with transparent governance, treasury controls, and operational workflows designed for DAO LLC-style entities.",
+    },
+    {
+        id: "team-productivity",
+        title: "Team Ops",
+        body: "Built-in tooling helps small teams handle payroll, permissions, payments, and treasury coordination with minimal overhead.",
+    },
+    {
+        id: "micro-startup-scale",
+        title: "Startup Scale",
+        body: "Start lean, stay decentralized, and expand safely with reusable infrastructure instead of rebuilding your stack from scratch.",
+    },
+];
+
+export function LandingPage() {
+  const screen = useMediaQuery();
+  const isPhone = screen === ScreenSize.Phone;
+
+  const columns = isPhone || screen === ScreenSize.Tablet ? 2 : 3;
+  const hexSize = isPhone || screen === ScreenSize.Tablet ? 128 : 160;
+  const contentScale = 1;
+  const hexSpacing = 1.02;
+  const titleSize = isPhone ? "sm" : undefined;
+
+  const pageStyle = isPhone
+    ? {
+        maxWidth: "none",
+        width: "100%",
+      }
+    : undefined;
+
+  const items: VerticalFlowItem[] = LANDING_TILES.map((tile) => ({
+    id: tile.id,
+    content: (
+      <HexPanel
+        title={<Text.Title align="center" size={titleSize}>{tile.title}</Text.Title>}
+        contentScale={contentScale}
+      >
+        <Text.Body align="center">{tile.body}</Text.Body>
+      </HexPanel>
+    ),
+  }));
 
 
   return (
-    <PageContainer>
+        <PageContainer style={pageStyle}>
       <HexGridFlow
         items={items}
         columns={columns}

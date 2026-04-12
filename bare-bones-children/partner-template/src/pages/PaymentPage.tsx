@@ -75,11 +75,14 @@ export function PaymentPage() {
       const contract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
       const slugBytes = ethers.utils.formatBytes32String(orgSlug);
       const org = await contract.organizations(slugBytes);
+      const owner = String((org as any).owner ?? (org as any)[0] ?? "");
+      const existsRaw = (org as any).exists ?? (org as any)[1];
+      const exists = typeof existsRaw === "boolean" ? existsRaw : Boolean(existsRaw);
 
-      setOrgInfo({ slug: slugBytes, owner: org.owner, exists: org.exists });
-      setIsAdmin(Boolean(org.exists && org.owner.toLowerCase() === account?.toLowerCase()));
+      setOrgInfo({ slug: slugBytes, owner, exists });
+      setIsAdmin(Boolean(exists && owner.toLowerCase() === account?.toLowerCase()));
 
-      if (!org.exists) {
+      if (!exists) {
         setPayees([]);
         return;
       }
@@ -294,11 +297,17 @@ export function PaymentPage() {
               {!!slug.trim() && (
                 <PayrollNavigation slug={slug.trim()} active="overview" title="Organization Management" isAdmin={isAdmin} />
               )}
+
+              {!!slug.trim() && !loading && orgInfo != null && !orgInfo.exists && (
+                <Text.Body color="warn" style={{ marginTop: "var(--spacing-sm)" }}>
+                  Organization "{slug.trim()}" does not exist.
+                </Text.Body>
+              )}
             </Stack>
           </CardContent>
         </Card>
 
-        {!!slug.trim() && (
+        {!!slug.trim() && orgInfo?.exists !== false && (
           <Card style={{ width: "100%" }}>
             <CardContent>
               <PayeesTable
