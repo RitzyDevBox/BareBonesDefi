@@ -35,9 +35,9 @@ if ! git show-ref --verify --quiet "refs/heads/${TARGET_BRANCH}"; then
 fi
 
 if git show-ref --verify --quiet "refs/heads/${TARGET_BRANCH}"; then
-  git worktree add "$WORKTREE_DIR" "$TARGET_BRANCH" >/dev/null
+  git worktree add --force "$WORKTREE_DIR" "$TARGET_BRANCH" >/dev/null
 else
-  git worktree add -b "$TARGET_BRANCH" "$WORKTREE_DIR" >/dev/null
+  git worktree add --force -b "$TARGET_BRANCH" "$WORKTREE_DIR" >/dev/null
 fi
 
 # Remove previous contents from release branch worktree (except .git)
