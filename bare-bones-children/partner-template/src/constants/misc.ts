@@ -49,6 +49,9 @@ export interface BareBonesConfiguration {
   commissionRuleAddress: string;
   salaryPerSecondRuleAddress: string;
   weeklyScheduleRuleAddress: string;
+  // DAO Configuration
+  daoGovernorTemplateProviderAddress: string;
+  daoFactoryAddress: string;
 }
 
 export const CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = {
@@ -102,6 +105,8 @@ export const CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = {
   Deploying: PAYROLL_MANAGER_V7 0x7F25ACD06037FC0c052799FE60fC06BF829EaAC4
   TREASURY 0x0f1eCC66E5DaC706cD208290cCdf554309c196F8
 
+  Deploying: DAO_FACTORY_V9 0xbe8F193ED5CF9e92aFb8fc839572432692dF5233
+
   */
 
 export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
@@ -132,6 +137,9 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   commissionRuleAddress: "0x3e32405B302cf560D9161Bc70Ed9794aDD032d87",
   salaryPerSecondRuleAddress: "0x8f8A4b26c837ef8F4aA79AbD4ce98cAe7151Fd2D",
   weeklyScheduleRuleAddress: "0xbBA39908448193a34fa3b15F6aAcEb5B245e54D0",
+
+  // DAO Configuration
+  daoFactoryAddress: "0xbe8F193ED5CF9e92aFb8fc839572432692dF5233",
 
 } as const;
 
