@@ -14,6 +14,7 @@ export const ROUTES = {
   BASIC_WALLET: `/${BASIC_WALLET_SUB_ROUTE}`,
   DAPP_BROWSER: '/dapp-browser',
   DAOS: `/${DAOS_SUB_ROUTE}`,
+  DAOS_DETAIL_ROUTE: `/${DAOS_SUB_ROUTE}/:daoAddress`,
   PAYMENTS: `/${PAYMENTS_SUB_ROUTE}`,
   PAYMENTS_ORG_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId`,
   PAYMENTS_PAY_BATCHES_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId/${PAY_BATCHES_SUB_ROUTE}`,
@@ -36,5 +37,6 @@ export const ROUTES = {
     `/${PAYMENTS_SUB_ROUTE}/${organizationId}/${PAYROLLS_SUB_ROUTE}`,
   PAYROLL_DETAIL: (organizationId: string, payrollId: string | number) =>
     `/${PAYMENTS_SUB_ROUTE}/${organizationId}/${PAYROLL_SUB_ROUTE}/${String(payrollId)}`,
+  DAO_DETAIL: (daoAddress: string) => `/${DAOS_SUB_ROUTE}/${daoAddress}`,
   VAULT_DETAIL: (walletAddress: string, vaultAddress: string) =>`/${WALLETS_SUB_ROUTE}/${walletAddress}/${VAULTS_SUB_ROUTE}/${vaultAddress}`,
 } as const;

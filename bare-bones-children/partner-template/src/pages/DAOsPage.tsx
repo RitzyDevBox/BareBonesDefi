@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
+import { Link } from "react-router-dom";
 import { Card, CardContent, Input } from "../components/BasicComponents";
 import { CopyButton } from "../components/Button/Actions/CopyButton";
 import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
@@ -17,6 +18,7 @@ import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { fetchOrganizationInfo, useOwnedOrganizations } from "../hooks/payroll/useOrganizationRegistry";
+import { ROUTES } from "../routes";
 import { shortAddress } from "../utils/formatUtils";
 
 const DAO_FACTORY_INTERFACE = new ethers.utils.Interface(DAOFactoryABI as any);
@@ -25,13 +27,12 @@ const MOCK_GOVERNANCE_TOKEN = "0xe4368424E6728F8D53Ed524eE540FA8f0595dF43";
 const HARDCODED_DAO_DEPLOYMENTS: Record<string, DaoDeploymentSummary> = {
   barebonesdemo: {
     name: "barebonesdemo",
-    governor: "0xc832160e42248d25570db6a8f8ddd8c654042455",
-    timelock: "0xd4915581301bca0867833fa13b3432f10449c063",
+    governor: "0xD4915581301bca0867833fa13B3432f10449C063",
+    timelock: "0xc832160E42248D25570dB6a8F8DdD8C654042455",
     token: MOCK_GOVERNANCE_TOKEN,
     txHash: "0x3271c31bf9d967315a5b345ae7d6c9fce9acfb1cd3703f25452752ec6b2e8bc6",
   },
 };
-
 type DaoDeployFormState = {
   token: string;
   timelockDelay: string;
@@ -608,6 +609,9 @@ export function DAOsPage() {
                   <Text.Body size="sm">Tx: {shortAddress(deploymentToShow.txHash, 6)}</Text.Body>
 
                   <Row gap="sm" wrap>
+                    <Link to={ROUTES.DAO_DETAIL(deploymentToShow.governor)} style={{ color: "var(--colors-primary)" }}>
+                      View DAO
+                    </Link>
                     {txLink(deploymentToShow.txHash, blockExplorerBase) ? (
                       <a href={txLink(deploymentToShow.txHash, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
                         Transaction
@@ -636,5 +640,5 @@ export function DAOsPage() {
         </Stack>
       </div>
     </PageContainer>
-  );
+  )
 }

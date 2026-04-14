@@ -5,6 +5,7 @@ import { TestPage } from "./pages/TestPage";
 import { LandingPage } from "./pages/LandingPage";
 import { DappBrowserPage } from "./pages/DappBrowserPage";
 import { DAOsPage } from "./pages/DAOsPage.tsx";
+import { DAODetailPage } from "./pages/DAODetailPage.tsx";
 import { OrganizationPage } from "./pages/OrganizationPage";
 import { ROUTES } from "./routes";
 import { OrganizationDetailPage } from "./pages/OrganizationDetailPage";
@@ -37,6 +38,7 @@ export const router = createHashRouter([
       { path: `${ROUTES.BASIC_WALLET}/:diamondAddress?`, element: <BasicWalletPage />},
       { path: `${ROUTES.DAPP_BROWSER}`, element: <DappBrowserPage/> },
       { path: `${ROUTES.DAOS}`, element: <DAOsPage/> },
+      { path: `${ROUTES.DAOS_DETAIL_ROUTE}`, element: <DAODetailPage/> },
       { path: `${ROUTES.PAYMENTS}`, element: <PaymentPage/> },
       { path: `${ROUTES.PAYMENTS_ORG_ROUTE}`, element: <PaymentPage/> },
       { path: `${ROUTES.PAYMENTS_PAY_BATCHES_ROUTE}`, element: <PayBatchesPage/> },
