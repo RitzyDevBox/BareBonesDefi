@@ -26,6 +26,10 @@ import { Sheet } from "../components/Primitives/Sheet";
 import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { OrganizationPicker } from "../components/Organizations/OrganizationPicker";
 import { ROUTES } from "../routes";
+import {
+  fetchOrganizationInfo,
+  useOwnedOrganizations,
+} from "../hooks/payroll/useOrganizationRegistry";
 
 export function PaymentPage() {
   const { organizationId } = useParams<{ organizationId?: string }>();
@@ -39,8 +43,6 @@ export function PaymentPage() {
   const [slug, setSlug] = useState<string>(organizationId ?? "");
   const [fetchedSlug, setFetchedSlug] = useState<string>((organizationId ?? "").trim());
   const [loading, setLoading] = useState(false);
-  const [loadingOwnedOrgs, setLoadingOwnedOrgs] = useState(false);
-  const [ownedOrganizations, setOwnedOrganizations] = useState<string[]>([]);
   const [orgInfo, setOrgInfo] = useState<OrganizationModel | null>(null);
   const [payees, setPayees] = useState<PayeeModel[]>([]);
   const [isAdmin, setIsAdmin] = useState<boolean>(Boolean((location.state as { isAdmin?: boolean } | null)?.isAdmin));
@@ -59,6 +61,16 @@ export function PaymentPage() {
 
   const payrollManagerAddress = config?.payrollManagerAddress;
   const iface = useMemo(() => new ethers.utils.Interface(PayrollManagerABI as any), []);
+  const {
+    organizations: ownedOrganizations,
+    loading: loadingOwnedOrgs,
+    reload: reloadOwnedOrganizations,
+  } = useOwnedOrganizations({
+    provider: provider ?? undefined,
+    payrollManagerAddress,
+    owner: account,
+  });
+
   const editingPayee = useMemo(
     () => payees.find((p) => p.payeeId.toString() === editingPayeeId) ?? null,
     [payees, editingPayeeId]
@@ -72,14 +84,16 @@ export function PaymentPage() {
     setPayees([]);
     setIsAdmin(false);
     try {
-      const contract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
-      const org = await contract.organizations(slugBytes);
-      const owner = String((org as any).owner ?? (org as any)[0] ?? "");
-      const existsRaw = (org as any).exists ?? (org as any)[1];
-      const exists = typeof existsRaw === "boolean" ? existsRaw : Boolean(existsRaw);
+      const info = await fetchOrganizationInfo(provider, payrollManagerAddress, orgSlug);
+      if (!info) {
+        setOrgInfo(null);
+        setPayees([]);
+        return;
+      }
 
-      setOrgInfo({ slug: slugBytes, owner, exists });
+      setOrgInfo(info);
+      const exists = Boolean(info.exists);
+      const owner = info.owner;
       setIsAdmin(Boolean(exists && owner.toLowerCase() === account?.toLowerCase()));
 
       if (!exists) {
@@ -87,7 +101,7 @@ export function PaymentPage() {
         return;
       }
 
-      const payeeList = await fetchPayeesByOrganization(provider, payrollManagerAddress, slugBytes);
+      const payeeList = await fetchPayeesByOrganization(provider, payrollManagerAddress, info.slug ?? ethers.utils.formatBytes32String(orgSlug));
       setPayees(payeeList);
     } catch (err) {
       console.error("Error fetching org info:", err);
@@ -97,38 +111,6 @@ export function PaymentPage() {
       setLoading(false);
     }
   }
-
-  useEffect(() => {
-    if (!provider || !payrollManagerAddress || !account) {
-      setOwnedOrganizations([]);
-      return;
-    }
-
-    const managerAddress = payrollManagerAddress;
-
-    async function loadOwnedOrganizations() {
-      setLoadingOwnedOrgs(true);
-      try {
-        const contract = new ethers.Contract(managerAddress, PayrollManagerABI as any, provider);
-        const orgs = await contract.getOrganizationsByOwner(account);
-        const slugs = (orgs ?? []).map((org: string) => {
-          try {
-            return ethers.utils.parseBytes32String(org);
-          } catch {
-            return org;
-          }
-        });
-        setOwnedOrganizations(slugs);
-      } catch (err) {
-        console.error("Error loading owned organizations:", err);
-        setOwnedOrganizations([]);
-      } finally {
-        setLoadingOwnedOrgs(false);
-      }
-    }
-
-    loadOwnedOrganizations();
-  }, [provider, payrollManagerAddress, account]);
 
   useEffect(() => {
     const routeSlug = (organizationId ?? "").trim();
@@ -236,6 +218,7 @@ export function PaymentPage() {
     setIsRegisteringOrg(true);
     try {
       await Promise.resolve(registerOrg(chainId, targetSlug));
+      await reloadOwnedOrganizations();
       setSlug(targetSlug);
       setFetchedSlug(targetSlug);
     } finally {

@@ -26,6 +26,11 @@ export const NAV_ITEMS: NavItem[] = [
     path: ROUTES.DAPP_BROWSER,
   },
   {
+    id: "daos",
+    label: "DAOs",
+    path: ROUTES.DAOS,
+  },
+  {
     id: ORGANIZATION_ID,
     label: "Organizations",
     path: ROUTES.ORGANIZATIONS,

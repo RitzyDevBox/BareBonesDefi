@@ -50,7 +50,6 @@ export interface BareBonesConfiguration {
   salaryPerSecondRuleAddress: string;
   weeklyScheduleRuleAddress: string;
   // DAO Configuration
-  daoGovernorTemplateProviderAddress: string;
   daoFactoryAddress: string;
 }
 

@@ -1,6 +1,7 @@
 const BASIC_WALLET_SUB_ROUTE = 'basic-wallet-facet'
 const ORGANIZATION_SUB_ROUTE = 'organizations'
 const VAULTS_SUB_ROUTE = 'vaults'
+const DAOS_SUB_ROUTE = 'daos'
 const WALLETS_SUB_ROUTE = 'wallets'
 const PAYMENTS_SUB_ROUTE = 'payments'
 const PAYROLL_SUB_ROUTE = 'payroll'
@@ -12,6 +13,7 @@ export const ROUTES = {
   ROOT: "/",
   BASIC_WALLET: `/${BASIC_WALLET_SUB_ROUTE}`,
   DAPP_BROWSER: '/dapp-browser',
+  DAOS: `/${DAOS_SUB_ROUTE}`,
   PAYMENTS: `/${PAYMENTS_SUB_ROUTE}`,
   PAYMENTS_ORG_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId`,
   PAYMENTS_PAY_BATCHES_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId/${PAY_BATCHES_SUB_ROUTE}`,
