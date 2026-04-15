@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
 import { Card, CardContent, Input } from "../BasicComponents";
 import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
@@ -13,18 +13,15 @@ import DAOGovernorABI from "../../abis/dao/DAOGovernor.abi.json";
 import ERC20ABI from "../../abis/ERC20.json";
 import CaliburEntryABI from "../../abis/diamond/facets/CaliburEntry.abi.json";
 import DiamondCutFacetABI from "../../abis/diamond/facets/DiamondCutFacet.abi.json";
+import DiamondFactoryABI from "../../abis/diamond/DiamondFactory.abi.json";
+import SecureValueReserveFactoryABI from "../../abis/diamond/infrastructure/SecureValueReserveFactory.abi.json";
 import { TargetAddressBookModal } from "./TargetAddressBookModal";
-import { AddressBookInput } from "../Inputs/AddressBookInput";
+import { AddressInputWithBook } from "../Inputs/AddressInputWithBook";
 import { useProposalAddressBook, type AddressBookTargetType } from "../../hooks/dao/useProposalAddressBook";
 import { useDiamondFacets } from "../../hooks/diamond/useDiamondFacets";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { DEFAULT_BARE_BONES_CONFIG } from "../../constants/misc";
 import type { ProposalBuildPayload, ProposalCall } from "./types";
-import { NativeTransferForm, TokenTransferForm, WalletDeployForm } from "./ProposalForms";
-
-// ============================================================================
-// ABIs & Constants
-// ============================================================================
 
 const TOKEN_FUNCTIONS_EXTENSION_ABI_OBJECT = [
   {
@@ -113,19 +110,20 @@ const TIMELOCK_ROLE_ABI_OBJECT = [
 
 const TOKEN_FUNCTIONS_ABI_OBJECT = [...(ERC20ABI as any[]), ...TOKEN_FUNCTIONS_EXTENSION_ABI_OBJECT] as any[];
 const TOKEN_FUNCTIONS_ABI_TEXT = JSON.stringify(TOKEN_FUNCTIONS_ABI_OBJECT, null, 2);
-const CALIBUR_ABI_TEXT = JSON.stringify(CaliburEntryABI, null, 2);
 
 const TOKEN_FUNCTIONS_INTERFACE = new ethers.utils.Interface(TOKEN_FUNCTIONS_ABI_OBJECT as any);
 const GOVERNANCE_INTERFACE = new ethers.utils.Interface(DAOGovernorABI as any);
 const CALIBUR_INTERFACE = new ethers.utils.Interface(CaliburEntryABI as any);
 const DIAMOND_CUT_INTERFACE = new ethers.utils.Interface(DiamondCutFacetABI as any);
+const DIAMOND_FACTORY_INTERFACE = new ethers.utils.Interface(DiamondFactoryABI as any);
+const SVR_FACTORY_INTERFACE = new ethers.utils.Interface(SecureValueReserveFactoryABI as any);
 const TIMELOCK_ROLE_INTERFACE = new ethers.utils.Interface(TIMELOCK_ROLE_ABI_OBJECT as any);
 
 const PROPOSER_ROLE_ID = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("PROPOSER_ROLE"));
 const CANCELLER_ROLE_ID = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("CANCELLER_ROLE"));
 const EXECUTOR_ROLE_ID = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXECUTOR_ROLE"));
 
-type ActionGroup = "token" | "governance" | "smart-wallet" | "custom";
+type ActionGroup = "token" | "governance" | "smart-wallet" | "reserve" | "custom";
 
 type ProposalActionPreset =
   | "native-transfer"
@@ -149,14 +147,16 @@ type ProposalActionPreset =
   | "wallet-set-execution-authority-resolver"
   | "wallet-invalidate-nonce"
   | "wallet-diamond-cut"
-  | "wallet-calibur-entry"
   | "wallet-deploy"
+  | "reserve-create"
+  | "vault-deploy"
   | "custom";
 
 const ACTION_GROUP_OPTIONS: Array<{ value: ActionGroup; label: string }> = [
   { value: "token", label: "Token & Currency Functions" },
   { value: "governance", label: "Governance Management" },
   { value: "smart-wallet", label: "Smart Wallet / Diamond" },
+  { value: "reserve", label: "Secure Value Reserve" },
   { value: "custom", label: "Custom ABI" },
 ];
 
@@ -183,11 +183,13 @@ const ACTION_OPTIONS: Record<ActionGroup, Array<{ value: ProposalActionPreset; l
     { value: "gov-remove-executor", label: "Remove Executor" },
   ],
   "smart-wallet": [
-    { value: "wallet-calibur-entry", label: "Calibur Entry Function" },
     { value: "wallet-update-entry-point", label: "Update Entry Point" },
     { value: "wallet-set-execution-authority-resolver", label: "Set Execution Authority Resolver" },
     { value: "wallet-invalidate-nonce", label: "Invalidate Nonce" },
     { value: "wallet-diamond-cut", label: "Diamond Cut" },
+  ],
+  reserve: [
+    { value: "reserve-create", label: "Create Reserve" },
   ],
   custom: [{ value: "custom", label: "Custom ABI Function" }],
 };
@@ -234,12 +236,11 @@ const GOVERNANCE_ROLE_CONFIG: Partial<
   },
 };
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
 function targetTypeForPreset(preset: ProposalActionPreset): AddressBookTargetType {
-  if (["token-transfer", "token-approve", "token-mint", "token-burn", "token-delegate"].includes(preset)) return "token";
+  if (["token-transfer", "token-approve", "token-mint", "token-burn", "token-delegate"].includes(preset)) {
+    return "token";
+  }
+
   if (
     [
       "gov-set-voting-delay",
@@ -248,11 +249,17 @@ function targetTypeForPreset(preset: ProposalActionPreset): AddressBookTargetTyp
       "gov-update-quorum-numerator",
       "gov-update-timelock",
     ].includes(preset)
-  )
+  ) {
     return "governance";
-  if (GOVERNANCE_ROLE_CONFIG[preset]) return "governance";
-  if (preset === "wallet-deploy") return "config";
-  if (["wallet-update-entry-point", "wallet-set-execution-authority-resolver", "wallet-invalidate-nonce", "wallet-diamond-cut", "wallet-calibur-entry"].includes(preset)) return "wallet";
+  }
+
+  if (GOVERNANCE_ROLE_CONFIG[preset]) return "timelock";
+  if (["wallet-update-entry-point", "wallet-set-execution-authority-resolver", "wallet-invalidate-nonce", "wallet-diamond-cut"].includes(preset)) {
+    return "wallet";
+  }
+  if (preset === "wallet-deploy") return "governance";
+  if (["reserve-create", "vault-deploy"].includes(preset)) return "vault";
+
   return "custom";
 }
 
@@ -261,6 +268,7 @@ function defaultTargetForPreset(
   params: { governorAddress: string; timelockAddress: string }
 ): string {
   if (GOVERNANCE_ROLE_CONFIG[preset]) return params.timelockAddress;
+
   if (
     [
       "gov-set-voting-delay",
@@ -269,47 +277,31 @@ function defaultTargetForPreset(
       "gov-update-quorum-numerator",
       "gov-update-timelock",
     ].includes(preset)
-  )
+  ) {
     return params.governorAddress;
+  }
+
   return "";
 }
 
-function defaultTargetLabelForPreset(
-  preset: ProposalActionPreset,
-  params: { governorAddress: string; timelockAddress: string; target: string }
-): string | null {
-  if (!params.target) return null;
-  if (GOVERNANCE_ROLE_CONFIG[preset] && params.target.toLowerCase() === params.timelockAddress.toLowerCase()) {
-    return "Timelock";
-  }
-
-  if (
-    [
-      "gov-set-voting-delay",
-      "gov-set-voting-period",
-      "gov-set-proposal-threshold",
-      "gov-update-quorum-numerator",
-      "gov-update-timelock",
-    ].includes(preset) &&
-    params.target.toLowerCase() === params.governorAddress.toLowerCase()
-  ) {
-    return "Governor";
-  }
-
-  return null;
-}
+type Props = {
+  disabled?: boolean;
+  loading?: boolean;
+  governorAddress?: string;
+  onSubmit: (payload: ProposalBuildPayload) => Promise<void> | void;
+};
 
 function normalizeAbiCandidate(input: unknown): any[] {
-  if (Array.isArray(input)) return input;
+  if (Array.isArray(input)) return input as any[];
   if (input && typeof input === "object" && Array.isArray((input as any).abi)) {
-    return (input as any).abi;
+    return (input as any).abi as any[];
   }
   throw new Error("ABI must be a JSON array or an object with an abi array.");
 }
 
 function parseParam(type: string, value: string) {
   if (type.endsWith("[]") || type.includes("tuple")) {
-    return JSON.parse(value);
+    throw new Error(`Type ${type} is not yet supported in this builder.`);
   }
 
   if (type === "address") {
@@ -318,24 +310,28 @@ function parseParam(type: string, value: string) {
 
   if (type === "bool") {
     const normalized = value.trim().toLowerCase();
-    if (normalized === "true" || normalized === "1") return true;
-    if (normalized === "false" || normalized === "0") return false;
-    throw new Error("Boolean value must be 'true' or 'false'.");
+    if (["true", "1", "yes"].includes(normalized)) return true;
+    if (["false", "0", "no"].includes(normalized)) return false;
+    throw new Error("Boolean values must be true/false.");
   }
 
   if (type.startsWith("uint") || type.startsWith("int")) {
-    return ethers.BigNumber.from(value.trim());
+    return ethers.BigNumber.from(value.trim() || "0");
   }
 
   if (type === "bytes32") {
     const normalized = value.trim();
-    if (ethers.utils.isHexString(normalized, 32)) return normalized;
-    if (normalized.length <= 32) return ethers.utils.formatBytes32String(normalized);
-    throw new Error("bytes32 value too long.");
+    if (!normalized) return ethers.constants.HashZero;
+    if (ethers.utils.isHexString(normalized)) {
+      return ethers.utils.hexZeroPad(normalized, 32);
+    }
+    return ethers.utils.formatBytes32String(normalized);
   }
 
   if (type.startsWith("bytes") && type !== "bytes") {
-    if (!ethers.utils.isHexString(value.trim())) throw new Error("Bytes value must be hex.");
+    if (!ethers.utils.isHexString(value.trim())) {
+      throw new Error(`Value for ${type} must be a valid hex string.`);
+    }
     return value.trim();
   }
 
@@ -347,82 +343,14 @@ function parseParam(type: string, value: string) {
   return value;
 }
 
-function defaultDescriptionForAction(preset: ProposalActionPreset) {
-  const map: Record<ProposalActionPreset, string> = {
-    "native-transfer": "Send native token",
-    "token-transfer": "Transfer ERC20 tokens",
-    "token-approve": "Approve ERC20 spender",
-    "token-mint": "Mint governance tokens",
-    "token-burn": "Burn governance tokens",
-    "token-delegate": "Delegate governance votes",
-    "gov-set-voting-delay": "Set voting delay",
-    "gov-set-voting-period": "Set voting period",
-    "gov-set-proposal-threshold": "Set proposal threshold",
-    "gov-update-quorum-numerator": "Update quorum numerator",
-    "gov-update-timelock": "Update timelock",
-    "gov-add-proposer": "Add proposer",
-    "gov-add-canceller": "Add canceller",
-    "gov-add-executor": "Add executor",
-    "gov-remove-proposer": "Remove proposer",
-    "gov-remove-canceller": "Remove canceller",
-    "gov-remove-executor": "Remove executor",
-    "wallet-update-entry-point": "Update entry point",
-    "wallet-set-execution-authority-resolver": "Set execution authority resolver",
-    "wallet-invalidate-nonce": "Invalidate nonce",
-    "wallet-diamond-cut": "Diamond cut",
-    "wallet-calibur-entry": "Calibur entry function call",
-    "wallet-deploy": "Deploy a new smart wallet",
-    custom: "",
-  };
-  return map[preset];
-}
-
-// ============================================================================
-// Main Component
-// ============================================================================
-
-type Props = {
-  disabled?: boolean;
-  loading?: boolean;
-  governorAddress?: string;
-  onSubmit: (payload: ProposalBuildPayload) => Promise<void> | void;
-};
-
 export function ProposalBuilder({ disabled = false, loading = false, governorAddress = "", onSubmit }: Props) {
   const { chainId, provider } = useWalletProvider();
 
-  // Core proposal state
   const [target, setTarget] = useState("");
   const [description, setDescription] = useState("");
   const [actionGroup, setActionGroup] = useState<ActionGroup>("token");
   const [actionPreset, setActionPreset] = useState<ProposalActionPreset>("native-transfer");
   const [addressBookOpen, setAddressBookOpen] = useState(false);
-  const [configAddressBookOpen, setConfigAddressBookOpen] = useState<"wallet-authorizer" | "wallet-initializer" | null>(null);
-  const [targetSelectionLabel, setTargetSelectionLabel] = useState<string | null>(null);
-
-  // Staging
-  const [stagedCalls, setStagedCalls] = useState<ProposalCall[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  // Legacy form states (gradually being replaced by form components)
-  const [governanceUintValue, setGovernanceUintValue] = useState("");
-  const [governanceAddressValue, setGovernanceAddressValue] = useState("");
-  const [roleAccountAddress, setRoleAccountAddress] = useState("");
-  const [walletAddressValue, setWalletAddressValue] = useState("");
-  const [walletNonceValue, setWalletNonceValue] = useState("");
-  const [diamondFacetAddress, setDiamondFacetAddress] = useState("");
-  const [diamondSelector, setDiamondSelector] = useState("");
-  const [diamondCutAction, setDiamondCutAction] = useState("0");
-  const [diamondInitAddress, setDiamondInitAddress] = useState("");
-  const [diamondInitCalldata, setDiamondInitCalldata] = useState("");
-  const [abiText, setAbiText] = useState("[]");
-  const [selectedFunctionSignature, setSelectedFunctionSignature] = useState("");
-  const [valuesByParam, setValuesByParam] = useState<Record<string, string>>({});
-
-  // Form component refs
-  const nativeTransferFormRef = useRef<any>(null);
-  const tokenTransferFormRef = useRef<any>(null);
-  const walletDeployFormRef = useRef<any>(null);
 
   const {
     timelockWalletAddresses,
@@ -438,7 +366,83 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
     actionPreset === "wallet-diamond-cut" ? target : null
   );
 
+  const [nativeValueWei, setNativeValueWei] = useState("");
+
+  const [tokenAddressTo, setTokenAddressTo] = useState("");
+  const [tokenAmount, setTokenAmount] = useState("");
+  const [spenderAddress, setSpenderAddress] = useState("");
+  const [delegateeAddress, setDelegateeAddress] = useState("");
+
+  const [governanceUintValue, setGovernanceUintValue] = useState("");
+  const [governanceAddressValue, setGovernanceAddressValue] = useState("");
+
+  const [roleAccountAddress, setRoleAccountAddress] = useState("");
+
+  const [walletAddressValue, setWalletAddressValue] = useState("");
+  const [walletNonceValue, setWalletNonceValue] = useState("");
+  const [diamondFacetAddress, setDiamondFacetAddress] = useState("");
+  const [diamondSelector, setDiamondSelector] = useState("");
+  const [diamondCutAction, setDiamondCutAction] = useState("0");
+  const [diamondInitAddress, setDiamondInitAddress] = useState("");
+  const [diamondInitCalldata, setDiamondInitCalldata] = useState("");
+
+  const [reserveOwnerAddress, setReserveOwnerAddress] = useState("");
+  const [reserveWithdrawAddress, setReserveWithdrawAddress] = useState("");
+  const [reserveProposalDelay, setReserveProposalDelay] = useState("");
+  const [reserveReleaseDelay, setReserveReleaseDelay] = useState("");
+  const [reserveWithdrawAddressChangeDelay, setReserveWithdrawAddressChangeDelay] = useState("");
+
+  const [walletDefaultAuthorizerAddress, setWalletDefaultAuthorizerAddress] = useState("");
+  const [walletOptionsBytes, setWalletOptionsBytes] = useState("");
+  const [walletInitializerAddress, setWalletInitializerAddress] = useState("");
+  const [walletInitializerOptionsBytes, setWalletInitializerOptionsBytes] = useState("");
+
+  const [vaultOwnerAddress, setVaultOwnerAddress] = useState("");
+  const [vaultWithdrawAddress, setVaultWithdrawAddress] = useState("");
+  const [vaultProposalDelay, setVaultProposalDelay] = useState("");
+  const [vaultReleaseDelay, setVaultReleaseDelay] = useState("");
+  const [vaultWithdrawAddressChangeDelay, setVaultWithdrawAddressChangeDelay] = useState("");
+
+  const [abiText, setAbiText] = useState("[]");
+  const [selectedFunctionSignature, setSelectedFunctionSignature] = useState("");
+  const [valuesByParam, setValuesByParam] = useState<Record<string, string>>({});
+  const [stagedCalls, setStagedCalls] = useState<ProposalCall[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [configAddressBookOpen, setConfigAddressBookOpen] = useState<string | null>(null);
+
   const currentTargetType = useMemo(() => targetTypeForPreset(actionPreset), [actionPreset]);
+
+  function defaultDescriptionForAction(preset: ProposalActionPreset) {
+    const map: Record<ProposalActionPreset, string> = {
+      "native-transfer": "Send native token",
+      "token-transfer": "Transfer ERC20 tokens",
+      "token-approve": "Approve ERC20 spender",
+      "token-mint": "Mint governance tokens",
+      "token-burn": "Burn governance tokens",
+      "token-delegate": "Delegate governance votes",
+      "gov-set-voting-delay": "Set voting delay",
+      "gov-set-voting-period": "Set voting period",
+      "gov-set-proposal-threshold": "Set proposal threshold",
+      "gov-update-quorum-numerator": "Update quorum numerator",
+      "gov-update-timelock": "Update timelock",
+      "gov-add-proposer": "Add proposer",
+      "gov-add-canceller": "Add canceller",
+      "gov-add-executor": "Add executor",
+      "gov-remove-proposer": "Remove proposer",
+      "gov-remove-canceller": "Remove canceller",
+      "gov-remove-executor": "Remove executor",
+      "wallet-update-entry-point": "Update entry point",
+      "wallet-set-execution-authority-resolver": "Set execution authority resolver",
+      "wallet-invalidate-nonce": "Invalidate nonce",
+      "wallet-diamond-cut": "Diamond cut",
+      "wallet-deploy": "Deploy a new smart wallet",
+      "reserve-create": "Create secure value reserve",
+      "vault-deploy": "Deploy a new vault",
+      custom: "",
+    };
+
+    return map[preset];
+  }
 
   function applyPreset(preset: ProposalActionPreset) {
     setActionPreset(preset);
@@ -460,12 +464,6 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
       setSelectedFunctionSignature("");
     }
 
-    if (preset === "wallet-calibur-entry") {
-      setAbiText(CALIBUR_ABI_TEXT);
-      setSelectedFunctionSignature("");
-      setValuesByParam({});
-    }
-
     const defaultTarget = defaultTargetForPreset(preset, {
       governorAddress,
       timelockAddress,
@@ -473,16 +471,6 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
 
     if (defaultTarget) {
       setTarget(defaultTarget);
-      setTargetSelectionLabel(
-        defaultTargetLabelForPreset(preset, {
-          governorAddress,
-          timelockAddress,
-          target: defaultTarget,
-        })
-      );
-    } else {
-      setTarget("");
-      setTargetSelectionLabel(null);
     }
   }
 
@@ -494,17 +482,10 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
 
     if (!defaultTarget) return;
 
-    if (!target) {
+    if (!target || target.toLowerCase() === governorAddress.toLowerCase() || target.toLowerCase() === timelockAddress.toLowerCase()) {
       setTarget(defaultTarget);
-      setTargetSelectionLabel(
-        defaultTargetLabelForPreset(actionPreset, {
-          governorAddress,
-          timelockAddress,
-          target: defaultTarget,
-        })
-      );
     }
-  }, [actionPreset, governorAddress, timelockAddress]);
+  }, [actionPreset, governorAddress, timelockAddress, target]);
 
   function handleChangeActionGroup(nextGroup: ActionGroup) {
     setActionGroup(nextGroup);
@@ -540,27 +521,42 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
 
     const encodedTarget = ethers.utils.getAddress(target.trim());
 
-    // Use form components where available
-    if (actionPreset === "native-transfer" && nativeTransferFormRef.current) {
-      return nativeTransferFormRef.current.buildCall();
+    if (actionPreset === "native-transfer") {
+      if (!nativeValueWei.trim()) throw new Error("Native value (wei) is required.");
+      if (!/^\d+$/.test(nativeValueWei.trim())) throw new Error("Native value must be a whole number.");
+
+      return {
+        target: encodedTarget,
+        calldata: "0x",
+        functionSignature: "native transfer",
+        valueWei: nativeValueWei.trim(),
+      };
     }
 
-    if (actionPreset === "token-transfer" && tokenTransferFormRef.current) {
-      return tokenTransferFormRef.current.buildCall();
+    if (actionPreset === "token-transfer") {
+      if (!tokenAddressTo.trim()) throw new Error("Recipient address is required.");
+      if (!tokenAmount.trim()) throw new Error("Amount is required.");
+
+      const calldata = TOKEN_FUNCTIONS_INTERFACE.encodeFunctionData("transfer", [
+        ethers.utils.getAddress(tokenAddressTo.trim()),
+        ethers.BigNumber.from(tokenAmount.trim()),
+      ]);
+
+      return {
+        target: encodedTarget,
+        calldata,
+        functionSignature: "transfer(address,uint256)",
+        valueWei: "0",
+      };
     }
 
-    if (actionPreset === "wallet-deploy" && walletDeployFormRef.current) {
-      return walletDeployFormRef.current.buildCall();
-    }
-
-    // Legacy: Token functions
     if (actionPreset === "token-approve") {
-      if (!governanceAddressValue.trim()) throw new Error("Spender address is required.");
-      if (!governanceUintValue.trim()) throw new Error("Amount is required.");
+      if (!spenderAddress.trim()) throw new Error("Spender address is required.");
+      if (!tokenAmount.trim()) throw new Error("Amount is required.");
 
       const calldata = TOKEN_FUNCTIONS_INTERFACE.encodeFunctionData("approve", [
-        ethers.utils.getAddress(governanceAddressValue.trim()),
-        ethers.BigNumber.from(governanceUintValue.trim()),
+        ethers.utils.getAddress(spenderAddress.trim()),
+        ethers.BigNumber.from(tokenAmount.trim()),
       ]);
 
       return {
@@ -572,12 +568,12 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
     }
 
     if (actionPreset === "token-mint") {
-      if (!roleAccountAddress.trim()) throw new Error("Mint recipient address is required.");
-      if (!governanceUintValue.trim()) throw new Error("Amount is required.");
+      if (!tokenAddressTo.trim()) throw new Error("Mint recipient address is required.");
+      if (!tokenAmount.trim()) throw new Error("Amount is required.");
 
       const calldata = TOKEN_FUNCTIONS_INTERFACE.encodeFunctionData("mint", [
-        ethers.utils.getAddress(roleAccountAddress.trim()),
-        ethers.BigNumber.from(governanceUintValue.trim()),
+        ethers.utils.getAddress(tokenAddressTo.trim()),
+        ethers.BigNumber.from(tokenAmount.trim()),
       ]);
 
       return {
@@ -589,10 +585,10 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
     }
 
     if (actionPreset === "token-burn") {
-      if (!governanceUintValue.trim()) throw new Error("Amount is required.");
+      if (!tokenAmount.trim()) throw new Error("Amount is required.");
 
       const calldata = TOKEN_FUNCTIONS_INTERFACE.encodeFunctionData("burn", [
-        ethers.BigNumber.from(governanceUintValue.trim()),
+        ethers.BigNumber.from(tokenAmount.trim()),
       ]);
 
       return {
@@ -604,10 +600,10 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
     }
 
     if (actionPreset === "token-delegate") {
-      if (!roleAccountAddress.trim()) throw new Error("Delegatee address is required.");
+      if (!delegateeAddress.trim()) throw new Error("Delegatee address is required.");
 
       const calldata = TOKEN_FUNCTIONS_INTERFACE.encodeFunctionData("delegate", [
-        ethers.utils.getAddress(roleAccountAddress.trim()),
+        ethers.utils.getAddress(delegateeAddress.trim()),
       ]);
 
       return {
@@ -618,7 +614,6 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
       };
     }
 
-    // Legacy: Governance
     if (actionPreset === "gov-set-voting-delay") {
       if (!governanceUintValue.trim()) throw new Error("Voting delay value is required.");
 
@@ -711,7 +706,6 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
       };
     }
 
-    // Legacy: Wallet
     if (actionPreset === "wallet-update-entry-point") {
       if (!walletAddressValue.trim()) throw new Error("Entry point address is required.");
       const calldata = CALIBUR_INTERFACE.encodeFunctionData("updateEntryPoint", [
@@ -789,7 +783,64 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
       };
     }
 
-    // Legacy: Custom ABI
+    if (actionPreset === "reserve-create") {
+      if (!reserveOwnerAddress.trim()) throw new Error("Reserve owner address is required.");
+      if (!reserveWithdrawAddress.trim()) throw new Error("Withdraw destination address is required.");
+
+      const calldata = SVR_FACTORY_INTERFACE.encodeFunctionData("createReserve", [
+        ethers.utils.getAddress(reserveOwnerAddress.trim()),
+        ethers.utils.getAddress(reserveWithdrawAddress.trim()),
+        ethers.BigNumber.from(reserveProposalDelay.trim() || "0"),
+        ethers.BigNumber.from(reserveReleaseDelay.trim() || "0"),
+        ethers.BigNumber.from(reserveWithdrawAddressChangeDelay.trim() || "0"),
+      ]);
+
+      return {
+        target: encodedTarget,
+        calldata,
+        functionSignature: "createReserve(address,address,uint256,uint256,uint256)",
+        valueWei: "0",
+      };
+    }
+
+    if (actionPreset === "wallet-deploy") {
+      if (!walletDefaultAuthorizerAddress.trim()) throw new Error("Default authorizer address is required.");
+
+      const calldata = DIAMOND_FACTORY_INTERFACE.encodeFunctionData("deployDiamond", [
+        ethers.utils.getAddress(walletDefaultAuthorizerAddress.trim()),
+        walletOptionsBytes.trim() || "0x",
+        walletInitializerAddress.trim() ? ethers.utils.getAddress(walletInitializerAddress.trim()) : ethers.constants.AddressZero,
+        walletInitializerOptionsBytes.trim() || "0x",
+      ]);
+
+      return {
+        target: encodedTarget,
+        calldata,
+        functionSignature: "deployDiamond(address,bytes,address,bytes)",
+        valueWei: "0",
+      };
+    }
+
+    if (actionPreset === "vault-deploy") {
+      if (!vaultOwnerAddress.trim()) throw new Error("Vault owner address is required.");
+      if (!vaultWithdrawAddress.trim()) throw new Error("Vault withdraw destination address is required.");
+
+      const calldata = SVR_FACTORY_INTERFACE.encodeFunctionData("createReserve", [
+        ethers.utils.getAddress(vaultOwnerAddress.trim()),
+        ethers.utils.getAddress(vaultWithdrawAddress.trim()),
+        ethers.BigNumber.from(vaultProposalDelay.trim() || "0"),
+        ethers.BigNumber.from(vaultReleaseDelay.trim() || "0"),
+        ethers.BigNumber.from(vaultWithdrawAddressChangeDelay.trim() || "0"),
+      ]);
+
+      return {
+        target: encodedTarget,
+        calldata,
+        functionSignature: "createReserve(address,address,uint256,uint256,uint256)",
+        valueWei: "0",
+      };
+    }
+
     if (!iface) throw new Error("Invalid ABI JSON.");
     if (!selectedFunction) throw new Error("Select a function from the ABI.");
 
@@ -843,9 +894,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
     <Card>
       <CardContent>
         <Stack gap="md">
-          <Text.Title align="left" size="sm">
-            Create Proposal
-          </Text.Title>
+          <Text.Title align="left" size="sm">Create Proposal</Text.Title>
           <Text.Body size="sm" color="muted">
             Stage one or more calls, preview them, then submit one proposal containing all staged calls.
           </Text.Body>
@@ -864,9 +913,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
               }}
             >
               {ACTION_GROUP_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
           </FormField>
@@ -885,25 +932,15 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
               }}
             >
               {(ACTION_OPTIONS[actionGroup] ?? []).map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
           </FormField>
 
           <FormField label="Target Contract" style={{ marginBottom: 0 }}>
-            <AddressBookInput
+            <AddressInputWithBook
               value={target}
-              selectedLabel={targetSelectionLabel}
-              onClearSelection={() => {
-                setTarget("");
-                setTargetSelectionLabel(null);
-              }}
-              onChange={(event) => {
-                setTarget((event.target as HTMLInputElement).value);
-                setTargetSelectionLabel(null);
-              }}
+              onChange={(event) => setTarget((event.target as HTMLInputElement).value)}
               onOpenBook={() => setAddressBookOpen(true)}
               disabled={disabled}
               loading={loading}
@@ -911,54 +948,82 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
           </FormField>
 
           <FormField label="Proposal Description" style={{ marginBottom: 0 }}>
-            <Input value={description} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDescription(event.target.value)} placeholder="Describe this proposal" />
+            <Input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe this proposal" />
           </FormField>
 
           <Stack gap="sm">
-            <Text.Body size="sm" color="muted">
-              Standard Actions
-            </Text.Body>
+            <Text.Body size="sm" color="muted">Standard Actions</Text.Body>
             <Row gap="sm">
-              <ButtonSecondary
+              <ButtonSecondary 
                 fullWidth={false}
                 onClick={() => {
                   applyPreset("wallet-deploy");
                   setTarget(DEFAULT_BARE_BONES_CONFIG.diamondFactoryAddress);
-                  setTargetSelectionLabel("Diamond Factory");
                   setDescription("Deploy a new smart wallet");
+                  setWalletDefaultAuthorizerAddress(DEFAULT_BARE_BONES_CONFIG.ownerAuthorityResolverAddress);
+                  setWalletOptionsBytes("");
+                  setWalletInitializerAddress(DEFAULT_BARE_BONES_CONFIG.diamondKernelInitializer);
+                  setWalletInitializerOptionsBytes("");
                 }}
               >
                 Deploy Wallet
               </ButtonSecondary>
+              <ButtonSecondary 
+                fullWidth={false}
+                onClick={() => {
+                  applyPreset("vault-deploy");
+                  setTarget(DEFAULT_BARE_BONES_CONFIG.svrFactoryAddress || "");
+                  setDescription("Deploy a new secure value reserve vault");
+                  setVaultOwnerAddress(timelockAddress);
+                  setVaultWithdrawAddress("");
+                  setVaultProposalDelay("");
+                  setVaultReleaseDelay("");
+                  setVaultWithdrawAddressChangeDelay("");
+                }}
+              >
+                Deploy Vault
+              </ButtonSecondary>
             </Row>
           </Stack>
 
-          {actionPreset === "native-transfer" && (
-            <NativeTransferForm
-              ref={nativeTransferFormRef}
-              target={target}
-            />
-          )}
+          {actionPreset === "native-transfer" ? (
+            <FormField label="Native Value (wei)" style={{ marginBottom: 0 }}>
+              <Uint256Input
+                value={nativeValueWei}
+                onChange={(event) => setNativeValueWei(event.target.value)}
+              />
+            </FormField>
+          ) : null}
 
-          {actionPreset === "token-transfer" && (
-            <TokenTransferForm
-              ref={tokenTransferFormRef}
-              target={target}
-            />
-          )}
+          {actionPreset === "token-transfer" || actionPreset === "token-mint" ? (
+            <>
+              <FormField label={actionPreset === "token-mint" ? "Mint To" : "Recipient"} style={{ marginBottom: 0 }}>
+                <AddressInput
+                  value={tokenAddressTo}
+                  onChange={(event) => setTokenAddressTo((event.target as HTMLInputElement).value)}
+                />
+              </FormField>
+              <FormField label="Amount (raw token units)" style={{ marginBottom: 0 }}>
+                <Uint256Input
+                  value={tokenAmount}
+                  onChange={(event) => setTokenAmount(event.target.value)}
+                />
+              </FormField>
+            </>
+          ) : null}
 
           {actionPreset === "token-approve" ? (
             <>
               <FormField label="Spender" style={{ marginBottom: 0 }}>
                 <AddressInput
-                  value={governanceAddressValue}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => setGovernanceAddressValue(event.target.value)}
+                  value={spenderAddress}
+                  onChange={(event) => setSpenderAddress((event.target as HTMLInputElement).value)}
                 />
               </FormField>
               <FormField label="Amount (raw token units)" style={{ marginBottom: 0 }}>
                 <Uint256Input
-                  value={governanceUintValue}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => setGovernanceUintValue(event.target.value)}
+                  value={tokenAmount}
+                  onChange={(event) => setTokenAmount(event.target.value)}
                 />
               </FormField>
             </>
@@ -967,34 +1032,17 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
           {actionPreset === "token-burn" ? (
             <FormField label="Burn Amount (raw token units)" style={{ marginBottom: 0 }}>
               <Uint256Input
-                value={governanceUintValue}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setGovernanceUintValue(event.target.value)}
+                value={tokenAmount}
+                onChange={(event) => setTokenAmount(event.target.value)}
               />
             </FormField>
-          ) : null}
-
-          {actionPreset === "token-mint" ? (
-            <>
-              <FormField label="Mint To" style={{ marginBottom: 0 }}>
-                <AddressInput
-                  value={roleAccountAddress}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => setRoleAccountAddress(event.target.value)}
-                />
-              </FormField>
-              <FormField label="Amount (raw token units)" style={{ marginBottom: 0 }}>
-                <Uint256Input
-                  value={governanceUintValue}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => setGovernanceUintValue(event.target.value)}
-                />
-              </FormField>
-            </>
           ) : null}
 
           {actionPreset === "token-delegate" ? (
             <FormField label="Delegatee" style={{ marginBottom: 0 }}>
               <AddressInput
-                value={roleAccountAddress}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setRoleAccountAddress(event.target.value)}
+                value={delegateeAddress}
+                onChange={(event) => setDelegateeAddress((event.target as HTMLInputElement).value)}
               />
             </FormField>
           ) : null}
@@ -1003,7 +1051,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             <FormField label="New Value" style={{ marginBottom: 0 }}>
               <Uint256Input
                 value={governanceUintValue}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setGovernanceUintValue(event.target.value)}
+                onChange={(event) => setGovernanceUintValue(event.target.value)}
               />
             </FormField>
           ) : null}
@@ -1012,7 +1060,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             <FormField label="New Timelock Address" style={{ marginBottom: 0 }}>
               <AddressInput
                 value={governanceAddressValue}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setGovernanceAddressValue(event.target.value)}
+                onChange={(event) => setGovernanceAddressValue((event.target as HTMLInputElement).value)}
               />
             </FormField>
           ) : null}
@@ -1020,12 +1068,18 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
           {Boolean(GOVERNANCE_ROLE_CONFIG[actionPreset]) ? (
             <>
               <FormField label="Role" style={{ marginBottom: 0 }}>
-                <Input value={GOVERNANCE_ROLE_CONFIG[actionPreset]?.label ?? ""} readOnly />
+                <Input
+                  value={GOVERNANCE_ROLE_CONFIG[actionPreset]?.label ?? ""}
+                  readOnly
+                />
               </FormField>
-              <FormField label="Role Account" style={{ marginBottom: 0 }}>
+              <FormField
+                label="Role Account"
+                style={{ marginBottom: 0 }}
+              >
                 <AddressInput
                   value={roleAccountAddress}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => setRoleAccountAddress(event.target.value)}
+                  onChange={(event) => setRoleAccountAddress((event.target as HTMLInputElement).value)}
                 />
               </FormField>
             </>
@@ -1035,7 +1089,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             <FormField label="New Entry Point" style={{ marginBottom: 0 }}>
               <AddressInput
                 value={walletAddressValue}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setWalletAddressValue(event.target.value)}
+                onChange={(event) => setWalletAddressValue((event.target as HTMLInputElement).value)}
               />
             </FormField>
           ) : null}
@@ -1044,7 +1098,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             <FormField label="Authority Resolver" style={{ marginBottom: 0 }}>
               <AddressInput
                 value={walletAddressValue}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setWalletAddressValue(event.target.value)}
+                onChange={(event) => setWalletAddressValue((event.target as HTMLInputElement).value)}
               />
             </FormField>
           ) : null}
@@ -1053,7 +1107,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             <FormField label="New Nonce" style={{ marginBottom: 0 }}>
               <Uint256Input
                 value={walletNonceValue}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setWalletNonceValue(event.target.value)}
+                onChange={(event) => setWalletNonceValue(event.target.value)}
               />
             </FormField>
           ) : null}
@@ -1061,9 +1115,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
           {actionPreset === "wallet-diamond-cut" ? (
             <Stack gap="sm">
               {loadingFacets ? (
-                <Text.Body size="sm" color="muted">
-                  Discovering facets…
-                </Text.Body>
+                <Text.Body size="sm" color="muted">Discovering facets…</Text.Body>
               ) : installedFacets.length > 0 ? (
                 <FormField label="Installed Facets" style={{ marginBottom: 0 }}>
                   <select
@@ -1092,7 +1144,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
               <FormField label="Facet Address" style={{ marginBottom: 0 }}>
                 <AddressInput
                   value={diamondFacetAddress}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDiamondFacetAddress(event.target.value)}
+                  onChange={(event) => setDiamondFacetAddress((event.target as HTMLInputElement).value)}
                 />
               </FormField>
               <FormField label="Action" style={{ marginBottom: 0 }}>
@@ -1116,69 +1168,178 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
               <FormField label="Function Selector (bytes4)" style={{ marginBottom: 0 }}>
                 <Input
                   value={diamondSelector}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDiamondSelector(event.target.value)}
+                  onChange={(event) => setDiamondSelector(event.target.value)}
                   placeholder="0x12345678"
                 />
               </FormField>
               <FormField label="Init Address (optional)" style={{ marginBottom: 0 }}>
                 <AddressInput
                   value={diamondInitAddress}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDiamondInitAddress(event.target.value)}
+                  onChange={(event) => setDiamondInitAddress((event.target as HTMLInputElement).value)}
                 />
               </FormField>
               <FormField label="Init Calldata (hex, optional)" style={{ marginBottom: 0 }}>
                 <Input
                   value={diamondInitCalldata}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDiamondInitCalldata(event.target.value)}
+                  onChange={(event) => setDiamondInitCalldata(event.target.value)}
                   placeholder="0x"
                 />
               </FormField>
             </Stack>
           ) : null}
 
-          {actionPreset === "wallet-deploy" && (
-            <WalletDeployForm
-              ref={walletDeployFormRef}
-              target={target}
-              configAddresses={configAddresses}
-              onOpenConfigAddressBook={(field) => {
-                if (field === "wallet-authorizer" || field === "wallet-initializer") {
-                  setConfigAddressBookOpen(field);
-                  setAddressBookOpen(true);
-                }
-              }}
-            />
-          )}
-
-          {actionPreset === "custom" || actionPreset === "wallet-calibur-entry" ? (
+          {actionPreset === "reserve-create" ? (
             <Stack gap="sm">
-              {actionPreset === "custom" ? (
-                <FormField label="ABI JSON / ABI Section" style={{ marginBottom: 0 }}>
-                  <textarea
-                    value={abiText}
-                    onChange={(event) => {
-                      setAbiText(event.target.value);
-                      setSelectedFunctionSignature("");
-                      setValuesByParam({});
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                    }}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                    }}
-                    rows={8}
-                    style={{
-                      width: "100%",
-                      borderRadius: "var(--radius-md)",
-                      border: "1px solid var(--colors-border)",
-                      padding: "var(--spacing-md)",
-                      background: "var(--colors-background)",
-                      color: "var(--colors-text-main)",
-                    }}
+              <FormField label="Owner" style={{ marginBottom: 0 }}>
+                <AddressInput
+                  value={reserveOwnerAddress}
+                  onChange={(event) => setReserveOwnerAddress((event.target as HTMLInputElement).value)}
+                />
+              </FormField>
+              <FormField label="Withdraw Destination" style={{ marginBottom: 0 }}>
+                <AddressInput
+                  value={reserveWithdrawAddress}
+                  onChange={(event) => setReserveWithdrawAddress((event.target as HTMLInputElement).value)}
+                />
+              </FormField>
+              <FormField label="Default Proposal Delay" style={{ marginBottom: 0 }}>
+                <Uint256Input
+                  value={reserveProposalDelay}
+                  onChange={(event) => setReserveProposalDelay(event.target.value)}
+                />
+              </FormField>
+              <FormField label="Default Release Delay" style={{ marginBottom: 0 }}>
+                <Uint256Input
+                  value={reserveReleaseDelay}
+                  onChange={(event) => setReserveReleaseDelay(event.target.value)}
+                />
+              </FormField>
+              <FormField label="Default Withdraw Address Change Delay" style={{ marginBottom: 0 }}>
+                <Uint256Input
+                  value={reserveWithdrawAddressChangeDelay}
+                  onChange={(event) => setReserveWithdrawAddressChangeDelay(event.target.value)}
+                />
+              </FormField>
+            </Stack>
+          ) : null}
+
+          {actionPreset === "wallet-deploy" ? (
+            <Stack gap="sm">
+              <FormField label="Default Authorizer Address" style={{ marginBottom: 0 }}>
+                <Row gap="sm" style={{ alignItems: "center" }}>
+                  <AddressInput
+                    value={walletDefaultAuthorizerAddress}
+                    onChange={(event) => setWalletDefaultAuthorizerAddress((event.target as HTMLInputElement).value)}
+                    style={{ flex: 1 }}
                   />
-                </FormField>
-              ) : null}
+                  <ButtonSecondary 
+                    fullWidth={false}
+                    onClick={() => {
+                      setConfigAddressBookOpen("wallet-authorizer");
+                      setAddressBookOpen(true);
+                    }}
+                  >
+                    📖
+                  </ButtonSecondary>
+                </Row>
+              </FormField>
+              <FormField label="Wallet Options (hex bytes, optional)" style={{ marginBottom: 0 }}>
+                <Input
+                  value={walletOptionsBytes}
+                  onChange={(event) => setWalletOptionsBytes(event.target.value)}
+                  placeholder="0x"
+                />
+              </FormField>
+              <FormField label="Initializer Address (optional)" style={{ marginBottom: 0 }}>
+                <Row gap="sm" style={{ alignItems: "center" }}>
+                  <AddressInput
+                    value={walletInitializerAddress}
+                    onChange={(event) => setWalletInitializerAddress((event.target as HTMLInputElement).value)}
+                    style={{ flex: 1 }}
+                  />
+                  <ButtonSecondary 
+                    fullWidth={false}
+                    onClick={() => {
+                      setConfigAddressBookOpen("wallet-initializer");
+                      setAddressBookOpen(true);
+                    }}
+                  >
+                    📖
+                  </ButtonSecondary>
+                </Row>
+              </FormField>
+              <FormField label="Initializer Options (hex bytes, optional)" style={{ marginBottom: 0 }}>
+                <Input
+                  value={walletInitializerOptionsBytes}
+                  onChange={(event) => setWalletInitializerOptionsBytes(event.target.value)}
+                  placeholder="0x"
+                />
+              </FormField>
+            </Stack>
+          ) : null}
+
+          {actionPreset === "vault-deploy" ? (
+            <Stack gap="sm">
+              <FormField label="Owner" style={{ marginBottom: 0 }}>
+                <AddressInput
+                  value={vaultOwnerAddress}
+                  onChange={(event) => setVaultOwnerAddress((event.target as HTMLInputElement).value)}
+                />
+              </FormField>
+              <FormField label="Withdraw Destination" style={{ marginBottom: 0 }}>
+                <AddressInput
+                  value={vaultWithdrawAddress}
+                  onChange={(event) => setVaultWithdrawAddress((event.target as HTMLInputElement).value)}
+                />
+              </FormField>
+              <FormField label="Default Proposal Delay" style={{ marginBottom: 0 }}>
+                <Uint256Input
+                  value={vaultProposalDelay}
+                  onChange={(event) => setVaultProposalDelay(event.target.value)}
+                />
+              </FormField>
+              <FormField label="Default Release Delay" style={{ marginBottom: 0 }}>
+                <Uint256Input
+                  value={vaultReleaseDelay}
+                  onChange={(event) => setVaultReleaseDelay(event.target.value)}
+                />
+              </FormField>
+              <FormField label="Default Withdraw Address Change Delay" style={{ marginBottom: 0 }}>
+                <Uint256Input
+                  value={vaultWithdrawAddressChangeDelay}
+                  onChange={(event) => setVaultWithdrawAddressChangeDelay(event.target.value)}
+                />
+              </FormField>
+            </Stack>
+          ) : null}
+
+          {actionPreset === "custom" ? (
+            <Stack gap="sm">
+              <FormField label="ABI JSON / ABI Section" style={{ marginBottom: 0 }}>
+                <textarea
+                  value={abiText}
+                  onChange={(event) => {
+                    setAbiText(event.target.value);
+                    setSelectedFunctionSignature("");
+                    setValuesByParam({});
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                  }}
+                  rows={8}
+                  style={{
+                    width: "100%",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--colors-border)",
+                    padding: "var(--spacing-md)",
+                    background: "var(--colors-background)",
+                    color: "var(--colors-text-main)",
+                  }}
+                />
+              </FormField>
 
               <FormField label="Function" style={{ marginBottom: 0 }}>
                 <select
@@ -1209,9 +1370,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
                 <Stack gap="sm">
                   <Text.Label>Function Inputs</Text.Label>
                   {selectedFunction.inputs.length === 0 ? (
-                    <Text.Body size="sm" color="muted">
-                      No inputs for this function.
-                    </Text.Body>
+                    <Text.Body size="sm" color="muted">No inputs for this function.</Text.Body>
                   ) : (
                     selectedFunction.inputs.map((input, index) => {
                       const key = `${input.name || `arg${index}`}-${index}`;
@@ -1224,7 +1383,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
                             <FormField key={key} label={label} style={{ marginBottom: 0 }}>
                               <Uint256Input
                                 value={value}
-                                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                                onChange={(event) =>
                                   setValuesByParam((current) => ({ ...current, [key]: event.target.value }))
                                 }
                               />
@@ -1238,7 +1397,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
                               value={value}
                               allowDecimal={false}
                               allowNegative={input.type.startsWith("int")}
-                              onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                              onChange={(event) =>
                                 setValuesByParam((current) => ({ ...current, [key]: event.target.value }))
                               }
                             />
@@ -1251,7 +1410,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
                           <FormField key={key} label={label} style={{ marginBottom: 0 }}>
                             <Bytes32Input
                               value={value}
-                              onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                              onChange={(event) =>
                                 setValuesByParam((current) => ({ ...current, [key]: event.target.value }))
                               }
                             />
@@ -1264,10 +1423,10 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
                           <FormField key={key} label={label} style={{ marginBottom: 0 }}>
                             <AddressInput
                               value={value}
-                              onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                              onChange={(event) =>
                                 setValuesByParam((current) => ({
                                   ...current,
-                                  [key]: event.target.value,
+                                  [key]: (event.target as HTMLInputElement).value,
                                 }))
                               }
                             />
@@ -1279,7 +1438,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
                         <FormField key={key} label={label} style={{ marginBottom: 0 }}>
                           <Input
                             value={value}
-                            onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                            onChange={(event) =>
                               setValuesByParam((current) => ({ ...current, [key]: event.target.value }))
                             }
                             placeholder={input.type === "bool" ? "true or false" : "Value"}
@@ -1298,22 +1457,16 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
           <Card style={{ background: "var(--colors-background)" }}>
             <CardContent>
               <Stack gap="sm">
-                <Text.Title align="left" size="sm">
-                  Staged Calls Preview
-                </Text.Title>
+                <Text.Title align="left" size="sm">Staged Calls Preview</Text.Title>
                 {stagedCalls.length === 0 ? (
-                  <Text.Body size="sm" color="muted">
-                    No staged calls yet.
-                  </Text.Body>
+                  <Text.Body size="sm" color="muted">No staged calls yet.</Text.Body>
                 ) : (
                   <Stack gap="sm">
                     {stagedCalls.map((call, index) => (
                       <Card key={`${call.target}-${call.functionSignature}-${index}`} style={{ background: "var(--colors-surface)" }}>
                         <CardContent>
                           <Stack gap="xs">
-                            <Text.Body size="sm" weight={600}>
-                              Call {index + 1}
-                            </Text.Body>
+                            <Text.Body size="sm" weight={600}>Call {index + 1}</Text.Body>
                             <Text.Body size="sm">Target: {call.target}</Text.Body>
                             <Text.Body size="sm">Function: {call.functionSignature}</Text.Body>
                             <Text.Body size="sm">Value (wei): {call.valueWei}</Text.Body>
@@ -1350,8 +1503,11 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
               disabled={loading}
               onClick={() => {
                 setDescription("");
-                setTarget("");
-                setTargetSelectionLabel(null);
+                setNativeValueWei("");
+                setTokenAddressTo("");
+                setTokenAmount("");
+                setSpenderAddress("");
+                setDelegateeAddress("");
                 setGovernanceUintValue("");
                 setGovernanceAddressValue("");
                 setRoleAccountAddress("");
@@ -1362,12 +1518,23 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
                 setDiamondCutAction("0");
                 setDiamondInitAddress("");
                 setDiamondInitCalldata("");
+                setReserveOwnerAddress("");
+                setReserveWithdrawAddress("");
+                setReserveProposalDelay("");
+                setReserveReleaseDelay("");
+                setReserveWithdrawAddressChangeDelay("");
+                setWalletDefaultAuthorizerAddress("");
+                setWalletOptionsBytes("");
+                setWalletInitializerAddress("");
+                setWalletInitializerOptionsBytes("");
+                setVaultOwnerAddress("");
+                setVaultWithdrawAddress("");
+                setVaultProposalDelay("");
+                setVaultReleaseDelay("");
+                setVaultWithdrawAddressChangeDelay("");
                 setValuesByParam({});
                 setStagedCalls([]);
                 setError(null);
-                nativeTransferFormRef.current?.reset();
-                tokenTransferFormRef.current?.reset();
-                walletDeployFormRef.current?.reset();
               }}
             >
               Reset Builder
@@ -1381,15 +1548,6 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
               setConfigAddressBookOpen(null);
             }}
             targetType={configAddressBookOpen ? "config" : currentTargetType}
-            configFilter={
-              configAddressBookOpen === "wallet-authorizer"
-                ? "authorizer"
-                : configAddressBookOpen === "wallet-initializer"
-                  ? "initializer"
-                  : actionPreset === "wallet-deploy"
-                    ? "factory"
-                    : null
-            }
             chainId={chainId}
             governorAddress={governorAddress}
             timelockAddress={timelockAddress}
@@ -1400,14 +1558,13 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             loadingUserWallets={false}
             loadingTimelockWallets={loadingTimelockWallets}
             loadingVaults={loadingVaults}
-            onSelectAddress={(address, label) => {
+            onSelectAddress={(address) => {
               if (configAddressBookOpen === "wallet-authorizer") {
-                walletDeployFormRef.current?.setAuthorizerAddress?.(address, label);
+                setWalletDefaultAuthorizerAddress(address);
               } else if (configAddressBookOpen === "wallet-initializer") {
-                walletDeployFormRef.current?.setInitializerAddress?.(address, label);
+                setWalletInitializerAddress(address);
               } else {
                 setTarget(address);
-                setTargetSelectionLabel(label ?? "Address Book Selection");
               }
               setAddressBookOpen(false);
               setConfigAddressBookOpen(null);

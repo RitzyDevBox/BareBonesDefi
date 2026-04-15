@@ -51,6 +51,8 @@ export interface BareBonesConfiguration {
   weeklyScheduleRuleAddress: string;
   // DAO Configuration
   daoFactoryAddress: string;
+  // SVR Configuration
+  svrFactoryAddress?: string;
 }
 
 export const CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = {

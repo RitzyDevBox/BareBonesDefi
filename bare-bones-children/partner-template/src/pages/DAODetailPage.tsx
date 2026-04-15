@@ -465,6 +465,7 @@ export function DAODetailPage() {
         <ProposalBuilder
           disabled={!governorAddress || checkingEligibility || !canPropose}
           loading={submittingProposal}
+          governorAddress={governorAddress}
           onSubmit={handleSubmitProposal}
         />
 

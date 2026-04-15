@@ -4,6 +4,47 @@ import NamespacedCreate3FactoryAbi from "../../abis/diamond/NamespacedCreate3Fac
 import { ACTIVE_SVR_TEMPLATE_PROVIDER, getBareBonesConfiguration, TEMPLATE_PROVIDER_OWNER_ADDRESS } from "../../constants/misc";
 import { defaultAbiCoder, keccak256 } from "ethers/lib/utils";
 
+export async function fetchWalletVaultAddresses(
+  provider: ethers.providers.Web3Provider,
+  chainId: number,
+  walletAddress: string
+): Promise<string[]> {
+  const config = getBareBonesConfiguration(chainId);
+  const factoryAddress = config.namespacedCreate3Factory;
+
+  const factoryContract = new Contract(
+    factoryAddress,
+    NamespacedCreate3FactoryAbi,
+    provider
+  );
+
+  const namespace = ACTIVE_SVR_TEMPLATE_PROVIDER;
+
+  const deploymentCount: number = await factoryContract.deploymentCount(
+    walletAddress,
+    keccak256(defaultAbiCoder.encode(["address", "string"], [TEMPLATE_PROVIDER_OWNER_ADDRESS, namespace]))
+  );
+
+  if (deploymentCount === 0) {
+    return [];
+  }
+
+  const predictedVaults: string[] = [];
+
+  for (let i = 0; i < deploymentCount; i++) {
+    const predictedAddress = await factoryContract.predictAddress(
+      walletAddress,
+      TEMPLATE_PROVIDER_OWNER_ADDRESS,
+      namespace,
+      i
+    );
+
+    predictedVaults.push(predictedAddress);
+  }
+
+  return predictedVaults;
+}
+
 export function useWalletVaults(
   provider: ethers.providers.Web3Provider | null | undefined,
   chainId: number | null,
@@ -20,42 +61,7 @@ export function useWalletVaults(
     setLoading(true);
 
     try {
-      const config = getBareBonesConfiguration(chainId);
-      const factoryAddress = config.namespacedCreate3Factory;
-
-      const factoryContract = new Contract(
-        factoryAddress,
-        NamespacedCreate3FactoryAbi,
-        provider
-      );
-
-      const namespace = ACTIVE_SVR_TEMPLATE_PROVIDER;
-
-      const deploymentCount: number =
-        await factoryContract.deploymentCount(
-          walletAddress,
-          keccak256(defaultAbiCoder.encode(["address", "string"],[TEMPLATE_PROVIDER_OWNER_ADDRESS, namespace]))
-        );
-
-      if (deploymentCount === 0) {
-        setVaults([]);
-        return;
-      }
-
-      const predictedVaults: string[] = [];
-
-      for (let i = 0; i < deploymentCount; i++) {
-        const predictedAddress =
-          await factoryContract.predictAddress(
-            walletAddress,
-            TEMPLATE_PROVIDER_OWNER_ADDRESS,
-            namespace,
-            i
-          );
-
-        predictedVaults.push(predictedAddress);
-      }
-
+      const predictedVaults = await fetchWalletVaultAddresses(provider, chainId, walletAddress);
       setVaults(predictedVaults);
     } catch (err) {
       console.error("Failed to load vaults", err);

@@ -1,12 +1,14 @@
 import { ethers } from "ethers";
 import DIAMOND_FACTORY_ABI from "../abis/diamond/DiamondFactory.abi.json";
-import { getBareBonesConfiguration, ZERO_ADDRESS } from "../constants/misc";
+import { getBareBonesConfiguration } from "../constants/misc";
 import { RawTx } from "./basicWalletUtils";
+import { buildDiamondInitializerData, encodeDiamondOwnerOptions } from "./diamondDeployEncoding";
 
 export interface DeployDiamondArgs {
   owner: string;
   chainId: number | null;
   organizationId?: string; // organization slug e.g bare-bones
+  authorityResolverAddress?: string;
 }
 
 export interface DiamondDeployedResult {
@@ -27,21 +29,24 @@ export function buildDeployEOAOwnerBasedDiamondRawTx(
 
   const config = getBareBonesConfiguration(args.chainId);
   const iface = new ethers.utils.Interface(DIAMOND_FACTORY_ABI);
-  const ownerOptions = ethers.utils.defaultAbiCoder.encode(["address"],[args.owner]);
+  const authorityResolverAddress = args.authorityResolverAddress
+    ? ethers.utils.getAddress(args.authorityResolverAddress)
+    : config.ownerAuthorityResolverAddress;
+
+  const ownerOptions = encodeDiamondOwnerOptions(args.owner);
 
   // Optional initializer data
-  let initData = ethers.utils.defaultAbiCoder.encode(["address","address", "bytes32"],[config.ownerAuthorityResolverAddress, ZERO_ADDRESS, ethers.constants.HashZero]);
-
-  if (args.organizationId) {
-    const orgId = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(args.organizationId));
-    initData = ethers.utils.defaultAbiCoder.encode(["address","address", "bytes32"],[config.ownerAuthorityResolverAddress,config.globalOrganizationRegistry,orgId]);
-  }
+  const initData = buildDiamondInitializerData({
+    authorityResolverAddress,
+    organizationRegistryAddress: config.globalOrganizationRegistry,
+    organizationId: args.organizationId,
+  });
 
   return {
     to: config.diamondFactoryAddress,
     value: 0,
     data: iface.encodeFunctionData("deployDiamond", [
-      config.ownerAuthorityResolverAddress, // resolver
+      authorityResolverAddress, // resolver
       ownerOptions,                         // abi.encode(user)
       config.diamondKernelInitializer,      // initializer
       initData,                             // optional org install
