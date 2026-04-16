@@ -13,46 +13,18 @@ import { Row, Stack } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import NamespacedCreate3FactoryABI from "../abis/diamond/NamespacedCreate3Factory.abi.json";
 import DAOFactoryABI from "../abis/dao/DAOFactory.abi.json";
-import DAOGovernorABI from "../abis/dao/DAOGovernor.abi.json";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
-import { CHAIN_INFO_MAP, CHAIN_SVR_SUBGRAPH_URL, getBareBonesConfiguration } from "../constants/misc";
+import { CHAIN_INFO_MAP, getBareBonesConfiguration } from "../constants/misc";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { fetchOrganizationInfo, useOwnedOrganizations } from "../hooks/payroll/useOrganizationRegistry";
 import { ROUTES } from "../routes";
 import { shortAddress } from "../utils/formatUtils";
-import { graphQuery } from "../utils/graph/graphClient";
-import { defaultAbiCoder, keccak256 } from "ethers/lib/utils";
+import { fetchDaoGovernorsByNames } from "../utils/graph/daoGraphService";
 
 const DAO_FACTORY_INTERFACE = new ethers.utils.Interface(DAOFactoryABI as any);
 const MOCK_GOVERNANCE_TOKEN = "0xe4368424E6728F8D53Ed524eE540FA8f0595dF43";
-const GOVERNOR_TEMPLATE_NAME = "DAO_GOVERNOR";
-const DAO_NAMESPACE_DEPLOYMENTS_QUERY = `
-  query DaoNamespaceDeployments($namespace: String!) {
-    deployments(where: { namespace: $namespace }) {
-      id
-      deployer
-      createdAt
-      index
-      namespace
-      txHash
-    }
-  }
-`;
-
-type DaoNamespaceDeploymentRow = {
-  id: string;
-  deployer: string;
-  createdAt: string;
-  index: string;
-  namespace: string;
-  txHash: string;
-};
-
-type DaoNamespaceDeploymentsQueryResult = {
-  deployments: DaoNamespaceDeploymentRow[];
-};
 type DaoDeployFormState = {
   token: string;
   timelockDelay: string;
@@ -66,8 +38,8 @@ type DaoDeployFormState = {
 type DaoDeploymentSummary = {
   name: string;
   governor: string;
-  timelock: string;
-  token: string;
+  timelock?: string;
+  token?: string;
   txHash: string;
 };
 
@@ -213,8 +185,6 @@ export function DAOsPage() {
   const [isAuthorizingOperator, setIsAuthorizingOperator] = useState(false);
   const [templateProvider, setTemplateProvider] = useState<string | null>(null);
   const [deploymentsByOrg, setDeploymentsByOrg] = useState<Record<string, DaoDeploymentSummary>>({});
-  const [nextGovernorIndex, setNextGovernorIndex] = useState<string | null>(null);
-  const [predictedGovernorAddress, setPredictedGovernorAddress] = useState<string | null>(null);
   const [daoFactoryOperatorApproved, setDaoFactoryOperatorApproved] = useState<boolean | null>(null);
   const [lastDeployment, setLastDeployment] = useState<DaoDeploymentSummary | null>(null);
 
@@ -290,55 +260,29 @@ export function DAOsPage() {
     let isActive = true;
 
     async function loadDeployedDaos() {
-      const graphUrl = chainId != null ? CHAIN_SVR_SUBGRAPH_URL[chainId] : null;
-
-      if (!provider || !daoFactoryAddress || !graphUrl) {
+      if (chainId == null || !ownedOrganizations.length) {
         if (isActive) setDeploymentsByOrg({});
         return;
       }
 
       try {
-        const namespaceHash = keccak256(
-          defaultAbiCoder.encode(["address", "string"], [daoFactoryAddress, GOVERNOR_TEMPLATE_NAME])
-        ).toLowerCase();
-
-        const graphData = await graphQuery<DaoNamespaceDeploymentsQueryResult>(
-          graphUrl,
-          DAO_NAMESPACE_DEPLOYMENTS_QUERY,
-          { namespace: namespaceHash }
-        );
-
+        const governors = await fetchDaoGovernorsByNames(chainId, ownedOrganizations);
         if (!isActive) return;
 
         const byOrg: Record<string, DaoDeploymentSummary> = {};
-        const governorSummaries = await Promise.all(
-          (graphData.deployments ?? []).map(async (deployment) => {
-            try {
-              const governorAddress = ethers.utils.getAddress(deployment.id);
-              const governor = new ethers.Contract(governorAddress, DAOGovernorABI as any, provider);
+        for (const governor of governors) {
+          const name = (governor.name ?? "").trim();
+          if (!name) continue;
 
-              const [name, timelock, token] = await Promise.all([
-                governor.name(),
-                governor.timelock(),
-                governor.token(),
-              ]);
-
-              return {
-                name: String(name).trim(),
-                governor: governorAddress,
-                timelock: ethers.utils.getAddress(String(timelock)),
-                token: ethers.utils.getAddress(String(token)),
-                txHash: String(deployment.txHash ?? ""),
-              } satisfies DaoDeploymentSummary;
-            } catch {
-              return null;
-            }
-          })
-        );
-
-        for (const summary of governorSummaries) {
-          if (!summary?.name) continue;
-          byOrg[summary.name.toLowerCase()] = summary;
+          try {
+            byOrg[name.toLowerCase()] = {
+              name,
+              governor: ethers.utils.getAddress(governor.id),
+              txHash: String(governor.txHash ?? ""),
+            };
+          } catch {
+            continue;
+          }
         }
 
         setDeploymentsByOrg(byOrg);
@@ -348,64 +292,12 @@ export function DAOsPage() {
       }
     }
 
-    // TODO: Replace this namespace-factory graph lookup with DAO graph data once the DAO subgraph is ready.
-
     void loadDeployedDaos();
 
     return () => {
       isActive = false;
     };
-  }, [provider, daoFactoryAddress, chainId, isSubmitting]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    async function loadPredictedGovernorAddress() {
-      if (!provider || !account || !daoFactoryAddress || !config?.namespacedCreate3Factory) {
-        if (isActive) {
-          setNextGovernorIndex(null);
-          setPredictedGovernorAddress(null);
-        }
-        return;
-      }
-
-      try {
-        const nsFactory = new ethers.Contract(
-          config.namespacedCreate3Factory,
-          NamespacedCreate3FactoryABI as any,
-          provider
-        );
-
-        const namespaceHash = keccak256(
-          defaultAbiCoder.encode(["address", "string"], [daoFactoryAddress, GOVERNOR_TEMPLATE_NAME])
-        );
-
-        // DAOFactory.deploy() calls NamespacedCreate3Factory.deployFor(owner=msg.sender,...),
-        // so index/prediction must be owner-scoped (the connected account) + DAOFactory namespace.
-        const currentIndex = await nsFactory.deploymentCount(account, namespaceHash);
-        const predicted = await nsFactory.predictAddressFor(
-          account,
-          daoFactoryAddress,
-          GOVERNOR_TEMPLATE_NAME,
-          currentIndex
-        );
-
-        if (!isActive) return;
-        setNextGovernorIndex(ethers.BigNumber.from(currentIndex).toString());
-        setPredictedGovernorAddress(ethers.utils.getAddress(String(predicted)));
-      } catch {
-        if (!isActive) return;
-        setNextGovernorIndex(null);
-        setPredictedGovernorAddress(null);
-      }
-    }
-
-    void loadPredictedGovernorAddress();
-
-    return () => {
-      isActive = false;
-    };
-  }, [provider, account, daoFactoryAddress, config?.namespacedCreate3Factory, chainId, isSubmitting]);
+  }, [chainId, ownedOrganizations, isSubmitting]);
 
   useEffect(() => {
     let isActive = true;
@@ -653,20 +545,6 @@ export function DAOsPage() {
                       copyValue={daoFactoryOperatorApproved ? "approved" : "not-approved"}
                     />
                   ) : null}
-                  {nextGovernorIndex ? (
-                    <InfoChip
-                      label="Next Governor Index"
-                      displayValue={nextGovernorIndex}
-                      copyValue={nextGovernorIndex}
-                    />
-                  ) : null}
-                  {predictedGovernorAddress ? (
-                    <InfoChip
-                      label="Predicted Governor"
-                      displayValue={shortAddress(predictedGovernorAddress)}
-                      copyValue={predictedGovernorAddress}
-                    />
-                  ) : null}
                 </Row>
               </Stack>
             </CardContent>
@@ -848,8 +726,12 @@ export function DAOsPage() {
                   </Text.Title>
                   <Text.Body size="sm">DAO: {deploymentToShow.name}</Text.Body>
                   <Text.Body size="sm">Governor: {shortAddress(deploymentToShow.governor)}</Text.Body>
-                  <Text.Body size="sm">Timelock: {shortAddress(deploymentToShow.timelock)}</Text.Body>
-                  <Text.Body size="sm">Token: {shortAddress(deploymentToShow.token)}</Text.Body>
+                  {deploymentToShow.timelock ? (
+                    <Text.Body size="sm">Timelock: {shortAddress(deploymentToShow.timelock)}</Text.Body>
+                  ) : null}
+                  {deploymentToShow.token ? (
+                    <Text.Body size="sm">Token: {shortAddress(deploymentToShow.token)}</Text.Body>
+                  ) : null}
                   <Text.Body size="sm">Tx: {shortAddress(deploymentToShow.txHash, 6)}</Text.Body>
 
                   <Row gap="sm" wrap>
@@ -866,12 +748,12 @@ export function DAOsPage() {
                         Governor
                       </a>
                     ) : null}
-                    {addressLink(deploymentToShow.timelock, blockExplorerBase) ? (
+                    {deploymentToShow.timelock && addressLink(deploymentToShow.timelock, blockExplorerBase) ? (
                       <a href={addressLink(deploymentToShow.timelock, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
                         Timelock
                       </a>
                     ) : null}
-                    {addressLink(deploymentToShow.token, blockExplorerBase) ? (
+                    {deploymentToShow.token && addressLink(deploymentToShow.token, blockExplorerBase) ? (
                       <a href={addressLink(deploymentToShow.token, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
                         Token
                       </a>

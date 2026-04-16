@@ -23,10 +23,10 @@ export const lightTheme: AppTheme = {
     secondary: "#64748b",
     secondaryHover: "#475569",
 
-    // Status colors (balanced, not neon)
-    success: "#22c55e",
-    warn: "#f59e0b",
-    error: "#ef4444",
+    // Status colors — darkened from neon/mid to readable on light bg
+    success: "#16a34a",   // green-700
+    warn: "#d97706",      // amber-600
+    error: "#dc2626",     // red-600
 
     text: {
       main: "#111827",

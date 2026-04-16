@@ -19,9 +19,9 @@ export const darkTheme: AppTheme = {
     secondary: "#4b5d6a",  // Slightly muted secondary for a natural contrast
     secondaryHover: "#3a4b59", // Slightly darker secondary on hover
 
-    success: "#34d399",     // Slightly more neutral green for success
+    success: "#4ade80",     // Green-400 — bright enough to read on dark bg
     warn: "#fbbf24",        // Keeps a nice yellow, no change
-    error: "#ef4444",       // Red remains vivid
+    error: "#f87171",       // Red-400 — readable on dark surfaces (was #ef4444 which is too dark)
 
     text: {
       main: "#e5e7eb",      // Light text still fine

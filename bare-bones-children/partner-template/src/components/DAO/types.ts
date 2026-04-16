@@ -16,6 +16,9 @@ export interface DaoProposalSummary {
   forVotes: string;
   againstVotes: string;
   abstainVotes: string;
+  timeLeftLabel?: string;
+  decodedCalls?: string[];
+  voteTxHash?: string;
 }
 
 export interface ProposalCall {

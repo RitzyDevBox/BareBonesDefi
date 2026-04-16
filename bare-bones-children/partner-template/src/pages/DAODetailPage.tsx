@@ -16,7 +16,8 @@ import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { ROUTES } from "../routes";
-import { shortAddress } from "../utils/formatUtils";
+import { shortAddress, formatBalance, formatWeiToTokenAmount } from "../utils/formatUtils";
+import { fetchDaoGovernorByAddress, fetchDaoProposalsByGovernor, fetchDaoVotesByGovernor } from "../utils/graph/daoGraphService";
 
 const PROPOSAL_STATE_LABELS: Record<number, string> = {
   0: "Pending",
@@ -34,6 +35,124 @@ const ERC20_VOTES_INTERFACE = new ethers.utils.Interface([
   "function delegates(address account) view returns (address)",
 ]);
 
+const ERC20_TRANSFER_INTERFACE = new ethers.utils.Interface([
+  "function transfer(address to, uint256 amount)",
+  "function transferFrom(address from, address to, uint256 amount)",
+  "function approve(address spender, uint256 amount)",
+]);
+
+const DAO_GOVERNOR_DECODE_INTERFACE = new ethers.utils.Interface(DAOGovernorABI as any);
+
+const GOVERNANCE_ACTION_INTERFACE = new ethers.utils.Interface([
+  "function setVotingDelay(uint256 newVotingDelay)",
+  "function setVotingPeriod(uint256 newVotingPeriod)",
+  "function setProposalThreshold(uint256 newProposalThreshold)",
+  "function updateQuorumNumerator(uint256 newQuorumNumerator)",
+]);
+
+const PROPOSAL_STATUS_TO_STATE: Record<string, number> = {
+  pending: 0,
+  active: 1,
+  canceled: 2,
+  defeated: 3,
+  succeeded: 4,
+  queued: 5,
+  expired: 6,
+  executed: 7,
+};
+
+function mapProposalStatusToState(status: string) {
+  const normalized = status.trim().toLowerCase();
+  return PROPOSAL_STATUS_TO_STATE[normalized] ?? -1;
+}
+
+function formatDecodedArg(value: unknown): string {
+  if (typeof value === "string") {
+    try {
+      if (ethers.utils.isAddress(value)) return shortAddress(value);
+    } catch {
+      // ignore
+    }
+    return value;
+  }
+
+  if (typeof value === "number" || typeof value === "bigint") return String(value);
+
+  if (value && ethers.BigNumber.isBigNumber(value)) {
+    return (value as ethers.BigNumber).toString();
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => formatDecodedArg(item)).join(", ")}]`;
+  }
+
+  return String(value);
+}
+
+function summarizeProposalCalls(args: {
+  governorAddress: string;
+  targets: string[];
+  values: string[];
+  calldatas: string[];
+}) {
+  const summaries: string[] = [];
+
+  for (let index = 0; index < args.targets.length; index += 1) {
+    const target = String(args.targets[index] ?? ethers.constants.AddressZero);
+    const value = String(args.values[index] ?? "0");
+    const calldata = String(args.calldatas[index] ?? "0x");
+
+    const targetDisplay = shortAddress(target);
+    const nonZeroValue = value !== "0";
+
+    if (calldata === "0x" || calldata.length < 10) {
+      summaries.push(
+        nonZeroValue
+          ? `Send native value ${value} to ${targetDisplay}`
+          : `Call ${targetDisplay} (no calldata)`
+      );
+      continue;
+    }
+
+    try {
+      const decoded = DAO_GOVERNOR_DECODE_INTERFACE.parseTransaction({ data: calldata });
+      const params = decoded.args?.map((arg) => formatDecodedArg(arg)).join(", ") ?? "";
+      const prefix = target.toLowerCase() === args.governorAddress.toLowerCase() ? "Governor" : targetDisplay;
+      summaries.push(`${prefix}.${decoded.name}(${params})`);
+      continue;
+    } catch {
+      // fall through
+    }
+
+    try {
+      const decoded = GOVERNANCE_ACTION_INTERFACE.parseTransaction({ data: calldata });
+      const params = decoded.args?.map((arg) => formatDecodedArg(arg)).join(", ") ?? "";
+      summaries.push(`Governance.${decoded.name}(${params})`);
+      continue;
+    } catch {
+      // fall through
+    }
+
+    try {
+      const decoded = ERC20_TRANSFER_INTERFACE.parseTransaction({ data: calldata });
+      const params = decoded.args?.map((arg) => formatDecodedArg(arg)).join(", ") ?? "";
+      summaries.push(`${targetDisplay}.${decoded.name}(${params})`);
+      continue;
+    } catch {
+      // fall through
+    }
+
+    const selector = calldata.slice(0, 10);
+    summaries.push(
+      nonZeroValue
+        ? `Call ${targetDisplay} selector ${selector} (value ${value})`
+        : `Call ${targetDisplay} selector ${selector}`
+    );
+  }
+
+  return summaries;
+}
+
 export function DAODetailPage() {
   const { daoAddress = "" } = useParams<{ daoAddress?: string }>();
   const { provider, chainId, account } = useWalletProvider();
@@ -49,6 +168,11 @@ export function DAODetailPage() {
   const [eligibilityMessage, setEligibilityMessage] = useState<string | null>(null);
   const [governanceTokenAddress, setGovernanceTokenAddress] = useState<string>("");
   const [delegatingVotes, setDelegatingVotes] = useState(false);
+  const [showProposalForm, setShowProposalForm] = useState(false);
+  const [votePowerByProposalId, setVotePowerByProposalId] = useState<Record<string, string>>({});
+  const [hasVotedByProposalId, setHasVotedByProposalId] = useState<Record<string, boolean>>({});
+  const [votingProposalId, setVotingProposalId] = useState<string | null>(null);
+  const [voteTxHashByProposalId, setVoteTxHashByProposalId] = useState<Record<string, string>>({});
 
   const governorAddress = useMemo(() => {
     try {
@@ -100,15 +224,15 @@ export function DAODetailPage() {
     let isActive = true;
 
     async function loadDAOName() {
-      if (!provider || !governorAddress) {
+      if (!governorAddress || chainId == null) {
         if (isActive) setDaoName("");
         return;
       }
 
       try {
-        const governor = new ethers.Contract(governorAddress, DAOGovernorABI as any, provider);
-        const nextName = await governor.name();
-        if (isActive) setDaoName(String(nextName));
+        const daoEntity = await fetchDaoGovernorByAddress(chainId, governorAddress);
+        const nextName = (daoEntity?.name ?? "").trim();
+        if (isActive) setDaoName(nextName);
       } catch {
         if (isActive) setDaoName("");
       }
@@ -119,13 +243,13 @@ export function DAODetailPage() {
     return () => {
       isActive = false;
     };
-  }, [provider, governorAddress]);
+  }, [governorAddress, chainId, version]);
 
   useEffect(() => {
     let isActive = true;
 
     async function loadProposals() {
-      if (!provider || !governorAddress) {
+      if (!governorAddress || chainId == null) {
         if (isActive) {
           setAllProposals([]);
           setProposalError(null);
@@ -137,44 +261,106 @@ export function DAODetailPage() {
       setProposalError(null);
 
       try {
-        const governor = new ethers.Contract(governorAddress, DAOGovernorABI as any, provider);
-        const logs = await governor.queryFilter(governor.filters.ProposalCreated(), 0, "latest");
+        const [graphProposals, graphVotes] = await Promise.all([
+          fetchDaoProposalsByGovernor(chainId, governorAddress),
+          fetchDaoVotesByGovernor(chainId, governorAddress),
+        ]);
 
-        const enriched = await Promise.all(
-          logs.map(async (log: any) => {
-            const args = log.args ?? {};
-            const proposalId = String(args.proposalId ?? args[0] ?? "0");
+        const voteTotalsByProposalId: Record<string, { forVotes: bigint; againstVotes: bigint; abstainVotes: bigint }> = {};
+        for (const vote of graphVotes) {
+          const proposalId = String(vote.proposalId ?? "");
+          if (!proposalId) continue;
 
-            const [stateRaw, votes, snapshot, deadline] = await Promise.all([
-              governor.state(proposalId),
-              governor.proposalVotes(proposalId),
-              governor.proposalSnapshot(proposalId),
-              governor.proposalDeadline(proposalId),
+          if (!voteTotalsByProposalId[proposalId]) {
+            voteTotalsByProposalId[proposalId] = {
+              forVotes: 0n,
+              againstVotes: 0n,
+              abstainVotes: 0n,
+            };
+          }
+
+          const weight = BigInt(String(vote.weight ?? "0"));
+          const support = Number(vote.support ?? -1);
+
+          if (support === 1) voteTotalsByProposalId[proposalId].forVotes += weight;
+          if (support === 0) voteTotalsByProposalId[proposalId].againstVotes += weight;
+          if (support === 2) voteTotalsByProposalId[proposalId].abstainVotes += weight;
+        }
+        let currentClockValue = "0";
+        let clockModeIsTimestamp = false;
+
+        if (provider) {
+          try {
+            const governor = new ethers.Contract(governorAddress, DAOGovernorABI as any, provider);
+            const [clockRaw, clockModeRaw] = await Promise.all([
+              governor.clock(),
+              typeof governor.CLOCK_MODE === "function" ? governor.CLOCK_MODE() : Promise.resolve(""),
             ]);
 
-            const state = Number(stateRaw);
+            currentClockValue = ethers.BigNumber.from(clockRaw).toString();
+            clockModeIsTimestamp = String(clockModeRaw ?? "").toLowerCase().includes("timestamp");
+          } catch {
+            currentClockValue = "0";
+            clockModeIsTimestamp = false;
+          }
+        }
 
-            return {
-              id: proposalId,
-              proposer: String(args.proposer ?? args[1] ?? ethers.constants.AddressZero),
-              description: String(args.description ?? args[8] ?? ""),
-              targets: ((args.targets ?? args[2] ?? []) as string[]).map((value) => String(value)),
-              values: ((args.values ?? args[3] ?? []) as any[]).map((value) => String(value)),
-              calldatas: ((args.calldatas ?? args[5] ?? []) as string[]).map((value) => String(value)),
-              voteStart: String(args.voteStart ?? args[6] ?? "0"),
-              voteEnd: String(args.voteEnd ?? args[7] ?? "0"),
-              snapshot: String(snapshot),
-              deadline: String(deadline),
-              state,
-              stateLabel: PROPOSAL_STATE_LABELS[state] ?? `Unknown (${state})`,
-              txHash: String(log.transactionHash),
-              blockNumber: Number(log.blockNumber ?? 0),
-              forVotes: String(votes.forVotes ?? votes[1] ?? "0"),
-              againstVotes: String(votes.againstVotes ?? votes[0] ?? "0"),
-              abstainVotes: String(votes.abstainVotes ?? votes[2] ?? "0"),
-            } as DaoProposalSummary;
-          })
-        );
+        const enriched: DaoProposalSummary[] = graphProposals.map((proposal) => {
+          const state = mapProposalStatusToState(String(proposal.status ?? ""));
+          const voteEnd = String(proposal.voteEnd ?? "0");
+
+          let timeLeftLabel = "";
+          try {
+            const remaining = BigInt(voteEnd) - BigInt(currentClockValue || "0");
+            if (remaining <= 0n) {
+              timeLeftLabel = "Voting ended";
+            } else {
+              timeLeftLabel = clockModeIsTimestamp
+                ? `${remaining.toString()}s left to vote`
+                : `${remaining.toString()} blocks left to vote`;
+            }
+          } catch {
+            timeLeftLabel = "";
+          }
+
+          const targets = (proposal.targets ?? []).map((value) => String(value));
+          const values = (proposal.values ?? []).map((value) => String(value));
+          const calldatas = (proposal.calldatas ?? []).map((value) => String(value));
+          const decodedCalls = summarizeProposalCalls({
+            governorAddress,
+            targets,
+            values,
+            calldatas,
+          });
+
+          const totals = voteTotalsByProposalId[String(proposal.proposalId ?? proposal.id)] ?? {
+            forVotes: 0n,
+            againstVotes: 0n,
+            abstainVotes: 0n,
+          };
+
+          return {
+            id: String(proposal.proposalId ?? proposal.id),
+            proposer: String(proposal.proposer ?? ethers.constants.AddressZero),
+            description: String(proposal.description ?? ""),
+            targets,
+            values,
+            calldatas,
+            voteStart: String(proposal.voteStart ?? "0"),
+            voteEnd,
+            snapshot: String(proposal.voteStart ?? "0"),
+            deadline: voteEnd,
+            state,
+            stateLabel: PROPOSAL_STATE_LABELS[state] ?? String(proposal.status ?? `Unknown (${state})`),
+            txHash: String(proposal.createdTxHash ?? ""),
+            blockNumber: Number(proposal.createdAt ?? 0),
+            forVotes: totals.forVotes.toString(),
+            againstVotes: totals.againstVotes.toString(),
+            abstainVotes: totals.abstainVotes.toString(),
+            timeLeftLabel,
+            decodedCalls,
+          } as DaoProposalSummary;
+        });
 
         enriched.sort((a, b) => b.blockNumber - a.blockNumber);
 
@@ -185,7 +371,7 @@ export function DAODetailPage() {
         console.error("Failed to load proposals:", err);
         if (isActive) {
           setAllProposals([]);
-          setProposalError("Failed to load proposals from this DAO.");
+          setProposalError("Failed to load proposals from graph for this DAO.");
         }
       } finally {
         if (isActive) setLoadingProposals(false);
@@ -197,7 +383,69 @@ export function DAODetailPage() {
     return () => {
       isActive = false;
     };
-  }, [provider, governorAddress, version]);
+  }, [provider, governorAddress, chainId, version]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadVoteStatusForActiveProposals() {
+      if (!provider || !governorAddress || !account || !activeProposals.length) {
+        if (!isActive) return;
+        setVotePowerByProposalId({});
+        setHasVotedByProposalId({});
+        return;
+      }
+
+      try {
+        const governor = new ethers.Contract(governorAddress, DAOGovernorABI as any, provider);
+
+        const entries = await Promise.all(
+          activeProposals.map(async (proposal) => {
+            try {
+              const [hasVoted, votingPower] = await Promise.all([
+                governor.hasVoted(proposal.id, account),
+                governor.getVotes(account, proposal.snapshot),
+              ]);
+
+              return {
+                proposalId: proposal.id,
+                hasVoted: Boolean(hasVoted),
+                votingPower: ethers.BigNumber.from(votingPower).toString(),
+              };
+            } catch {
+              return {
+                proposalId: proposal.id,
+                hasVoted: false,
+                votingPower: "0",
+              };
+            }
+          })
+        );
+
+        if (!isActive) return;
+
+        const nextHasVoted: Record<string, boolean> = {};
+        const nextVotingPower: Record<string, string> = {};
+        for (const entry of entries) {
+          nextHasVoted[entry.proposalId] = entry.hasVoted;
+          nextVotingPower[entry.proposalId] = entry.votingPower;
+        }
+
+        setHasVotedByProposalId(nextHasVoted);
+        setVotePowerByProposalId(nextVotingPower);
+      } catch {
+        if (!isActive) return;
+        setVotePowerByProposalId({});
+        setHasVotedByProposalId({});
+      }
+    }
+
+    void loadVoteStatusForActiveProposals();
+
+    return () => {
+      isActive = false;
+    };
+  }, [provider, governorAddress, account, activeProposals, version]);
 
   useEffect(() => {
     let isActive = true;
@@ -346,6 +594,23 @@ export function DAODetailPage() {
     () => "Delegated governance votes to your wallet"
   );
 
+  const executeCastVote = useExecuteRawTx(
+    (_: number, proposalId: string, support: 0 | 1 | 2) => {
+      if (!governorAddress) {
+        throw new Error("Invalid DAO address.");
+      }
+
+      return {
+        to: governorAddress,
+        data: governorInterface.encodeFunctionData("castVote", [proposalId, support]),
+      } as any;
+    },
+    (_: number, proposalId: string, support: 0 | 1 | 2) => {
+      const labels = ["Against", "For", "Abstain"];
+      return `Cast ${labels[support] ?? "vote"} for proposal ${proposalId}`;
+    }
+  );
+
   async function handleSubmitProposal(payload: ProposalBuildPayload) {
     if (chainId == null) {
       throw new Error("Chain is not available.");
@@ -384,6 +649,37 @@ export function DAODetailPage() {
     }
   }
 
+  async function handleVoteOnProposal(proposalId: string, support: 0 | 1 | 2) {
+    if (chainId == null) {
+      throw new Error("Chain is not available.");
+    }
+
+    if (!account) {
+      throw new Error("Connect your wallet to vote.");
+    }
+
+    if ((votePowerByProposalId[proposalId] ?? "0") === "0") {
+      throw new Error("You need delegated voting power to vote on this proposal.");
+    }
+
+    if (hasVotedByProposalId[proposalId]) {
+      throw new Error("You already voted on this proposal.");
+    }
+
+    setVotingProposalId(proposalId);
+    try {
+      const tx = await executeCastVote(chainId, proposalId, support);
+      if (tx?.hash) {
+        setVoteTxHashByProposalId((prev) => ({
+          ...prev,
+          [proposalId]: tx.hash,
+        }));
+      }
+    } finally {
+      setVotingProposalId(null);
+    }
+  }
+
   if (!governorAddress) {
     return (
       <PageContainer center maxWidth={1320}>
@@ -410,9 +706,9 @@ export function DAODetailPage() {
             <Stack gap="sm">
               <Row justify="between" wrap>
                 <Stack gap="xs">
-                  <Text.Title align="left">DAO Detail</Text.Title>
+                  <Text.Title align="left">{daoName || "DAO"}</Text.Title>
                   <Text.Body color="muted">
-                    {daoName || "DAO"} · {shortAddress(governorAddress)}
+                    {shortAddress(governorAddress)}
                   </Text.Body>
                 </Stack>
                 <Link to={ROUTES.DAOS} style={{ color: "var(--colors-primary)" }}>
@@ -462,23 +758,49 @@ export function DAODetailPage() {
           </CardContent>
         </Card>
 
-        <ProposalBuilder
-          disabled={!governorAddress || checkingEligibility || !canPropose}
-          loading={submittingProposal}
-          governorAddress={governorAddress}
-          onSubmit={handleSubmitProposal}
-        />
+        {canPropose ? (
+          <Card>
+            <CardContent>
+              <Row gap="sm" style={{ alignItems: "center", justifyContent: "space-between" }}>
+                <Text.Title align="left" size="sm">Create Proposal</Text.Title>
+                <ButtonSecondary
+                  fullWidth={false}
+                  onClick={() => setShowProposalForm(!showProposalForm)}
+                >
+                  {showProposalForm ? "Hide" : "Show"} Form
+                </ButtonSecondary>
+              </Row>
+              {showProposalForm && (
+                <Stack gap="md" style={{ marginTop: "1rem" }}>
+                  <ProposalBuilder
+                    disabled={!governorAddress || checkingEligibility}
+                    loading={submittingProposal}
+                    governorAddress={governorAddress}
+                    onSubmit={handleSubmitProposal}
+                  />
+                </Stack>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <ActiveProposalPanel
           proposals={activeProposals}
           loading={loadingProposals}
           blockExplorerBase={blockExplorerBase}
+          votePowerByProposalId={votePowerByProposalId}
+          hasVotedByProposalId={hasVotedByProposalId}
+          votingProposalId={votingProposalId}
+          voteTxHashByProposalId={voteTxHashByProposalId}
+          onVote={handleVoteOnProposal}
+          formatAmount={(v) => formatWeiToTokenAmount(v, 18, 4)}
         />
 
         <HistoricalProposalsPanel
           proposals={historicalProposals}
           loading={loadingProposals}
           blockExplorerBase={blockExplorerBase}
+          formatAmount={formatBalance}
         />
       </Stack>
     </PageContainer>
