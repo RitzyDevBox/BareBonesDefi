@@ -17,13 +17,14 @@ export const TEMPLATE_PROVIDER_NAMESPACES = {
   //Started Using custom verisoning for the provides so we dont need to redeploy
   SVR_TEMPLATE_PROVIDER_C1: 'SVR_TEMPLATE_PROVIDER_C1',
   SVR_TEMPLATE_PROVIDER_C2: 'SVR_TEMPLATE_PROVIDER_C2',
+  SVR_TEMPLATE_PROVIDER_V9: 'SVR_TEMPLATE_PROVIDER_V9',
 }
 
 // Each transaction will trigger a state refresh but we add a delay since the graph takes some time to update
 export const DEFAULT_REFRESH_DELAY = 10000
 export const TOAST_ERROR_DISPLAY_DURATION_MS = 5000
 
-export const ACTIVE_SVR_TEMPLATE_PROVIDER = TEMPLATE_PROVIDER_NAMESPACES.SVR_TEMPLATE_PROVIDER_C2
+export const ACTIVE_SVR_TEMPLATE_PROVIDER = TEMPLATE_PROVIDER_NAMESPACES.SVR_TEMPLATE_PROVIDER_V9
 
 export const POLYGON_SECURE_VALUE_RESERVE_GRAPH_URL = 'https://api.goldsky.com/api/public/project_clze9a4nvee2w01wbaw2y7wzc/subgraphs/secure-value-reserve/1.0.1/gn'
 
@@ -107,6 +108,7 @@ export const CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = {
   TREASURY 0x0f1eCC66E5DaC706cD208290cCdf554309c196F8
 
   Deploying: DAO_FACTORY_V9 0xbe8F193ED5CF9e92aFb8fc839572432692dF5233
+  NAMESPACED_CREATE3_FACTORY_V9 0xA2e029Fb54F05Ec4C5D1078AAa85704eB5a6d402
 
   */
 
@@ -116,7 +118,7 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   ownerAuthorityResolverAddress: "0x167C85EBAB5AB3eA18BCCaDacee0188Dad2857C4",
   nftAuthorityResolverAddress: "0x7E8578a8ea8a441725c96183493295318A44D6EB",
   diamondKernelInitializer: "0x3A152cfdb8d2ebB3A2fC3A46665ee31CDa620fe7",
-  namespacedCreate3Factory: "0x2EF901902fA6993949dbb32f8807fd2bFfB3D8da",
+  namespacedCreate3Factory: "0xA2e029Fb54F05Ec4C5D1078AAa85704eB5a6d402",
   multicall3Address: "0xca11bde05977b3631167028862be2a173976ca11",
   
   //Bare Bones Kernel
@@ -140,7 +142,7 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   weeklyScheduleRuleAddress: "0xbBA39908448193a34fa3b15F6aAcEb5B245e54D0",
 
   // DAO Configuration
-  daoFactoryAddress: "0xbe8F193ED5CF9e92aFb8fc839572432692dF5233",
+  daoFactoryAddress: "0xf25ed7216A7Ae2a28492042E77A8eb7ba2878370",
 
 } as const;
 
