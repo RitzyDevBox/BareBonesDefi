@@ -11,27 +11,47 @@ import { OrganizationPicker } from "../components/Organizations/OrganizationPick
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Row, Stack } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
+import NamespacedCreate3FactoryABI from "../abis/diamond/NamespacedCreate3Factory.abi.json";
 import DAOFactoryABI from "../abis/dao/DAOFactory.abi.json";
+import DAOGovernorABI from "../abis/dao/DAOGovernor.abi.json";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
-import { CHAIN_INFO_MAP, getBareBonesConfiguration } from "../constants/misc";
+import { CHAIN_INFO_MAP, CHAIN_SVR_SUBGRAPH_URL, getBareBonesConfiguration } from "../constants/misc";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { fetchOrganizationInfo, useOwnedOrganizations } from "../hooks/payroll/useOrganizationRegistry";
 import { ROUTES } from "../routes";
 import { shortAddress } from "../utils/formatUtils";
+import { graphQuery } from "../utils/graph/graphClient";
+import { defaultAbiCoder, keccak256 } from "ethers/lib/utils";
 
 const DAO_FACTORY_INTERFACE = new ethers.utils.Interface(DAOFactoryABI as any);
 const MOCK_GOVERNANCE_TOKEN = "0xe4368424E6728F8D53Ed524eE540FA8f0595dF43";
+const GOVERNOR_TEMPLATE_NAME = "DAO_GOVERNOR";
+const DAO_NAMESPACE_DEPLOYMENTS_QUERY = `
+  query DaoNamespaceDeployments($namespace: String!) {
+    deployments(where: { namespace: $namespace }) {
+      id
+      deployer
+      createdAt
+      index
+      namespace
+      txHash
+    }
+  }
+`;
 
-const HARDCODED_DAO_DEPLOYMENTS: Record<string, DaoDeploymentSummary> = {
-  barebonesdemo: {
-    name: "barebonesdemo",
-    governor: "0xD4915581301bca0867833fa13B3432f10449C063",
-    timelock: "0xc832160E42248D25570dB6a8F8DdD8C654042455",
-    token: MOCK_GOVERNANCE_TOKEN,
-    txHash: "0x3271c31bf9d967315a5b345ae7d6c9fce9acfb1cd3703f25452752ec6b2e8bc6",
-  },
+type DaoNamespaceDeploymentRow = {
+  id: string;
+  deployer: string;
+  createdAt: string;
+  index: string;
+  namespace: string;
+  txHash: string;
+};
+
+type DaoNamespaceDeploymentsQueryResult = {
+  deployments: DaoNamespaceDeploymentRow[];
 };
 type DaoDeployFormState = {
   token: string;
@@ -190,13 +210,18 @@ export function DAOsPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isRegisteringOrg, setIsRegisteringOrg] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAuthorizingOperator, setIsAuthorizingOperator] = useState(false);
   const [templateProvider, setTemplateProvider] = useState<string | null>(null);
+  const [deploymentsByOrg, setDeploymentsByOrg] = useState<Record<string, DaoDeploymentSummary>>({});
+  const [nextGovernorIndex, setNextGovernorIndex] = useState<string | null>(null);
+  const [predictedGovernorAddress, setPredictedGovernorAddress] = useState<string | null>(null);
+  const [daoFactoryOperatorApproved, setDaoFactoryOperatorApproved] = useState<boolean | null>(null);
   const [lastDeployment, setLastDeployment] = useState<DaoDeploymentSummary | null>(null);
 
   const existingDeployment = useMemo(() => {
     const slug = selectedOrganization.trim().toLowerCase();
-    return slug ? HARDCODED_DAO_DEPLOYMENTS[slug] ?? null : null;
-  }, [selectedOrganization]);
+    return slug ? deploymentsByOrg[slug] ?? null : null;
+  }, [selectedOrganization, deploymentsByOrg]);
 
   const config = useMemo(() => {
     if (chainId == null) return null;
@@ -264,6 +289,159 @@ export function DAOsPage() {
   useEffect(() => {
     let isActive = true;
 
+    async function loadDeployedDaos() {
+      const graphUrl = chainId != null ? CHAIN_SVR_SUBGRAPH_URL[chainId] : null;
+
+      if (!provider || !daoFactoryAddress || !graphUrl) {
+        if (isActive) setDeploymentsByOrg({});
+        return;
+      }
+
+      try {
+        const namespaceHash = keccak256(
+          defaultAbiCoder.encode(["address", "string"], [daoFactoryAddress, GOVERNOR_TEMPLATE_NAME])
+        ).toLowerCase();
+
+        const graphData = await graphQuery<DaoNamespaceDeploymentsQueryResult>(
+          graphUrl,
+          DAO_NAMESPACE_DEPLOYMENTS_QUERY,
+          { namespace: namespaceHash }
+        );
+
+        if (!isActive) return;
+
+        const byOrg: Record<string, DaoDeploymentSummary> = {};
+        const governorSummaries = await Promise.all(
+          (graphData.deployments ?? []).map(async (deployment) => {
+            try {
+              const governorAddress = ethers.utils.getAddress(deployment.id);
+              const governor = new ethers.Contract(governorAddress, DAOGovernorABI as any, provider);
+
+              const [name, timelock, token] = await Promise.all([
+                governor.name(),
+                governor.timelock(),
+                governor.token(),
+              ]);
+
+              return {
+                name: String(name).trim(),
+                governor: governorAddress,
+                timelock: ethers.utils.getAddress(String(timelock)),
+                token: ethers.utils.getAddress(String(token)),
+                txHash: String(deployment.txHash ?? ""),
+              } satisfies DaoDeploymentSummary;
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        for (const summary of governorSummaries) {
+          if (!summary?.name) continue;
+          byOrg[summary.name.toLowerCase()] = summary;
+        }
+
+        setDeploymentsByOrg(byOrg);
+      } catch {
+        if (!isActive) return;
+        setDeploymentsByOrg({});
+      }
+    }
+
+    // TODO: Replace this namespace-factory graph lookup with DAO graph data once the DAO subgraph is ready.
+
+    void loadDeployedDaos();
+
+    return () => {
+      isActive = false;
+    };
+  }, [provider, daoFactoryAddress, chainId, isSubmitting]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadPredictedGovernorAddress() {
+      if (!provider || !account || !daoFactoryAddress || !config?.namespacedCreate3Factory) {
+        if (isActive) {
+          setNextGovernorIndex(null);
+          setPredictedGovernorAddress(null);
+        }
+        return;
+      }
+
+      try {
+        const nsFactory = new ethers.Contract(
+          config.namespacedCreate3Factory,
+          NamespacedCreate3FactoryABI as any,
+          provider
+        );
+
+        const namespaceHash = keccak256(
+          defaultAbiCoder.encode(["address", "string"], [daoFactoryAddress, GOVERNOR_TEMPLATE_NAME])
+        );
+
+        // DAOFactory.deploy() calls NamespacedCreate3Factory.deployFor(owner=msg.sender,...),
+        // so index/prediction must be owner-scoped (the connected account) + DAOFactory namespace.
+        const currentIndex = await nsFactory.deploymentCount(account, namespaceHash);
+        const predicted = await nsFactory.predictAddressFor(
+          account,
+          daoFactoryAddress,
+          GOVERNOR_TEMPLATE_NAME,
+          currentIndex
+        );
+
+        if (!isActive) return;
+        setNextGovernorIndex(ethers.BigNumber.from(currentIndex).toString());
+        setPredictedGovernorAddress(ethers.utils.getAddress(String(predicted)));
+      } catch {
+        if (!isActive) return;
+        setNextGovernorIndex(null);
+        setPredictedGovernorAddress(null);
+      }
+    }
+
+    void loadPredictedGovernorAddress();
+
+    return () => {
+      isActive = false;
+    };
+  }, [provider, account, daoFactoryAddress, config?.namespacedCreate3Factory, chainId, isSubmitting]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadOperatorApproval() {
+      if (!provider || !account || !daoFactoryAddress || !config?.namespacedCreate3Factory) {
+        if (isActive) setDaoFactoryOperatorApproved(null);
+        return;
+      }
+
+      try {
+        const nsFactory = new ethers.Contract(
+          config.namespacedCreate3Factory,
+          NamespacedCreate3FactoryABI as any,
+          provider
+        );
+
+        const approved = await nsFactory.isOperatorFor(account, daoFactoryAddress);
+        if (!isActive) return;
+        setDaoFactoryOperatorApproved(Boolean(approved));
+      } catch {
+        if (!isActive) return;
+        setDaoFactoryOperatorApproved(null);
+      }
+    }
+
+    void loadOperatorApproval();
+
+    return () => {
+      isActive = false;
+    };
+  }, [provider, account, daoFactoryAddress, config?.namespacedCreate3Factory, chainId, isSubmitting, isAuthorizingOperator]);
+
+  useEffect(() => {
+    let isActive = true;
+
     async function loadOrganizationInfo() {
       const slug = selectedOrganization.trim();
       if (!slug || !provider || !payrollManagerAddress) {
@@ -311,6 +489,7 @@ export function DAOsPage() {
 
       const signer = provider.getSigner();
       const factory = new ethers.Contract(daoFactoryAddress, DAOFactoryABI as any, signer);
+      // Keep calling DAOFactory.deploy; it handles timelock wiring and internally uses deployFor.
       const populated = await factory.populateTransaction.deploy({
         name: orgSlug.trim(),
         token: ethers.utils.getAddress(nextForm.token.trim()),
@@ -329,6 +508,22 @@ export function DAOsPage() {
       };
     },
     (_: number, orgSlug: string) => `Deployed DAO for organization "${orgSlug}"`
+  );
+
+  const authorizeDaoFactoryOperator = useExecuteRawTx(
+    (_: number) => {
+      if (!daoFactoryAddress || !config?.namespacedCreate3Factory) {
+        throw new Error("Namespaced factory or DAO factory is not configured for this chain.");
+      }
+
+      const nsFactoryInterface = new ethers.utils.Interface(NamespacedCreate3FactoryABI as any);
+
+      return {
+        to: config.namespacedCreate3Factory,
+        data: nsFactoryInterface.encodeFunctionData("setOperator", [daoFactoryAddress, true]),
+      } as any;
+    },
+    () => "Authorized DAOFactory as namespaced deploy operator"
   );
 
   const handleFetchOrganization = useCallback(
@@ -359,6 +554,18 @@ export function DAOsPage() {
       setOrganizationFetchError(null);
     } finally {
       setIsRegisteringOrg(false);
+    }
+  }
+
+  async function handleAuthorizeOperator() {
+    if (!chainId) return;
+
+    setIsAuthorizingOperator(true);
+    try {
+      await Promise.resolve(authorizeDaoFactoryOperator(chainId));
+      setDaoFactoryOperatorApproved(true);
+    } finally {
+      setIsAuthorizingOperator(false);
     }
   }
 
@@ -405,6 +612,7 @@ export function DAOsPage() {
     !ownedOrganizations.includes(selectedOrganization.trim()) ||
     organizationExists === false ||
     isSubmitting ||
+    daoFactoryOperatorApproved === false ||
     Boolean(existingDeployment);
 
   const deploymentToShow = existingDeployment ?? lastDeployment;
@@ -438,6 +646,27 @@ export function DAOsPage() {
                     displayValue={chainInfo?.chainName ?? `Chain ${chainId ?? "?"}`}
                     copyValue={chainInfo?.chainName ?? `Chain ${chainId ?? "?"}`}
                   />
+                  {daoFactoryOperatorApproved != null ? (
+                    <InfoChip
+                      label="Factory Operator"
+                      displayValue={daoFactoryOperatorApproved ? "Approved" : "Not approved"}
+                      copyValue={daoFactoryOperatorApproved ? "approved" : "not-approved"}
+                    />
+                  ) : null}
+                  {nextGovernorIndex ? (
+                    <InfoChip
+                      label="Next Governor Index"
+                      displayValue={nextGovernorIndex}
+                      copyValue={nextGovernorIndex}
+                    />
+                  ) : null}
+                  {predictedGovernorAddress ? (
+                    <InfoChip
+                      label="Predicted Governor"
+                      displayValue={shortAddress(predictedGovernorAddress)}
+                      copyValue={predictedGovernorAddress}
+                    />
+                  ) : null}
                 </Row>
               </Stack>
             </CardContent>
@@ -491,6 +720,21 @@ export function DAOsPage() {
                   <Text.Body color="success">
                     A DAO is already deployed for this organization.
                   </Text.Body>
+                ) : null}
+
+                {daoFactoryOperatorApproved === false ? (
+                  <Row gap="sm" wrap style={{ alignItems: "center" }}>
+                    <Text.Body color="warn">
+                      One-time setup required: authorize DAOFactory as your namespaced deploy operator.
+                    </Text.Body>
+                    <ButtonSecondary
+                      fullWidth={false}
+                      disabled={isAuthorizingOperator || isSubmitting || !account}
+                      onClick={() => void handleAuthorizeOperator()}
+                    >
+                      {isAuthorizingOperator ? "Authorizing..." : "Authorize DAOFactory"}
+                    </ButtonSecondary>
+                  </Row>
                 ) : null}
 
                 <div
