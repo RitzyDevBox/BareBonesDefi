@@ -21,6 +21,12 @@ interface ToastProps {
 
 export function Toast({ toast, onClose }: ToastProps) {
   const [visible, setVisible] = useState(false);
+  const MAX_TOAST_DISPLAY_CHARS = 220;
+  const message = toast.message ?? "";
+  const displayMessage =
+    message.length > MAX_TOAST_DISPLAY_CHARS
+      ? `${message.slice(0, MAX_TOAST_DISPLAY_CHARS - 1)}…`
+      : message;
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
@@ -78,15 +84,15 @@ export function Toast({ toast, onClose }: ToastProps) {
           {toast.title}
         </Text.Label>
 
-        {toast.message && (
-          <Text.Body style={{ margin: 0, color: "var(--colors-text-main)" }}>
-            {toast.message}
+        {message && (
+          <Text.Body style={{ margin: 0, color: "var(--colors-text-main)", wordBreak: "break-word" }}>
+            <span title={message}>{displayMessage}</span>
           </Text.Body>
         )}
       </Stack>
 
       {/* Copy (bottom-right, overlay) */}
-      {toast.message && (
+      {message && (
         <div
           style={{
             position: "absolute",
@@ -94,7 +100,7 @@ export function Toast({ toast, onClose }: ToastProps) {
             bottom: "var(--spacing-xs)",
           }}
         >
-          <CopyButton value={toast.message} />
+          <CopyButton value={message} />
         </div>
       )}
     </ClickableSurface>

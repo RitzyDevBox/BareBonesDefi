@@ -19,6 +19,9 @@ export interface DaoProposalSummary {
   timeLeftLabel?: string;
   decodedCalls?: string[];
   voteTxHash?: string;
+  executeReadyAt?: string;
+  executeReady?: boolean;
+  executeReadyLabel?: string;
 }
 
 export interface ProposalCall {

@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "../BasicComponents";
 import { Row, Stack } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { shortAddress } from "../../utils/formatUtils";
+import { buildExplorerTxLink } from "../../utils/explorerLinks";
 import { ButtonSecondary } from "../Button/ButtonPrimary";
+import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
 import type { DaoProposalSummary } from "./types";
 
 type Props = {
@@ -15,13 +17,12 @@ type Props = {
   votingProposalId?: string | null;
   voteTxHashByProposalId?: Record<string, string>;
   onVote?: (proposalId: string, support: 0 | 1 | 2) => void;
+  onQueue?: (proposal: DaoProposalSummary) => void;
+  onExecute?: (proposal: DaoProposalSummary) => void;
+  actingProposalId?: string | null;
+  canExecuteTimelockActions?: boolean;
   formatAmount?: (value: string) => string;
 };
-
-function txLink(hash: string, blockExplorerBase?: string) {
-  if (!blockExplorerBase) return null;
-  return `${blockExplorerBase.replace(/\/$/, "")}/tx/${hash}`;
-}
 
 export function ActiveProposalPanel({
   proposals,
@@ -32,9 +33,39 @@ export function ActiveProposalPanel({
   votingProposalId = null,
   voteTxHashByProposalId = {},
   onVote,
+  onQueue,
+  onExecute,
+  actingProposalId = null,
+  canExecuteTimelockActions = false,
   formatAmount = (v) => v,
 }: Props) {
   const [expandedProposalId, setExpandedProposalId] = useState<string | null>(null);
+  const screen = useMediaQuery();
+  const isMobile = screen === ScreenSize.Phone;
+  const [nowSeconds, setNowSeconds] = useState<number>(() => Math.floor(Date.now() / 1000));
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowSeconds(Math.floor(Date.now() / 1000));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  function formatDuration(secondsRaw: number) {
+    const seconds = Math.max(0, Math.floor(secondsRaw));
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (days > 0) return `${days}d ${hours}h ${minutes}m ${secs}s`;
+    if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+    if (minutes > 0) return `${minutes}m ${secs}s`;
+    return `${secs}s`;
+  }
   return (
     <Card>
       <CardContent>
@@ -48,6 +79,52 @@ export function ActiveProposalPanel({
           ) : (
             <Stack gap="md">
               {proposals.map((proposal) => (
+                (() => {
+                  const isVotingOpen = proposal.state === 1;
+                  const isAwaitingQueue = proposal.state === 4;
+                  const isAwaitingExecution = proposal.state === 5;
+                  const showBadgeOnOwnRow = isMobile && (isAwaitingQueue || isAwaitingExecution);
+                  const isActioning = actingProposalId === proposal.id;
+                  const etaSeconds = Number(proposal.executeReadyAt ?? "0");
+                  const hasEta = Number.isFinite(etaSeconds) && etaSeconds > 0;
+                  const isReadyByCountdown = !isAwaitingExecution
+                    ? true
+                    : hasEta
+                      ? nowSeconds >= etaSeconds
+                      : proposal.executeReady === true;
+                  const countdownLabel = isAwaitingExecution
+                    ? hasEta
+                      ? isReadyByCountdown
+                        ? "Ready to execute now"
+                        : `Ready to execute in ${formatDuration(etaSeconds - nowSeconds)}`
+                      : proposal.executeReadyLabel
+                    : undefined;
+
+                  const badgeStyle = (() => {
+                    if (isVotingOpen) {
+                      return {
+                        backgroundColor: "var(--colors-success)",
+                        color: "white",
+                        opacity: 0.9,
+                      };
+                    }
+
+                    if (isAwaitingQueue || isAwaitingExecution) {
+                      return {
+                        backgroundColor: "var(--colors-warn)",
+                        color: "#111827",
+                        opacity: 0.95,
+                      };
+                    }
+
+                    return {
+                      backgroundColor: "var(--colors-muted, #999)",
+                      color: "white",
+                      opacity: 0.9,
+                    };
+                  })();
+
+                  return (
                 <Card
                   key={proposal.id}
                   style={{
@@ -67,9 +144,9 @@ export function ActiveProposalPanel({
                           <Text.Body size="sm" color="muted">
                             Proposed by {shortAddress(proposal.proposer)}
                           </Text.Body>
-                          {txLink(proposal.txHash, blockExplorerBase) ? (
+                          {buildExplorerTxLink(proposal.txHash, blockExplorerBase) ? (
                             <a
-                              href={txLink(proposal.txHash, blockExplorerBase)!}
+                              href={buildExplorerTxLink(proposal.txHash, blockExplorerBase)!}
                               target="_blank"
                               rel="noreferrer"
                               style={{
@@ -83,21 +160,41 @@ export function ActiveProposalPanel({
                             </a>
                           ) : null}
                         </Stack>
+                        {!showBadgeOnOwnRow ? (
+                          <div
+                            style={{
+                              backgroundColor: badgeStyle.backgroundColor,
+                              color: badgeStyle.color,
+                              padding: "0.5rem 1rem",
+                              borderRadius: "20px",
+                              fontSize: "0.85rem",
+                              fontWeight: 600,
+                              whiteSpace: "nowrap",
+                              opacity: badgeStyle.opacity,
+                            }}
+                          >
+                            {proposal.stateLabel}
+                          </div>
+                        ) : null}
+                      </Row>
+
+                      {showBadgeOnOwnRow ? (
                         <div
                           style={{
-                            backgroundColor: "var(--colors-success)",
-                            color: "white",
+                            backgroundColor: badgeStyle.backgroundColor,
+                            color: badgeStyle.color,
                             padding: "0.5rem 1rem",
                             borderRadius: "20px",
                             fontSize: "0.85rem",
                             fontWeight: 600,
                             whiteSpace: "nowrap",
-                            opacity: 0.9,
+                            opacity: badgeStyle.opacity,
+                            alignSelf: "flex-start",
                           }}
                         >
                           {proposal.stateLabel}
                         </div>
-                      </Row>
+                      ) : null}
 
                       {/* Voting Time */}
                       {proposal.timeLeftLabel ? (
@@ -239,7 +336,7 @@ export function ActiveProposalPanel({
                       ) : null}
 
                       {/* Vote Buttons */}
-                      {onVote ? (
+                      {onVote && isVotingOpen ? (
                         <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
                           <ButtonSecondary
                             fullWidth={false}
@@ -331,12 +428,50 @@ export function ActiveProposalPanel({
                         </div>
                       ) : null}
 
+                      {(isAwaitingQueue || isAwaitingExecution) ? (
+                        <Stack gap="xs" style={{ marginTop: "0.5rem" }}>
+                          {isAwaitingQueue && onQueue ? (
+                            <ButtonSecondary
+                              fullWidth={false}
+                              disabled={isActioning}
+                              onClick={() => onQueue(proposal)}
+                              style={{ fontWeight: 700 }}
+                            >
+                              {isActioning ? "Queueing..." : "Queue Proposal"}
+                            </ButtonSecondary>
+                          ) : null}
+
+                          {isAwaitingExecution && onExecute ? (
+                            <ButtonSecondary
+                              fullWidth={false}
+                              disabled={isActioning || !canExecuteTimelockActions || !isReadyByCountdown}
+                              onClick={() => onExecute(proposal)}
+                              style={{ fontWeight: 700 }}
+                            >
+                              {isActioning ? "Executing..." : "Execute Proposal"}
+                            </ButtonSecondary>
+                          ) : null}
+
+                          {isAwaitingExecution && countdownLabel ? (
+                            <Text.Body size="xs" color={isReadyByCountdown ? "success" : "muted"}>
+                              {countdownLabel}
+                            </Text.Body>
+                          ) : null}
+
+                          {isAwaitingExecution && !canExecuteTimelockActions ? (
+                            <Text.Body size="xs" color="warn">
+                              Your connected wallet is not an executor for this timelock.
+                            </Text.Body>
+                          ) : null}
+                        </Stack>
+                      ) : null}
+
                       {/* Vote TX Link */}
-                      {voteTxHashByProposalId[proposal.id] && txLink(voteTxHashByProposalId[proposal.id], blockExplorerBase) ? (
+                      {voteTxHashByProposalId[proposal.id] && buildExplorerTxLink(voteTxHashByProposalId[proposal.id], blockExplorerBase) ? (
                         <Text.Body size="xs" color="muted">
                           Your vote:{" "}
                           <a
-                            href={txLink(voteTxHashByProposalId[proposal.id], blockExplorerBase)!}
+                            href={buildExplorerTxLink(voteTxHashByProposalId[proposal.id], blockExplorerBase)!}
                             target="_blank"
                             rel="noreferrer"
                             style={{
@@ -353,6 +488,8 @@ export function ActiveProposalPanel({
                     </Stack>
                   </CardContent>
                 </Card>
+                  );
+                })()
               ))}
             </Stack>
           )}

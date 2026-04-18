@@ -3,6 +3,7 @@ import { Card, CardContent } from "../BasicComponents";
 import { Row, Stack } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { shortAddress } from "../../utils/formatUtils";
+import { buildExplorerTxLink } from "../../utils/explorerLinks";
 import { ButtonSecondary } from "../Button/ButtonPrimary";
 import type { DaoProposalSummary } from "./types";
 
@@ -12,11 +13,6 @@ type Props = {
   blockExplorerBase?: string;
   formatAmount?: (value: string) => string;
 };
-
-function txLink(hash: string, blockExplorerBase?: string) {
-  if (!blockExplorerBase) return null;
-  return `${blockExplorerBase.replace(/\/$/, "")}/tx/${hash}`;
-}
 
 export function HistoricalProposalsPanel({
   proposals,
@@ -59,9 +55,9 @@ export function HistoricalProposalsPanel({
                             <Text.Body size="sm" color="muted">
                               Proposed by {shortAddress(proposal.proposer)}
                             </Text.Body>
-                            {txLink(proposal.txHash, blockExplorerBase) ? (
+                            {buildExplorerTxLink(proposal.txHash, blockExplorerBase) ? (
                               <a
-                                href={txLink(proposal.txHash, blockExplorerBase)!}
+                                href={buildExplorerTxLink(proposal.txHash, blockExplorerBase)!}
                                 target="_blank"
                                 rel="noreferrer"
                                 style={{

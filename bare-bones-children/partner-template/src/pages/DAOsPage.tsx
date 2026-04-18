@@ -22,6 +22,7 @@ import { fetchOrganizationInfo, useOwnedOrganizations } from "../hooks/payroll/u
 import { ROUTES } from "../routes";
 import { shortAddress } from "../utils/formatUtils";
 import { fetchDaoGovernorsByNames } from "../utils/graph/daoGraphService";
+import { buildExplorerAddressLink, buildExplorerTxLink } from "../utils/explorerLinks";
 
 const DAO_FACTORY_INTERFACE = new ethers.utils.Interface(DAOFactoryABI as any);
 const MOCK_GOVERNANCE_TOKEN = "0xe4368424E6728F8D53Ed524eE540FA8f0595dF43";
@@ -140,16 +141,6 @@ function parseDeploymentSummaryFromReceipt(receipt: ethers.providers.Transaction
   }
 
   return null;
-}
-
-function addressLink(address: string, blockExplorerBase?: string) {
-  if (!blockExplorerBase) return null;
-  return `${blockExplorerBase.replace(/\/$/, "")}/address/${address}`;
-}
-
-function txLink(hash: string, blockExplorerBase?: string) {
-  if (!blockExplorerBase) return null;
-  return `${blockExplorerBase.replace(/\/$/, "")}/tx/${hash}`;
 }
 
 function InfoChip({
@@ -738,23 +729,23 @@ export function DAOsPage() {
                     <Link to={ROUTES.DAO_DETAIL(deploymentToShow.governor)} style={{ color: "var(--colors-primary)" }}>
                       View DAO
                     </Link>
-                    {txLink(deploymentToShow.txHash, blockExplorerBase) ? (
-                      <a href={txLink(deploymentToShow.txHash, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
+                    {buildExplorerTxLink(deploymentToShow.txHash, blockExplorerBase) ? (
+                      <a href={buildExplorerTxLink(deploymentToShow.txHash, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
                         Transaction
                       </a>
                     ) : null}
-                    {addressLink(deploymentToShow.governor, blockExplorerBase) ? (
-                      <a href={addressLink(deploymentToShow.governor, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
+                    {buildExplorerAddressLink(deploymentToShow.governor, blockExplorerBase) ? (
+                      <a href={buildExplorerAddressLink(deploymentToShow.governor, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
                         Governor
                       </a>
                     ) : null}
-                    {deploymentToShow.timelock && addressLink(deploymentToShow.timelock, blockExplorerBase) ? (
-                      <a href={addressLink(deploymentToShow.timelock, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
+                    {deploymentToShow.timelock && buildExplorerAddressLink(deploymentToShow.timelock, blockExplorerBase) ? (
+                      <a href={buildExplorerAddressLink(deploymentToShow.timelock, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
                         Timelock
                       </a>
                     ) : null}
-                    {deploymentToShow.token && addressLink(deploymentToShow.token, blockExplorerBase) ? (
-                      <a href={addressLink(deploymentToShow.token, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
+                    {deploymentToShow.token && buildExplorerAddressLink(deploymentToShow.token, blockExplorerBase) ? (
+                      <a href={buildExplorerAddressLink(deploymentToShow.token, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
                         Token
                       </a>
                     ) : null}
