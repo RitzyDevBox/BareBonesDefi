@@ -3,18 +3,16 @@ import { ethers } from "ethers";
 import { Link, useParams } from "react-router-dom";
 import DAOGovernorABI from "../abis/dao/DAOGovernor.abi.json";
 import TimelockControllerABI from "../abis/dao/TimelockController.abi.json";
-import ERC20VotesABI from "../abis/diamond/ERC20Votes.abi.json";
 import ERC20ABI from "../abis/ERC20.json";
-import { ActiveProposalPanel } from "../components/DAO/ActiveProposalPanel";
+import { ProposalsList } from "../components/DAO/ProposalsList";
 import { DAOInfoHeader, type DaoGovernanceOverview } from "../components/DAO/DAOInfoHeader";
-import { HistoricalProposalsPanel } from "../components/DAO/HistoricalProposalsPanel";
 import { ProposalBuilder } from "../components/DAO/ProposalBuilder";
 import type { DaoProposalSummary, ProposalBuildPayload } from "../components/DAO/types";
 import { Card, CardContent } from "../components/BasicComponents";
 import { ButtonSecondary } from "../components/Button/ButtonPrimary";
 import { Modal } from "../components/Modal/Modal";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
-import { Row, Stack } from "../components/Primitives";
+import { Stack } from "../components/Primitives";
 import { Sheet } from "../components/Primitives/Sheet";
 import { Text } from "../components/Primitives/Text";
 import { CHAIN_INFO_MAP } from "../constants/misc";
@@ -24,7 +22,7 @@ import { useMultiContractMultiCall } from "../hooks/useMultiContractMultiCall";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { ROUTES } from "../routes";
-import { shortAddress, formatBalance, formatWeiToTokenAmount } from "../utils/formatUtils";
+import { shortAddress, formatWeiToTokenAmount } from "../utils/formatUtils";
 import { fetchDaoGovernorByAddress, fetchDaoProposalsByGovernor, fetchDaoVotesByGovernor } from "../utils/graph/daoGraphService";
 
 const PROPOSAL_STATE_LABELS: Record<number, string> = {
@@ -38,7 +36,6 @@ const PROPOSAL_STATE_LABELS: Record<number, string> = {
   7: "Executed",
 };
 
-const ERC20_VOTES_INTERFACE = new ethers.utils.Interface(ERC20VotesABI as any);
 
 const ERC20_TRANSFER_INTERFACE = new ethers.utils.Interface(ERC20ABI as any);
 
@@ -116,6 +113,20 @@ function formatDurationFromSeconds(totalSecondsRaw: bigint) {
 function mapProposalStatusToState(status: string) {
   const normalized = status.trim().toLowerCase();
   return PROPOSAL_STATUS_TO_STATE[normalized] ?? -1;
+}
+
+function computeGovernorTimelockSalt(governor: string, descriptionHash: string) {
+  const governorBytes20 = ethers.utils.arrayify(governor);
+  const descBytes32 = ethers.utils.arrayify(descriptionHash);
+  const paddedGovernor = new Uint8Array(32);
+  paddedGovernor.set(governorBytes20, 0);
+
+  const salt = new Uint8Array(32);
+  for (let i = 0; i < 32; i += 1) {
+    salt[i] = paddedGovernor[i] ^ descBytes32[i];
+  }
+
+  return ethers.utils.hexlify(salt);
 }
 
 function formatDecodedArg(value: unknown): string {
@@ -205,14 +216,12 @@ export function DAODetailPage() {
 
   const [daoName, setDaoName] = useState<string>("");
   const [loadingProposals, setLoadingProposals] = useState(false);
-  const [proposalError, setProposalError] = useState<string | null>(null);
   const [allProposals, setAllProposals] = useState<DaoProposalSummary[]>([]);
   const [submittingProposal, setSubmittingProposal] = useState(false);
   const [checkingEligibility, setCheckingEligibility] = useState(false);
   const [canPropose, setCanPropose] = useState(false);
   const [eligibilityMessage, setEligibilityMessage] = useState<string | null>(null);
   const [timelockAddress, setTimelockAddress] = useState<string>("");
-  const [delegatingVotes, setDelegatingVotes] = useState(false);
   const [showProposalForm, setShowProposalForm] = useState(false);
   const [votePowerByProposalId, setVotePowerByProposalId] = useState<Record<string, string>>({});
   const [hasVotedByProposalId, setHasVotedByProposalId] = useState<Record<string, boolean>>({});
@@ -220,6 +229,7 @@ export function DAODetailPage() {
   const [voteTxHashByProposalId, setVoteTxHashByProposalId] = useState<Record<string, string>>({});
   const [executorRoleMembers, setExecutorRoleMembers] = useState<string[]>([]);
   const [actingProposalId, setActingProposalId] = useState<string | null>(null);
+  const [actingProposalAction, setActingProposalAction] = useState<"queue" | "execute" | "cancel" | null>(null);
 
   const governorAddress = useMemo(() => {
     try {
@@ -284,11 +294,6 @@ export function DAODetailPage() {
     deps: [version, governorAddress],
   });
 
-  const governanceTokenAddress = useMemo(() => {
-    const discovered = governorDiscoveryData?.[0]?.tokenAddress;
-    return normalizeAddress(discovered);
-  }, [governorDiscoveryData]);
-
   useEffect(() => {
     const discovered = normalizeAddress(governorDiscoveryData?.[0]?.timelockAddress);
     setTimelockAddress(discovered);
@@ -329,6 +334,8 @@ export function DAODetailPage() {
       { contract: "timelock", fn: "getMinDelay", as: "minDelay" },
       { contract: "timelock", fn: "hasRole", as: "connectedIsExecutor", args: [TIMELOCK_ROLES.EXECUTOR_ROLE, account ?? ethers.constants.AddressZero] },
       { contract: "timelock", fn: "hasRole", as: "openExecutor", args: [TIMELOCK_ROLES.EXECUTOR_ROLE, ethers.constants.AddressZero] },
+      { contract: "timelock", fn: "hasRole", as: "connectedIsCanceller", args: [TIMELOCK_ROLES.CANCELLER_ROLE, account ?? ethers.constants.AddressZero] },
+      { contract: "timelock", fn: "hasRole", as: "openCanceller", args: [TIMELOCK_ROLES.CANCELLER_ROLE, ethers.constants.AddressZero] },
     ];
   }, [timelockAddress, governorAddress, account]);
 
@@ -383,6 +390,8 @@ export function DAODetailPage() {
       minDelay: formatClockDistance(readAsString(timelockMeta.minDelay), true),
       connectedIsExecutor: readAsBoolean(timelockMeta.connectedIsExecutor),
       openExecutor: readAsBoolean(timelockMeta.openExecutor),
+      connectedIsCanceller: readAsBoolean(timelockMeta.connectedIsCanceller),
+      openCanceller: readAsBoolean(timelockMeta.openCanceller),
       executorRoleMembers,
     };
   }, [governanceData, governanceContracts, executorRoleMembers]);
@@ -439,16 +448,6 @@ export function DAODetailPage() {
     [daoName, governanceOverview?.onchainName]
   );
 
-  const shouldShowStatusCard =
-    Boolean(proposalError) ||
-    checkingEligibility ||
-    Boolean(eligibilityMessage) ||
-    (
-      !canPropose &&
-      Boolean(eligibilityMessage?.toLowerCase().includes("insufficient voting power")) &&
-      Boolean(governanceTokenAddress)
-    );
-
   useEffect(() => {
     let isActive = true;
 
@@ -481,13 +480,11 @@ export function DAODetailPage() {
       if (!governorAddress || chainId == null) {
         if (isActive) {
           setAllProposals([]);
-          setProposalError(null);
         }
         return;
       }
 
       setLoadingProposals(true);
-      setProposalError(null);
 
       try {
         const [graphProposals, graphVotes] = await Promise.all([
@@ -682,7 +679,6 @@ export function DAODetailPage() {
         console.error("Failed to load proposals:", err);
         if (isActive) {
           setAllProposals([]);
-          setProposalError("Failed to load proposals from graph for this DAO.");
         }
       } finally {
         if (isActive) setLoadingProposals(false);
@@ -860,24 +856,6 @@ export function DAODetailPage() {
       `Submitted proposal with ${payload.calls.length} call${payload.calls.length === 1 ? "" : "s"}`
   );
 
-  const executeDelegateVotes = useExecuteRawTx(
-    (_: number) => {
-      if (!account) {
-        throw new Error("Wallet account unavailable.");
-      }
-
-      if (!governanceTokenAddress) {
-        throw new Error("Unable to determine governance token address.");
-      }
-
-      return {
-        to: governanceTokenAddress,
-        data: ERC20_VOTES_INTERFACE.encodeFunctionData("delegate", [account]),
-      } as any;
-    },
-    () => "Delegated governance votes to your wallet"
-  );
-
   const executeCastVote = useExecuteRawTx(
     (_: number, proposalId: string, support: 0 | 1 | 2) => {
       if (!governorAddress) {
@@ -917,19 +895,6 @@ export function DAODetailPage() {
       await executePropose(chainId, payload);
     } finally {
       setSubmittingProposal(false);
-    }
-  }
-
-  async function handleDelegateVotes() {
-    if (chainId == null) {
-      throw new Error("Chain is not available.");
-    }
-
-    setDelegatingVotes(true);
-    try {
-      await executeDelegateVotes(chainId);
-    } finally {
-      setDelegatingVotes(false);
     }
   }
 
@@ -982,7 +947,7 @@ export function DAODetailPage() {
         ]),
       } as any;
     },
-    (_: number, proposal: DaoProposalSummary) => `Queued proposal ${proposal.id}`
+    (_: number, proposal: DaoProposalSummary) => `Queued: "${(proposal.description.split('\n')[0] || `Proposal`).slice(0, 60)}"`
   );
 
   const executeExecuteProposal = useExecuteRawTx(
@@ -1003,10 +968,74 @@ export function DAODetailPage() {
         ]),
       } as any;
     },
-    (_: number, proposal: DaoProposalSummary) => `Executed proposal ${proposal.id}`
+    (_: number, proposal: DaoProposalSummary) => `Executed: "${(proposal.description.split('\n')[0] || `Proposal`).slice(0, 60)}"`
+  );
+
+  const executeGovernorCancelProposal = useExecuteRawTx(
+    (_: number, proposal: DaoProposalSummary) => {
+      if (!governorAddress) {
+        throw new Error("Invalid DAO address.");
+      }
+
+      const descriptionHash = ethers.utils.id(proposal.description ?? "");
+
+      return {
+        to: governorAddress,
+        data: governorInterface.encodeFunctionData("cancel", [
+          proposal.targets,
+          proposal.values,
+          proposal.calldatas,
+          descriptionHash,
+        ]),
+      } as any;
+    },
+    (_: number, proposal: DaoProposalSummary) => `Aborted: "${(proposal.description.split('\n')[0] || `Proposal`).slice(0, 60)}"`
+  );
+
+  const executeCancelProposal = useExecuteRawTx(
+    (_: number, proposal: DaoProposalSummary) => {
+      if (!timelockAddress) {
+        throw new Error("Timelock address unavailable for cancellation.");
+      }
+
+      if (!governorAddress) {
+        throw new Error("Governor address unavailable for cancellation.");
+      }
+
+      const descriptionHash = ethers.utils.id(proposal.description ?? "");
+      const salt = computeGovernorTimelockSalt(governorAddress, descriptionHash);
+
+      const operationId = ethers.utils.keccak256(
+        ethers.utils.defaultAbiCoder.encode(
+          ["address[]", "uint256[]", "bytes[]", "bytes32", "bytes32"],
+          [
+            proposal.targets,
+            proposal.values,
+            proposal.calldatas,
+            ethers.constants.HashZero,
+            salt,
+          ]
+        )
+      );
+
+      return {
+        to: timelockAddress,
+        data: new ethers.utils.Interface(TimelockControllerABI as any).encodeFunctionData("cancel", [operationId]),
+      } as any;
+    },
+    (_: number, proposal: DaoProposalSummary) => `Vetoed: "${(proposal.description.split('\n')[0] || `Proposal`).slice(0, 60)}"`
   );
 
   const canExecuteTimelockActions = Boolean(governanceOverview?.openExecutor || governanceOverview?.connectedIsExecutor);
+  const canCancelTimelockActions = Boolean(governanceOverview?.openCanceller || governanceOverview?.connectedIsCanceller);
+  const canCancelPendingByProposalId = useMemo(() => {
+    const connected = (account ?? "").toLowerCase();
+    const map: Record<string, boolean> = {};
+    for (const proposal of activeProposals) {
+      map[proposal.id] = proposal.state === 0 && connected.length > 0 && connected === proposal.proposer.toLowerCase();
+    }
+    return map;
+  }, [activeProposals, account]);
 
   async function handleQueueProposal(proposal: DaoProposalSummary) {
     if (chainId == null) {
@@ -1018,10 +1047,12 @@ export function DAODetailPage() {
     }
 
     setActingProposalId(proposal.id);
+    setActingProposalAction("queue");
     try {
       await executeQueueProposal(chainId, proposal);
     } finally {
       setActingProposalId(null);
+      setActingProposalAction(null);
     }
   }
 
@@ -1047,10 +1078,47 @@ export function DAODetailPage() {
     }
 
     setActingProposalId(proposal.id);
+    setActingProposalAction("execute");
     try {
       await executeExecuteProposal(chainId, proposal);
     } finally {
       setActingProposalId(null);
+      setActingProposalAction(null);
+    }
+  }
+
+  async function handleCancelProposal(proposal: DaoProposalSummary) {
+    if (chainId == null) {
+      throw new Error("Chain is not available.");
+    }
+
+    if (!account) {
+      throw new Error("Connect your wallet to cancel this proposal.");
+    }
+
+    setActingProposalId(proposal.id);
+    setActingProposalAction("cancel");
+    try {
+      if (proposal.state === 0) {
+        if ((account ?? "").toLowerCase() !== proposal.proposer.toLowerCase()) {
+          throw new Error("Only the original proposer can abort a pending proposal.");
+        }
+        await executeGovernorCancelProposal(chainId, proposal);
+        return;
+      }
+
+      if (proposal.state === 5) {
+        if (!canCancelTimelockActions) {
+          throw new Error("Your wallet is not a vetoer for this timelock.");
+        }
+        await executeCancelProposal(chainId, proposal);
+        return;
+      }
+
+      throw new Error("Proposal is not in a cancellable state.");
+    } finally {
+      setActingProposalId(null);
+      setActingProposalAction(null);
     }
   }
 
@@ -1086,59 +1154,20 @@ export function DAODetailPage() {
           governanceLoading={governanceLoading}
           governanceOverview={governanceOverview}
           account={account}
-          footerAction={canPropose ? (
+          footerAction={canPropose || checkingEligibility ? (
             <ButtonSecondary
               fullWidth={false}
-              onClick={() => {
-                if (isMobile) {
-                  setShowProposalForm(true);
-                } else {
-                  setShowProposalForm((prev) => !prev);
-                }
-              }}
+              disabled={checkingEligibility}
+              onClick={() => setShowProposalForm(true)}
             >
-              {isMobile ? "Create Proposal" : showProposalForm ? "Hide Form" : "Create Proposal"}
+              {checkingEligibility ? "Checking…" : "Create Proposal"}
             </ButtonSecondary>
           ) : null}
         />
 
-        {shouldShowStatusCard ? (
-          <Card>
-            <CardContent>
-              <Stack gap="sm">
-                {proposalError ? <Text.Body color="warn">{proposalError}</Text.Body> : null}
-
-                {checkingEligibility ? (
-                  <Text.Body size="sm" color="muted">Checking proposal eligibility…</Text.Body>
-                ) : null}
-
-                {eligibilityMessage ? (
-                  <Text.Body color={canPropose ? "muted" : "warn"}>{eligibilityMessage}</Text.Body>
-                ) : null}
-
-                {!canPropose &&
-                Boolean(eligibilityMessage?.toLowerCase().includes("insufficient voting power")) &&
-                Boolean(governanceTokenAddress) ? (
-                  <Row gap="sm" wrap style={{ alignItems: "center" }}>
-                    <Text.Body size="sm" color="muted">
-                      Governance token: {shortAddress(governanceTokenAddress)}
-                    </Text.Body>
-                    <ButtonSecondary
-                      fullWidth={false}
-                      disabled={delegatingVotes || checkingEligibility}
-                      onClick={() => void handleDelegateVotes()}
-                    >
-                      {delegatingVotes ? "Delegating..." : "Delegate to Self"}
-                    </ButtonSecondary>
-                  </Row>
-                ) : null}
-              </Stack>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        <ActiveProposalPanel
-          proposals={activeProposals}
+        <ProposalsList
+          activeProposals={activeProposals}
+          historicalProposals={historicalProposals}
           loading={loadingProposals}
           blockExplorerBase={blockExplorerBase}
           votePowerByProposalId={votePowerByProposalId}
@@ -1148,16 +1177,12 @@ export function DAODetailPage() {
           onVote={handleVoteOnProposal}
           onQueue={handleQueueProposal}
           onExecute={handleExecuteProposal}
+          onCancel={handleCancelProposal}
+          canCancelPendingByProposalId={canCancelPendingByProposalId}
           actingProposalId={actingProposalId}
+          actingProposalAction={actingProposalAction}
           canExecuteTimelockActions={canExecuteTimelockActions}
-          formatAmount={(v) => formatWeiToTokenAmount(v, 18, 4)}
-        />
-
-        <HistoricalProposalsPanel
-          proposals={historicalProposals}
-          loading={loadingProposals}
-          blockExplorerBase={blockExplorerBase}
-          formatAmount={formatBalance}
+          canCancelTimelockActions={canCancelTimelockActions}
         />
 
         {canPropose && !isMobile ? (

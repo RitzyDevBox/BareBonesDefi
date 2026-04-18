@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "../BasicComponents";
 import { Row, Stack } from "../Primitives";
 import { Text } from "../Primitives/Text";
-import { shortAddress } from "../../utils/formatUtils";
+import { shortAddress, formatWeiToTokenAmount } from "../../utils/formatUtils";
 import { buildExplorerTxLink } from "../../utils/explorerLinks";
 import { ButtonSecondary } from "../Button/ButtonPrimary";
 import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
@@ -19,9 +19,25 @@ type Props = {
   onVote?: (proposalId: string, support: 0 | 1 | 2) => void;
   onQueue?: (proposal: DaoProposalSummary) => void;
   onExecute?: (proposal: DaoProposalSummary) => void;
+  onCancel?: (proposal: DaoProposalSummary) => void;
+  canCancelPendingByProposalId?: Record<string, boolean>;
   actingProposalId?: string | null;
+  actingProposalAction?: "queue" | "execute" | "cancel" | null;
   canExecuteTimelockActions?: boolean;
-  formatAmount?: (value: string) => string;
+  canCancelTimelockActions?: boolean;
+  title?: string;
+  loadingText?: string;
+  emptyText?: string;
+  stateBadgeMode?: "status" | "muted";
+  cardOpacity?: number;
+  showVotingPowerRow?: boolean;
+  showVoteActions?: boolean;
+  showPostVoteActions?: boolean;
+  showVoteTxLink?: boolean;
+  collapsibleCards?: boolean;
+  defaultCollapsed?: boolean;
+  showTitle?: boolean;
+  useContainerCard?: boolean;
 };
 
 export function ActiveProposalPanel({
@@ -35,11 +51,28 @@ export function ActiveProposalPanel({
   onVote,
   onQueue,
   onExecute,
+  onCancel,
+  canCancelPendingByProposalId = {},
   actingProposalId = null,
+  actingProposalAction = null,
   canExecuteTimelockActions = false,
-  formatAmount = (v) => v,
+  canCancelTimelockActions = false,
+  title = "Active Proposals",
+  loadingText = "Loading active proposals…",
+  emptyText = "No active proposals.",
+  stateBadgeMode = "status",
+  cardOpacity,
+  showVotingPowerRow = true,
+  showVoteActions = true,
+  showPostVoteActions = true,
+  showVoteTxLink = true,
+  collapsibleCards = true,
+  defaultCollapsed = false,
+  showTitle = true,
+  useContainerCard = true,
 }: Props) {
-  const [expandedProposalId, setExpandedProposalId] = useState<string | null>(null);
+  function fmt(v: string) { return formatWeiToTokenAmount(v, 18, 4); }
+  const [toggledCardIds, setToggledCardIds] = useState<Set<string>>(new Set());
   const screen = useMediaQuery();
   const isMobile = screen === ScreenSize.Phone;
   const [nowSeconds, setNowSeconds] = useState<number>(() => Math.floor(Date.now() / 1000));
@@ -66,25 +99,31 @@ export function ActiveProposalPanel({
     if (minutes > 0) return `${minutes}m ${secs}s`;
     return `${secs}s`;
   }
-  return (
-    <Card>
-      <CardContent>
-        <Stack gap="md">
-          <Text.Title align="left" size="sm">Active Proposals</Text.Title>
+  const panelContent = (
+    <Stack gap="md">
+      {showTitle ? <Text.Title align="left" size="sm">{title}</Text.Title> : null}
 
-          {loading ? (
-            <Text.Body color="muted">Loading active proposals…</Text.Body>
-          ) : proposals.length === 0 ? (
-            <Text.Body color="muted">No active proposals.</Text.Body>
-          ) : (
-            <Stack gap="md">
-              {proposals.map((proposal) => (
+      {loading ? (
+        <Text.Body color="muted">{loadingText}</Text.Body>
+      ) : proposals.length === 0 ? (
+        <Text.Body color="muted">{emptyText}</Text.Body>
+      ) : (
+        <Stack gap="md">
+          {proposals.map((proposal) => (
                 (() => {
+                  const isPending = proposal.state === 0;
                   const isVotingOpen = proposal.state === 1;
+                  const isDefeated = proposal.state === 3;
                   const isAwaitingQueue = proposal.state === 4;
                   const isAwaitingExecution = proposal.state === 5;
+                  const isExecuted = proposal.state === 7;
+                  const canCancelPending = canCancelPendingByProposalId[proposal.id] === true;
+                  const canCancelQueued = canCancelTimelockActions;
                   const showBadgeOnOwnRow = isMobile && (isAwaitingQueue || isAwaitingExecution);
                   const isActioning = actingProposalId === proposal.id;
+                  const isQueueing = isActioning && actingProposalAction === "queue";
+                  const isExecuting = isActioning && actingProposalAction === "execute";
+                  const isCancelling = isActioning && actingProposalAction === "cancel";
                   const etaSeconds = Number(proposal.executeReadyAt ?? "0");
                   const hasEta = Number.isFinite(etaSeconds) && etaSeconds > 0;
                   const isReadyByCountdown = !isAwaitingExecution
@@ -99,8 +138,17 @@ export function ActiveProposalPanel({
                         : `Ready to execute in ${formatDuration(etaSeconds - nowSeconds)}`
                       : proposal.executeReadyLabel
                     : undefined;
+                  const isCardExpanded = !collapsibleCards || (defaultCollapsed ? toggledCardIds.has(proposal.id) : !toggledCardIds.has(proposal.id));
 
                   const badgeStyle = (() => {
+                    if (stateBadgeMode === "muted") {
+                      return {
+                        backgroundColor: "var(--colors-muted, #999)",
+                        color: "white",
+                        opacity: 1,
+                      };
+                    }
+
                     if (isVotingOpen) {
                       return {
                         backgroundColor: "var(--colors-success)",
@@ -109,10 +157,34 @@ export function ActiveProposalPanel({
                       };
                     }
 
+                    if (isPending) {
+                      return {
+                        backgroundColor: "#3b82f6",
+                        color: "white",
+                        opacity: 0.95,
+                      };
+                    }
+
                     if (isAwaitingQueue || isAwaitingExecution) {
                       return {
                         backgroundColor: "var(--colors-warn)",
                         color: "#111827",
+                        opacity: 0.95,
+                      };
+                    }
+
+                    if (isDefeated) {
+                      return {
+                        backgroundColor: "var(--colors-error)",
+                        color: "white",
+                        opacity: 0.95,
+                      };
+                    }
+
+                    if (isExecuted) {
+                      return {
+                        backgroundColor: "var(--colors-success)",
+                        color: "white",
                         opacity: 0.95,
                       };
                     }
@@ -131,38 +203,82 @@ export function ActiveProposalPanel({
                     border: "1px solid var(--colors-border)",
                     borderRadius: "8px",
                     overflow: "hidden",
+                    opacity: cardOpacity,
                   }}
                 >
-                  <CardContent style={{ padding: "1.5rem" }}>
+                  <CardContent style={{ padding: "0.85rem 1.25rem" }}>
                     <Stack gap="md">
                       {/* Header with State Badge */}
-                      <Row gap="sm" style={{ alignItems: "flex-start", justifyContent: "space-between" }}>
-                        <Stack gap="xs" style={{ flex: 1 }}>
-                          <Text.Body size="lg" style={{ fontWeight: 600 }}>
-                            {proposal.description.split("\n")[0] || `Proposal`}
-                          </Text.Body>
-                          <Text.Body size="sm" color="muted">
-                            Proposed by {shortAddress(proposal.proposer)}
-                          </Text.Body>
-                          {buildExplorerTxLink(proposal.txHash, blockExplorerBase) ? (
-                            <a
-                              href={buildExplorerTxLink(proposal.txHash, blockExplorerBase)!}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{
-                                color: "var(--colors-primary)",
-                                fontSize: "0.8rem",
-                                textDecoration: "none",
-                                alignSelf: "flex-start",
-                              }}
-                            >
-                              View Proposal Tx
-                            </a>
-                          ) : null}
-                        </Stack>
-                        {!showBadgeOnOwnRow ? (
+                      <div
+                        role={collapsibleCards ? "button" : undefined}
+                        aria-expanded={collapsibleCards ? isCardExpanded : undefined}
+                        tabIndex={collapsibleCards ? 0 : undefined}
+                        onClick={collapsibleCards ? () => setToggledCardIds((prev) => { const next = new Set(prev); next.has(proposal.id) ? next.delete(proposal.id) : next.add(proposal.id); return next; }) : undefined}
+                        onKeyDown={collapsibleCards ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setToggledCardIds((prev) => { const next = new Set(prev); next.has(proposal.id) ? next.delete(proposal.id) : next.add(proposal.id); return next; });
+                          }
+                        } : undefined}
+                        style={{ cursor: collapsibleCards ? "pointer" : undefined }}
+                      >
+                        <Row gap="sm" style={{ alignItems: "flex-start", justifyContent: "space-between" }}>
+                          <Stack gap="xs" style={{ flex: 1 }}>
+                            <Row gap="xs" style={{ alignItems: "center", flexWrap: "wrap" }}>
+                              <Text.Body size="lg" style={{ fontWeight: 600 }}>
+                                {proposal.description.split("\n")[0] || `Proposal`}
+                              </Text.Body>
+                              {buildExplorerTxLink(proposal.txHash, blockExplorerBase) ? (
+                                <a
+                                  href={buildExplorerTxLink(proposal.txHash, blockExplorerBase)!}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(event) => event.stopPropagation()}
+                                  style={{
+                                    color: "var(--colors-primary)",
+                                    fontSize: "0.8rem",
+                                    textDecoration: "none",
+                                  }}
+                                >
+                                  (tx)
+                                </a>
+                              ) : null}
+                            </Row>
+                            <Text.Body size="sm" color="muted">
+                              Proposed by {shortAddress(proposal.proposer)}
+                            </Text.Body>
+                          </Stack>
+
+                          <Row gap="sm" style={{ alignItems: "center", flexShrink: 0, gap: "1rem" }}>
+                            {!showBadgeOnOwnRow ? (
+                              <div
+                                style={{
+                                  backgroundColor: badgeStyle.backgroundColor,
+                                  color: badgeStyle.color,
+                                  padding: "0.5rem 1rem",
+                                  borderRadius: "20px",
+                                  fontSize: "0.85rem",
+                                  fontWeight: 600,
+                                  whiteSpace: "nowrap",
+                                  opacity: badgeStyle.opacity,
+                                }}
+                              >
+                                {proposal.stateLabel}
+                              </div>
+                            ) : null}
+
+                            {collapsibleCards ? (
+                              <span style={{ fontSize: "1.4rem", lineHeight: 1, color: "var(--colors-text-muted, #999)", userSelect: "none" }}>
+                                {isCardExpanded ? "▾" : "▸"}
+                              </span>
+                            ) : null}
+                          </Row>
+                        </Row>
+
+                        {showBadgeOnOwnRow ? (
                           <div
                             style={{
+                              marginTop: "0.5rem",
                               backgroundColor: badgeStyle.backgroundColor,
                               color: badgeStyle.color,
                               padding: "0.5rem 1rem",
@@ -171,30 +287,17 @@ export function ActiveProposalPanel({
                               fontWeight: 600,
                               whiteSpace: "nowrap",
                               opacity: badgeStyle.opacity,
+                              alignSelf: "flex-start",
+                              display: "inline-flex",
                             }}
                           >
                             {proposal.stateLabel}
                           </div>
                         ) : null}
-                      </Row>
+                      </div>
 
-                      {showBadgeOnOwnRow ? (
-                        <div
-                          style={{
-                            backgroundColor: badgeStyle.backgroundColor,
-                            color: badgeStyle.color,
-                            padding: "0.5rem 1rem",
-                            borderRadius: "20px",
-                            fontSize: "0.85rem",
-                            fontWeight: 600,
-                            whiteSpace: "nowrap",
-                            opacity: badgeStyle.opacity,
-                            alignSelf: "flex-start",
-                          }}
-                        >
-                          {proposal.stateLabel}
-                        </div>
-                      ) : null}
+                      {!isCardExpanded ? null : (
+                        <>
 
                       {/* Voting Time */}
                       {proposal.timeLeftLabel ? (
@@ -218,32 +321,34 @@ export function ActiveProposalPanel({
                         <div style={{ textAlign: "center" }}>
                           <Text.Body size="sm" color="muted">For</Text.Body>
                           <Text.Body size="lg" style={{ fontWeight: 600, color: "var(--colors-success)", marginTop: "0.25rem" }}>
-                            {formatAmount(String(proposal.forVotes))}
+                            {fmt(String(proposal.forVotes))}
                           </Text.Body>
                         </div>
                         <div style={{ textAlign: "center" }}>
                           <Text.Body size="sm" color="muted">Against</Text.Body>
                           <Text.Body size="lg" style={{ fontWeight: 600, color: "var(--colors-error)", marginTop: "0.25rem" }}>
-                            {formatAmount(String(proposal.againstVotes))}
+                            {fmt(String(proposal.againstVotes))}
                           </Text.Body>
                         </div>
                         <div style={{ textAlign: "center" }}>
                           <Text.Body size="sm" color="muted">Abstain</Text.Body>
                           <Text.Body size="lg" style={{ fontWeight: 600, color: "var(--colors-warn)", marginTop: "0.25rem" }}>
-                            {formatAmount(String(proposal.abstainVotes))}
+                            {fmt(String(proposal.abstainVotes))}
                           </Text.Body>
                         </div>
                       </div>
 
                       {/* Voting Power and Status */}
-                      <Row gap="sm" style={{ alignItems: "center", justifyContent: "space-between" }}>
-                        <Text.Body size="sm">
-                          Your power: <span style={{ fontWeight: 600 }}>{formatAmount(votePowerByProposalId[proposal.id] ?? "0")}</span>
-                          {hasVotedByProposalId[proposal.id] ? (
-                            <span style={{ marginLeft: "0.5rem", color: "var(--colors-success, #4caf50)" }}>✓ Voted</span>
-                          ) : null}
-                        </Text.Body>
-                      </Row>
+                      {showVotingPowerRow ? (
+                        <Row gap="sm" style={{ alignItems: "center", justifyContent: "space-between" }}>
+                          <Text.Body size="sm">
+                            Your power: <span style={{ fontWeight: 600 }}>{fmt(votePowerByProposalId[proposal.id] ?? "0")}</span>
+                            {hasVotedByProposalId[proposal.id] ? (
+                              <span style={{ marginLeft: "0.5rem", color: "var(--colors-success, #4caf50)" }}>✓ Voted</span>
+                            ) : null}
+                          </Text.Body>
+                        </Row>
+                      ) : null}
 
                       {/* Proposed Actions / Raw Data toggle */}
                       {(proposal.decodedCalls?.length || proposal.targets?.length) ? (
@@ -255,17 +360,20 @@ export function ActiveProposalPanel({
                             <ButtonSecondary
                               fullWidth={false}
                               onClick={() =>
-                                setExpandedProposalId(
-                                  expandedProposalId === proposal.id ? null : proposal.id
-                                )
+                                setToggledCardIds((prev) => {
+                                  const key = `raw-${proposal.id}`;
+                                  const next = new Set(prev);
+                                  next.has(key) ? next.delete(key) : next.add(key);
+                                  return next;
+                                })
                               }
                               style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
                             >
-                              {expandedProposalId === proposal.id ? "Show Decoded" : "Show Raw"}
+                              {toggledCardIds.has(`raw-${proposal.id}`) ? "Show Decoded" : "Show Raw"}
                             </ButtonSecondary>
                           </Row>
 
-                          {expandedProposalId !== proposal.id ? (
+                          {!toggledCardIds.has(`raw-${proposal.id}`) ? (
                             proposal.decodedCalls?.map((line, index) => (
                               <Text.Body
                                 key={`${proposal.id}-call-${index}`}
@@ -336,7 +444,7 @@ export function ActiveProposalPanel({
                       ) : null}
 
                       {/* Vote Buttons */}
-                      {onVote && isVotingOpen ? (
+                      {showVoteActions && onVote && isVotingOpen ? (
                         <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
                           <ButtonSecondary
                             fullWidth={false}
@@ -428,8 +536,19 @@ export function ActiveProposalPanel({
                         </div>
                       ) : null}
 
-                      {(isAwaitingQueue || isAwaitingExecution) ? (
+                      {showPostVoteActions && (isPending || isAwaitingQueue || isAwaitingExecution) ? (
                         <Stack gap="xs" style={{ marginTop: "0.5rem" }}>
+                          {isPending && onCancel && canCancelPending ? (
+                            <ButtonSecondary
+                              fullWidth={false}
+                              disabled={isActioning}
+                              onClick={() => onCancel(proposal)}
+                              style={{ fontWeight: 700 }}
+                            >
+                              {isCancelling ? "Aborting..." : "Abort Proposal"}
+                            </ButtonSecondary>
+                          ) : null}
+
                           {isAwaitingQueue && onQueue ? (
                             <ButtonSecondary
                               fullWidth={false}
@@ -437,19 +556,52 @@ export function ActiveProposalPanel({
                               onClick={() => onQueue(proposal)}
                               style={{ fontWeight: 700 }}
                             >
-                              {isActioning ? "Queueing..." : "Queue Proposal"}
+                              {isQueueing ? "Queueing..." : "Queue Proposal"}
                             </ButtonSecondary>
                           ) : null}
 
-                          {isAwaitingExecution && onExecute ? (
-                            <ButtonSecondary
-                              fullWidth={false}
-                              disabled={isActioning || !canExecuteTimelockActions || !isReadyByCountdown}
-                              onClick={() => onExecute(proposal)}
-                              style={{ fontWeight: 700 }}
-                            >
-                              {isActioning ? "Executing..." : "Execute Proposal"}
-                            </ButtonSecondary>
+                          {isAwaitingExecution && ((onExecute != null) || (onCancel && canCancelQueued)) ? (
+                            <Row gap="xs" style={{ alignItems: "center", flexWrap: "nowrap" }}>
+                              {onCancel && canCancelQueued ? (
+                                <ButtonSecondary
+                                  fullWidth={false}
+                                  disabled={isActioning}
+                                  onClick={() => onCancel(proposal)}
+                                  style={{
+                                    flex: 1,
+                                    minWidth: 0,
+                                    padding: "0.5rem 0.35rem",
+                                    fontSize: "clamp(0.7rem, 2vw, 0.9rem)",
+                                    fontWeight: 700,
+                                    backgroundColor: "var(--colors-error)",
+                                    color: "#ffffff",
+                                    border: "1px solid var(--colors-error)",
+                                  }}
+                                >
+                                  {isCancelling ? "Vetoing..." : "Veto"}
+                                </ButtonSecondary>
+                              ) : null}
+
+                              {onExecute ? (
+                                <ButtonSecondary
+                                  fullWidth={false}
+                                  disabled={isActioning || !canExecuteTimelockActions || !isReadyByCountdown}
+                                  onClick={() => onExecute(proposal)}
+                                  style={{
+                                    flex: 1,
+                                    minWidth: 0,
+                                    padding: "0.5rem 0.35rem",
+                                    fontSize: "clamp(0.7rem, 2vw, 0.9rem)",
+                                    fontWeight: 700,
+                                    backgroundColor: "var(--colors-success)",
+                                    color: "#ffffff",
+                                    border: "1px solid var(--colors-success)",
+                                  }}
+                                >
+                                  {isExecuting ? "Executing..." : "Execute"}
+                                </ButtonSecondary>
+                              ) : null}
+                            </Row>
                           ) : null}
 
                           {isAwaitingExecution && countdownLabel ? (
@@ -463,11 +615,17 @@ export function ActiveProposalPanel({
                               Your connected wallet is not an executor for this timelock.
                             </Text.Body>
                           ) : null}
+
+                          {isAwaitingExecution && onCancel && !canCancelQueued ? (
+                            <Text.Body size="xs" color="warn">
+                              Your connected wallet is not a vetoer for this timelock.
+                            </Text.Body>
+                          ) : null}
                         </Stack>
                       ) : null}
 
                       {/* Vote TX Link */}
-                      {voteTxHashByProposalId[proposal.id] && buildExplorerTxLink(voteTxHashByProposalId[proposal.id], blockExplorerBase) ? (
+                      {showVoteTxLink && voteTxHashByProposalId[proposal.id] && buildExplorerTxLink(voteTxHashByProposalId[proposal.id], blockExplorerBase) ? (
                         <Text.Body size="xs" color="muted">
                           Your vote:{" "}
                           <a
@@ -484,16 +642,29 @@ export function ActiveProposalPanel({
                         </Text.Body>
                       ) : null}
 
+                        </>
+                      )}
+
 
                     </Stack>
                   </CardContent>
                 </Card>
                   );
                 })()
-              ))}
-            </Stack>
-          )}
+          ))}
         </Stack>
+      )}
+    </Stack>
+  );
+
+  if (!useContainerCard) {
+    return panelContent;
+  }
+
+  return (
+    <Card>
+      <CardContent>
+        {panelContent}
       </CardContent>
     </Card>
   );

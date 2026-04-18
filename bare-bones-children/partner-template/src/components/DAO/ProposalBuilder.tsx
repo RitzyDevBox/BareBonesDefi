@@ -840,15 +840,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
   }
 
   return (
-    <Card>
-      <CardContent>
-        <Stack gap="md">
-          <Text.Title align="left" size="sm">
-            Create Proposal
-          </Text.Title>
-          <Text.Body size="sm" color="muted">
-            Stage one or more calls, preview them, then submit one proposal containing all staged calls.
-          </Text.Body>
+    <Stack gap="md">
 
           <FormField label="Contract Group" style={{ marginBottom: 0 }}>
             <select
@@ -1413,8 +1405,6 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
               setConfigAddressBookOpen(null);
             }}
           />
-        </Stack>
-      </CardContent>
-    </Card>
+    </Stack>
   );
 }

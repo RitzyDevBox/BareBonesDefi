@@ -42,6 +42,8 @@ export type DaoGovernanceOverview = {
   minDelay: string;
   connectedIsExecutor: boolean;
   openExecutor: boolean;
+  connectedIsCanceller?: boolean;
+  openCanceller?: boolean;
   executorRoleMembers?: string[];
 };
 
