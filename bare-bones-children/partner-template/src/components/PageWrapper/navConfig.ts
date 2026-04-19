@@ -46,6 +46,6 @@ export const NAV_ITEMS: NavItem[] = [
     path: ROUTES.VAULTS
   }
 ].filter((item) => {
-  if (item.id === ORGANIZATION_ID) return FEATURE_FLAGS.showOrganizationsInMainNav;
+  if (item.id === ORGANIZATION_ID) return FEATURE_FLAGS.organizations;
   return true;
 });

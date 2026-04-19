@@ -11,7 +11,7 @@
 
     if (match) {
       const route = match[1] || "/";
-      iframe.src = `http://localhost:5173${route}`;
+      iframe.src = `http://localhost:5173/#${route}`;
     }
     // else do nothing → keep whatever iframe.src already is
   }

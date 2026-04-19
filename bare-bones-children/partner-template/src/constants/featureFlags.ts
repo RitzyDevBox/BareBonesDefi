@@ -1,4 +1,3 @@
 export const FEATURE_FLAGS = {
-  showOrganizationsInMainNav: false,
-  enableOrganizationsRoutes: false,
+  organizations: false,
 } as const;

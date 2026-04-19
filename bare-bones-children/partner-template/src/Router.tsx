@@ -22,7 +22,7 @@ const devOnlyRoutes = import.meta.env.DEV
   ? [{ path: "test-page", element: <TestPage /> }]
   : [];
 
-const organizationRoutes = FEATURE_FLAGS.enableOrganizationsRoutes
+const organizationRoutes = FEATURE_FLAGS.organizations
   ? [
       { path: `${ROUTES.ORGANIZATIONS}`, element: <OrganizationPage/> },
       { path: `${ROUTES.ORGANIZATIONS}/:organizationId`, element: <OrganizationDetailPage /> },

@@ -17,10 +17,11 @@ import { useToastActionLifecycle } from "./UniversalWalletModal/hooks/useToastAc
 import { Select, SelectOption } from "./Select";
 import { ORGANIZATION_PAGE_METADATA } from "../pages/OrganizationPage";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
+import { FEATURE_FLAGS } from "../constants/featureFlags";
 
 export function DeployDiamondWidget({
   onDeployed,
-  showOrganizationSelector = true,
+  showOrganizationSelector,
 }: {
   onDeployed?: (address: string, index: number) => void;
   showOrganizationSelector?: boolean;
@@ -33,6 +34,8 @@ export function DeployDiamondWidget({
   const [isDeploying, setIsDeploying] = useState(false);
   const lifecycle = useToastActionLifecycle();
   const { triggerRefresh } = useTxRefresh();
+  const shouldShowOrganizationSelector =
+    showOrganizationSelector ?? FEATURE_FLAGS.organizations;
   
   const organizations = useMemo(() => {
     const map = new Map<string, { name: string; organizationId: string }>();
@@ -92,7 +95,7 @@ export function DeployDiamondWidget({
   return (
     <Stack gap="md">
       {/* Organization selector */}
-      {showOrganizationSelector && <Surface>
+      {shouldShowOrganizationSelector && <Surface>
         <Stack gap="xs">
           <Text.Label>Organization (optional)</Text.Label>
 
