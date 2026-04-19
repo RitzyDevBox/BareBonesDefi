@@ -80,7 +80,8 @@ export function OrganizationPicker({
     await onCreateOrganization(slug);
     setIsCreateOpen(false);
     setCreateName("");
-    onChange(slug);
+    typedSinceLastFetchRef.current = false;
+    setIsOpen(false);
   }
 
   const createContent = (

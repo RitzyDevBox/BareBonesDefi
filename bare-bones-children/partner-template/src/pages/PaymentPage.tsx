@@ -219,8 +219,10 @@ export function PaymentPage() {
     try {
       await Promise.resolve(registerOrg(chainId, targetSlug));
       await reloadOwnedOrganizations();
+      setLoading(true);
       setSlug(targetSlug);
       setFetchedSlug(targetSlug);
+      navigate(ROUTES.PAYMENTS_ORG(targetSlug), { replace: true });
     } finally {
       setIsRegisteringOrg(false);
     }
@@ -290,7 +292,7 @@ export function PaymentPage() {
           </CardContent>
         </Card>
 
-        {!!slug.trim() && orgInfo?.exists !== false && (
+        {!!slug.trim() && (loading || orgInfo?.exists === true) && (
           <Card style={{ width: "100%" }}>
             <CardContent>
               <PayeesTable
