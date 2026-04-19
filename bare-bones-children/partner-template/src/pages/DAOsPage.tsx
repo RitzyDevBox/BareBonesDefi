@@ -503,7 +503,7 @@ export function DAOsPage() {
         <Stack gap="lg">
           <Card>
             <CardContent>
-              <Stack gap="sm">
+              <Stack gap="md">
                 <Text.Title align="left">DAOs</Text.Title>
                 <Text.Body color="muted">
                   Organization name is the DAO source of truth. Select or create an organization, then deploy a DAO for it.
@@ -529,37 +529,33 @@ export function DAOsPage() {
                     />
                   ) : null}
                 </Row>
-              </Stack>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardContent>
-              <Stack gap="md">
-                <Text.Title align="left" size="sm">Organization</Text.Title>
-                <OrganizationPicker
-                  value={selectedOrganization}
-                  onChange={(next) => {
-                    setSelectedOrganization(next);
-                    setOrganizationFetchError(null);
-                  }}
-                  organizations={ownedOrganizations}
-                  loadingOrganizations={loadingOwnedOrganizations}
-                  loadingFetch={orgInfoLoading}
-                  onFetch={handleFetchOrganization}
-                  onCreateOrganization={handleCreateOrganization}
-                  isCreating={isRegisteringOrg}
-                />
+                <Stack gap="sm">
+                  <Text.Title align="left" size="sm">Organization</Text.Title>
+                  <OrganizationPicker
+                    value={selectedOrganization}
+                    onChange={(next) => {
+                      setSelectedOrganization(next);
+                      setOrganizationFetchError(null);
+                    }}
+                    organizations={ownedOrganizations}
+                    loadingOrganizations={loadingOwnedOrganizations}
+                    loadingFetch={orgInfoLoading}
+                    onFetch={handleFetchOrganization}
+                    onCreateOrganization={handleCreateOrganization}
+                    isCreating={isRegisteringOrg}
+                  />
 
-                {organizationFetchError ? (
-                  <Text.Body color="warn">{organizationFetchError}</Text.Body>
-                ) : null}
+                  {organizationFetchError ? (
+                    <Text.Body color="warn">{organizationFetchError}</Text.Body>
+                  ) : null}
 
-                {!!selectedOrganization.trim() && organizationExists === false ? (
-                  <Text.Body color="warn">
-                    Organization "{selectedOrganization.trim()}" does not exist.
-                  </Text.Body>
-                ) : null}
+                  {!!selectedOrganization.trim() && organizationExists === false ? (
+                    <Text.Body color="warn">
+                      Organization "{selectedOrganization.trim()}" does not exist.
+                    </Text.Body>
+                  ) : null}
+                </Stack>
               </Stack>
             </CardContent>
           </Card>
