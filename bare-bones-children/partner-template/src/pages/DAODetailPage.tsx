@@ -25,6 +25,12 @@ import { ROUTES } from "../routes";
 import { shortAddress, formatWeiToTokenAmount } from "../utils/formatUtils";
 import { fetchDaoGovernorByAddress, fetchDaoProposalsByGovernor, fetchDaoVotesByGovernor } from "../utils/graph/daoGraphService";
 
+type DAODetailPageProps = {
+  daoAddressOverride?: string;
+  embedded?: boolean;
+  showBackButton?: boolean;
+};
+
 const PROPOSAL_STATE_LABELS: Record<number, string> = {
   0: "Pending",
   1: "Active",
@@ -207,8 +213,9 @@ function summarizeProposalCalls(args: {
   return summaries;
 }
 
-export function DAODetailPage() {
-  const { daoAddress = "" } = useParams<{ daoAddress?: string }>();
+export function DAODetailPage({ daoAddressOverride, embedded = false, showBackButton = true }: DAODetailPageProps = {}) {
+  const { daoAddress: daoAddressFromRoute = "" } = useParams<{ daoAddress?: string }>();
+  const daoAddress = daoAddressOverride ?? daoAddressFromRoute;
   const { provider, chainId, account } = useWalletProvider();
   const { version } = useTxRefresh();
   const screen = useMediaQuery();
@@ -1123,31 +1130,32 @@ export function DAODetailPage() {
   }
 
   if (!governorAddress) {
-    return (
-      <PageContainer center maxWidth={1320}>
-        <Card style={{ width: "100%" }}>
-          <CardContent>
-            <Stack gap="md">
-              <Text.Title align="left">DAO Details</Text.Title>
-              <Text.Body color="warn">Invalid DAO address.</Text.Body>
-              <Link to={ROUTES.DAOS} style={{ color: "var(--colors-primary)" }}>
-                Back to DAOs
-              </Link>
-            </Stack>
-          </CardContent>
-        </Card>
-      </PageContainer>
+    const invalidContent = (
+      <Card style={{ width: "100%" }}>
+        <CardContent>
+          <Stack gap="md">
+            <Text.Title align="left">DAO Details</Text.Title>
+            <Text.Body color="warn">Invalid DAO address.</Text.Body>
+            <Link to={ROUTES.DAOS} style={{ color: "var(--colors-primary)" }}>
+              Back to DAOs
+            </Link>
+          </Stack>
+        </CardContent>
+      </Card>
     );
+
+    if (embedded) return invalidContent;
+
+    return <PageContainer center maxWidth={1320}>{invalidContent}</PageContainer>;
   }
 
-  return (
-    <PageContainer center maxWidth={1320}>
-      <Stack gap="lg" style={{ width: "100%" }}>
+  const content = (
+    <Stack gap="lg" style={{ width: "100%" }}>
         <DAOInfoHeader
           daoName={effectiveDaoName}
           governorAddress={governorAddress}
           backPath={ROUTES.DAOS}
-          chainLabel={chainInfo?.chainName ?? `Chain ${chainId ?? "?"}`}
+          showBackButton={showBackButton}
           activeCount={activeProposals.length}
           historicalCount={historicalProposals.length}
           blockExplorerBase={blockExplorerBase}
@@ -1218,7 +1226,14 @@ export function DAODetailPage() {
             </Stack>
           </Sheet>
         ) : null}
-      </Stack>
+    </Stack>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <PageContainer center maxWidth={1320}>
+      {content}
     </PageContainer>
   );
 }

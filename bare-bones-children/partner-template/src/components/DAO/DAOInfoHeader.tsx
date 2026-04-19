@@ -51,7 +51,7 @@ type Props = {
   daoName: string;
   governorAddress: string;
   backPath: string;
-  chainLabel: string;
+  showBackButton?: boolean;
   activeCount: number;
   historicalCount: number;
   blockExplorerBase?: string;
@@ -65,7 +65,7 @@ export function DAOInfoHeader({
   daoName,
   governorAddress,
   backPath,
-  chainLabel,
+  showBackButton = true,
   activeCount,
   historicalCount,
   blockExplorerBase,
@@ -102,21 +102,22 @@ export function DAOInfoHeader({
               </Row>
             </Stack>
             <Row gap="sm" wrap style={{ alignItems: "center", justifyContent: "flex-end" }}>
-              <IconButton
-                size="xl"
-                iconFontSize="xl"
-                shape="square"
-                onClick={() => navigate(backPath)}
-                title="Previous"
-                aria-label="Previous"
-              >
-                <ArrowLeft />
-              </IconButton>
+              {showBackButton ? (
+                <IconButton
+                  size="xl"
+                  iconFontSize="xl"
+                  shape="square"
+                  onClick={() => navigate(backPath)}
+                  title="Previous"
+                  aria-label="Previous"
+                >
+                  <ArrowLeft />
+                </IconButton>
+              ) : null}
             </Row>
           </Row>
 
           <Row gap="sm" wrap>
-            <Text.Body size="sm" color="muted">Network: {chainLabel}</Text.Body>
             <Text.Body size="sm" color="muted">Active: {activeCount}</Text.Body>
             <Text.Body size="sm" color="muted">Historical: {historicalCount}</Text.Body>
           </Row>

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { Link } from "react-router-dom";
 import { Card, CardContent, Input } from "../components/BasicComponents";
 import { CopyButton } from "../components/Button/Actions/CopyButton";
 import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
@@ -14,15 +13,14 @@ import { Text } from "../components/Primitives/Text";
 import NamespacedCreate3FactoryABI from "../abis/diamond/NamespacedCreate3Factory.abi.json";
 import DAOFactoryABI from "../abis/dao/DAOFactory.abi.json";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
-import { CHAIN_INFO_MAP, getBareBonesConfiguration } from "../constants/misc";
+import { getBareBonesConfiguration } from "../constants/misc";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { fetchOrganizationInfo, useOwnedOrganizations } from "../hooks/payroll/useOrganizationRegistry";
-import { ROUTES } from "../routes";
 import { shortAddress } from "../utils/formatUtils";
 import { fetchDaoGovernorsByNames } from "../utils/graph/daoGraphService";
-import { buildExplorerAddressLink, buildExplorerTxLink } from "../utils/explorerLinks";
+import { DAODetailPage } from "./DAODetailPage";
 
 const DAO_FACTORY_INTERFACE = new ethers.utils.Interface(DAOFactoryABI as any);
 const MOCK_GOVERNANCE_TOKEN = "0xe4368424E6728F8D53Ed524eE540FA8f0595dF43";
@@ -191,8 +189,6 @@ export function DAOsPage() {
 
   const payrollManagerAddress = config?.payrollManagerAddress;
   const daoFactoryAddress = config?.daoFactoryAddress ?? "";
-  const chainInfo = chainId != null ? CHAIN_INFO_MAP[chainId] : undefined;
-  const blockExplorerBase = chainInfo?.blockExplorerUrls?.[0];
   const formColumns = screen === ScreenSize.Desktop ? 2 : 1;
 
   const {
@@ -499,6 +495,7 @@ export function DAOsPage() {
     Boolean(existingDeployment);
 
   const deploymentToShow = existingDeployment ?? lastDeployment;
+  const deployedGovernorAddress = (deploymentToShow?.governor ?? "").trim();
 
   return (
     <PageContainer center maxWidth={1320}>
@@ -524,11 +521,6 @@ export function DAOsPage() {
                       copyValue={templateProvider}
                     />
                   ) : null}
-                  <InfoChip
-                    label="Network"
-                    displayValue={chainInfo?.chainName ?? `Chain ${chainId ?? "?"}`}
-                    copyValue={chainInfo?.chainName ?? `Chain ${chainId ?? "?"}`}
-                  />
                   {daoFactoryOperatorApproved != null ? (
                     <InfoChip
                       label="Factory Operator"
@@ -572,188 +564,139 @@ export function DAOsPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent>
-              <Stack gap="md">
-                <Text.Title align="left" size="sm">Deploy DAO</Text.Title>
-
-                {!account ? (
-                  <Text.Body color="warn">Connect your wallet to deploy a DAO.</Text.Body>
-                ) : null}
-
-                {!daoFactoryAddress ? (
-                  <Text.Body color="warn">DAO factory is not configured for the current chain.</Text.Body>
-                ) : null}
-
-                {existingDeployment ? (
-                  <Text.Body color="success">
-                    A DAO is already deployed for this organization.
-                  </Text.Body>
-                ) : null}
-
-                {daoFactoryOperatorApproved === false ? (
-                  <Row gap="sm" wrap style={{ alignItems: "center" }}>
-                    <Text.Body color="warn">
-                      One-time setup required: authorize DAOFactory as your namespaced deploy operator.
-                    </Text.Body>
-                    <ButtonSecondary
-                      fullWidth={false}
-                      disabled={isAuthorizingOperator || isSubmitting || !account}
-                      onClick={() => void handleAuthorizeOperator()}
-                    >
-                      {isAuthorizingOperator ? "Authorizing..." : "Authorize DAOFactory"}
-                    </ButtonSecondary>
-                  </Row>
-                ) : null}
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: `repeat(${formColumns}, minmax(0, 1fr))`,
-                    gap: "var(--spacing-md)",
-                  }}
-                >
-                  <FormField label="DAO Name" style={{ marginBottom: 0 }}>
-                    <Input value={selectedOrganization} disabled placeholder="Organization slug" />
-                  </FormField>
-
-                  <FormField label="Governance Token" style={{ marginBottom: 0 }}>
-                    <AddressInput
-                      value={form.token}
-                      onChange={(event) => updateField("token", (event.target as HTMLInputElement).value)}
-                    />
-                  </FormField>
-
-                  <FormField label="Timelock Delay (seconds)" style={{ marginBottom: 0 }}>
-                    <NumberInput
-                      value={form.timelockDelay}
-                      allowDecimal={false}
-                      min={0}
-                      onChange={(event) => updateField("timelockDelay", event.target.value)}
-                    />
-                  </FormField>
-
-                  <FormField label="Voting Delay (blocks)" style={{ marginBottom: 0 }}>
-                    <NumberInput
-                      value={form.votingDelay}
-                      allowDecimal={false}
-                      min={0}
-                      onChange={(event) => updateField("votingDelay", event.target.value)}
-                    />
-                  </FormField>
-
-                  <FormField label="Voting Period (blocks)" style={{ marginBottom: 0 }}>
-                    <NumberInput
-                      value={form.votingPeriod}
-                      allowDecimal={false}
-                      min={0}
-                      onChange={(event) => updateField("votingPeriod", event.target.value)}
-                    />
-                  </FormField>
-
-                  <FormField label="Quorum Numerator" style={{ marginBottom: 0 }}>
-                    <NumberInput
-                      value={form.quorumNumerator}
-                      allowDecimal={false}
-                      min={0}
-                      max={100}
-                      onChange={(event) => updateField("quorumNumerator", event.target.value)}
-                    />
-                  </FormField>
-                </div>
-
-                <FormField label="Proposal Threshold (raw token units)" style={{ marginBottom: 0 }}>
-                  <NumberInput
-                    value={form.proposalThreshold}
-                    allowDecimal={false}
-                    min={0}
-                    onChange={(event) => updateField("proposalThreshold", event.target.value)}
-                  />
-                </FormField>
-
-                <FormField label="Canceller Addresses (comma-separated)" style={{ marginBottom: 0 }}>
-                  <Input
-                    value={form.cancellersCsv}
-                    onChange={(event) => updateField("cancellersCsv", event.target.value)}
-                    placeholder="0x123..., 0x456..."
-                  />
-                </FormField>
-
-                {formError ? <Text.Body color="warn">{formError}</Text.Body> : null}
-
-                <Row gap="sm" wrap>
-                  <ButtonPrimary fullWidth={false} disabled={deployDisabled} onClick={() => void handleDeployDao()}>
-                    {existingDeployment
-                      ? "DAO Already Deployed"
-                      : isSubmitting
-                      ? "Deploying..."
-                      : "Deploy DAO"}
-                  </ButtonPrimary>
-                  <ButtonSecondary
-                    fullWidth={false}
-                    disabled={isSubmitting}
-                    onClick={() => {
-                      setForm((current) => ({
-                        ...DEFAULT_FORM_STATE,
-                        token: current.token,
-                        cancellersCsv: current.cancellersCsv,
-                      }));
-                      setFormError(null);
-                    }}
-                  >
-                    Reset
-                  </ButtonSecondary>
-                </Row>
-              </Stack>
-            </CardContent>
-          </Card>
-
-          {deploymentToShow ? (
+          {deployedGovernorAddress ? (
+            <DAODetailPage
+              daoAddressOverride={deployedGovernorAddress}
+              embedded
+              showBackButton={false}
+            />
+          ) : (
             <Card>
               <CardContent>
-                <Stack gap="sm">
-                  <Text.Title align="left" size="sm">
-                    {existingDeployment ? "Deployed DAO" : "Latest Deployment"}
-                  </Text.Title>
-                  <Text.Body size="sm">DAO: {deploymentToShow.name}</Text.Body>
-                  <Text.Body size="sm">Governor: {shortAddress(deploymentToShow.governor)}</Text.Body>
-                  {deploymentToShow.timelock ? (
-                    <Text.Body size="sm">Timelock: {shortAddress(deploymentToShow.timelock)}</Text.Body>
+                <Stack gap="md">
+                  <Text.Title align="left" size="sm">Deploy DAO</Text.Title>
+
+                  {!account ? (
+                    <Text.Body color="warn">Connect your wallet to deploy a DAO.</Text.Body>
                   ) : null}
-                  {deploymentToShow.token ? (
-                    <Text.Body size="sm">Token: {shortAddress(deploymentToShow.token)}</Text.Body>
+
+                  {!daoFactoryAddress ? (
+                    <Text.Body color="warn">DAO factory is not configured for the current chain.</Text.Body>
                   ) : null}
-                  <Text.Body size="sm">Tx: {shortAddress(deploymentToShow.txHash, 6)}</Text.Body>
+
+                  {daoFactoryOperatorApproved === false ? (
+                    <Row gap="sm" wrap style={{ alignItems: "center" }}>
+                      <Text.Body color="warn">
+                        One-time setup required: authorize DAOFactory as your namespaced deploy operator.
+                      </Text.Body>
+                      <ButtonSecondary
+                        fullWidth={false}
+                        disabled={isAuthorizingOperator || isSubmitting || !account}
+                        onClick={() => void handleAuthorizeOperator()}
+                      >
+                        {isAuthorizingOperator ? "Authorizing..." : "Authorize DAOFactory"}
+                      </ButtonSecondary>
+                    </Row>
+                  ) : null}
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: `repeat(${formColumns}, minmax(0, 1fr))`,
+                      gap: "var(--spacing-md)",
+                    }}
+                  >
+                    <FormField label="DAO Name" style={{ marginBottom: 0 }}>
+                      <Input value={selectedOrganization} disabled placeholder="Organization slug" />
+                    </FormField>
+
+                    <FormField label="Governance Token" style={{ marginBottom: 0 }}>
+                      <AddressInput
+                        value={form.token}
+                        onChange={(event) => updateField("token", (event.target as HTMLInputElement).value)}
+                      />
+                    </FormField>
+
+                    <FormField label="Timelock Delay (seconds)" style={{ marginBottom: 0 }}>
+                      <NumberInput
+                        value={form.timelockDelay}
+                        allowDecimal={false}
+                        min={0}
+                        onChange={(event) => updateField("timelockDelay", event.target.value)}
+                      />
+                    </FormField>
+
+                    <FormField label="Voting Delay (blocks)" style={{ marginBottom: 0 }}>
+                      <NumberInput
+                        value={form.votingDelay}
+                        allowDecimal={false}
+                        min={0}
+                        onChange={(event) => updateField("votingDelay", event.target.value)}
+                      />
+                    </FormField>
+
+                    <FormField label="Voting Period (blocks)" style={{ marginBottom: 0 }}>
+                      <NumberInput
+                        value={form.votingPeriod}
+                        allowDecimal={false}
+                        min={0}
+                        onChange={(event) => updateField("votingPeriod", event.target.value)}
+                      />
+                    </FormField>
+
+                    <FormField label="Quorum Numerator" style={{ marginBottom: 0 }}>
+                      <NumberInput
+                        value={form.quorumNumerator}
+                        allowDecimal={false}
+                        min={0}
+                        max={100}
+                        onChange={(event) => updateField("quorumNumerator", event.target.value)}
+                      />
+                    </FormField>
+                  </div>
+
+                  <FormField label="Proposal Threshold (raw token units)" style={{ marginBottom: 0 }}>
+                    <NumberInput
+                      value={form.proposalThreshold}
+                      allowDecimal={false}
+                      min={0}
+                      onChange={(event) => updateField("proposalThreshold", event.target.value)}
+                    />
+                  </FormField>
+
+                  <FormField label="Canceller Addresses (comma-separated)" style={{ marginBottom: 0 }}>
+                    <Input
+                      value={form.cancellersCsv}
+                      onChange={(event) => updateField("cancellersCsv", event.target.value)}
+                      placeholder="0x123..., 0x456..."
+                    />
+                  </FormField>
+
+                  {formError ? <Text.Body color="warn">{formError}</Text.Body> : null}
 
                   <Row gap="sm" wrap>
-                    <Link to={ROUTES.DAO_DETAIL(deploymentToShow.governor)} style={{ color: "var(--colors-primary)" }}>
-                      View DAO
-                    </Link>
-                    {buildExplorerTxLink(deploymentToShow.txHash, blockExplorerBase) ? (
-                      <a href={buildExplorerTxLink(deploymentToShow.txHash, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
-                        Transaction
-                      </a>
-                    ) : null}
-                    {buildExplorerAddressLink(deploymentToShow.governor, blockExplorerBase) ? (
-                      <a href={buildExplorerAddressLink(deploymentToShow.governor, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
-                        Governor
-                      </a>
-                    ) : null}
-                    {deploymentToShow.timelock && buildExplorerAddressLink(deploymentToShow.timelock, blockExplorerBase) ? (
-                      <a href={buildExplorerAddressLink(deploymentToShow.timelock, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
-                        Timelock
-                      </a>
-                    ) : null}
-                    {deploymentToShow.token && buildExplorerAddressLink(deploymentToShow.token, blockExplorerBase) ? (
-                      <a href={buildExplorerAddressLink(deploymentToShow.token, blockExplorerBase)!} target="_blank" rel="noreferrer" style={{ color: "var(--colors-primary)" }}>
-                        Token
-                      </a>
-                    ) : null}
+                    <ButtonPrimary fullWidth={false} disabled={deployDisabled} onClick={() => void handleDeployDao()}>
+                      {isSubmitting ? "Deploying..." : "Deploy DAO"}
+                    </ButtonPrimary>
+                    <ButtonSecondary
+                      fullWidth={false}
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        setForm((current) => ({
+                          ...DEFAULT_FORM_STATE,
+                          token: current.token,
+                          cancellersCsv: current.cancellersCsv,
+                        }));
+                        setFormError(null);
+                      }}
+                    >
+                      Reset
+                    </ButtonSecondary>
                   </Row>
                 </Stack>
               </CardContent>
             </Card>
-          ) : null}
+          )}
         </Stack>
       </div>
     </PageContainer>
