@@ -9,24 +9,76 @@ export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const NATIVE_ADDRESS = ZERO_ADDRESS
 export const APP_NAME = import.meta.env.VITE_APP_NAME
 export const WALLECT_CONNECT_WALLET_NAME = APP_NAME
-export const DEFAULT_CHAIN_ID = 137;
-export const TEMPLATE_PROVIDER_OWNER_ADDRESS = '0xfDeDE21f16138e407649eA37Ff166ff910E4a988';
-export const TEMPLATE_PROVIDER_NAMESPACES = {
-  //OOPS our deployment forgot to include the version but normally it should
-  SVR_TEMPLATE_PROVIDER_V1: 'SVR_TEMPLATE_PROVIDER',
-  //Started Using custom verisoning for the provides so we dont need to redeploy
-  SVR_TEMPLATE_PROVIDER_C1: 'SVR_TEMPLATE_PROVIDER_C1',
-  SVR_TEMPLATE_PROVIDER_C2: 'SVR_TEMPLATE_PROVIDER_C2',
-  SVR_TEMPLATE_PROVIDER_V9: 'SVR_TEMPLATE_PROVIDER_V9',
-}
+export const DEFAULT_CHAIN_ID = Number(import.meta.env.VITE_DEFAULT_CHAIN_ID ?? 137);
 
 // Each transaction will trigger a state refresh but we add a delay since the graph takes some time to update
 export const DEFAULT_REFRESH_DELAY = 10000
 export const TOAST_ERROR_DISPLAY_DURATION_MS = 5000
 
-export const ACTIVE_SVR_TEMPLATE_PROVIDER = TEMPLATE_PROVIDER_NAMESPACES.SVR_TEMPLATE_PROVIDER_V9
+export type SvrTemplateDeploymentConfig = {
+  templateOwnerAddress: string;
+  svrTemplateName: string;
+};
+
+const POLYGON_SVR_TEMPLATE_CONFIG: SvrTemplateDeploymentConfig = {
+  templateOwnerAddress: "0xfDeDE21f16138e407649eA37Ff166ff910E4a988",
+  svrTemplateName: 'SVR_TEMPLATE_PROVIDER_V9',
+};
+
+const LOCAL_SVR_TEMPLATE_CONFIG: SvrTemplateDeploymentConfig = {
+  templateOwnerAddress:
+    import.meta.env.VITE_LOCAL_TEMPLATE_PROVIDER_OWNER_ADDRESS ?? POLYGON_SVR_TEMPLATE_CONFIG.templateOwnerAddress,
+  svrTemplateName:
+    import.meta.env.VITE_LOCAL_SVR_TEMPLATE_NAME ?? 'SVR_TEMPLATE_PROVIDER_V1',
+};
+
+export const SVR_TEMPLATE_CONFIG_BY_CHAIN: Partial<Record<number, SvrTemplateDeploymentConfig>> = {
+  137: POLYGON_SVR_TEMPLATE_CONFIG,
+  31337: LOCAL_SVR_TEMPLATE_CONFIG,
+};
+
+export function getSvrTemplateDeploymentConfig(chainId: number): SvrTemplateDeploymentConfig {
+  return SVR_TEMPLATE_CONFIG_BY_CHAIN[chainId] ?? POLYGON_SVR_TEMPLATE_CONFIG;
+}
+
+export type DaoGovernorTemplateDeploymentConfig = {
+  templateOwnerAddress: string; // DAOFactory address
+  daoGovernorTemplateName: string;
+};
+
+const POLYGON_DAO_GOVERNOR_TEMPLATE_CONFIG: DaoGovernorTemplateDeploymentConfig = {
+  templateOwnerAddress: "0x5727545DAcDa3A505c5c681f05AA47bC57f8D862", // Polygon DAOFactory
+  daoGovernorTemplateName: 'DAO_GOVERNOR',
+};
+
+const LOCAL_DAO_GOVERNOR_TEMPLATE_CONFIG: DaoGovernorTemplateDeploymentConfig = {
+  templateOwnerAddress:
+    import.meta.env.VITE_LOCAL_DAO_FACTORY_ADDRESS ?? POLYGON_DAO_GOVERNOR_TEMPLATE_CONFIG.templateOwnerAddress,
+  daoGovernorTemplateName: 'DAO_GOVERNOR',
+};
+
+export const DAO_GOVERNOR_TEMPLATE_CONFIG_BY_CHAIN: Partial<Record<number, DaoGovernorTemplateDeploymentConfig>> = {
+  137: POLYGON_DAO_GOVERNOR_TEMPLATE_CONFIG,
+  31337: LOCAL_DAO_GOVERNOR_TEMPLATE_CONFIG,
+};
+
+export function getDaoGovernorTemplateDeploymentConfig(chainId: number): DaoGovernorTemplateDeploymentConfig {
+  return DAO_GOVERNOR_TEMPLATE_CONFIG_BY_CHAIN[chainId] ?? POLYGON_DAO_GOVERNOR_TEMPLATE_CONFIG;
+}
+
+export const MOCK_GOVERNANCE_TOKEN_BY_CHAIN: Partial<Record<number, string>> = {
+  137: "0xe4368424E6728F8D53Ed524eE540FA8f0595dF43",
+  31337: import.meta.env.VITE_LOCAL_MOCK_GOVERNANCE_TOKEN_ADDRESS,
+};
+
+export function getMockGovernanceTokenByChain(chainId: number): string {
+  return MOCK_GOVERNANCE_TOKEN_BY_CHAIN[chainId]
+    ?? MOCK_GOVERNANCE_TOKEN_BY_CHAIN[DEFAULT_CHAIN_ID]
+    ?? ZERO_ADDRESS;
+}
 
 export const POLYGON_SECURE_VALUE_RESERVE_GRAPH_URL = 'https://api.goldsky.com/api/public/project_clze9a4nvee2w01wbaw2y7wzc/subgraphs/secure-value-reserve/1.0.1/gn'
+export const ANVIL_SECURE_VALUE_RESERVE_GRAPH_URL = import.meta.env.VITE_LOCAL_SVR_GRAPH_URL ?? 'http://127.0.0.1:8000/subgraphs/name/secure-value-reserve'
 
 export interface BareBonesConfiguration {
   diamondFactoryAddress: string;
@@ -35,7 +87,7 @@ export interface BareBonesConfiguration {
   nftAuthorityResolverAddress: string;
   facetFallbackFailureHook: string;
   globalOrganizationRegistry: string;
-  diamondKernelInitializer: string;
+  walletKernelInitializer: string;
   namespacedCreate3Factory: string;
   multicall3Address: string,
   barebones4337Facet: string;
@@ -58,6 +110,7 @@ export interface BareBonesConfiguration {
 
 export const CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = {
   137: POLYGON_SECURE_VALUE_RESERVE_GRAPH_URL,
+  31337: ANVIL_SECURE_VALUE_RESERVE_GRAPH_URL,
 };
 
 
@@ -117,7 +170,7 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   diamondFactoryInitHash: "0x895ddadea89a852657055537968c164fe1178b5b8a6d93e1a2622685a0d2d576",
   ownerAuthorityResolverAddress: "0x167C85EBAB5AB3eA18BCCaDacee0188Dad2857C4",
   nftAuthorityResolverAddress: "0x7E8578a8ea8a441725c96183493295318A44D6EB",
-  diamondKernelInitializer: "0x3A152cfdb8d2ebB3A2fC3A46665ee31CDa620fe7",
+  walletKernelInitializer: "0x3A152cfdb8d2ebB3A2fC3A46665ee31CDa620fe7",
   namespacedCreate3Factory: "0xA2e029Fb54F05Ec4C5D1078AAa85704eB5a6d402",
   multicall3Address: "0xca11bde05977b3631167028862be2a173976ca11",
   
@@ -148,9 +201,49 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
 
 export const DEFAULT_BROWSING_URL = "https://app.aave.com/";
 
+const LOCAL_CHAIN_ID = 31337;
+const localEnv = (key: string): string | undefined => import.meta.env[key];
+
+const LOCAL_BARE_BONES_CONFIG_ENV_KEYS: Record<Exclude<keyof BareBonesConfiguration, "svrFactoryAddress">, string> = {
+  diamondFactoryAddress: "VITE_LOCAL_DIAMOND_FACTORY_ADDRESS",
+  diamondFactoryInitHash: "VITE_LOCAL_DIAMOND_FACTORY_INIT_HASH",
+  ownerAuthorityResolverAddress: "VITE_LOCAL_OWNER_AUTHORITY_RESOLVER_ADDRESS",
+  nftAuthorityResolverAddress: "VITE_LOCAL_NFT_AUTHORITY_RESOLVER_ADDRESS",
+  facetFallbackFailureHook: "VITE_LOCAL_FACET_FALLBACK_FAILURE_HOOK_ADDRESS",
+  globalOrganizationRegistry: "VITE_LOCAL_GLOBAL_ORGANIZATION_REGISTRY_ADDRESS",
+  walletKernelInitializer: "VITE_LOCAL_WALLET_KERNEL_INITIALIZER_ADDRESS",
+  namespacedCreate3Factory: "VITE_LOCAL_NAMESPACED_CREATE3_FACTORY_ADDRESS",
+  multicall3Address: "VITE_LOCAL_MULTICALL3_ADDRESS",
+  barebones4337Facet: "VITE_LOCAL_CALIBUR_ENTRY_ADDRESS",
+  mockPaymentTokenAddress: "VITE_LOCAL_MOCK_PAYMENT_TOKEN_ADDRESS",
+  paymentPipelineAddress: "VITE_LOCAL_PAYMENT_PIPELINE_ADDRESS",
+  payrollEngineAddress: "VITE_LOCAL_PAYROLL_ENGINE_ADDRESS",
+  payrollManagerAddress: "VITE_LOCAL_PAYROLL_MANAGER_ADDRESS",
+  payrollTreasuryAddress: "VITE_LOCAL_PAYROLL_TREASURY_ADDRESS",
+  hoursRuleAddress: "VITE_LOCAL_HOURS_RULE_ADDRESS",
+  oneTimePaymentAddress: "VITE_LOCAL_ONE_TIME_PAYMENT_RULE_ADDRESS",
+  commissionRuleAddress: "VITE_LOCAL_COMMISSION_RULE_ADDRESS",
+  salaryPerSecondRuleAddress: "VITE_LOCAL_SALARY_RULE_ADDRESS",
+  weeklyScheduleRuleAddress: "VITE_LOCAL_WEEKLY_SCHEDULE_RULE_ADDRESS",
+  daoFactoryAddress: "VITE_LOCAL_DAO_FACTORY_ADDRESS",
+};
+
+function buildLocalBareBonesOverride(): Partial<BareBonesConfiguration> {
+  const out: Partial<BareBonesConfiguration> = {};
+
+  for (const key in LOCAL_BARE_BONES_CONFIG_ENV_KEYS) {
+    const cfgKey = key as Exclude<keyof BareBonesConfiguration, "svrFactoryAddress">;
+    const envValue = localEnv(LOCAL_BARE_BONES_CONFIG_ENV_KEYS[cfgKey]);
+    out[cfgKey] = envValue ?? DEFAULT_BARE_BONES_CONFIG[cfgKey];
+  }
+
+  return out;
+}
+
 export const BARE_BONES_CHAIN_OVERRIDES: Partial<
   Record<number, Partial<BareBonesConfiguration>>
 > = {
+  [LOCAL_CHAIN_ID]: buildLocalBareBonesOverride(),
 };
 
 
@@ -175,6 +268,25 @@ export interface ChainInfo {
 
 
 export const CHAIN_INFO_MAP: Record<number, ChainInfo> ={
+  [LOCAL_CHAIN_ID]: {
+    chainId: LOCAL_CHAIN_ID,
+    chainName: "Anvil Local",
+    wethAddress: localEnv("VITE_LOCAL_WETH_ADDRESS") ?? ethers.constants.AddressZero,
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
+    rpcUrls: [localEnv("VITE_LOCAL_RPC_URL") ?? "http://127.0.0.1:8545"],
+    blockExplorerUrls: [localEnv("VITE_LOCAL_EXPLORER_URL") ?? "http://127.0.0.1:8545"],
+    coinGeckoSlug: "ethereum",
+    supportsEip1559: true,
+    minPriorityFeeGwei: 1,
+    maxFeeMultiplier: {
+      numerator: 120,
+      denominator: 100,
+    },
+  },
   137: {
     chainId: 137,
     chainName: "Polygon",
@@ -228,6 +340,14 @@ export const NATIVE_POLYGON: TokenInfo = {
   logoURI: polygonLogo,
 };
 
+export const NATIVE_ETH_ANVIL: TokenInfo = {
+  chainId: LOCAL_CHAIN_ID,
+  address: ethers.constants.AddressZero,
+  symbol: "ETH",
+  name: "Ether",
+  decimals: 18,
+};
+
 // Hyperliquid / Hype (adjust chainId if needed)
 export const NATIVE_HYPE: TokenInfo = {
   chainId: 999, // <-- put the real chainId here
@@ -239,6 +359,7 @@ export const NATIVE_HYPE: TokenInfo = {
 };
 
 export const NATIVE_TOKENS_BY_CHAIN: Record<number, TokenInfo> = {
+  [LOCAL_CHAIN_ID]: NATIVE_ETH_ANVIL,
   137: NATIVE_POLYGON,
   999: NATIVE_HYPE,
 };

@@ -168,7 +168,7 @@ export const ERROR_SELECTOR_MAP: Record<string, string> = ${JSON.stringify(
   fs.writeFileSync(outputPath, fileContent, "utf8");
 }
 
-/* ---------------- EXECUTE ---------------- */
+/* EXECUTE */
 
 const result = generate();
 

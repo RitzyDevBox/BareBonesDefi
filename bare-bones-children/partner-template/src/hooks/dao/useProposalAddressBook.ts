@@ -181,7 +181,7 @@ export function useProposalAddressBook(governorAddress: string) {
     return [
       { address: config.ownerAuthorityResolverAddress, label: "Owner Authority Resolver" },
       { address: config.nftAuthorityResolverAddress, label: "NFT Authority Resolver" },
-      { address: config.diamondKernelInitializer, label: "Diamond Kernel Initializer" },
+      { address: config.walletKernelInitializer, label: "Wallet Kernel Initializer" },
       { address: config.globalOrganizationRegistry, label: "Global Organization Registry" },
       { address: config.facetFallbackFailureHook, label: "Facet Fallback Failure Hook" },
       { address: config.barebones4337Facet, label: "Barebones 4337 Facet (Calibur Entry)" },

@@ -15,7 +15,63 @@ export interface Eip1193Error extends Error {
   error?: {
     message?: string;
     data?: string;
+    body?: string;
   };
+
+  body?: string;
+}
+
+function tryParseJson(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+}
+
+function findHexData(value: unknown, depth = 0): string | undefined {
+  if (depth > 5 || value == null) return undefined;
+
+  if (typeof value === "string") {
+    if (/^0x[0-9a-fA-F]{8,}$/.test(value)) {
+      return value;
+    }
+
+    const match = value.match(/0x[0-9a-fA-F]{8,}/);
+    if (match) {
+      return match[0];
+    }
+
+    const parsed = tryParseJson(value);
+    if (parsed !== undefined) {
+      return findHexData(parsed, depth + 1);
+    }
+
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findHexData(item, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["data", "body", "error", "message", "reason"]) {
+      const found = findHexData(record[key], depth + 1);
+      if (found) return found;
+    }
+
+    for (const nested of Object.values(record)) {
+      const found = findHexData(nested, depth + 1);
+      if (found) return found;
+    }
+  }
+
+  return undefined;
 }
 
 export function isEip1193Error(error: unknown): error is Eip1193Error {
@@ -103,8 +159,11 @@ export function handleCommonTxError(
   const e = error as Eip1193Error;
 
   const revertData =
-    e?.error?.data ||
-    e?.data;
+    findHexData(e?.error?.data) ||
+    findHexData(e?.data) ||
+    findHexData(e?.error?.body) ||
+    findHexData(e?.body) ||
+    findHexData(e);
 
   switch (normalized) {
     case NormalizedTxError.USER_REJECTED:
@@ -167,7 +226,7 @@ export function handleCommonTxError(
 
       return new Error(
         `Execution reverted.\nReason: ${
-          e.reason || e.error?.message || "Unknown"
+          e.reason || e.error?.message || e.message || "Unknown"
         }`
       );
     }

@@ -48,7 +48,7 @@ export function buildDeployEOAOwnerBasedDiamondRawTx(
     data: iface.encodeFunctionData("deployDiamond", [
       authorityResolverAddress, // resolver
       ownerOptions,                         // abi.encode(user)
-      config.diamondKernelInitializer,      // initializer
+      config.walletKernelInitializer,       // initializer
       initData,                             // optional org install
     ]),
   };

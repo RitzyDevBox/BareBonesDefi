@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Contract, ethers } from "ethers";
 import NamespacedCreate3FactoryAbi from "../../abis/diamond/NamespacedCreate3Factory.abi.json";
-import { ACTIVE_SVR_TEMPLATE_PROVIDER, getBareBonesConfiguration, TEMPLATE_PROVIDER_OWNER_ADDRESS } from "../../constants/misc";
+import {
+  getBareBonesConfiguration,
+  getSvrTemplateDeploymentConfig,
+} from "../../constants/misc";
 import { defaultAbiCoder, keccak256 } from "ethers/lib/utils";
 
 export async function fetchWalletVaultAddresses(
@@ -11,6 +14,7 @@ export async function fetchWalletVaultAddresses(
 ): Promise<string[]> {
   const config = getBareBonesConfiguration(chainId);
   const factoryAddress = config.namespacedCreate3Factory;
+  const templateConfig = getSvrTemplateDeploymentConfig(chainId);
 
   const factoryContract = new Contract(
     factoryAddress,
@@ -18,11 +22,11 @@ export async function fetchWalletVaultAddresses(
     provider
   );
 
-  const namespace = ACTIVE_SVR_TEMPLATE_PROVIDER;
+  const namespace = templateConfig.svrTemplateName;
 
   const deploymentCount: number = await factoryContract.deploymentCount(
     walletAddress,
-    keccak256(defaultAbiCoder.encode(["address", "string"], [TEMPLATE_PROVIDER_OWNER_ADDRESS, namespace]))
+    keccak256(defaultAbiCoder.encode(["address", "string"], [templateConfig.templateOwnerAddress, namespace]))
   );
 
   if (deploymentCount === 0) {
@@ -34,7 +38,7 @@ export async function fetchWalletVaultAddresses(
   for (let i = 0; i < deploymentCount; i++) {
     const predictedAddress = await factoryContract.predictAddress(
       walletAddress,
-      TEMPLATE_PROVIDER_OWNER_ADDRESS,
+      templateConfig.templateOwnerAddress,
       namespace,
       i
     );

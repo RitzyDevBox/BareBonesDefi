@@ -418,6 +418,42 @@
   },
   {
     "type": "error",
+    "name": "Create3DeploymentFailed",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "namespace",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "index",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "predicted",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "lowLevelData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ECDSAInvalidSignature",
     "inputs": []
   },
@@ -445,6 +481,22 @@
   },
   {
     "type": "error",
+    "name": "EmptyCreationCode",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "namespace",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidExpectedIndex",
     "inputs": []
   },
@@ -452,6 +504,27 @@
     "type": "error",
     "name": "InvalidSignature",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidTemplateProvider",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InitCallFailed",
+    "inputs": [
+      {
+        "name": "deployed",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "lowLevelData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
   },
   {
     "type": "error",
@@ -467,6 +540,33 @@
     "type": "error",
     "name": "TemplateNotRegistered",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TemplateProviderCallFailed",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "lowLevelData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TemplateProviderHasNoCode",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",

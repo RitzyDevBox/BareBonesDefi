@@ -2,8 +2,7 @@
 import { ethers } from "ethers";
 import NamespacedCreate3FactoryAbi from "../../abis/diamond/NamespacedCreate3Factory.abi.json";
 import {
-  ACTIVE_SVR_TEMPLATE_PROVIDER,
-  TEMPLATE_PROVIDER_OWNER_ADDRESS,
+  getSvrTemplateDeploymentConfig,
   getBareBonesConfiguration,
 } from "../../constants/misc";
 
@@ -20,6 +19,7 @@ export function buildDeployVaultRawTx({
   initData = "0x",
 }: BuildDeployVaultArgs) {
   const config = getBareBonesConfiguration(chainId);
+  const templateConfig = getSvrTemplateDeploymentConfig(chainId);
   const factoryAddress = config.namespacedCreate3Factory;
 
   const factoryInterface = new ethers.utils.Interface(
@@ -29,8 +29,8 @@ export function buildDeployVaultRawTx({
   return {
     to: factoryAddress,
     data: factoryInterface.encodeFunctionData("deploy", [
-      TEMPLATE_PROVIDER_OWNER_ADDRESS,
-      ACTIVE_SVR_TEMPLATE_PROVIDER,
+      templateConfig.templateOwnerAddress,
+      templateConfig.svrTemplateName,
       constructorParams,
       initData,
     ]),

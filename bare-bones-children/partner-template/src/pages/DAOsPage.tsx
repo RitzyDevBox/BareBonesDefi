@@ -13,7 +13,7 @@ import { Text } from "../components/Primitives/Text";
 import NamespacedCreate3FactoryABI from "../abis/diamond/NamespacedCreate3Factory.abi.json";
 import DAOFactoryABI from "../abis/dao/DAOFactory.abi.json";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
-import { getBareBonesConfiguration } from "../constants/misc";
+import { DEFAULT_CHAIN_ID, getBareBonesConfiguration, getMockGovernanceTokenByChain } from "../constants/misc";
 import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { useWalletProvider } from "../hooks/useWalletProvider";
@@ -23,7 +23,6 @@ import { fetchDaoGovernorsByNames } from "../utils/graph/daoGraphService";
 import { DAODetailPage } from "./DAODetailPage";
 
 const DAO_FACTORY_INTERFACE = new ethers.utils.Interface(DAOFactoryABI as any);
-const MOCK_GOVERNANCE_TOKEN = "0xe4368424E6728F8D53Ed524eE540FA8f0595dF43";
 type DaoDeployFormState = {
   token: string;
   timelockDelay: string;
@@ -42,15 +41,17 @@ type DaoDeploymentSummary = {
   txHash: string;
 };
 
-const DEFAULT_FORM_STATE: DaoDeployFormState = {
-  token: MOCK_GOVERNANCE_TOKEN,
-  timelockDelay: "86400",
-  votingDelay: "1",
-  votingPeriod: "45818",
-  proposalThreshold: "1000000000000000000",
-  quorumNumerator: "4",
-  cancellersCsv: "",
-};
+function buildDefaultFormState(chainId: number = DEFAULT_CHAIN_ID): DaoDeployFormState {
+  return {
+    token: getMockGovernanceTokenByChain(chainId),
+    timelockDelay: "86400",
+    votingDelay: "1",
+    votingPeriod: "45818",
+    proposalThreshold: "1000000000000000000",
+    quorumNumerator: "4",
+    cancellersCsv: "",
+  };
+}
 
 function isWholeNumber(value: string) {
   return /^\d+$/.test(value);
@@ -163,7 +164,7 @@ function InfoChip({
 export function DAOsPage() {
   const { provider, account, chainId } = useWalletProvider();
   const screen = useMediaQuery();
-  const [form, setForm] = useState<DaoDeployFormState>(DEFAULT_FORM_STATE);
+  const [form, setForm] = useState<DaoDeployFormState>(() => buildDefaultFormState(chainId ?? DEFAULT_CHAIN_ID));
   const [selectedOrganization, setSelectedOrganization] = useState("");
   const [organizationExists, setOrganizationExists] = useState<boolean | null>(null);
   const [orgInfoLoading, setOrgInfoLoading] = useState(false);
@@ -186,6 +187,14 @@ export function DAOsPage() {
     if (chainId == null) return null;
     return getBareBonesConfiguration(chainId);
   }, [chainId]);
+  const defaultMockGovernanceToken = useMemo(
+    () => (chainId == null ? "" : getMockGovernanceTokenByChain(chainId)),
+    [chainId]
+  );
+  const defaultFormState = useMemo(
+    () => buildDefaultFormState(chainId ?? DEFAULT_CHAIN_ID),
+    [chainId]
+  );
 
   const payrollManagerAddress = config?.payrollManagerAddress;
   const daoFactoryAddress = config?.daoFactoryAddress ?? "";
@@ -210,6 +219,13 @@ export function DAOsPage() {
       return { ...current, cancellersCsv: account };
     });
   }, [account]);
+
+  useEffect(() => {
+    setForm((current) => {
+      if (current.token.trim()) return current;
+      return { ...current, token: defaultMockGovernanceToken };
+    });
+  }, [defaultMockGovernanceToken]);
 
   useEffect(() => {
     if (!selectedOrganization.trim() && ownedOrganizations.length > 0) {
@@ -470,8 +486,8 @@ export function DAOsPage() {
       setLastDeployment(summary);
 
       setForm((current) => ({
-        ...DEFAULT_FORM_STATE,
-        token: current.token,
+        ...defaultFormState,
+        token: current.token || defaultMockGovernanceToken,
         cancellersCsv: current.cancellersCsv,
       }));
       setFormError(null);
@@ -679,8 +695,8 @@ export function DAOsPage() {
                       disabled={isSubmitting}
                       onClick={() => {
                         setForm((current) => ({
-                          ...DEFAULT_FORM_STATE,
-                          token: current.token,
+                          ...defaultFormState,
+                          token: current.token || defaultMockGovernanceToken,
                           cancellersCsv: current.cancellersCsv,
                         }));
                         setFormError(null);

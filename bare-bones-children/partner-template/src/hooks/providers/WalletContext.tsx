@@ -56,6 +56,7 @@ export function WalletProvider({
       window.ethereum,
       "any"
     );
+    web3Provider.pollingInterval = 12000;
 
     setProvider(web3Provider);
     setStatus("idle");
@@ -111,7 +112,6 @@ export function WalletProvider({
     window.ethereum?.on?.("chainChanged", handleChainChanged);
     window.addEventListener("focus", handleVisibilityOrFocus);
     document.addEventListener("visibilitychange", handleVisibilityOrFocus);
-    const syncInterval = window.setInterval(handleVisibilityOrFocus, 3000);
 
     return () => {
         window.ethereum?.removeListener?.(
@@ -124,7 +124,6 @@ export function WalletProvider({
         );
         window.removeEventListener("focus", handleVisibilityOrFocus);
         document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
-        window.clearInterval(syncInterval);
     };
 
   }, []);
