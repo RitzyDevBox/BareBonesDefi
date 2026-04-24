@@ -1,4 +1,5 @@
 import { CSSProperties, PropsWithChildren, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cssVar } from "../../utils/themeUtils";
 
 export type SheetPlacement = "bottom" | "top" | "left" | "right";
@@ -99,7 +100,7 @@ export function Sheet({
     }
   }
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -126,7 +127,6 @@ export function Sheet({
           flexDirection: "column",
           overflow: "hidden",
           zIndex: 1001,
-          touchAction: "none",
 
           transform:
             placement === "bottom" || placement === "top"
@@ -148,6 +148,7 @@ export function Sheet({
               display: "flex",
               justifyContent: "center",
               cursor: "grab",
+              touchAction: "none",
             }}
           >
             <div
@@ -172,6 +173,7 @@ export function Sheet({
           {children}
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }

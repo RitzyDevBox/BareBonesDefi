@@ -6,32 +6,27 @@ export const lightTheme: AppTheme = {
   mode: ThemeMode.LIGHT,
   ...baseTheme,
   colors: {
-    // Soft bone / parchment background
-    background: "#f4f5f3",
-    surface: "#f8f9fa",
-    surfaceHover: "rgba(0, 0, 0, 0.035)",
+    background: "#f7f6f2",
+    surface: "#ffffff",
+    surfaceHover: "rgba(0,0,0,0.03)",
 
-    // Borders softened (less contrast than before)
-    border: "#d6d9de",
-    borderHover: "#b6bcc6",
+    border: "#e4e2dc",
+    borderHover: "#cfccc3",
 
-    // Match dark theme blue family
-    primary: "#3b82f6",
-    primaryHover: "#2563eb",
+    primary: "oklch(0.56 0.14 225)",
+    primaryHover: "oklch(0.50 0.14 225)",
 
-    // Neutral slate secondary
-    secondary: "#64748b",
-    secondaryHover: "#475569",
+    secondary: "#e4e2dc",
+    secondaryHover: "#cfccc3",
 
-    // Status colors — darkened from neon/mid to readable on light bg
-    success: "#16a34a",   // green-700
-    warn: "#d97706",      // amber-600
-    error: "#dc2626",     // red-600
+    success: "oklch(0.62 0.14 148)",
+    warn: "oklch(0.72 0.14 78)",
+    error: "oklch(0.58 0.17 25)",
 
     text: {
-      main: "#111827",
-      muted: "#6b7280",
-      label: "#4b5563",
+      main: "#111112",
+      muted: "#5a5a60",
+      label: "#8a8a92",
     },
   },
 
@@ -41,12 +36,12 @@ export const lightTheme: AppTheme = {
     honeycomb: {
       enabled: true,
       hexSize: 40,
-      opacity: 0.06,            // lighter than before
+      opacity: 0.05,
       animationSpeed: 0.8,
-      backgroundColor: "#faf7f2", // parchment
-      hue: 38,                   // warm honey
-      saturation: 42,
-      lightness: 52,
+      backgroundColor: "#f7f6f2",
+      hue: 225,
+      saturation: 30,
+      lightness: 55,
     },
   },
 };

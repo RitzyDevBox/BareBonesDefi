@@ -20,7 +20,6 @@ export function HistoricalProposalsPanel({
       title="Historical Proposals"
       loadingText="Loading historical proposals…"
       emptyText="No historical proposals yet."
-      stateBadgeMode="muted"
       cardOpacity={0.85}
       showVotingPowerRow={false}
       showVoteActions={false}

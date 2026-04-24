@@ -21,6 +21,7 @@ import { fetchOrganizationInfo, useOwnedOrganizations } from "../hooks/payroll/u
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { shortAddress } from "../utils/formatUtils";
 import { fetchDaoGovernorsByNames } from "../utils/graph/daoGraphService";
+import { GovHero } from "../components/DAO/GovHero";
 import { DAODetailPage } from "./DAODetailPage";
 
 const DAO_FACTORY_INTERFACE = new ethers.utils.Interface(DAOFactoryABI as any);
@@ -519,12 +520,17 @@ export function DAOsPage() {
 
   return (
     <PageContainer center maxWidth={1320}>
-      <div style={{ width: "100%" }}>
+      <Stack gap="lg" style={{ width: "100%" }}>
+        {/* Page hero */}
+        <GovHero
+          crumb={`${account ? shortAddress(account) : "Not connected"} · ${chainId != null ? `Chain ${chainId}` : "No chain"}`}
+          title="DAOs"
+        />
+
         <Stack gap="lg">
           <Card>
             <CardContent>
               <Stack gap="md">
-                <Text.Title align="left">DAOs</Text.Title>
                 <Text.Body color="muted">
                   Organization name is the DAO source of truth. Select or create an organization, then deploy a DAO for it.
                 </Text.Body>
@@ -714,7 +720,7 @@ export function DAOsPage() {
             </Card>
           )}
         </Stack>
-      </div>
+      </Stack>
     </PageContainer>
   )
 }

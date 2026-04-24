@@ -264,6 +264,7 @@ export interface ChainInfo {
   supportsEip1559: boolean;
   minPriorityFeeGwei?: number;
   maxFeeMultiplier?: { numerator: number, denominator: number };
+  testnet?: boolean;
 }
 
 
@@ -286,6 +287,7 @@ export const CHAIN_INFO_MAP: Record<number, ChainInfo> ={
       numerator: 120,
       denominator: 100,
     },
+    testnet: true,
   },
   137: {
     chainId: 137,

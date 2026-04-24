@@ -4,9 +4,57 @@ import { Row, Stack } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { shortAddress, formatWeiToTokenAmount } from "../../utils/formatUtils";
 import { buildExplorerTxLink } from "../../utils/explorerLinks";
-import { ButtonSecondary } from "../Button/ButtonPrimary";
+import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
 import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
 import type { DaoProposalSummary } from "./types";
+
+type VoteChoice = "for" | "against" | "abstain";
+
+const VOTE_COLORS: Record<VoteChoice, string> = {
+  for: "var(--colors-success)",
+  against: "var(--colors-error)",
+  abstain: "var(--colors-text-muted)",
+};
+
+function VoteButton({
+  choice,
+  label,
+  voted,
+  disabled,
+  onClick,
+}: {
+  choice: VoteChoice;
+  label: string;
+  voted: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const color = VOTE_COLORS[choice];
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      style={{
+        padding: "0 14px",
+        height: 34,
+        borderRadius: "var(--radius-md)",
+        border: `1px solid ${voted ? color : "var(--colors-border)"}`,
+        background: voted
+          ? `color-mix(in oklab, ${color} 12%, var(--colors-surface))`
+          : "var(--colors-surface)",
+        color: voted ? color : "var(--colors-text-muted)",
+        fontSize: 13,
+        fontWeight: 500,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1,
+        transition: "border-color .15s, background .15s, color .15s",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
 
 type Props = {
   proposals: DaoProposalSummary[];
@@ -28,7 +76,6 @@ type Props = {
   title?: string;
   loadingText?: string;
   emptyText?: string;
-  stateBadgeMode?: "status" | "muted";
   cardOpacity?: number;
   showVotingPowerRow?: boolean;
   showVoteActions?: boolean;
@@ -60,7 +107,6 @@ export function ActiveProposalPanel({
   title = "Active Proposals",
   loadingText = "Loading active proposals…",
   emptyText = "No active proposals.",
-  stateBadgeMode = "status",
   cardOpacity,
   showVotingPowerRow = true,
   showVoteActions = true,
@@ -140,60 +186,13 @@ export function ActiveProposalPanel({
                     : undefined;
                   const isCardExpanded = !collapsibleCards || (defaultCollapsed ? toggledCardIds.has(proposal.id) : !toggledCardIds.has(proposal.id));
 
-                  const badgeStyle = (() => {
-                    if (stateBadgeMode === "muted") {
-                      return {
-                        backgroundColor: "var(--colors-muted, #999)",
-                        color: "white",
-                        opacity: 1,
-                      };
-                    }
-
-                    if (isVotingOpen) {
-                      return {
-                        backgroundColor: "var(--colors-success)",
-                        color: "white",
-                        opacity: 0.9,
-                      };
-                    }
-
-                    if (isPending) {
-                      return {
-                        backgroundColor: "#3b82f6",
-                        color: "white",
-                        opacity: 0.95,
-                      };
-                    }
-
-                    if (isAwaitingQueue || isAwaitingExecution) {
-                      return {
-                        backgroundColor: "var(--colors-warn)",
-                        color: "#111827",
-                        opacity: 0.95,
-                      };
-                    }
-
-                    if (isDefeated) {
-                      return {
-                        backgroundColor: "var(--colors-error)",
-                        color: "white",
-                        opacity: 0.95,
-                      };
-                    }
-
-                    if (isExecuted) {
-                      return {
-                        backgroundColor: "var(--colors-success)",
-                        color: "white",
-                        opacity: 0.95,
-                      };
-                    }
-
-                    return {
-                      backgroundColor: "var(--colors-muted, #999)",
-                      color: "white",
-                      opacity: 0.9,
-                    };
+                  const pillColor = (() => {
+                    if (isVotingOpen) return "var(--colors-success)";
+                    if (isPending) return "var(--colors-warn)";
+                    if (isAwaitingQueue || isAwaitingExecution) return "var(--colors-warn)";
+                    if (isDefeated) return "var(--colors-error)";
+                    if (isExecuted) return "var(--colors-success)";
+                    return "var(--colors-text-label)";
                   })();
 
                   return (
@@ -201,12 +200,15 @@ export function ActiveProposalPanel({
                   key={proposal.id}
                   style={{
                     border: "1px solid var(--colors-border)",
-                    borderRadius: "8px",
+                    borderRadius: "var(--radius-md)",
                     overflow: "hidden",
                     opacity: cardOpacity,
+                    background: "var(--colors-surface)",
+                    marginBottom: 8,
+                    transition: "border-color .15s",
                   }}
                 >
-                  <CardContent style={{ padding: "0.85rem 1.25rem" }}>
+                  <CardContent style={{ padding: "18px 22px" }}>
                     <Stack gap="md">
                       {/* Header with State Badge */}
                       <div
@@ -253,16 +255,31 @@ export function ActiveProposalPanel({
                             {!showBadgeOnOwnRow ? (
                               <div
                                 style={{
-                                  backgroundColor: badgeStyle.backgroundColor,
-                                  color: badgeStyle.color,
-                                  padding: "0.5rem 1rem",
-                                  borderRadius: "20px",
-                                  fontSize: "0.85rem",
-                                  fontWeight: 600,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  padding: "4px 9px",
+                                  borderRadius: 6,
+                                  fontSize: 11,
+                                  fontWeight: 500,
+                                  fontFamily: "monospace",
+                                  letterSpacing: "0.02em",
+                                  textTransform: "uppercase",
+                                  border: "1px solid var(--colors-border)",
+                                  background: "var(--colors-surface)",
+                                  color: pillColor,
                                   whiteSpace: "nowrap",
-                                  opacity: badgeStyle.opacity,
                                 }}
                               >
+                                <span
+                                  style={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: "50%",
+                                    background: pillColor,
+                                    flexShrink: 0,
+                                  }}
+                                />
                                 {proposal.stateLabel}
                               </div>
                             ) : null}
@@ -279,18 +296,31 @@ export function ActiveProposalPanel({
                           <div
                             style={{
                               marginTop: "0.5rem",
-                              backgroundColor: badgeStyle.backgroundColor,
-                              color: badgeStyle.color,
-                              padding: "0.5rem 1rem",
-                              borderRadius: "20px",
-                              fontSize: "0.85rem",
-                              fontWeight: 600,
-                              whiteSpace: "nowrap",
-                              opacity: badgeStyle.opacity,
-                              alignSelf: "flex-start",
                               display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              padding: "4px 9px",
+                              borderRadius: 6,
+                              fontSize: 11,
+                              fontWeight: 500,
+                              fontFamily: "monospace",
+                              letterSpacing: "0.02em",
+                              textTransform: "uppercase",
+                              border: "1px solid var(--colors-border)",
+                              background: "var(--colors-surface)",
+                              color: pillColor,
+                              alignSelf: "flex-start",
                             }}
                           >
+                            <span
+                              style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: "50%",
+                                background: pillColor,
+                                flexShrink: 0,
+                              }}
+                            />
                             {proposal.stateLabel}
                           </div>
                         ) : null}
@@ -306,37 +336,36 @@ export function ActiveProposalPanel({
                         </Text.Body>
                       ) : null}
 
-                      {/* Voting Results */}
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(3, 1fr)",
-                          gap: "1rem",
-                          padding: "1rem",
-                          backgroundColor: "var(--colors-surface)",
-                          borderRadius: "6px",
-                          border: "1px solid var(--colors-border)",
-                        }}
-                      >
-                        <div style={{ textAlign: "center" }}>
-                          <Text.Body size="sm" color="muted">For</Text.Body>
-                          <Text.Body size="lg" style={{ fontWeight: 600, color: "var(--colors-success)", marginTop: "0.25rem" }}>
-                            {fmt(String(proposal.forVotes))}
-                          </Text.Body>
-                        </div>
-                        <div style={{ textAlign: "center" }}>
-                          <Text.Body size="sm" color="muted">Against</Text.Body>
-                          <Text.Body size="lg" style={{ fontWeight: 600, color: "var(--colors-error)", marginTop: "0.25rem" }}>
-                            {fmt(String(proposal.againstVotes))}
-                          </Text.Body>
-                        </div>
-                        <div style={{ textAlign: "center" }}>
-                          <Text.Body size="sm" color="muted">Abstain</Text.Body>
-                          <Text.Body size="lg" style={{ fontWeight: 600, color: "var(--colors-warn)", marginTop: "0.25rem" }}>
-                            {fmt(String(proposal.abstainVotes))}
-                          </Text.Body>
-                        </div>
-                      </div>
+                      {/* Tally bar */}
+                      {(() => {
+                        const forN = Number(fmt(String(proposal.forVotes)).replace(/,/g, "")) || 0;
+                        const againstN = Number(fmt(String(proposal.againstVotes)).replace(/,/g, "")) || 0;
+                        const abstainN = Number(fmt(String(proposal.abstainVotes)).replace(/,/g, "")) || 0;
+                        const total = Math.max(1, forN + againstN + abstainN);
+                        const pct = (v: number) => `${(v / total * 100).toFixed(1)}%`;
+                        return (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            <div
+                              style={{
+                                height: 6,
+                                borderRadius: 999,
+                                overflow: "hidden",
+                                background: "var(--colors-surface)",
+                                display: "flex",
+                              }}
+                            >
+                              <div style={{ height: "100%", width: pct(forN), background: "var(--colors-success)" }} />
+                              <div style={{ height: "100%", width: pct(againstN), background: "var(--colors-error)" }} />
+                              <div style={{ height: "100%", width: pct(abstainN), background: "var(--colors-text-label)" }} />
+                            </div>
+                            <div style={{ display: "flex", gap: 16, fontFamily: "monospace", fontSize: 12, color: "var(--colors-text-muted)" }}>
+                              <span><b style={{ color: "var(--colors-success)" }}>For</b> {fmt(String(proposal.forVotes))}</span>
+                              <span><b style={{ color: "var(--colors-error)" }}>Against</b> {fmt(String(proposal.againstVotes))}</span>
+                              <span><b style={{ color: "var(--colors-text-label)" }}>Abstain</b> {fmt(String(proposal.abstainVotes))}</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Voting Power and Status */}
                       {showVotingPowerRow ? (
@@ -443,163 +472,117 @@ export function ActiveProposalPanel({
                         </Text.Body>
                       ) : null}
 
-                      {/* Vote Buttons */}
-                      {showVoteActions && onVote && isVotingOpen ? (
-                        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-                          <ButtonSecondary
-                            fullWidth={false}
-                            disabled={
-                              votingProposalId === proposal.id ||
-                              hasVotedByProposalId[proposal.id] === true ||
-                              (votePowerByProposalId[proposal.id] ?? "0") === "0"
-                            }
-                            onClick={() => onVote(proposal.id, 1)}
+                      {/* Vote Panel */}
+                      {showVoteActions && onVote && isVotingOpen ? (() => {
+                        const isDisabled =
+                          votingProposalId === proposal.id ||
+                          hasVotedByProposalId[proposal.id] === true ||
+                          (votePowerByProposalId[proposal.id] ?? "0") === "0";
+                        const hasVoted = hasVotedByProposalId[proposal.id];
+                        const votingPower = fmt(votePowerByProposalId[proposal.id] ?? "0");
+                        return (
+                          <div
                             style={{
-                              flex: 1,
-                              minWidth: 0,
-                              fontSize: "clamp(0.7rem, 2vw, 0.9rem)",
-                              padding: "0.5rem 0.25rem",
-                              fontWeight: 700,
-                              letterSpacing: "0.01em",
-                              backgroundColor: hasVotedByProposalId[proposal.id]
-                                ? undefined
-                                : "var(--colors-success)",
-                              color: hasVotedByProposalId[proposal.id]
-                                ? "var(--colors-success)"
-                                : "#ffffff",
-                              border: "1px solid var(--colors-success)",
-                              boxShadow: hasVotedByProposalId[proposal.id]
-                                ? undefined
-                                : "inset 0 0 0 1px rgba(255, 255, 255, 0.08)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 16,
+                              padding: "14px 16px",
+                              border: "1px solid var(--colors-border)",
+                              borderRadius: "var(--radius-md)",
+                              background: "color-mix(in oklab, var(--colors-primary) 6%, var(--colors-surface))",
+                              flexWrap: "wrap",
                             }}
                           >
-                            {votingProposalId === proposal.id ? "Voting..." : "Vote For"}
-                          </ButtonSecondary>
-                          <ButtonSecondary
-                            fullWidth={false}
-                            disabled={
-                              votingProposalId === proposal.id ||
-                              hasVotedByProposalId[proposal.id] === true ||
-                              (votePowerByProposalId[proposal.id] ?? "0") === "0"
-                            }
-                            onClick={() => onVote(proposal.id, 0)}
-                            style={{
-                              flex: 1,
-                              minWidth: 0,
-                              fontSize: "clamp(0.7rem, 2vw, 0.9rem)",
-                              padding: "0.5rem 0.25rem",
-                              fontWeight: 700,
-                              letterSpacing: "0.01em",
-                              backgroundColor: hasVotedByProposalId[proposal.id]
-                                ? undefined
-                                : "var(--colors-error)",
-                              color: hasVotedByProposalId[proposal.id]
-                                ? "var(--colors-error)"
-                                : "#ffffff",
-                              border: "1px solid var(--colors-error)",
-                              boxShadow: hasVotedByProposalId[proposal.id]
-                                ? undefined
-                                : "inset 0 0 0 1px rgba(255, 255, 255, 0.08)",
-                            }}
-                          >
-                            Vote Against
-                          </ButtonSecondary>
-                          <ButtonSecondary
-                            fullWidth={false}
-                            disabled={
-                              votingProposalId === proposal.id ||
-                              hasVotedByProposalId[proposal.id] === true ||
-                              (votePowerByProposalId[proposal.id] ?? "0") === "0"
-                            }
-                            onClick={() => onVote(proposal.id, 2)}
-                            style={{
-                              flex: 1,
-                              minWidth: 0,
-                              fontSize: "clamp(0.7rem, 2vw, 0.9rem)",
-                              padding: "0.5rem 0.25rem",
-                              fontWeight: 700,
-                              letterSpacing: "0.01em",
-                              backgroundColor: hasVotedByProposalId[proposal.id]
-                                ? undefined
-                                : "var(--colors-warn)",
-                              color: hasVotedByProposalId[proposal.id]
-                                ? "var(--colors-warn)"
-                                : "#111827",
-                              border: "1px solid var(--colors-warn)",
-                              boxShadow: hasVotedByProposalId[proposal.id]
-                                ? undefined
-                                : "inset 0 0 0 1px rgba(255, 255, 255, 0.08)",
-                            }}
-                          >
-                            Abstain
-                          </ButtonSecondary>
-                        </div>
-                      ) : null}
+                            <Stack gap="none">
+                              <Text.Body style={{ fontWeight: 600, marginBottom: 2 }}>
+                                {hasVoted ? "Vote recorded" : "Cast your vote"}
+                              </Text.Body>
+                              <Text.Body size="sm" color="muted">
+                                Voting with <strong>{votingPower}</strong> tokens
+                              </Text.Body>
+                            </Stack>
+                            <Row gap="xs">
+                              <VoteButton
+                                choice="for"
+                                label={votingProposalId === proposal.id ? "Voting…" : "For"}
+                                voted={hasVoted === true}
+                                disabled={isDisabled}
+                                onClick={() => onVote(proposal.id, 1)}
+                              />
+                              <VoteButton
+                                choice="against"
+                                label="Against"
+                                voted={hasVoted === true}
+                                disabled={isDisabled}
+                                onClick={() => onVote(proposal.id, 0)}
+                              />
+                              <VoteButton
+                                choice="abstain"
+                                label="Abstain"
+                                voted={hasVoted === true}
+                                disabled={isDisabled}
+                                onClick={() => onVote(proposal.id, 2)}
+                              />
+                            </Row>
+                          </div>
+                        );
+                      })() : null}
 
                       {showPostVoteActions && (isPending || isAwaitingQueue || isAwaitingExecution) ? (
-                        <Stack gap="xs" style={{ marginTop: "0.5rem" }}>
+                        <Stack gap="xs">
                           {isPending && onCancel && canCancelPending ? (
                             <ButtonSecondary
+                              size="sm"
                               fullWidth={false}
                               disabled={isActioning}
                               onClick={() => onCancel(proposal)}
-                              style={{ fontWeight: 700 }}
+                              style={{
+                                color: "var(--colors-error)",
+                                borderColor: "color-mix(in oklab, var(--colors-error) 35%, var(--colors-border))",
+                              }}
                             >
-                              {isCancelling ? "Aborting..." : "Abort Proposal"}
+                              {isCancelling ? "Aborting…" : "Abort Proposal"}
                             </ButtonSecondary>
                           ) : null}
 
                           {isAwaitingQueue && onQueue ? (
-                            <ButtonSecondary
+                            <ButtonPrimary
+                              size="sm"
                               fullWidth={false}
                               disabled={isActioning}
                               onClick={() => onQueue(proposal)}
-                              style={{ fontWeight: 700 }}
                             >
-                              {isQueueing ? "Queueing..." : "Queue Proposal"}
-                            </ButtonSecondary>
+                              {isQueueing ? "Queueing…" : "Queue for Execution"}
+                            </ButtonPrimary>
                           ) : null}
 
                           {isAwaitingExecution && ((onExecute != null) || (onCancel && canCancelQueued)) ? (
-                            <Row gap="xs" style={{ alignItems: "center", flexWrap: "nowrap" }}>
+                            <Row gap="xs" style={{ justifyContent: "flex-end" }}>
                               {onCancel && canCancelQueued ? (
                                 <ButtonSecondary
+                                  size="sm"
                                   fullWidth={false}
                                   disabled={isActioning}
                                   onClick={() => onCancel(proposal)}
                                   style={{
-                                    flex: 1,
-                                    minWidth: 0,
-                                    padding: "0.5rem 0.35rem",
-                                    fontSize: "clamp(0.7rem, 2vw, 0.9rem)",
-                                    fontWeight: 700,
-                                    backgroundColor: "var(--colors-error)",
-                                    color: "#ffffff",
-                                    border: "1px solid var(--colors-error)",
+                                    color: "var(--colors-error)",
+                                    borderColor: "color-mix(in oklab, var(--colors-error) 35%, var(--colors-border))",
                                   }}
                                 >
-                                  {isCancelling ? "Vetoing..." : "Veto"}
+                                  {isCancelling ? "Vetoing…" : "Veto"}
                                 </ButtonSecondary>
                               ) : null}
 
                               {onExecute ? (
-                                <ButtonSecondary
+                                <ButtonPrimary
+                                  size="sm"
                                   fullWidth={false}
                                   disabled={isActioning || !canExecuteTimelockActions || !isReadyByCountdown}
                                   onClick={() => onExecute(proposal)}
-                                  style={{
-                                    flex: 1,
-                                    minWidth: 0,
-                                    padding: "0.5rem 0.35rem",
-                                    fontSize: "clamp(0.7rem, 2vw, 0.9rem)",
-                                    fontWeight: 700,
-                                    backgroundColor: "var(--colors-success)",
-                                    color: "#ffffff",
-                                    border: "1px solid var(--colors-success)",
-                                  }}
                                 >
-                                  {isExecuting ? "Executing..." : "Execute"}
-                                </ButtonSecondary>
+                                  {isExecuting ? "Executing…" : "Execute Proposal"}
+                                </ButtonPrimary>
                               ) : null}
                             </Row>
                           ) : null}

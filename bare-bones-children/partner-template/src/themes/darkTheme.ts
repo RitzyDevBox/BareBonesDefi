@@ -6,27 +6,27 @@ export const darkTheme: AppTheme = {
   mode: ThemeMode.DARK,
   ...baseTheme,
   colors: {
-    background: "#121826", // Slightly darker background for more contrast
-    surface: "#1e2634",    // Slightly more refined surface color
-    surfaceHover: "rgba(255, 255, 255, 0.06)", // Slightly more visible hover
+    background: "#0c0c0d",
+    surface: "#141416",
+    surfaceHover: "rgba(255,255,255,0.04)",
 
-    border: "#303a4a",     // Darker border for subtlety
-    borderHover: "rgba(255, 255, 255, 0.3)",  // More visible border on hover
+    border: "#24242a",
+    borderHover: "#33333a",
 
-    primary: "#3b82f6",    // Softer, pleasant blue (keeping the same tone)
-    primaryHover: "#2563eb", // Hover remains a bit more intense
+    primary: "oklch(0.72 0.14 225)",
+    primaryHover: "oklch(0.66 0.14 225)",
 
-    secondary: "#4b5d6a",  // Slightly muted secondary for a natural contrast
-    secondaryHover: "#3a4b59", // Slightly darker secondary on hover
+    secondary: "#2a2a30",
+    secondaryHover: "#33333a",
 
-    success: "#4ade80",     // Green-400 — bright enough to read on dark bg
-    warn: "#fbbf24",        // Keeps a nice yellow, no change
-    error: "#f87171",       // Red-400 — readable on dark surfaces (was #ef4444 which is too dark)
+    success: "oklch(0.78 0.14 148)",
+    warn: "oklch(0.82 0.14 78)",
+    error: "oklch(0.70 0.17 25)",
 
     text: {
-      main: "#e5e7eb",      // Light text still fine
-      muted: "#a1b3c2",     // Muted text a bit lighter
-      label: "#94a3b8",     // Keeps the same for consistency
+      main: "#ededee",
+      muted: "#a3a3aa",
+      label: "#6b6b74",
     },
   },
   appBackground: {
@@ -35,12 +35,12 @@ export const darkTheme: AppTheme = {
     honeycomb: {
       enabled: true,
       hexSize: 40,
-      opacity: 0.12,
+      opacity: 0.08,
       animationSpeed: 0.8,
-      backgroundColor: "#1e1712", // Slightly deeper brown
-      hue: 35,         // Warm golden honey remains
-      saturation: 70,
-      lightness: 58,   // Slightly brighter honeycomb
-    }
+      backgroundColor: "#0c0c0d",
+      hue: 225,
+      saturation: 40,
+      lightness: 45,
+    },
   },
 };

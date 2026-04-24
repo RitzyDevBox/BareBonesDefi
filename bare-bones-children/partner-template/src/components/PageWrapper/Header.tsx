@@ -1,16 +1,16 @@
+import { useState } from "react";
 import { APP_NAME } from "../../constants/misc";
-import { ThemeToggle } from "../../themes/ThemeToggle";
 import { shortAddress } from "../../utils/formatUtils";
 import { ButtonPrimary } from "../Button/ButtonPrimary";
+import { IconButton } from "../Button/IconButton";
 import { ChainSelector } from "./ChainSelector";
-import { Row, Surface } from "../Primitives";
 import { BareBonesLogo } from "./BareBonesLogo";
-import { Text } from "../Primitives/Text";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMediaQuery, ScreenSize } from "../../hooks/useMediaQuery";
 import { NAV_ITEMS } from "./navConfig";
 import { HamburgerMenu } from "./HamburgerMenu";
-
+import { SettingsModal } from "../Settings/SettingsModal";
+import { useSettings } from "../../hooks/useSettings";
 
 interface HeaderProps {
   account: string | null;
@@ -19,38 +19,61 @@ interface HeaderProps {
   onChainChange: (chainId: number) => void;
 }
 
-const headerStyle = {
-  position: "sticky" as const,
+const headerStyle: React.CSSProperties = {
+  position: "sticky",
   top: 0,
   zIndex: 100,
   borderBottom: "1px solid var(--colors-border)",
-  padding: "var(--spacing-sm) var(--spacing-md)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
+  background: "color-mix(in oklab, var(--colors-background) 82%, transparent)",
 };
 
-const containerStyle = {
+const innerStyle: React.CSSProperties = {
   maxWidth: 1200,
   margin: "0 auto",
-  gap: "var(--spacing-md)",
+  padding: "0 24px",
+  height: 60,
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
 };
 
-const logoStyle = {
+const brandStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 6,
-  padding: "6px 10px",
+  gap: 8,
+  fontSize: 18,
+  fontWeight: 600,
+  letterSpacing: "-0.01em",
+  cursor: "pointer",
+  background: "none",
+  border: "none",
+  color: "var(--colors-text-main)",
+  padding: "6px 8px 6px 0",
+  flexShrink: 0,
 };
+
+
+function GearButton({ onClick }: { onClick: () => void }) {
+  return (
+    <IconButton
+      onClick={onClick}
+      aria-label="Settings"
+      title="Settings"
+      size="xl"
+      shape="rounded"
+      style={{ color: "var(--colors-text-main)", fontSize: 15 }}
+    >
+      ⚙
+    </IconButton>
+  );
+}
 
 export function Header(props: HeaderProps) {
   const screen = useMediaQuery();
-
-  const isCompact =
-    screen === ScreenSize.Phone || screen === ScreenSize.Tablet;
-
-  return isCompact ? (
-    <MobileHeader {...props} />
-  ) : (
-    <FullHeader {...props} />
-  );
+  const isCompact = screen === ScreenSize.Phone || screen === ScreenSize.Tablet;
+  return isCompact ? <MobileHeader {...props} /> : <FullHeader {...props} />;
 }
 
 function WalletStatus({
@@ -60,17 +83,76 @@ function WalletStatus({
   account: string | null;
   onConnectWallet: () => void;
 }) {
-  return !account ? (
-    <ButtonPrimary size="sm" onClick={onConnectWallet}>
-      Connect
-    </ButtonPrimary>
-  ) : (
-    <Text.Body style={{ fontSize: "0.85em" }}>
-      {shortAddress(account)}
-    </Text.Body>
+  if (!account) {
+    return (
+      <ButtonPrimary size="sm" onClick={onConnectWallet}>
+        Connect
+      </ButtonPrimary>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        height: 36,
+        padding: "0 12px 0 10px",
+        borderRadius: "var(--radius-md)",
+        border: "1px solid var(--colors-border)",
+        background: "var(--colors-surface)",
+        fontSize: 13,
+        fontWeight: 500,
+        color: "var(--colors-text-main)",
+      }}
+    >
+      <div
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: "50%",
+          background:
+            "conic-gradient(from 210deg, #6b8cff, var(--colors-primary), #ff8fb3, #6b8cff)",
+          flexShrink: 0,
+        }}
+      />
+      <span style={{ fontFamily: "monospace", fontSize: 13 }}>
+        {shortAddress(account)}
+      </span>
+    </div>
   );
 }
 
+function NavLink({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "7px 12px",
+        fontSize: 14,
+        fontWeight: 500,
+        color: active ? "var(--colors-text-main)" : "var(--colors-text-muted)",
+        background: active ? "var(--colors-surface)" : "transparent",
+        border: "none",
+        borderRadius: "var(--radius-md)",
+        cursor: "pointer",
+        transition: "color .15s, background .15s",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
 
 function FullHeader({
   account,
@@ -80,59 +162,54 @@ function FullHeader({
 }: HeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { settings, toggle } = useSettings();
 
   return (
-    <Surface as="header" style={headerStyle}>
-      <Row justify="between" align="center" style={containerStyle}>
-        {/* LEFT */}
-        <Row gap="md" align="center">
-          <Surface clickable onClick={() => navigate("/")} style={logoStyle}>
-            <BareBonesLogo size={28} />
-            <Text.Body style={{ fontWeight: 600 }}>
-              {APP_NAME}
-            </Text.Body>
-          </Surface>
+    <>
+      <header style={headerStyle}>
+        <div style={innerStyle}>
+          {/* Brand */}
+          <button style={brandStyle} onClick={() => navigate("/")} aria-label={`${APP_NAME} home`}>
 
-          <Row gap="sm">
-            {NAV_ITEMS.map((item) => {
-              const active = location.pathname === item.path;
+            <BareBonesLogo size={20} />
+            <span>{APP_NAME}</span>
+          </button>
 
-              return (
-                <Surface
-                  key={item.id}
-                  clickable
-                  onClick={() => navigate(item.path)}
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: "var(--radius-md)",
-                    background: active
-                      ? "var(--colors-surfaceHover)"
-                      : "transparent",
-                  }}
-                >
-                  <Text.Body style={{ fontWeight: active ? 600 : 500 }}>
-                    {item.label}
-                  </Text.Body>
-                </Surface>
-              );
-            })}
-          </Row>
-        </Row>
+          {/* Nav links */}
+          <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+            {NAV_ITEMS.map((item) => (
+              <NavLink
+                key={item.id}
+                label={item.label}
+                active={location.pathname === item.path || location.pathname.startsWith(item.path + "/")}
+                onClick={() => navigate(item.path)}
+              />
+            ))}
+          </div>
 
-        {/* RIGHT */}
-        <Row gap="sm" align="center">
-          {account && chainId !== null && (
-            <ChainSelector
-              chainId={chainId}
-              onChainChange={onChainChange}
-            />
-          )}
+          {/* Right side */}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            {account && chainId !== null && (
+              <ChainSelector
+                chainId={chainId}
+                onChainChange={onChainChange}
+                showTestnets={settings.showTestnets}
+              />
+            )}
+            <WalletStatus account={account} onConnectWallet={onConnectWallet} />
+            <GearButton onClick={() => setSettingsOpen(true)} />
+          </div>
+        </div>
+      </header>
 
-          <WalletStatus account={account} onConnectWallet={onConnectWallet} />
-          <ThemeToggle />
-        </Row>
-      </Row>
-    </Surface>
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        showTestnets={settings.showTestnets}
+        onToggleTestnets={() => toggle("showTestnets")}
+      />
+    </>
   );
 }
 
@@ -143,27 +220,33 @@ function MobileHeader({
   onConnectWallet,
 }: HeaderProps) {
   const navigate = useNavigate();
+  const { settings, toggle } = useSettings();
 
   return (
-    <Surface as="header" style={headerStyle}>
-      <Row justify="between" align="center" style={containerStyle}>
-        {/* LEFT */}
-        <Surface clickable onClick={() => navigate("/")} style={logoStyle}>
-          <BareBonesLogo size={28} />
-        </Surface>
+    <header style={headerStyle}>
+      <div style={innerStyle}>
+        {/* Brand */}
+        <button style={brandStyle} onClick={() => navigate("/")} aria-label={`${APP_NAME} home`}>
+          <BareBonesLogo size={20} />
+        </button>
 
-        {/* RIGHT */}
-        <Row gap="sm" align="center">
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
           {account && chainId !== null && (
             <ChainSelector
               chainId={chainId}
               onChainChange={onChainChange}
+              showTestnets={settings.showTestnets}
+              compact
             />
           )}
           <WalletStatus account={account} onConnectWallet={onConnectWallet} />
-          <HamburgerMenu account={account} />
-        </Row>
-      </Row>
-    </Surface>
+          <HamburgerMenu
+            account={account}
+            showTestnets={settings.showTestnets}
+            onToggleTestnets={() => toggle("showTestnets")}
+          />
+        </div>
+      </div>
+    </header>
   );
 }

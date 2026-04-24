@@ -1,0 +1,132 @@
+import { useEffect, useState } from "react";
+import { ethers } from "ethers";
+import DAOGovernorABI from "../../abis/dao/DAOGovernor.abi.json";
+
+type Params = {
+  governorAddress: string;
+  account: string | null | undefined;
+  provider: ethers.providers.Web3Provider | null | undefined;
+  version: number;
+};
+
+type Result = {
+  canPropose: boolean;
+  eligibilityMessage: string | null;
+  checkingEligibility: boolean;
+};
+
+export function useDaoProposerEligibility({ governorAddress, account, provider, version }: Params): Result {
+  const [canPropose, setCanPropose] = useState(false);
+  const [eligibilityMessage, setEligibilityMessage] = useState<string | null>(null);
+  const [checkingEligibility, setCheckingEligibility] = useState(false);
+
+  useEffect(() => {
+    let isActive = true;
+    const governorInterface = new ethers.utils.Interface(DAOGovernorABI as any);
+
+    function explainError(step: string, err: unknown): string {
+      const anyErr = err as any;
+      const code = anyErr?.code ? ` (${String(anyErr.code)})` : "";
+      const reason = anyErr?.reason || anyErr?.shortMessage || anyErr?.message;
+      const data = typeof anyErr?.data === "string" ? anyErr.data
+        : typeof anyErr?.error?.data === "string" ? anyErr.error.data : null;
+
+      if (data && data !== "0x") {
+        try {
+          const parsed = governorInterface.parseError(data);
+          const argsText = parsed.args?.length ? `(${parsed.args.map((a) => String(a)).join(", ")})` : "";
+          return `Eligibility check failed at ${step}: ${parsed.name}${argsText}${code}`;
+        } catch { /* fall through */ }
+      }
+      if (data === "0x") {
+        return `Eligibility check failed at ${step}: empty revert data${code}. This usually means this address is not the governor contract.`;
+      }
+      return `Eligibility check failed at ${step}: ${reason ? String(reason) : "unknown error"}${code}`;
+    }
+
+    async function checkEligibility() {
+      if (!provider || !governorAddress || !account) {
+        if (!isActive) return;
+        setCanPropose(false);
+        setEligibilityMessage("Connect your wallet to create proposals.");
+        return;
+      }
+
+      setCheckingEligibility(true);
+
+      try {
+        const codeAtAddress = await provider.getCode(governorAddress);
+        if (codeAtAddress === "0x") {
+          if (!isActive) return;
+          setCanPropose(false);
+          setEligibilityMessage("Governor address has no contract code.");
+          return;
+        }
+
+        const governor = new ethers.Contract(governorAddress, DAOGovernorABI as any, provider);
+
+        let threshold: ethers.BigNumber;
+        let currentClock: ethers.BigNumber;
+
+        try {
+          threshold = ethers.BigNumber.from(await governor.proposalThreshold());
+        } catch (err) {
+          throw new Error(explainError("proposalThreshold()", err));
+        }
+
+        try {
+          currentClock = ethers.BigNumber.from(await governor.clock());
+        } catch (err) {
+          throw new Error(explainError("clock()", err));
+        }
+
+        const timepoint = currentClock.gt(0) ? currentClock.sub(1) : ethers.BigNumber.from(0);
+        let votingPower: ethers.BigNumber;
+        let votingPowerAtCurrentClock: ethers.BigNumber = ethers.BigNumber.from(0);
+
+        try {
+          votingPower = ethers.BigNumber.from(await governor.getVotes(account, timepoint));
+        } catch (err) {
+          throw new Error(explainError("getVotes(account, timepoint)", err));
+        }
+
+        try {
+          votingPowerAtCurrentClock = ethers.BigNumber.from(await governor.getVotes(account, currentClock));
+        } catch {
+          votingPowerAtCurrentClock = votingPower;
+        }
+
+        if (!isActive) return;
+
+        if (votingPower.lt(threshold)) {
+          const needed = ethers.utils.formatUnits(threshold, 18);
+          const have = ethers.utils.formatUnits(votingPower, 18);
+
+          if (votingPowerAtCurrentClock.gte(threshold)) {
+            setCanPropose(false);
+            setEligibilityMessage("Delegation detected. You have enough votes at the current block, but proposer eligibility activates on the next block.");
+            return;
+          }
+
+          setCanPropose(false);
+          setEligibilityMessage(`Insufficient voting power: you have ${have} votes but need at least ${needed}. Self-delegate governance tokens first.`);
+          return;
+        }
+
+        setCanPropose(true);
+        setEligibilityMessage(null);
+      } catch (err) {
+        if (!isActive) return;
+        setCanPropose(false);
+        setEligibilityMessage(err instanceof Error ? err.message : "Unable to verify proposer eligibility for this DAO.");
+      } finally {
+        if (isActive) setCheckingEligibility(false);
+      }
+    }
+
+    void checkEligibility();
+    return () => { isActive = false; };
+  }, [provider, governorAddress, account, version]);
+
+  return { canPropose, eligibilityMessage, checkingEligibility };
+}

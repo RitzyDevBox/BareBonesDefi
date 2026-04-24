@@ -7,6 +7,7 @@ import { AddressInput } from "../Inputs/AddressInput";
 import { Bytes32Input } from "../Inputs/Bytes32Input";
 import { NumberInput } from "../Inputs/NumberInput";
 import { Uint256Input } from "../Inputs/Uint256Input";
+import { Select, SelectOption } from "../Select";
 import { Row, Stack } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import DAOGovernorABI from "../../abis/dao/DAOGovernor.abi.json";
@@ -843,45 +844,19 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
     <Stack gap="md">
 
           <FormField label="Contract Group" style={{ marginBottom: 0 }}>
-            <select
-              value={actionGroup}
-              onChange={(event) => handleChangeActionGroup(event.target.value as ActionGroup)}
-              style={{
-                width: "100%",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--colors-border)",
-                padding: "var(--spacing-md)",
-                background: "var(--colors-background)",
-                color: "var(--colors-text-main)",
-              }}
-            >
+            <Select value={actionGroup} onChange={(v) => handleChangeActionGroup(v as ActionGroup)}>
               {ACTION_GROUP_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
+                <SelectOption key={option.value} value={option.value} label={option.label} />
               ))}
-            </select>
+            </Select>
           </FormField>
 
           <FormField label="Action" style={{ marginBottom: 0 }}>
-            <select
-              value={actionPreset}
-              onChange={(event) => applyPreset(event.target.value as ProposalActionPreset)}
-              style={{
-                width: "100%",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--colors-border)",
-                padding: "var(--spacing-md)",
-                background: "var(--colors-background)",
-                color: "var(--colors-text-main)",
-              }}
-            >
+            <Select value={actionPreset} onChange={(v) => applyPreset(v as ProposalActionPreset)}>
               {(ACTION_OPTIONS[actionGroup] ?? []).map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
+                <SelectOption key={option.value} value={option.value} label={option.label} />
               ))}
-            </select>
+            </Select>
           </FormField>
 
           <FormField label="Target Contract" style={{ marginBottom: 0 }}>
@@ -1058,27 +1033,19 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
                 </Text.Body>
               ) : installedFacets.length > 0 ? (
                 <FormField label="Installed Facets" style={{ marginBottom: 0 }}>
-                  <select
-                    onChange={(event) => {
-                      setDiamondFacetAddress(event.target.value);
-                    }}
-                    value={diamondFacetAddress}
-                    style={{
-                      width: "100%",
-                      borderRadius: "var(--radius-md)",
-                      border: "1px solid var(--colors-border)",
-                      padding: "var(--spacing-md)",
-                      background: "var(--colors-background)",
-                      color: "var(--colors-text-main)",
-                    }}
+                  <Select
+                    value={diamondFacetAddress || null}
+                    onChange={(v) => setDiamondFacetAddress(v as string)}
+                    placeholder="Select from installed facets"
                   >
-                    <option value="">Select from installed facets</option>
                     {installedFacets.map((facet) => (
-                      <option key={facet.facetAddress} value={facet.facetAddress}>
-                        {facet.facetAddress.slice(0, 10)}... ({facet.selectors.length} selectors)
-                      </option>
+                      <SelectOption
+                        key={facet.facetAddress}
+                        value={facet.facetAddress}
+                        label={`${facet.facetAddress.slice(0, 10)}… (${facet.selectors.length} selectors)`}
+                      />
                     ))}
-                  </select>
+                  </Select>
                 </FormField>
               ) : null}
               <FormField label="Facet Address" style={{ marginBottom: 0 }}>
@@ -1088,22 +1055,11 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
                 />
               </FormField>
               <FormField label="Action" style={{ marginBottom: 0 }}>
-                <select
-                  value={diamondCutAction}
-                  onChange={(event) => setDiamondCutAction(event.target.value)}
-                  style={{
-                    width: "100%",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--colors-border)",
-                    padding: "var(--spacing-md)",
-                    background: "var(--colors-background)",
-                    color: "var(--colors-text-main)",
-                  }}
-                >
-                  <option value="0">Add</option>
-                  <option value="1">Replace</option>
-                  <option value="2">Remove</option>
-                </select>
+                <Select value={diamondCutAction as string} onChange={(v) => setDiamondCutAction(v as string)}>
+                  <SelectOption value="0" label="Add" />
+                  <SelectOption value="1" label="Replace" />
+                  <SelectOption value="2" label="Remove" />
+                </Select>
               </FormField>
               <FormField label="Function Selector (bytes4)" style={{ marginBottom: 0 }}>
                 <Input
@@ -1173,28 +1129,18 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
               ) : null}
 
               <FormField label="Function" style={{ marginBottom: 0 }}>
-                <select
-                  value={selectedFunctionSignature}
-                  onChange={(event) => {
-                    setSelectedFunctionSignature(event.target.value);
+                <Select
+                  value={selectedFunctionSignature || null}
+                  onChange={(v) => {
+                    setSelectedFunctionSignature(v as string);
                     setValuesByParam({});
                   }}
-                  style={{
-                    width: "100%",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--colors-border)",
-                    padding: "var(--spacing-md)",
-                    background: "var(--colors-background)",
-                    color: "var(--colors-text-main)",
-                  }}
+                  placeholder="Select function"
                 >
-                  <option value="">Select function</option>
                   {functions.map((fragment) => (
-                    <option key={fragment.format()} value={fragment.format()}>
-                      {fragment.format()}
-                    </option>
+                    <SelectOption key={fragment.format()} value={fragment.format()} label={fragment.format()} />
                   ))}
-                </select>
+                </Select>
               </FormField>
 
               {selectedFunction ? (

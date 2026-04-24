@@ -6,6 +6,9 @@ import { Modal } from "../Modal/Modal";
 import { VirtualizedList } from "../VirtualizedList/VirtualizedList";
 import { Box } from "../BasicComponents";
 import { Text } from "../Primitives/Text"
+import { Sheet } from "../Primitives/Sheet";
+import { Stack } from "../Primitives";
+import { CloseButton } from "../Modal/Modal";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useTokenList } from "./useTokenList";
 import { useCustomTokens } from "./useCustomTokens";
@@ -13,6 +16,7 @@ import { TokenRow } from "./TokenRow";
 import { TokenInfo } from "./types";
 import { NATIVE_TOKENS_BY_CHAIN } from "../../constants/misc";
 import { UXMode } from "../Modal/models";
+import { useMediaQuery, ScreenSize } from "../../hooks/useMediaQuery";
 
 interface TokenSelectProps {
   isOpen: boolean;
@@ -33,6 +37,8 @@ export function TokenSelect({
   const { tokens, loading } = useTokenList(chainId);
   const { customTokens, addCustomToken, removeCustomToken } =
     useCustomTokens(chainId);
+  const screen = useMediaQuery();
+  const isMobile = screen === ScreenSize.Phone || screen === ScreenSize.Tablet;
 
   const [query, setQuery] = useState("");
   const [importLoading, setImportLoading] = useState(false);
@@ -129,6 +135,100 @@ export function TokenSelect({
     }
   }
 
+  const tokenListBody = (
+    <Box
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--spacing-sm)",
+      }}
+    >
+      {/* SEARCH */}
+      <Box>
+        <input
+          placeholder="Search by name, symbol, or address"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            padding: "var(--spacing-md)",
+            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--colors-border)",
+            background: "var(--colors-background)",
+            color: "var(--colors-text-main)",
+          }}
+        />
+      </Box>
+
+      {/* IMPORT CUSTOM TOKEN */}
+      {isAddressSearch && !tokenExists && (
+        <Box
+          onClick={() => !importLoading && importCustomToken(normalizedQuery)}
+          style={{
+            padding: "var(--spacing-md)",
+            border: "1px dashed var(--colors-border)",
+            borderRadius: "var(--radius-md)",
+            cursor: importLoading ? "default" : "pointer",
+            opacity: importLoading ? 0.6 : 1,
+          }}
+        >
+          <Text.Body style={{ margin: 0 }}>
+            {importLoading ? "Importing token…" : `Import token at ${normalizedQuery}`}
+          </Text.Body>
+          {importError && (
+            <Text.Body style={{ margin: 0, color: "var(--colors-error)", fontSize: "0.85em" }}>
+              {importError}
+            </Text.Body>
+          )}
+        </Box>
+      )}
+
+      {/* LIST */}
+      {loading ? (
+        <Box style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--colors-text-muted)" }}>
+          <Text.Body>Loading tokens…</Text.Body>
+        </Box>
+      ) : (
+        <Box style={{ flex: 1, minHeight: 0 }}>
+          <VirtualizedList
+            items={filteredTokens}
+            estimateItemHeight={72}
+            showSearch={false}
+            renderRow={(token) => {
+              const isCustom = customTokens.some(
+                (t) => t.address.toLowerCase() === token.address.toLowerCase()
+              );
+              return (
+                <TokenRow
+                  token={token}
+                  isCustom={isCustom}
+                  onRemoveCustom={() => removeCustomToken(token.address)}
+                  onSelect={(t) => { onSelect(t); onClose(); }}
+                />
+              );
+            }}
+          />
+        </Box>
+      )}
+    </Box>
+  );
+
+  if (isMobile) {
+    return (
+      <Sheet placement="bottom" open={isOpen} onClose={onClose}>
+        <Stack gap="sm">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <Text.Title size="sm" align="left">Select Token</Text.Title>
+            <CloseButton onClick={onClose} />
+          </div>
+          {tokenListBody}
+        </Stack>
+      </Sheet>
+    );
+  }
+
   return (
     <Modal
       isOpen={isOpen}
@@ -138,118 +238,7 @@ export function TokenSelect({
       width={520}
       maxWidth={600}
     >
-      <Box
-        style={{
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          gap: "var(--spacing-sm)",
-        }}
-      >
-        {/* SEARCH */}
-        <Box>
-          <input
-            placeholder="Search by name, symbol, or address"
-            value={query}
-            onChange={(e) =>
-              setQuery(e.target.value)
-            }
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              padding: "var(--spacing-md)",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--colors-border)",
-              background: "var(--colors-background)",
-              color: "var(--colors-text-main)",
-            }}
-          />
-        </Box>
-
-        {/* IMPORT CUSTOM TOKEN */}
-        {isAddressSearch && !tokenExists && (
-          <Box
-            onClick={() =>
-              !importLoading &&
-              importCustomToken(normalizedQuery)
-            }
-            style={{
-              padding: "var(--spacing-md)",
-              border: "1px dashed var(--colors-border)",
-              borderRadius: "var(--radius-md)",
-              cursor: importLoading
-                ? "default"
-                : "pointer",
-              opacity: importLoading ? 0.6 : 1,
-            }}
-          >
-            <Text.Body style={{ margin: 0 }}>
-              {importLoading
-                ? "Importing token…"
-                : `Import token at ${normalizedQuery}`}
-            </Text.Body>
-
-            {importError && (
-              <Text.Body
-                style={{
-                  margin: 0,
-                  color: "var(--colors-error)",
-                  fontSize: "0.85em",
-                }}
-              >
-                {importError}
-              </Text.Body>
-            )}
-          </Box>
-        )}
-
-        {/* LIST */}
-        {loading ? (
-          <Box
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--colors-text-muted)",
-            }}
-          >
-            <Text.Body>Loading tokens…</Text.Body>
-          </Box>
-        ) : (
-          <Box style={{ flex: 1, minHeight: 0 }}>
-            <VirtualizedList
-              items={filteredTokens}
-              estimateItemHeight={72}
-              showSearch={false}
-              renderRow={(token) => {
-                const isCustom =
-                  customTokens.some(
-                    (t) =>
-                      t.address.toLowerCase() ===
-                      token.address.toLowerCase()
-                  );
-
-                return (
-                  <TokenRow
-                    token={token}
-                    isCustom={isCustom}
-                    onRemoveCustom={() =>
-                      removeCustomToken(
-                        token.address
-                      )
-                    }
-                    onSelect={(t) => {
-                      onSelect(t);
-                      onClose();
-                    }}
-                  />
-                );
-              }}
-            />
-          </Box>
-        )}
-      </Box>
+      {tokenListBody}
     </Modal>
   );
 }

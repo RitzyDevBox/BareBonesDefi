@@ -1,8 +1,7 @@
 import React, { useEffect, useRef } from "react";
-import { Card } from "../BasicComponents";
-import { IconButton, IconButtonSize } from "../Button/IconButton";
+import { createPortal } from "react-dom";
 import { ModalProps, UXMode } from "./models";
-import { Text } from "../Primitives/Text"
+import { IconButton } from "../Button/IconButton";
 
 function toCss(val: number | string): string {
   return typeof val === "number" ? `${val}px` : val;
@@ -11,23 +10,20 @@ function toCss(val: number | string): string {
 export function CloseButton({
   onClick,
   style,
-  size
 }: {
   onClick: () => void;
   style?: React.CSSProperties;
-  size?: IconButtonSize;
 }) {
   return (
     <IconButton
       onClick={onClick}
       aria-label="Close"
-      size={size}
-      shape="square"
+      size="sm"
+      shape="rounded"
       style={{
-        position: "absolute",
-        top: "var(--spacing-md)",
-        right: "var(--spacing-md)",
-        zIndex: 2,
+        border: "none",
+        background: "transparent",
+        color: "var(--colors-text-muted)",
         ...style,
       }}
     >
@@ -51,50 +47,38 @@ export function Modal({
 }: ModalProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Close when clicking outside modal
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (!wrapperRef.current) return;
-      if (!wrapperRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    }
-
-    if (isOpen) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [isOpen, onClose]);
-
   useEffect(() => {
     if (!isOpen) return;
-
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
+    function handleClick(e: MouseEvent) {
+      if (!wrapperRef.current?.contains(e.target as Node)) onClose();
     }
-
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") { e.stopPropagation(); onClose(); }
+    }
+    document.addEventListener("mousedown", handleClick);
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [isOpen, onClose]);
-
 
   if (!isOpen) return null;
 
   const resolvedWidth = toCss(width);
   const resolvedMaxWidth = toCss(maxWidth);
   const resolvedMaxHeight = toCss(maxHeight);
-  const resolvedHeight =
-    height === "auto" ? "auto" : toCss(height as number | string);
-
+  const resolvedHeight = height === "auto" ? "auto" : toCss(height as number | string);
   const isFixedBody = uxMode === UXMode.FixedBody;
 
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.6)",
+        background: "rgba(0,0,0,0.35)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -107,47 +91,59 @@ export function Modal({
         style={{
           width: resolvedWidth,
           maxWidth: resolvedMaxWidth,
+          background: "var(--colors-surface)",
+          border: "1px solid var(--colors-border)",
+          borderRadius: "var(--radius-lg)",
+          boxShadow: "var(--shadows-medium)",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          height: isFixedBody ? resolvedMaxHeight : resolvedHeight,
+          maxHeight: resolvedMaxHeight,
         }}
       >
-        <Card
+        {/* Header row — always rendered so CloseButton has a home */}
+        <div
           style={{
-            width: "100%",
-            height: uxMode === UXMode.FixedBody ? resolvedMaxHeight : resolvedHeight,
-            maxHeight: resolvedMaxHeight,
-            boxSizing: "border-box",
             display: "flex",
-            flexDirection: "column",
-            position: "relative",
-            minHeight: 0,
-            padding: 0, // 🔑 Card becomes a shell
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "18px 22px",
+            borderBottom: title ? "1px solid var(--colors-border)" : undefined,
+            flexShrink: 0,
           }}
         >
-          <CloseButton size="lg" onClick={onClose} />
-          {title && (
-            <div
+          {title ? (
+            <span
               style={{
-                padding: "var(--spacing-md)",
-                paddingBottom: "var(--spacing-sm)",
+                fontSize: 18,
+                fontWeight: 500,
+                letterSpacing: "-0.01em",
+                color: "var(--colors-text-main)",
               }}
             >
-              <Text.Title>{title}</Text.Title>
-            </div>
+              {title}
+            </span>
+          ) : (
+            <span />
           )}
+          <CloseButton onClick={onClose} />
+        </div>
 
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              overflowX: "hidden",
-              overflowY: isFixedBody ? "hidden" : "auto",
-              padding: "var(--modal-padding)",
-            }}
-          >
-            {children}
-          </div>
-        </Card>
-
+        {/* Body */}
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowX: "hidden",
+            overflowY: isFixedBody ? "hidden" : "auto",
+            padding: "var(--modal-padding, var(--spacing-lg))",
+          }}
+        >
+          {children}
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,73 +1,213 @@
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CHAIN_INFO_MAP } from "../../constants/misc";
 import { ImageWithFallback } from "../ImageWithFallback";
-import { DropdownAlignment, Select, SelectOption } from "../Select";
 
 interface ChainSelectorProps {
   chainId: number | null;
   onChainChange: (chainId: number) => void;
+  showTestnets?: boolean;
+  compact?: boolean;
 }
 
-function getChainIconProps(
-  chainId: number | null,
-  opt: React.ReactElement | null
-): {
-  src?: string;
-  fallbackText: string;
-  title?: string;
-} | null {
-  // Unknown chain
-  if (chainId !== null && !CHAIN_INFO_MAP[chainId]) {
-    return {
-      fallbackText: "!",
-      title: "Unknown network",
-    };
-  }
+export function ChainSelector({ chainId, onChainChange, showTestnets = true, compact = false }: ChainSelectorProps) {
+  const [open, setOpen] = useState(false);
+  const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  if (!opt) return null;
+  const allChains = Object.values(CHAIN_INFO_MAP);
+  const chains = showTestnets ? allChains : allChains.filter((c) => !c.testnet);
 
-  const { label, logoUrl } = opt.props as {
-    label?: string;
-    logoUrl?: string;
-  };
+  const current = chainId != null ? CHAIN_INFO_MAP[chainId] : null;
+  const isUnknown = chainId != null && !current;
 
-  return {
-    src: logoUrl,
-    fallbackText: label ?? "?",
-    title: label,
-  };
-}
+  // Compute dropdown position synchronously before paint when open changes
+  useLayoutEffect(() => {
+    if (open && triggerRef.current) {
+      setTriggerRect(triggerRef.current.getBoundingClientRect());
+    }
+  }, [open]);
 
-export function ChainSelector({
-  chainId,
-  onChainChange,
-}: ChainSelectorProps) {
-  const chains = Object.values(CHAIN_INFO_MAP);
+  // Close on outside click
+  useEffect(() => {
+    function onOutsideClick(e: MouseEvent) {
+      if (
+        !triggerRef.current?.contains(e.target as Node) &&
+        !dropdownRef.current?.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onOutsideClick);
+    return () => document.removeEventListener("mousedown", onOutsideClick);
+  }, []);
 
-  const isUnknownChain =
-    chainId !== null && !CHAIN_INFO_MAP[chainId];
+  // Close when anything scrolls (fixed dropdown drifts from trigger on scroll)
+  useEffect(() => {
+    if (!open) return;
+    function onScroll() { setOpen(false); }
+    window.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => window.removeEventListener("scroll", onScroll, { capture: true });
+  }, [open]);
 
   return (
-    <Select
-      value={isUnknownChain ? null : chainId}
-      onChange={onChainChange}
-      placeholder="Select chain"
-      style={{ width: 68 }}
-      dropdownAlignment={DropdownAlignment.RIGHT}
-      renderValue={(opt) => {
-        const iconProps = getChainIconProps(chainId, opt);
-        if (!iconProps) return null;
+    <div style={{ position: "relative" }}>
+      {/* Trigger pill */}
+      <button
+        ref={triggerRef}
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 7,
+          height: 36,
+          padding: compact ? "0 8px" : "0 10px",
+          border: "1px solid var(--colors-border)",
+          background: "var(--colors-surface)",
+          borderRadius: "var(--radius-md)",
+          fontSize: 13,
+          fontWeight: 500,
+          color: "var(--colors-text-main)",
+          cursor: "pointer",
+          transition: "border-color .15s, background .15s",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {isUnknown ? (
+          <>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "var(--colors-warn)",
+                boxShadow: "0 0 0 2px color-mix(in oklab, var(--colors-warn) 30%, transparent)",
+                flexShrink: 0,
+              }}
+            />
+            {!compact && <span>Unknown</span>}
+          </>
+        ) : current ? (
+          <>
+            {current.logoUrl ? (
+              <ImageWithFallback
+                src={current.logoUrl}
+                fallbackText={current.chainName[0]}
+                size={14}
+                style={{ flexShrink: 0 }}
+              />
+            ) : (
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: "var(--colors-primary)",
+                  boxShadow: "0 0 0 2px color-mix(in oklab, var(--colors-primary) 30%, transparent)",
+                  flexShrink: 0,
+                }}
+              />
+            )}
+            {!compact && (
+              <span
+                style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              >
+                {current.chainName}
+              </span>
+            )}
+          </>
+        ) : (
+          !compact && <span style={{ color: "var(--colors-text-muted)" }}>Network</span>
+        )}
+        {/* Caret always visible — indicates dropdown interactivity */}
+        <span style={{ fontSize: 10, opacity: 0.5, flexShrink: 0 }}>▼</span>
+      </button>
 
-        return <ImageWithFallback {...iconProps} size={16} />;
-      }}
-    >
-      {chains.map((c) => (
-        <SelectOption
-          key={c.chainId}
-          value={c.chainId}
-          label={c.chainName}
-          logoUrl={c.logoUrl}
-        />
-      ))}
-    </Select>
+      {/* Portaled dropdown — compact: pinned to viewport right edge; full: aligned to trigger */}
+      {open && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{
+            position: "fixed",
+            top: (triggerRect?.bottom ?? -9999) + 6,
+            right: compact ? 8 : window.innerWidth - (triggerRect?.right ?? 0),
+            minWidth: 180,
+            background: "var(--colors-surface)",
+            border: "1px solid var(--colors-border)",
+            borderRadius: "var(--radius-md)",
+            boxShadow: "var(--shadows-medium)",
+            zIndex: 5000,
+            overflow: "hidden",
+            padding: 4,
+          }}
+        >
+          {chains.length === 0 ? (
+            <div style={{ padding: "10px 14px", color: "var(--colors-text-muted)", fontSize: 13 }}>
+              No networks
+            </div>
+          ) : (
+            chains.map((c) => {
+              const isSelected = c.chainId === chainId;
+              return (
+                <button
+                  key={c.chainId}
+                  onClick={() => {
+                    onChainChange(c.chainId);
+                    setOpen(false);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    width: "100%",
+                    padding: "9px 12px",
+                    background: isSelected ? "color-mix(in oklab, var(--colors-primary) 10%, var(--colors-surface))" : "transparent",
+                    border: "none",
+                    borderRadius: "var(--radius-sm)",
+                    color: isSelected ? "var(--colors-primary)" : "var(--colors-text-main)",
+                    fontSize: 13,
+                    fontWeight: isSelected ? 600 : 500,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "background .12s",
+                  }}
+                >
+                  {c.logoUrl ? (
+                    <ImageWithFallback src={c.logoUrl} fallbackText={c.chainName[0]} size={16} />
+                  ) : (
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: isSelected ? "var(--colors-primary)" : "var(--colors-text-muted)",
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                  <span>{c.chainName}</span>
+                  {c.testnet && (
+                    <span
+                      style={{
+                        marginLeft: "auto",
+                        fontSize: 10,
+                        fontFamily: "monospace",
+                        color: "var(--colors-text-label)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                      }}
+                    >
+                      testnet
+                    </span>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>,
+        document.body
+      )}
+    </div>
   );
 }

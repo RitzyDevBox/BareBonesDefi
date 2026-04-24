@@ -11,9 +11,10 @@ export function ThemeModeProvider({
 }) {
   const [mode, setMode] = useState<ThemeMode>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored === ThemeMode.LIGHT || stored === ThemeMode.DARK
-      ? stored
-      : ThemeMode.DARK;
+    if (stored === ThemeMode.LIGHT || stored === ThemeMode.DARK) return stored;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? ThemeMode.DARK
+      : ThemeMode.LIGHT;
   });
 
   const toggle = () => {
