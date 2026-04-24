@@ -18,6 +18,7 @@ import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { fetchOrganizationInfo, useOwnedOrganizations } from "../hooks/payroll/useOrganizationRegistry";
+import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { shortAddress } from "../utils/formatUtils";
 import { fetchDaoGovernorsByNames } from "../utils/graph/daoGraphService";
 import { DAODetailPage } from "./DAODetailPage";
@@ -163,6 +164,7 @@ function InfoChip({
 
 export function DAOsPage() {
   const { provider, account, chainId } = useWalletProvider();
+  const { version } = useTxRefresh();
   const screen = useMediaQuery();
   const [form, setForm] = useState<DaoDeployFormState>(() => buildDefaultFormState(chainId ?? DEFAULT_CHAIN_ID));
   const [selectedOrganization, setSelectedOrganization] = useState("");
@@ -208,6 +210,7 @@ export function DAOsPage() {
     provider: provider ?? undefined,
     payrollManagerAddress,
     owner: account,
+    refreshKey: version,
   });
 
   const payrollInterface = useMemo(() => new ethers.utils.Interface(PayrollManagerABI as any), []);
@@ -300,7 +303,7 @@ export function DAOsPage() {
     return () => {
       isActive = false;
     };
-  }, [chainId, ownedOrganizations, isSubmitting]);
+  }, [chainId, ownedOrganizations, version]);
 
   useEffect(() => {
     let isActive = true;
@@ -332,7 +335,7 @@ export function DAOsPage() {
     return () => {
       isActive = false;
     };
-  }, [provider, account, daoFactoryAddress, config?.namespacedCreate3Factory, chainId, isSubmitting, isAuthorizingOperator]);
+  }, [provider, account, daoFactoryAddress, config?.namespacedCreate3Factory, chainId, isSubmitting, isAuthorizingOperator, version]);
 
   useEffect(() => {
     let isActive = true;
@@ -359,7 +362,7 @@ export function DAOsPage() {
     return () => {
       isActive = false;
     };
-  }, [selectedOrganization, provider, payrollManagerAddress]);
+  }, [selectedOrganization, provider, payrollManagerAddress, version]);
 
   const registerOrganization = useExecuteRawTx(
     (_: number, orgSlug: string) => {
@@ -446,6 +449,7 @@ export function DAOsPage() {
       await Promise.resolve(registerOrganization(chainId, targetSlug));
       await reloadOwnedOrganizations();
       setSelectedOrganization(targetSlug);
+      setOrganizationExists(true);
       setOrganizationFetchError(null);
     } finally {
       setIsRegisteringOrg(false);

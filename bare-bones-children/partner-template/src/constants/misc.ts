@@ -78,7 +78,7 @@ export function getMockGovernanceTokenByChain(chainId: number): string {
 }
 
 export const POLYGON_SECURE_VALUE_RESERVE_GRAPH_URL = 'https://api.goldsky.com/api/public/project_clze9a4nvee2w01wbaw2y7wzc/subgraphs/secure-value-reserve/1.0.1/gn'
-export const ANVIL_SECURE_VALUE_RESERVE_GRAPH_URL = import.meta.env.VITE_LOCAL_SVR_GRAPH_URL ?? 'http://127.0.0.1:8000/subgraphs/name/secure-value-reserve'
+export const ANVIL_SECURE_VALUE_RESERVE_GRAPH_URL = import.meta.env.VITE_LOCAL_SVR_GRAPH_URL ?? 'http://127.0.0.1:8000/subgraphs/name/secure-value-reserve-local'
 
 export interface BareBonesConfiguration {
   diamondFactoryAddress: string;

@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import DAOGovernorABI from "../abis/dao/DAOGovernor.abi.json";
 import TimelockControllerABI from "../abis/dao/TimelockController.abi.json";
 import ERC20ABI from "../abis/ERC20.json";
+import ERC20VotesABI from "../abis/diamond/ERC20Votes.abi.json";
 import { ProposalsList } from "../components/DAO/ProposalsList";
 import { DAOInfoHeader, type DaoGovernanceOverview } from "../components/DAO/DAOInfoHeader";
 import { ProposalBuilder } from "../components/DAO/ProposalBuilder";
@@ -44,6 +45,7 @@ const PROPOSAL_STATE_LABELS: Record<number, string> = {
 
 
 const ERC20_TRANSFER_INTERFACE = new ethers.utils.Interface(ERC20ABI as any);
+const ERC20_VOTES_INTERFACE = new ethers.utils.Interface(ERC20VotesABI as any);
 
 const DAO_GOVERNOR_DECODE_INTERFACE = new ethers.utils.Interface(DAOGovernorABI as any);
 
@@ -217,7 +219,7 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
   const { daoAddress: daoAddressFromRoute = "" } = useParams<{ daoAddress?: string }>();
   const daoAddress = daoAddressOverride ?? daoAddressFromRoute;
   const { provider, chainId, account } = useWalletProvider();
-  const { version } = useTxRefresh();
+  const { version, triggerRefresh } = useTxRefresh();
   const screen = useMediaQuery();
   const isMobile = screen === ScreenSize.Phone;
 
@@ -237,6 +239,7 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
   const [executorRoleMembers, setExecutorRoleMembers] = useState<string[]>([]);
   const [actingProposalId, setActingProposalId] = useState<string | null>(null);
   const [actingProposalAction, setActingProposalAction] = useState<"queue" | "execute" | "cancel" | null>(null);
+  const [delegatingVotePower, setDelegatingVotePower] = useState(false);
 
   const governorAddress = useMemo(() => {
     try {
@@ -802,6 +805,7 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
 
         const timepoint = currentClock.gt(0) ? currentClock.sub(1) : ethers.BigNumber.from(0);
         let votingPower: ethers.BigNumber;
+        let votingPowerAtCurrentClock: ethers.BigNumber = ethers.BigNumber.from(0);
 
         try {
           votingPower = ethers.BigNumber.from(await governor.getVotes(account, timepoint));
@@ -809,11 +813,26 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
           throw new Error(explainEligibilityError("getVotes(account, timepoint)", err));
         }
 
+        try {
+          votingPowerAtCurrentClock = ethers.BigNumber.from(await governor.getVotes(account, currentClock));
+        } catch {
+          votingPowerAtCurrentClock = votingPower;
+        }
+
         if (!isActive) return;
 
         if (votingPower.lt(threshold)) {
           const needed = ethers.utils.formatUnits(threshold, 18);
           const have = ethers.utils.formatUnits(votingPower, 18);
+
+          if (votingPowerAtCurrentClock.gte(threshold)) {
+            setCanPropose(false);
+            setEligibilityMessage(
+              `Delegation detected. You have enough votes at the current block, but proposer eligibility activates on the next block.`
+            );
+            return;
+          }
+
           setCanPropose(false);
           setEligibilityMessage(
             `Insufficient voting power: you have ${have} votes but need at least ${needed}. Self-delegate governance tokens first.`
@@ -880,6 +899,24 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
     }
   );
 
+  const executeSelfDelegate = useExecuteRawTx(
+    (_: number, tokenAddress: string, delegatee: string) => {
+      if (!ethers.utils.isAddress(tokenAddress)) {
+        throw new Error("Governance token address is unavailable.");
+      }
+
+      if (!ethers.utils.isAddress(delegatee)) {
+        throw new Error("Wallet address is unavailable.");
+      }
+
+      return {
+        to: tokenAddress,
+        data: ERC20_VOTES_INTERFACE.encodeFunctionData("delegate", [delegatee]),
+      } as any;
+    },
+    () => "Delegated voting power to your wallet"
+  );
+
   async function handleSubmitProposal(payload: ProposalBuildPayload) {
     if (chainId == null) {
       throw new Error("Chain is not available.");
@@ -933,6 +970,34 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
       }
     } finally {
       setVotingProposalId(null);
+    }
+  }
+
+  async function handleSelfDelegate() {
+    if (chainId == null) {
+      throw new Error("Chain is not available.");
+    }
+
+    if (!account) {
+      throw new Error("Connect your wallet to self-delegate.");
+    }
+
+    const tokenAddress = governanceOverview?.tokenAddress;
+    if (!tokenAddress) {
+      throw new Error("Governance token address unavailable.");
+    }
+
+    setDelegatingVotePower(true);
+    try {
+      await executeSelfDelegate(chainId, tokenAddress, account);
+
+      window.setTimeout(() => {
+        triggerRefresh({
+          message: "Rechecking proposer eligibility after delegation",
+        });
+      }, 1500);
+    } finally {
+      setDelegatingVotePower(false);
     }
   }
 
@@ -1035,6 +1100,14 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
 
   const canExecuteTimelockActions = Boolean(governanceOverview?.openExecutor || governanceOverview?.connectedIsExecutor);
   const canCancelTimelockActions = Boolean(governanceOverview?.openCanceller || governanceOverview?.connectedIsCanceller);
+  const shouldShowDelegatePrompt = Boolean(
+    !canPropose &&
+    !checkingEligibility &&
+    account &&
+    governanceOverview?.tokenAddress &&
+    eligibilityMessage &&
+    /self-delegate|insufficient voting power/i.test(eligibilityMessage)
+  );
   const canCancelPendingByProposalId = useMemo(() => {
     const connected = (account ?? "").toLowerCase();
     const map: Record<string, boolean> = {};
@@ -1162,15 +1235,36 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
           governanceLoading={governanceLoading}
           governanceOverview={governanceOverview}
           account={account}
-          footerAction={canPropose || checkingEligibility ? (
-            <ButtonSecondary
-              fullWidth={false}
-              disabled={checkingEligibility}
-              onClick={() => setShowProposalForm(true)}
-            >
-              {checkingEligibility ? "Checking…" : "Create Proposal"}
-            </ButtonSecondary>
-          ) : null}
+          footerAction={
+            <Stack gap="xs" style={{ alignItems: "flex-end" }}>
+              {canPropose || checkingEligibility ? (
+                <ButtonSecondary
+                  fullWidth={false}
+                  disabled={checkingEligibility}
+                  onClick={() => setShowProposalForm(true)}
+                >
+                  {checkingEligibility ? "Checking…" : "Create Proposal"}
+                </ButtonSecondary>
+              ) : null}
+
+              {shouldShowDelegatePrompt ? (
+                <>
+                  <Text.Body size="sm" color="warn" style={{ textAlign: "right", maxWidth: 460 }}>
+                    {eligibilityMessage}
+                  </Text.Body>
+                  <ButtonSecondary
+                    fullWidth={false}
+                    disabled={delegatingVotePower}
+                    onClick={() => {
+                      void handleSelfDelegate();
+                    }}
+                  >
+                    {delegatingVotePower ? "Delegating…" : "Self-Delegate Votes"}
+                  </ButtonSecondary>
+                </>
+              ) : null}
+            </Stack>
+          }
         />
 
         <ProposalsList
