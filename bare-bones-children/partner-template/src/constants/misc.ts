@@ -2,6 +2,7 @@ import { ethers } from "ethers";
 import { TokenInfo } from "../components/TokenSelect/types";
 import polygonLogo from "../assets/chains/polygon-logo.webp";
 import hyperliquidLogo from "../assets/chains/hyperliquid-logo.png";
+import { FEATURE_FLAGS } from "./featureFlags";
 
 export const SwapRouter02ExecutorAddress = '0xBe6d02FD9335C2e1e33bBC174ad7ee36764C8EE7'
 export const testTokenAddress = "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c";
@@ -201,7 +202,7 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
 
 export const DEFAULT_BROWSING_URL = "https://app.aave.com/";
 
-const LOCAL_CHAIN_ID = 31337;
+export const LOCAL_CHAIN_ID = 31337;
 const localEnv = (key: string): string | undefined => import.meta.env[key];
 
 const LOCAL_BARE_BONES_CONFIG_ENV_KEYS: Record<Exclude<keyof BareBonesConfiguration, "svrFactoryAddress">, string> = {
@@ -267,8 +268,7 @@ export interface ChainInfo {
   testnet?: boolean;
 }
 
-
-export const CHAIN_INFO_MAP: Record<number, ChainInfo> ={
+const BASE_CHAIN_INFO_MAP: Record<number, ChainInfo> = {
   [LOCAL_CHAIN_ID]: {
     chainId: LOCAL_CHAIN_ID,
     chainName: "Anvil Local",
@@ -328,6 +328,16 @@ export const CHAIN_INFO_MAP: Record<number, ChainInfo> ={
   // }
 }
 
+export const CHAIN_INFO_MAP: Record<number, ChainInfo> = Object.fromEntries(
+  Object.entries(BASE_CHAIN_INFO_MAP).filter(([chainId]) => {
+    if (Number(chainId) === LOCAL_CHAIN_ID) {
+      return FEATURE_FLAGS.localAnvilChain;
+    }
+
+    return true;
+  })
+) as Record<number, ChainInfo>;
+
 export const SUPPORTED_CHAIN_IDS = Object.freeze(
   Object.keys(CHAIN_INFO_MAP).map(Number)
 ) as readonly number[];
@@ -360,11 +370,21 @@ export const NATIVE_HYPE: TokenInfo = {
   logoURI: hyperliquidLogo,
 };
 
-export const NATIVE_TOKENS_BY_CHAIN: Record<number, TokenInfo> = {
+const BASE_NATIVE_TOKENS_BY_CHAIN: Record<number, TokenInfo> = {
   [LOCAL_CHAIN_ID]: NATIVE_ETH_ANVIL,
   137: NATIVE_POLYGON,
   999: NATIVE_HYPE,
 };
+
+export const NATIVE_TOKENS_BY_CHAIN: Record<number, TokenInfo> = Object.fromEntries(
+  Object.entries(BASE_NATIVE_TOKENS_BY_CHAIN).filter(([chainId]) => {
+    if (Number(chainId) === LOCAL_CHAIN_ID) {
+      return FEATURE_FLAGS.localAnvilChain;
+    }
+
+    return true;
+  })
+) as Record<number, TokenInfo>;
 
 
 export function getBareBonesConfiguration(

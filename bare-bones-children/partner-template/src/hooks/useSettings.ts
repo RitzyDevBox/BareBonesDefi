@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DEPLOYMENT_CONFIG } from "../config/deployment";
 
 const SETTINGS_KEY = "app-settings";
 
@@ -6,13 +7,13 @@ interface Settings {
   showTestnets: boolean;
 }
 
-const defaults: Settings = { showTestnets: true };
+const defaults: Settings = { showTestnets: DEPLOYMENT_CONFIG.showTestnetsByDefault };
 
 function load(): Settings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return defaults;
-    return { ...defaults, ...JSON.parse(raw) };
+    return { ...defaults, ...JSON.parse(raw) } as Settings;
   } catch {
     return defaults;
   }

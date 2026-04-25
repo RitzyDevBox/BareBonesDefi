@@ -2,9 +2,32 @@
 set -euo pipefail
 
 TARGET_BRANCH="github-pages-release"
+DEPLOYMENT_TARGET="local"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKTREE_DIR="${PROJECT_DIR}/.tmp-gh-pages-worktree"
 DIST_DIR="${PROJECT_DIR}/dist"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --local|local)
+      DEPLOYMENT_TARGET="local"
+      shift
+      ;;
+    --staging|staging)
+      DEPLOYMENT_TARGET="staging"
+      shift
+      ;;
+    --live|live|--prod|prod)
+      DEPLOYMENT_TARGET="live"
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      echo "Usage: $0 [--local|--staging|--live]"
+      exit 1
+      ;;
+  esac
+done
 
 cleanup() {
   if [[ -d "$WORKTREE_DIR" ]]; then
@@ -19,8 +42,8 @@ cd "$PROJECT_DIR"
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-printf "Building app from branch: %s\n" "$CURRENT_BRANCH"
-npm run build
+printf "Building app from branch: %s (deployment target: %s)\n" "$CURRENT_BRANCH" "$DEPLOYMENT_TARGET"
+VITE_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" npm run build
 
 if [[ ! -d "$DIST_DIR" ]]; then
   echo "Build failed: dist directory was not created."
@@ -50,7 +73,7 @@ touch "$WORKTREE_DIR/.nojekyll"
 # Commit only if there are changes
 if [[ -n "$(git -C "$WORKTREE_DIR" status --porcelain)" ]]; then
   git -C "$WORKTREE_DIR" add -A
-  git -C "$WORKTREE_DIR" commit -m "Deploy from ${CURRENT_BRANCH} at ${TIMESTAMP}" >/dev/null
+  git -C "$WORKTREE_DIR" commit -m "gh-pages ${DEPLOYMENT_TARGET} deploy from ${CURRENT_BRANCH} @ ${TIMESTAMP}" >/dev/null
   git -C "$WORKTREE_DIR" push origin "$TARGET_BRANCH"
   printf "Deployed dist to branch: %s\n" "$TARGET_BRANCH"
 else
