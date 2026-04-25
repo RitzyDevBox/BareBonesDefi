@@ -331,8 +331,8 @@ function ProposalRow({ p, onVote, myVote, wallet, onCancel, onVeto, onQueue, onE
   );
 }
 
-function ConfigGrid({ chain }) {
-  const cfg = DAO_CONFIG;
+function ConfigGrid({ chain, dao }) {
+  const cfg = dao || DAO_CONFIG;
   const expl = chain.explorer;
   const linkFor = (addr) => expl ? `https://${expl}/address/${addr}` : null;
 
@@ -367,8 +367,8 @@ function ConfigGrid({ chain }) {
         <Cell k="Voting period" v={cfg.votingPeriod} />
         <Cell k="Quorum" v={cfg.quorum} />
         <Cell k="Timelock delay" v={cfg.timelockDelay} />
-        <Cell k="Proposal threshold" v="100k" sub="QRM" />
-        <Cell k="Total supply" v="100M" sub="QRM" />
+        <Cell k="Proposal threshold" v={cfg.proposalThreshold} />
+        <Cell k="Total supply" v={cfg.totalSupply} />
         <Cell k="Members" v={cfg.members.toLocaleString()} />
         <Cell k="Chain" v={chain.short} sub={`id ${chain.chainId}`} />
       </div>
@@ -426,7 +426,8 @@ function CreateProposalForm({ chain, wallet, onCreate }) {
   );
 }
 
-function Governance({ chain, wallet, onConnect }) {
+function Governance({ chain, wallet, onConnect, activeDao }) {
+  const dao = activeDao || DAO_CONFIG;
   const [tab, setTab] = React.useState('active');
   const [votes, setVotes] = React.useState({}); // propId -> 'for'|'against'|'abstain'
   const [props, setProps] = React.useState(PROPOSALS_ACTIVE);
@@ -463,7 +464,7 @@ function Governance({ chain, wallet, onConnect }) {
       ? { ...x, status: 'queued', executableAt: eligible, eligibleLabel: 'in 2d', endsIn: null }
       : x));
     window.toast.success('Queued for execution', {
-      description: `#${p.id} · eligible in ${DAO_CONFIG.timelockDelay}`,
+      description: `#${p.id} · eligible in ${dao.timelockDelay}`,
       action: 'View tx',
       onAction: () => window.toast.info('tx 0x4c8…91a2 confirmed', { duration: 3000 }),
       duration: 4500,
@@ -493,24 +494,31 @@ function Governance({ chain, wallet, onConnect }) {
     window.toast.error('Proposal vetoed', { description: `#${p.id} removed from ${p.status === 'queued' ? 'timelock queue' : 'queue eligibility'}`, duration: 4500 });
   };
 
-  const createProp = ({ title, description, target, calldata }) => {
+  const createProp = (payload) => {
     const id = Math.max(...props.map(p => p.id), ...history.map(p => p.id)) + 1;
+    // payload may be {title, description, actions:[]} from ProposalBuilder, or legacy {target, calldata}
+    const actions = payload.actions
+      ? payload.actions
+      : (payload.target && payload.target !== '0x0000000000000000000000000000000000000000' ? [{
+          target: payload.target, value: '0', signature: 'call()', args: [],
+          name: shortHex(payload.target, 6, 4), label: 'call', calldata: payload.calldata,
+        }] : []);
     const newP = {
-      id, title, description,
+      id, title: payload.title, description: payload.description,
       author: MOCK_WALLET.address,
       status: 'locked',
       endsIn: 'Voting opens in 1d',
       votes: { for: 0, against: 0, abstain: 0 },
       quorum: 1500000, posted: 'Just now',
-      actions: target && target !== '0x0000000000000000000000000000000000000000' ? [{
-        target, value: '0', signature: 'call()', args: [],
-        name: shortHex(target, 6, 4), label: 'call', calldata,
-      }] : [],
+      actions,
     };
     setProps(list => [newP, ...list]);
     setTab('active');
     setExpanded(id);
-    window.toast.success('Proposal submitted', { description: `#${id} · locked until voting delay elapses`, action: 'View', onAction: () => setExpanded(id), duration: 5000 });
+    window.toast.success('Proposal submitted', {
+      description: `#${id} · ${actions.length} call${actions.length === 1 ? '' : 's'} · locked until voting delay elapses`,
+      action: 'View', onAction: () => setExpanded(id), duration: 5000,
+    });
   };
 
   const activeCount = props.length;
@@ -520,7 +528,7 @@ function Governance({ chain, wallet, onConnect }) {
       <section className="gov-hero">
         <div className="container gov-hero-inner">
           <div>
-            <div className="crumb">Quorum Collective · {chain.name}</div>
+            <div className="crumb">{dao.name} · {chain.name} · {dao.symbol}</div>
             <h1>Governance</h1>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -574,8 +582,8 @@ function Governance({ chain, wallet, onConnect }) {
               ))}
             </div>
           )}
-          {tab === 'config' && <ConfigGrid chain={chain} />}
-          {tab === 'create' && <CreateProposalForm chain={chain} wallet={wallet} onCreate={createProp} />}
+          {tab === 'config' && <ConfigGrid chain={chain} dao={dao} />}
+          {tab === 'create' && <ProposalBuilder chain={chain} wallet={wallet} dao={dao} onCreate={createProp} />}
         </div>
       </section>
     </>

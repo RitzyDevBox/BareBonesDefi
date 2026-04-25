@@ -197,7 +197,7 @@ function CreateDaoModal({ onClose, onCreate, chain }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-scrim" onClick={onClose}>
       <div className="modal create-dao-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-labelledby="cd-title">
         <div className="modal-head">
           <div>

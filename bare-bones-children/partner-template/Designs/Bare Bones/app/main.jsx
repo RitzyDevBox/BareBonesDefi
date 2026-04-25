@@ -7,7 +7,8 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "density": "comfortable",
   "fontPairing": "display",
   "cardStyle": "bordered",
-  "honeycomb": true
+  "honeycomb": true,
+  "mobilePreview": false
 }/*EDITMODE-END*/;
 
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -103,6 +104,11 @@ function App() {
     document.body.classList.toggle('has-bg', !!tweaks.honeycomb);
   }, [tweaks.honeycomb]);
 
+  // mobile preview frame
+  React.useEffect(() => {
+    document.body.classList.toggle('mobile-preview', !!tweaks.mobilePreview);
+  }, [tweaks.mobilePreview]);
+
   // --- wallet ---
   const connect = () => {
     window.toast.info('Requesting wallet…', { duration: 1500 });
@@ -150,6 +156,8 @@ function App() {
       <main>
         {route === 'home' && <Landing goGovernance={() => setRoute('governance')} />}
         {route === 'governance' && <Governance chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
+        {route === 'wallets' && <WalletsPage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
+        {route === 'payments' && <PaymentsPage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'docs' && (
           <section className="section">
             <div className="container">
@@ -216,6 +224,9 @@ function App() {
         <TweakSection label="Background" />
         <TweakToggle label="Honeycomb" value={tweaks.honeycomb}
                      onChange={(v) => setTweak('honeycomb', v)} />
+        <TweakSection label="Preview" />
+        <TweakToggle label="Mobile frame" value={tweaks.mobilePreview}
+                     onChange={(v) => setTweak('mobilePreview', v)} />
         <TweakSection label="Demo toasts" />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
           <button className="twk-field" style={{ cursor: 'pointer' }}

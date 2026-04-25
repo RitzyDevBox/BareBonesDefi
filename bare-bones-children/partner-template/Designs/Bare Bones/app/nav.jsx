@@ -70,7 +70,7 @@ function WalletButton({ wallet, onClick, onConnect }) {
   );
 }
 
-function Nav({ route, setRoute, chain, setChain, wallet, showTestnets, onOpenWallet, onOpenSettings, onConnect }) {
+function Nav({ route, setRoute, chain, setChain, wallet, showTestnets, daos, activeDao, onSelectDao, onOpenCreateDao, onOpenWallet, onOpenSettings, onConnect }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const mRef = React.useRef(null);
   useClickOutside(mRef, () => setMobileOpen(false), mobileOpen);
@@ -81,6 +81,10 @@ function Nav({ route, setRoute, chain, setChain, wallet, showTestnets, onOpenWal
               onClick={() => { setRoute('home'); onPick && onPick(); }}>Home</button>
       <button className={`nav-link${route === 'governance' ? ' active' : ''}`}
               onClick={() => { setRoute('governance'); onPick && onPick(); }}>Governance</button>
+      <button className={`nav-link${route === 'wallets' ? ' active' : ''}`}
+              onClick={() => { setRoute('wallets'); onPick && onPick(); }}>Wallets</button>
+      <button className={`nav-link${route === 'payments' ? ' active' : ''}`}
+              onClick={() => { setRoute('payments'); onPick && onPick(); }}>Payments</button>
       <button className={`nav-link${route === 'docs' ? ' active' : ''}`}
               onClick={() => { setRoute('docs'); onPick && onPick(); window.toast.info('Docs coming soon', { duration: 2500 }); }}>Docs</button>
     </>
@@ -93,6 +97,10 @@ function Nav({ route, setRoute, chain, setChain, wallet, showTestnets, onOpenWal
           <span className="brand-mark" />
           <span>Quorum<em> / gov</em></span>
         </button>
+
+        {daos && activeDao && (
+          <DaoSwitcher daos={daos} active={activeDao} onSelect={onSelectDao} onCreate={onOpenCreateDao} />
+        )}
 
         <div className="nav-links nav-links-desktop">
           <Links />
