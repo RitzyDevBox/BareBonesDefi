@@ -1,0 +1,1 @@
+import{F as o}from"./index-Bwh9Ejuy.js";const e={fields:[{id:"tokenA",component:o.TOKEN_AMOUNT_PICKER,label:"Token A"},{id:"amountA",component:o.AMOUNT,label:"Amount A"},{id:"tokenB",component:o.TOKEN_AMOUNT_PICKER,label:"Token B"},{id:"amountB",component:o.AMOUNT,label:"Amount B"}]};export{e as ADD_V2_LP_SCHEMA,e as default};
