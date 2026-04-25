@@ -29,7 +29,10 @@ export function ToastContainer({
 
         display: "flex",
         justifyContent: "center",
-        zIndex: 1000,
+        // Toasts must paint above any modal/sheet scrim (Modal/bb-modal-scrim use 9999)
+        // so error toasts remain readable while a modal is open AND so clicks on the
+        // toast don't pass through to the scrim and dismiss the modal.
+        zIndex: 10000,
         pointerEvents: "none", // container doesn't steal clicks
       }}
     >

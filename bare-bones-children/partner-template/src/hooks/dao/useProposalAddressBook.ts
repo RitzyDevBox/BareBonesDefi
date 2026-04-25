@@ -26,6 +26,7 @@ export function useProposalAddressBook(governorAddress: string) {
   const { count: walletCount, loading: loadingWalletCount } = useUserWalletCount();
 
   const [timelockAddress, setTimelockAddress] = useState<string>("");
+  const [tokenAddress, setTokenAddress] = useState<string>("");
   const [timelockWalletAddresses, setTimelockWalletAddresses] = useState<string[]>([]);
   const [loadingTimelockWallets, setLoadingTimelockWallets] = useState(false);
   const [vaultAddresses, setVaultAddresses] = useState<string[]>([]);
@@ -55,12 +56,17 @@ export function useProposalAddressBook(governorAddress: string) {
 
       try {
         const governor = new ethers.Contract(governorAddress, DAOGovernorABI as any, provider);
-        const next = await governor.timelock();
+        const [timelock, token] = await Promise.all([
+          governor.timelock().catch(() => ""),
+          governor.token().catch(() => ""),
+        ]);
         if (!isActive) return;
-        setTimelockAddress(ethers.utils.getAddress(String(next)));
+        setTimelockAddress(timelock ? ethers.utils.getAddress(String(timelock)) : "");
+        setTokenAddress(token ? ethers.utils.getAddress(String(token)) : "");
       } catch {
         if (!isActive) return;
         setTimelockAddress("");
+        setTokenAddress("");
       }
     }
 
@@ -194,6 +200,7 @@ export function useProposalAddressBook(governorAddress: string) {
     timelockWalletAddresses,
     vaultAddresses,
     timelockAddress,
+    tokenAddress,
     loadingWalletCount,
     loadingTimelockWallets,
     loadingVaults,

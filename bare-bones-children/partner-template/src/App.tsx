@@ -4,13 +4,14 @@ import { switchOrAddEvmChain } from "./utils/chainUtils";
 import { ToastHost } from "./components/Toasts/ToastHost";
 import { Header } from "./components/PageWrapper/Header";
 import { AppBackground } from "./components/PageWrapper/AppBackground";
+import { ActiveOrganizationProvider } from "./providers/ActiveOrganizationProvider";
 
 export default function App() {
   const { account, chainId, connect, provider } = useWalletProvider();
 
   return (
-    <>
-      <AppBackground>
+    <AppBackground>
+      <ActiveOrganizationProvider>
         <ToastHost />
         <Header
           account={account}
@@ -31,7 +32,7 @@ export default function App() {
         >
           <Outlet />
         </main>
-      </AppBackground>
-    </>
+      </ActiveOrganizationProvider>
+    </AppBackground>
   );
 }

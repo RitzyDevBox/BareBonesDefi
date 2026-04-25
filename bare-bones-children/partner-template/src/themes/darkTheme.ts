@@ -9,6 +9,7 @@ export const darkTheme: AppTheme = {
     background: "#0c0c0d",
     surface: "#141416",
     surfaceHover: "rgba(255,255,255,0.04)",
+    surfaceElevated: "#1a1a1d",
 
     border: "#24242a",
     borderHover: "#33333a",

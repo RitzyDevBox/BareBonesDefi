@@ -1,286 +1,49 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { Card, CardContent, Input } from "../components/BasicComponents";
+import { Card, CardContent } from "../components/BasicComponents";
 import { CopyButton } from "../components/Button/Actions/CopyButton";
-import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
-import { FormField } from "../components/FormField/FormField";
-import { AddressInput } from "../components/Inputs/AddressInput";
-import { NumberInput } from "../components/Inputs/NumberInput";
-import { OrganizationPicker } from "../components/Organizations/OrganizationPicker";
+import { ButtonPrimary } from "../components/Button/ButtonPrimary";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Row, Stack } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
-import NamespacedCreate3FactoryABI from "../abis/diamond/NamespacedCreate3Factory.abi.json";
-import DAOFactoryABI from "../abis/dao/DAOFactory.abi.json";
-import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
-import { DEFAULT_CHAIN_ID, getBareBonesConfiguration, getMockGovernanceTokenByChain } from "../constants/misc";
-import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
-import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { useWalletProvider } from "../hooks/useWalletProvider";
-import { fetchOrganizationInfo, useOwnedOrganizations } from "../hooks/payroll/useOrganizationRegistry";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
+import { useActiveOrganization } from "../providers/ActiveOrganizationProvider";
 import { shortAddress } from "../utils/formatUtils";
 import { fetchDaoGovernorsByNames } from "../utils/graph/daoGraphService";
 import { GovHero } from "../components/DAO/GovHero";
 import { DAODetailPage } from "./DAODetailPage";
+import { CreateDaoModal } from "../components/Header/CreateDaoModal";
 
-const DAO_FACTORY_INTERFACE = new ethers.utils.Interface(DAOFactoryABI as any);
-type DaoDeployFormState = {
-  token: string;
-  timelockDelay: string;
-  votingDelay: string;
-  votingPeriod: string;
-  proposalThreshold: string;
-  quorumNumerator: string;
-  cancellersCsv: string;
-};
-
-type DaoDeploymentSummary = {
+interface DaoDeploymentSummary {
   name: string;
   governor: string;
-  timelock?: string;
-  token?: string;
   txHash: string;
-};
-
-function buildDefaultFormState(chainId: number = DEFAULT_CHAIN_ID): DaoDeployFormState {
-  return {
-    token: getMockGovernanceTokenByChain(chainId),
-    timelockDelay: "86400",
-    votingDelay: "1",
-    votingPeriod: "45818",
-    proposalThreshold: "1000000000000000000",
-    quorumNumerator: "4",
-    cancellersCsv: "",
-  };
-}
-
-function isWholeNumber(value: string) {
-  return /^\d+$/.test(value);
-}
-
-function parseCancellerAddresses(cancellersCsv: string) {
-  const unique = new Set<string>();
-
-  cancellersCsv
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .forEach((value) => {
-      unique.add(ethers.utils.getAddress(value));
-    });
-
-  return Array.from(unique);
-}
-
-function validateDeployForm(form: DaoDeployFormState, selectedOrganization: string, ownedOrganizations: string[]) {
-  if (!selectedOrganization.trim()) {
-    return "Select an organization.";
-  }
-
-  if (!ownedOrganizations.includes(selectedOrganization.trim())) {
-    return "You can only deploy a DAO for organizations you administer.";
-  }
-
-  if (!form.token.trim()) return "Governance token address is required.";
-
-  try {
-    ethers.utils.getAddress(form.token.trim());
-  } catch {
-    return "Governance token address is invalid.";
-  }
-
-  const integerFields: Array<[string, string]> = [
-    ["Timelock Delay", form.timelockDelay],
-    ["Voting Delay", form.votingDelay],
-    ["Voting Period", form.votingPeriod],
-    ["Proposal Threshold", form.proposalThreshold],
-    ["Quorum Numerator", form.quorumNumerator],
-  ];
-
-  for (const [label, value] of integerFields) {
-    if (!isWholeNumber(value)) {
-      return `${label} must be a whole number.`;
-    }
-  }
-
-  const quorumNumerator = Number(form.quorumNumerator);
-  if (quorumNumerator < 0 || quorumNumerator > 100) {
-    return "Quorum Numerator must be between 0 and 100.";
-  }
-
-  try {
-    parseCancellerAddresses(form.cancellersCsv);
-  } catch {
-    return "One or more canceller addresses are invalid.";
-  }
-
-  return null;
-}
-
-function parseDeploymentSummaryFromReceipt(receipt: ethers.providers.TransactionReceipt, fallbackName: string): DaoDeploymentSummary | null {
-  for (const log of receipt.logs) {
-    try {
-      const parsed = DAO_FACTORY_INTERFACE.parseLog(log);
-      if (parsed.name !== "DAODeployed") continue;
-
-      const governor = parsed.args.governor ?? parsed.args[0];
-      const timelock = parsed.args.timelock ?? parsed.args[1];
-      const token = parsed.args.token ?? parsed.args[2];
-      const name = parsed.args.name ?? parsed.args[3] ?? fallbackName;
-
-      return {
-        name,
-        governor,
-        timelock,
-        token,
-        txHash: receipt.transactionHash,
-      };
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
-}
-
-function InfoChip({
-  label,
-  displayValue,
-  copyValue,
-}: {
-  label: string;
-  displayValue: string;
-  copyValue?: string | null;
-}) {
-  return (
-    <Row gap="xs" style={{ width: "auto", alignItems: "center" }}>
-      <Text.Body size="sm" color="muted">
-        {label}: {displayValue}
-      </Text.Body>
-      <CopyButton value={copyValue ?? displayValue} ariaLabel={`Copy ${label.toLowerCase()}`} />
-    </Row>
-  );
 }
 
 export function DAOsPage() {
-  const { provider, account, chainId } = useWalletProvider();
+  const { account, chainId } = useWalletProvider();
   const { version } = useTxRefresh();
-  const screen = useMediaQuery();
-  const [form, setForm] = useState<DaoDeployFormState>(() => buildDefaultFormState(chainId ?? DEFAULT_CHAIN_ID));
-  const [selectedOrganization, setSelectedOrganization] = useState("");
-  const [organizationExists, setOrganizationExists] = useState<boolean | null>(null);
-  const [orgInfoLoading, setOrgInfoLoading] = useState(false);
-  const [organizationFetchError, setOrganizationFetchError] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [isRegisteringOrg, setIsRegisteringOrg] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAuthorizingOperator, setIsAuthorizingOperator] = useState(false);
-  const [templateProvider, setTemplateProvider] = useState<string | null>(null);
+  const { activeOrgSlug, ownedOrgs } = useActiveOrganization();
+
   const [deploymentsByOrg, setDeploymentsByOrg] = useState<Record<string, DaoDeploymentSummary>>({});
-  const [daoFactoryOperatorApproved, setDaoFactoryOperatorApproved] = useState<boolean | null>(null);
-  const [lastDeployment, setLastDeployment] = useState<DaoDeploymentSummary | null>(null);
-
-  const existingDeployment = useMemo(() => {
-    const slug = selectedOrganization.trim().toLowerCase();
-    return slug ? deploymentsByOrg[slug] ?? null : null;
-  }, [selectedOrganization, deploymentsByOrg]);
-
-  const config = useMemo(() => {
-    if (chainId == null) return null;
-    return getBareBonesConfiguration(chainId);
-  }, [chainId]);
-  const defaultMockGovernanceToken = useMemo(
-    () => (chainId == null ? "" : getMockGovernanceTokenByChain(chainId)),
-    [chainId]
-  );
-  const defaultFormState = useMemo(
-    () => buildDefaultFormState(chainId ?? DEFAULT_CHAIN_ID),
-    [chainId]
-  );
-
-  const payrollManagerAddress = config?.payrollManagerAddress;
-  const daoFactoryAddress = config?.daoFactoryAddress ?? "";
-  const formColumns = screen === ScreenSize.Desktop ? 2 : 1;
-
-  const {
-    organizations: ownedOrganizations,
-    loading: loadingOwnedOrganizations,
-    reload: reloadOwnedOrganizations,
-  } = useOwnedOrganizations({
-    provider: provider ?? undefined,
-    payrollManagerAddress,
-    owner: account,
-    refreshKey: version,
-  });
-
-  const payrollInterface = useMemo(() => new ethers.utils.Interface(PayrollManagerABI as any), []);
+  const [loading, setLoading] = useState(false);
+  const [showDeployModal, setShowDeployModal] = useState(false);
 
   useEffect(() => {
-    if (!account) return;
-    setForm((current) => {
-      if (current.cancellersCsv.trim()) return current;
-      return { ...current, cancellersCsv: account };
-    });
-  }, [account]);
-
-  useEffect(() => {
-    setForm((current) => {
-      if (current.token.trim()) return current;
-      return { ...current, token: defaultMockGovernanceToken };
-    });
-  }, [defaultMockGovernanceToken]);
-
-  useEffect(() => {
-    if (!selectedOrganization.trim() && ownedOrganizations.length > 0) {
-      setSelectedOrganization(ownedOrganizations[0]);
-      setOrganizationFetchError(null);
+    let cancelled = false;
+    if (chainId == null || ownedOrgs.length === 0) {
+      setDeploymentsByOrg({});
+      return;
     }
-  }, [ownedOrganizations, selectedOrganization]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    async function loadTemplateProvider() {
-      if (!provider || !daoFactoryAddress) {
-        if (isActive) setTemplateProvider(null);
-        return;
-      }
-
-      try {
-        const factory = new ethers.Contract(daoFactoryAddress, DAOFactoryABI as any, provider);
-        const nextTemplateProvider = await factory.templateProvider();
-        if (isActive) setTemplateProvider(nextTemplateProvider);
-      } catch {
-        if (isActive) setTemplateProvider(null);
-      }
-    }
-
-    void loadTemplateProvider();
-
-    return () => {
-      isActive = false;
-    };
-  }, [provider, daoFactoryAddress]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    async function loadDeployedDaos() {
-      if (chainId == null || !ownedOrganizations.length) {
-        if (isActive) setDeploymentsByOrg({});
-        return;
-      }
-
-      try {
-        const governors = await fetchDaoGovernorsByNames(chainId, ownedOrganizations);
-        if (!isActive) return;
-
+    setLoading(true);
+    fetchDaoGovernorsByNames(chainId, ownedOrgs)
+      .then((governors) => {
+        if (cancelled) return;
         const byOrg: Record<string, DaoDeploymentSummary> = {};
         for (const governor of governors) {
           const name = (governor.name ?? "").trim();
           if (!name) continue;
-
           try {
             byOrg[name.toLowerCase()] = {
               name,
@@ -288,439 +51,149 @@ export function DAOsPage() {
               txHash: String(governor.txHash ?? ""),
             };
           } catch {
-            continue;
+            // skip malformed entries
           }
         }
-
         setDeploymentsByOrg(byOrg);
-      } catch {
-        if (!isActive) return;
-        setDeploymentsByOrg({});
-      }
-    }
-
-    void loadDeployedDaos();
-
-    return () => {
-      isActive = false;
-    };
-  }, [chainId, ownedOrganizations, version]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    async function loadOperatorApproval() {
-      if (!provider || !account || !daoFactoryAddress || !config?.namespacedCreate3Factory) {
-        if (isActive) setDaoFactoryOperatorApproved(null);
-        return;
-      }
-
-      try {
-        const nsFactory = new ethers.Contract(
-          config.namespacedCreate3Factory,
-          NamespacedCreate3FactoryABI as any,
-          provider
-        );
-
-        const approved = await nsFactory.isOperatorFor(account, daoFactoryAddress);
-        if (!isActive) return;
-        setDaoFactoryOperatorApproved(Boolean(approved));
-      } catch {
-        if (!isActive) return;
-        setDaoFactoryOperatorApproved(null);
-      }
-    }
-
-    void loadOperatorApproval();
-
-    return () => {
-      isActive = false;
-    };
-  }, [provider, account, daoFactoryAddress, config?.namespacedCreate3Factory, chainId, isSubmitting, isAuthorizingOperator, version]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    async function loadOrganizationInfo() {
-      const slug = selectedOrganization.trim();
-      if (!slug || !provider || !payrollManagerAddress) {
-        if (isActive) setOrganizationExists(null);
-        return;
-      }
-
-      setOrgInfoLoading(true);
-      try {
-        const info = await fetchOrganizationInfo(provider, payrollManagerAddress, slug);
-        if (!isActive) return;
-        setOrganizationExists(Boolean(info?.exists));
-      } finally {
-        if (isActive) setOrgInfoLoading(false);
-      }
-    }
-
-    void loadOrganizationInfo();
-
-    return () => {
-      isActive = false;
-    };
-  }, [selectedOrganization, provider, payrollManagerAddress, version]);
-
-  const registerOrganization = useExecuteRawTx(
-    (_: number, orgSlug: string) => {
-      if (!payrollManagerAddress) {
-        throw new Error("Payroll manager address missing");
-      }
-
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
-      return {
-        to: payrollManagerAddress,
-        data: payrollInterface.encodeFunctionData("registerOrganization", [slugBytes]),
-      } as any;
-    },
-    (_: number, orgSlug: string) => `Organization "${orgSlug}" registered`
-  );
-
-  const deployDao = useExecuteRawTx(
-    async (_: number, orgSlug: string, nextForm: DaoDeployFormState) => {
-      if (!provider || !daoFactoryAddress) {
-        throw new Error("DAO factory address is not configured for this chain.");
-      }
-
-      const signer = provider.getSigner();
-      const factory = new ethers.Contract(daoFactoryAddress, DAOFactoryABI as any, signer);
-      // Keep calling DAOFactory.deploy; it handles timelock wiring and internally uses deployFor.
-      const populated = await factory.populateTransaction.deploy({
-        name: orgSlug.trim(),
-        token: ethers.utils.getAddress(nextForm.token.trim()),
-        timelockDelay: nextForm.timelockDelay,
-        votingDelay: nextForm.votingDelay,
-        votingPeriod: nextForm.votingPeriod,
-        proposalThreshold: nextForm.proposalThreshold,
-        quorumNumerator: nextForm.quorumNumerator,
-        cancellers: parseCancellerAddresses(nextForm.cancellersCsv),
+      })
+      .catch(() => {
+        if (!cancelled) setDeploymentsByOrg({});
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
+    return () => {
+      cancelled = true;
+    };
+  }, [chainId, ownedOrgs, version]);
 
-      return {
-        to: daoFactoryAddress,
-        data: populated.data ?? "0x",
-        value: populated.value ?? 0,
-      };
-    },
-    (_: number, orgSlug: string) => `Deployed DAO for organization "${orgSlug}"`
-  );
-
-  const authorizeDaoFactoryOperator = useExecuteRawTx(
-    (_: number) => {
-      if (!daoFactoryAddress || !config?.namespacedCreate3Factory) {
-        throw new Error("Namespaced factory or DAO factory is not configured for this chain.");
-      }
-
-      const nsFactoryInterface = new ethers.utils.Interface(NamespacedCreate3FactoryABI as any);
-
-      return {
-        to: config.namespacedCreate3Factory,
-        data: nsFactoryInterface.encodeFunctionData("setOperator", [daoFactoryAddress, true]),
-      } as any;
-    },
-    () => "Authorized DAOFactory as namespaced deploy operator"
-  );
-
-  const handleFetchOrganization = useCallback(
-    (nextSlug: string) => {
-      const target = nextSlug.trim();
-      if (!target) return;
-
-      if (!ownedOrganizations.includes(target)) {
-        setOrganizationFetchError("Only organizations you administer can be used for DAO deployment.");
-        return;
-      }
-
-      setOrganizationFetchError(null);
-      setSelectedOrganization(target);
-    },
-    [ownedOrganizations]
-  );
-
-  async function handleCreateOrganization(nextSlug?: string) {
-    const targetSlug = (nextSlug ?? selectedOrganization).trim();
-    if (!targetSlug || !chainId || isRegisteringOrg) return;
-
-    setIsRegisteringOrg(true);
-    try {
-      await Promise.resolve(registerOrganization(chainId, targetSlug));
-      await reloadOwnedOrganizations();
-      setSelectedOrganization(targetSlug);
-      setOrganizationExists(true);
-      setOrganizationFetchError(null);
-    } finally {
-      setIsRegisteringOrg(false);
-    }
-  }
-
-  async function handleAuthorizeOperator() {
-    if (!chainId) return;
-
-    setIsAuthorizingOperator(true);
-    try {
-      await Promise.resolve(authorizeDaoFactoryOperator(chainId));
-      setDaoFactoryOperatorApproved(true);
-    } finally {
-      setIsAuthorizingOperator(false);
-    }
-  }
-
-  async function handleDeployDao() {
-    if (!chainId) return;
-
-    const validationError = validateDeployForm(form, selectedOrganization, ownedOrganizations);
-    setFormError(validationError);
-
-    if (validationError) return;
-    if (organizationExists === false) {
-      setFormError(`Organization "${selectedOrganization}" does not exist.`);
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const tx = await deployDao(chainId, selectedOrganization.trim(), form);
-      if (!tx) return;
-
-      const receipt = await tx.wait(1);
-      const summary = parseDeploymentSummaryFromReceipt(receipt, selectedOrganization.trim());
-      setLastDeployment(summary);
-
-      setForm((current) => ({
-        ...defaultFormState,
-        token: current.token || defaultMockGovernanceToken,
-        cancellersCsv: current.cancellersCsv,
-      }));
-      setFormError(null);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  function updateField<K extends keyof DaoDeployFormState>(key: K, value: DaoDeployFormState[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
-  }
-
-  const deployDisabled =
-    !account ||
-    !daoFactoryAddress ||
-    !selectedOrganization.trim() ||
-    !ownedOrganizations.includes(selectedOrganization.trim()) ||
-    organizationExists === false ||
-    isSubmitting ||
-    daoFactoryOperatorApproved === false ||
-    Boolean(existingDeployment);
-
-  const deploymentToShow = existingDeployment ?? lastDeployment;
-  const deployedGovernorAddress = (deploymentToShow?.governor ?? "").trim();
+  const activeDeployment = useMemo(() => {
+    const slug = activeOrgSlug?.trim().toLowerCase();
+    return slug ? (deploymentsByOrg[slug] ?? null) : null;
+  }, [activeOrgSlug, deploymentsByOrg]);
 
   return (
     <PageContainer center maxWidth={1320}>
       <Stack gap="lg" style={{ width: "100%" }}>
-        {/* Page hero */}
         <GovHero
           crumb={`${account ? shortAddress(account) : "Not connected"} · ${chainId != null ? `Chain ${chainId}` : "No chain"}`}
           title="DAOs"
         />
 
-        <Stack gap="lg">
+        {!account && (
           <Card>
             <CardContent>
-              <Stack gap="md">
+              <Stack gap="md" style={{ alignItems: "center", textAlign: "center", padding: "var(--spacing-md)" }}>
                 <Text.Body color="muted">
-                  Organization name is the DAO source of truth. Select or create an organization, then deploy a DAO for it.
+                  Connect your wallet to see deployed DAOs and create new ones from the organization switcher.
                 </Text.Body>
-                <Row gap="md" wrap>
-                  <InfoChip
-                    label="Factory"
-                    displayValue={daoFactoryAddress ? shortAddress(daoFactoryAddress) : "Not configured"}
-                    copyValue={daoFactoryAddress || undefined}
-                  />
-                  {templateProvider ? (
-                    <InfoChip
-                      label="Template provider"
-                      displayValue={shortAddress(templateProvider)}
-                      copyValue={templateProvider}
-                    />
-                  ) : null}
-                  {daoFactoryOperatorApproved != null ? (
-                    <InfoChip
-                      label="Factory Operator"
-                      displayValue={daoFactoryOperatorApproved ? "Approved" : "Not approved"}
-                      copyValue={daoFactoryOperatorApproved ? "approved" : "not-approved"}
-                    />
-                  ) : null}
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
+
+        {account && !activeOrgSlug && (
+          <Card>
+            <CardContent>
+              <Stack gap="sm" style={{ alignItems: "center", textAlign: "center", padding: "var(--spacing-md)" }}>
+                <Text.Title align="center" size="sm">
+                  No organization selected
+                </Text.Title>
+                <Text.Body color="muted">
+                  Use the organization switcher in the header to pick or create one.
+                </Text.Body>
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
+
+        {account && activeOrgSlug && activeDeployment && (
+          <DAODetailPage
+            daoAddressOverride={activeDeployment.governor}
+            embedded
+            showBackButton={false}
+          />
+        )}
+
+        {account && activeOrgSlug && !activeDeployment && (
+          <Card>
+            <CardContent>
+              <Stack gap="md" style={{ alignItems: "center", textAlign: "center", padding: "var(--spacing-md)" }}>
+                <Text.Title align="center" size="sm">
+                  No DAO deployed for "{activeOrgSlug}"
+                </Text.Title>
+                <Text.Body color="muted">
+                  {loading
+                    ? "Looking up deployed governors…"
+                    : "Your organization is registered but no on-chain DAO has been deployed yet."}
+                </Text.Body>
+                <Row gap="sm" justify="center">
+                  <ButtonPrimary
+                    fullWidth={false}
+                    size="sm"
+                    onClick={() => setShowDeployModal(true)}
+                    disabled={loading}
+                  >
+                    Deploy DAO
+                  </ButtonPrimary>
                 </Row>
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
 
-                <Stack gap="sm">
-                  <Text.Title align="left" size="sm">Organization</Text.Title>
-                  <OrganizationPicker
-                    value={selectedOrganization}
-                    onChange={(next) => {
-                      setSelectedOrganization(next);
-                      setOrganizationFetchError(null);
-                    }}
-                    organizations={ownedOrganizations}
-                    loadingOrganizations={loadingOwnedOrganizations}
-                    loadingFetch={orgInfoLoading}
-                    onFetch={handleFetchOrganization}
-                    onCreateOrganization={handleCreateOrganization}
-                    isCreating={isRegisteringOrg}
-                  />
+        <CreateDaoModal
+          isOpen={showDeployModal}
+          onClose={() => setShowDeployModal(false)}
+          lockedOrgSlug={activeOrgSlug ?? undefined}
+        />
 
-                  {organizationFetchError ? (
-                    <Text.Body color="warn">{organizationFetchError}</Text.Body>
-                  ) : null}
-
-                  {!!selectedOrganization.trim() && organizationExists === false ? (
-                    <Text.Body color="warn">
-                      Organization "{selectedOrganization.trim()}" does not exist.
-                    </Text.Body>
-                  ) : null}
+        {account && ownedOrgs.length > 1 && (
+          <Card>
+            <CardContent>
+              <Stack gap="sm">
+                <Text.Title align="left" size="sm">
+                  Your organizations
+                </Text.Title>
+                <Stack gap="xs">
+                  {ownedOrgs.map((slug) => {
+                    const summary = deploymentsByOrg[slug.toLowerCase()];
+                    return (
+                      <Row
+                        key={slug}
+                        justify="between"
+                        gap="sm"
+                        style={{
+                          alignItems: "center",
+                          padding: "10px 12px",
+                          border: "1px solid var(--colors-border)",
+                          borderRadius: "var(--radius-md)",
+                          background:
+                            slug === activeOrgSlug
+                              ? "color-mix(in oklab, var(--colors-primary) 8%, transparent)"
+                              : "var(--colors-surface)",
+                        }}
+                      >
+                        <Stack gap="xs">
+                          <Text.Body>{slug}</Text.Body>
+                          <Text.Body size="sm" color="muted">
+                            {summary
+                              ? `Governor ${shortAddress(summary.governor)}`
+                              : "No DAO deployed"}
+                          </Text.Body>
+                        </Stack>
+                        {summary && (
+                          <CopyButton value={summary.governor} ariaLabel="Copy governor address" />
+                        )}
+                      </Row>
+                    );
+                  })}
                 </Stack>
               </Stack>
             </CardContent>
           </Card>
-
-          {deployedGovernorAddress ? (
-            <DAODetailPage
-              daoAddressOverride={deployedGovernorAddress}
-              embedded
-              showBackButton={false}
-            />
-          ) : (
-            <Card>
-              <CardContent>
-                <Stack gap="md">
-                  <Text.Title align="left" size="sm">Deploy DAO</Text.Title>
-
-                  {!account ? (
-                    <Text.Body color="warn">Connect your wallet to deploy a DAO.</Text.Body>
-                  ) : null}
-
-                  {!daoFactoryAddress ? (
-                    <Text.Body color="warn">DAO factory is not configured for the current chain.</Text.Body>
-                  ) : null}
-
-                  {daoFactoryOperatorApproved === false ? (
-                    <Row gap="sm" wrap style={{ alignItems: "center" }}>
-                      <Text.Body color="warn">
-                        One-time setup required: authorize DAOFactory as your namespaced deploy operator.
-                      </Text.Body>
-                      <ButtonSecondary
-                        fullWidth={false}
-                        disabled={isAuthorizingOperator || isSubmitting || !account}
-                        onClick={() => void handleAuthorizeOperator()}
-                      >
-                        {isAuthorizingOperator ? "Authorizing..." : "Authorize DAOFactory"}
-                      </ButtonSecondary>
-                    </Row>
-                  ) : null}
-
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: `repeat(${formColumns}, minmax(0, 1fr))`,
-                      gap: "var(--spacing-md)",
-                    }}
-                  >
-                    <FormField label="DAO Name" style={{ marginBottom: 0 }}>
-                      <Input value={selectedOrganization} disabled placeholder="Organization slug" />
-                    </FormField>
-
-                    <FormField label="Governance Token" style={{ marginBottom: 0 }}>
-                      <AddressInput
-                        value={form.token}
-                        onChange={(event) => updateField("token", (event.target as HTMLInputElement).value)}
-                      />
-                    </FormField>
-
-                    <FormField label="Timelock Delay (seconds)" style={{ marginBottom: 0 }}>
-                      <NumberInput
-                        value={form.timelockDelay}
-                        allowDecimal={false}
-                        min={0}
-                        onChange={(event) => updateField("timelockDelay", event.target.value)}
-                      />
-                    </FormField>
-
-                    <FormField label="Voting Delay (blocks)" style={{ marginBottom: 0 }}>
-                      <NumberInput
-                        value={form.votingDelay}
-                        allowDecimal={false}
-                        min={0}
-                        onChange={(event) => updateField("votingDelay", event.target.value)}
-                      />
-                    </FormField>
-
-                    <FormField label="Voting Period (blocks)" style={{ marginBottom: 0 }}>
-                      <NumberInput
-                        value={form.votingPeriod}
-                        allowDecimal={false}
-                        min={0}
-                        onChange={(event) => updateField("votingPeriod", event.target.value)}
-                      />
-                    </FormField>
-
-                    <FormField label="Quorum Numerator" style={{ marginBottom: 0 }}>
-                      <NumberInput
-                        value={form.quorumNumerator}
-                        allowDecimal={false}
-                        min={0}
-                        max={100}
-                        onChange={(event) => updateField("quorumNumerator", event.target.value)}
-                      />
-                    </FormField>
-                  </div>
-
-                  <FormField label="Proposal Threshold (raw token units)" style={{ marginBottom: 0 }}>
-                    <NumberInput
-                      value={form.proposalThreshold}
-                      allowDecimal={false}
-                      min={0}
-                      onChange={(event) => updateField("proposalThreshold", event.target.value)}
-                    />
-                  </FormField>
-
-                  <FormField label="Canceller Addresses (comma-separated)" style={{ marginBottom: 0 }}>
-                    <Input
-                      value={form.cancellersCsv}
-                      onChange={(event) => updateField("cancellersCsv", event.target.value)}
-                      placeholder="0x123..., 0x456..."
-                    />
-                  </FormField>
-
-                  {formError ? <Text.Body color="warn">{formError}</Text.Body> : null}
-
-                  <Row gap="sm" wrap>
-                    <ButtonPrimary fullWidth={false} disabled={deployDisabled} onClick={() => void handleDeployDao()}>
-                      {isSubmitting ? "Deploying..." : "Deploy DAO"}
-                    </ButtonPrimary>
-                    <ButtonSecondary
-                      fullWidth={false}
-                      disabled={isSubmitting}
-                      onClick={() => {
-                        setForm((current) => ({
-                          ...defaultFormState,
-                          token: current.token || defaultMockGovernanceToken,
-                          cancellersCsv: current.cancellersCsv,
-                        }));
-                        setFormError(null);
-                      }}
-                    >
-                      Reset
-                    </ButtonSecondary>
-                  </Row>
-                </Stack>
-              </CardContent>
-            </Card>
-          )}
-        </Stack>
+        )}
       </Stack>
     </PageContainer>
-  )
+  );
 }

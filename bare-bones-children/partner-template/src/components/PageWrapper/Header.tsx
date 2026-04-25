@@ -11,6 +11,8 @@ import { NAV_ITEMS } from "./navConfig";
 import { HamburgerMenu } from "./HamburgerMenu";
 import { SettingsModal } from "../Settings/SettingsModal";
 import { useSettings } from "../../hooks/useSettings";
+import { DaoSwitcher } from "../Header/DaoSwitcher";
+import { CreateDaoModal } from "../Header/CreateDaoModal";
 
 interface HeaderProps {
   account: string | null;
@@ -163,6 +165,7 @@ function FullHeader({
   const navigate = useNavigate();
   const location = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const { settings, toggle } = useSettings();
 
   return (
@@ -175,6 +178,8 @@ function FullHeader({
             <BareBonesLogo size={20} />
             <span>{APP_NAME}</span>
           </button>
+
+          {account && <DaoSwitcher onCreate={() => setCreateOpen(true)} />}
 
           {/* Nav links */}
           <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
@@ -209,6 +214,8 @@ function FullHeader({
         showTestnets={settings.showTestnets}
         onToggleTestnets={() => toggle("showTestnets")}
       />
+
+      <CreateDaoModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
     </>
   );
 }
@@ -221,32 +228,39 @@ function MobileHeader({
 }: HeaderProps) {
   const navigate = useNavigate();
   const { settings, toggle } = useSettings();
+  const [createOpen, setCreateOpen] = useState(false);
 
   return (
-    <header style={headerStyle}>
-      <div style={innerStyle}>
-        {/* Brand */}
-        <button style={brandStyle} onClick={() => navigate("/")} aria-label={`${APP_NAME} home`}>
-          <BareBonesLogo size={20} />
-        </button>
+    <>
+      <header style={headerStyle}>
+        <div style={innerStyle}>
+          {/* Brand */}
+          <button style={brandStyle} onClick={() => navigate("/")} aria-label={`${APP_NAME} home`}>
+            <BareBonesLogo size={20} />
+          </button>
 
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-          {account && chainId !== null && (
-            <ChainSelector
-              chainId={chainId}
-              onChainChange={onChainChange}
+          {account && <DaoSwitcher compact onCreate={() => setCreateOpen(true)} />}
+
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            {account && chainId !== null && (
+              <ChainSelector
+                chainId={chainId}
+                onChainChange={onChainChange}
+                showTestnets={settings.showTestnets}
+                compact
+              />
+            )}
+            <WalletStatus account={account} onConnectWallet={onConnectWallet} />
+            <HamburgerMenu
+              account={account}
               showTestnets={settings.showTestnets}
-              compact
+              onToggleTestnets={() => toggle("showTestnets")}
             />
-          )}
-          <WalletStatus account={account} onConnectWallet={onConnectWallet} />
-          <HamburgerMenu
-            account={account}
-            showTestnets={settings.showTestnets}
-            onToggleTestnets={() => toggle("showTestnets")}
-          />
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      <CreateDaoModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
+    </>
   );
 }

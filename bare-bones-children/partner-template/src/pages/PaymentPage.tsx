@@ -1,108 +1,74 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
-import { Stack, Row } from "../components/Primitives";
+import { Stack } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
-import { IconButton } from "../components/Button/IconButton";
-import { Select, SelectOption } from "../components/Select";
-import { AddressInput } from "../components/Inputs/AddressInput";
-import { ButtonPrimary, ButtonSecondary } from "../components/Button/ButtonPrimary";
 import { useWalletProvider } from "../hooks/useWalletProvider";
-import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
+import { useReadProvider } from "../hooks/useReadProvider";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
-import { getBareBonesConfiguration } from "../constants/misc";
-import { DEFAULT_PAY_BATCH_CODE, payeeStatusLabel } from "../constants/payroll";
-import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
-import { PayeesTable } from "../components/PayeesTable";
-import { PayrollNavigation } from "../components/PayrollNavigation";
-import type { OrganizationModel, PayeeModel } from "../models/payments";
+import { useActiveOrganization } from "../providers/ActiveOrganizationProvider";
+import { DEFAULT_CHAIN_ID, getBareBonesConfiguration } from "../constants/misc";
+import { fetchOrganizationInfo } from "../hooks/payroll/useOrganizationRegistry";
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";
-import { shortAddress } from "../utils/formatUtils";
-import { SaveIcon } from "../assets/icons/SaveIcon";
-import { Loader } from "../components/Loader/Loader";
-import { Sheet } from "../components/Primitives/Sheet";
-import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
-import { OrganizationPicker } from "../components/Organizations/OrganizationPicker";
-import { ROUTES } from "../routes";
+import type { OrganizationModel, PayeeModel } from "../models/payments";
 import {
-  fetchOrganizationInfo,
-  useOwnedOrganizations,
-} from "../hooks/payroll/useOrganizationRegistry";
+  PaymentsHero,
+  PayrollNavigation,
+  PAYROLL_TABS,
+  type PayrollNavTab,
+  PayeesView,
+  PayBatchesView,
+  EarningsView,
+  PayrollsView,
+} from "../components/Payments";
+
+function readTab(value: string | null): PayrollNavTab {
+  if (value && PAYROLL_TABS.some((t) => t.id === value)) return value as PayrollNavTab;
+  return "overview";
+}
 
 export function PaymentPage() {
   const { organizationId } = useParams<{ organizationId?: string }>();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const screenSize = useMediaQuery();
-  const isPhone = screenSize === ScreenSize.Phone;
-  const { account, provider, chainId } = useWalletProvider();
-  const { version } = useTxRefresh();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = readTab(searchParams.get("tab"));
 
-  const [slug, setSlug] = useState<string>(organizationId ?? "");
-  const [fetchedSlug, setFetchedSlug] = useState<string>((organizationId ?? "").trim());
-  const [loading, setLoading] = useState(false);
+  const { account, chainId } = useWalletProvider();
+  const readProvider = useReadProvider();
+  const { version } = useTxRefresh();
+  const { activeOrgSlug } = useActiveOrganization();
+
+  const slug = (organizationId ?? activeOrgSlug ?? "").trim();
+
+  const chainIdOrDefault = chainId ?? DEFAULT_CHAIN_ID;
+  const config = useMemo(() => getBareBonesConfiguration(chainIdOrDefault), [chainIdOrDefault]);
+  const payrollManagerAddress = config?.payrollManagerAddress;
+
   const [orgInfo, setOrgInfo] = useState<OrganizationModel | null>(null);
   const [payees, setPayees] = useState<PayeeModel[]>([]);
-  const [isAdmin, setIsAdmin] = useState<boolean>(Boolean((location.state as { isAdmin?: boolean } | null)?.isAdmin));
-  const [isRegisteringOrg, setIsRegisteringOrg] = useState(false);
-  const [isOnboardingPayees, setIsOnboardingPayees] = useState(false);
-  const [savingPayeeId, setSavingPayeeId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const [editingPayeeId, setEditingPayeeId] = useState<string | null>(null);
-  const [editDraftStatus, setEditDraftStatus] = useState<number>(0);
-  const [editDraftAddress, setEditDraftAddress] = useState<string>("");
-
-  const config = useMemo(() => {
-    if (!chainId) return null;
-    return getBareBonesConfiguration(chainId);
-  }, [chainId]);
-
-  const payrollManagerAddress = config?.payrollManagerAddress;
-  const iface = useMemo(() => new ethers.utils.Interface(PayrollManagerABI as any), []);
-  const {
-    organizations: ownedOrganizations,
-    loading: loadingOwnedOrgs,
-    reload: reloadOwnedOrganizations,
-  } = useOwnedOrganizations({
-    provider: provider ?? undefined,
-    payrollManagerAddress,
-    owner: account,
-  });
-
-  const editingPayee = useMemo(
-    () => payees.find((p) => p.payeeId.toString() === editingPayeeId) ?? null,
-    [payees, editingPayeeId]
-  );
-
-  async function fetchOrgInfo(orgSlug: string) {
-    if (!provider || !payrollManagerAddress) return;
-
+  const refresh = useCallback(async () => {
+    if (!slug || !readProvider || !payrollManagerAddress) {
+      setOrgInfo(null);
+      setPayees([]);
+      return;
+    }
     setLoading(true);
-    setOrgInfo(null);
-    setPayees([]);
-    setIsAdmin(false);
     try {
-      const info = await fetchOrganizationInfo(provider, payrollManagerAddress, orgSlug);
-      if (!info) {
-        setOrgInfo(null);
-        setPayees([]);
-        return;
-      }
-
+      const info = await fetchOrganizationInfo(readProvider, payrollManagerAddress, slug);
       setOrgInfo(info);
-      const exists = Boolean(info.exists);
-      const owner = info.owner;
-      setIsAdmin(Boolean(exists && owner.toLowerCase() === account?.toLowerCase()));
-
-      if (!exists) {
+      if (info?.exists) {
+        const list = await fetchPayeesByOrganization(
+          readProvider,
+          payrollManagerAddress,
+          info.slug ?? ethers.utils.formatBytes32String(slug),
+        );
+        setPayees(list);
+      } else {
         setPayees([]);
-        return;
       }
-
-      const payeeList = await fetchPayeesByOrganization(provider, payrollManagerAddress, info.slug ?? ethers.utils.formatBytes32String(orgSlug));
-      setPayees(payeeList);
     } catch (err) {
       console.error("Error fetching org info:", err);
       setOrgInfo(null);
@@ -110,435 +76,96 @@ export function PaymentPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [slug, readProvider, payrollManagerAddress]);
 
   useEffect(() => {
-    const routeSlug = (organizationId ?? "").trim();
-    setSlug(routeSlug);
-    setFetchedSlug(routeSlug);
-  }, [organizationId]);
+    void refresh();
+  }, [refresh, version]);
 
-  useEffect(() => {
-    if (organizationId) return;
-    if (loadingOwnedOrgs) return;
-    if (ownedOrganizations.length === 0) return;
+  const isAdmin = useMemo(() => {
+    if (!orgInfo?.exists || !account) return false;
+    return orgInfo.owner.toLowerCase() === account.toLowerCase();
+  }, [orgInfo, account]);
 
-    const firstOrg = ownedOrganizations[0]?.trim();
-    if (!firstOrg) return;
-
-    navigate(ROUTES.PAYMENTS_ORG(firstOrg), { replace: true });
-  }, [organizationId, loadingOwnedOrgs, ownedOrganizations, navigate]);
-
-  useEffect(() => {
-    const navIsAdmin = (location.state as { isAdmin?: boolean } | null)?.isAdmin;
-    if (typeof navIsAdmin === "boolean") {
-      setIsAdmin(navIsAdmin);
-    }
-  }, [location.state]);
-
-  useEffect(() => {
-    if (!fetchedSlug.trim()) return;
-    fetchOrgInfo(fetchedSlug.trim());
-  }, [fetchedSlug, version, provider, payrollManagerAddress, account]);
-
-  const registerOrg = useExecuteRawTx(
-    (_: number, orgSlug: string) => {
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
-      return {
-        to: payrollManagerAddress,
-        data: iface.encodeFunctionData("registerOrganization", [slugBytes]),
-      } as any;
-    },
-    (_: number, orgSlug: string) => `Organization "${orgSlug}" registered`
-  );
-
-  const onboardPayee = useExecuteRawTx(
-    (_: number, orgSlug: string, name: string, paymentAddress: string) => {
-      if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
-      const nameBytes = ethers.utils.formatBytes32String(name.trim());
-
-      return {
-        to: payrollManagerAddress,
-        data: iface.encodeFunctionData("onboardPayee", [slugBytes, nameBytes, paymentAddress, "0x"]),
-      } as any;
-    },
-    (_: number, __: string, name: string, paymentAddress: string) =>
-      `Onboarded ${name} (${shortAddress(paymentAddress)})`
-  );
-
-  const batchOnboardPayees = useExecuteRawTx(
-    (_: number, orgSlug: string, entries: Array<{ name: string; address: string }>) => {
-      if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-      if (!entries.length) throw new Error("No payees to onboard");
-
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
-      const configs = entries.map((entry) => ({
-        name: ethers.utils.formatBytes32String(entry.name.trim()),
-        paymentAddress: entry.address.trim(),
-        params: "0x",
-        assignments: [],
-      }));
-
-      return {
-        to: payrollManagerAddress,
-        data: iface.encodeFunctionData("batchOnboardPayeesAndConfigurePayBatch", [
-          slugBytes,
-          DEFAULT_PAY_BATCH_CODE,
-          configs,
-        ]),
-      } as any;
-    },
-    (_: number, __: string, entries: Array<{ name: string; address: string }>) =>
-      `Onboarded ${entries.length} payee(s)`
-  );
-
-  const updatePayee = useExecuteRawTx(
-    (_: number, payee: PayeeModel, nextStatus: number, nextAddress: string) => {
-      if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-
-      return {
-        to: payrollManagerAddress,
-        data: iface.encodeFunctionData("updatePayee", [
-          payee.payeeId,
-          payee.role,
-          nextAddress,
-          payee.params,
-          nextStatus,
-        ]),
-      } as any;
-    },
-    (_: number, payee: PayeeModel, nextStatus: number, nextAddress: string) =>
-      `Updated payee ${payee.payeeId.toString()} (${payeeStatusLabel(nextStatus)}, ${shortAddress(nextAddress)})`
-  );
-
-  async function handleCreateOrganization(nextSlug?: string) {
-    const targetSlug = (nextSlug ?? slug).trim();
-    if (!targetSlug || !chainId || isRegisteringOrg) return;
-    setIsRegisteringOrg(true);
-    try {
-      await Promise.resolve(registerOrg(chainId, targetSlug));
-      await reloadOwnedOrganizations();
-      setLoading(true);
-      setSlug(targetSlug);
-      setFetchedSlug(targetSlug);
-      navigate(ROUTES.PAYMENTS_ORG(targetSlug), { replace: true });
-    } finally {
-      setIsRegisteringOrg(false);
-    }
+  function setTab(next: PayrollNavTab) {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", next);
+    setSearchParams(nextParams, { replace: true });
   }
 
-  function beginEditPayee(payee: PayeeModel) {
-    setEditingPayeeId(payee.payeeId.toString());
-    setEditDraftStatus(Number(payee.status ?? 0));
-    setEditDraftAddress(payee.paymentAddress || "");
+  const chainName = chainId != null ? `Chain ${chainId}` : undefined;
+
+  if (!slug) {
+    return (
+      <PageContainer center maxWidth={1320}>
+        <Stack gap="lg" style={{ width: "100%" }}>
+          <PaymentsHero orgSlug={null} chainName={chainName} />
+          <div className="bb-empty">
+            <h4>No organization selected</h4>
+            <div className="bb-muted bb-small">
+              Use the organization switcher in the header to pick or create one.
+            </div>
+          </div>
+        </Stack>
+      </PageContainer>
+    );
   }
 
-  function cancelEditPayee() {
-    setEditingPayeeId(null);
-    setEditDraftStatus(0);
-    setEditDraftAddress("");
+  if (loading && !orgInfo) {
+    return (
+      <PageContainer center maxWidth={1320}>
+        <Stack gap="lg" style={{ width: "100%" }}>
+          <PaymentsHero orgSlug={slug} chainName={chainName} />
+          <div className="bb-empty">
+            <span className="bb-spinner" /> Loading {slug}…
+          </div>
+        </Stack>
+      </PageContainer>
+    );
   }
 
-  async function saveEditPayee(payee: PayeeModel) {
-    if (!chainId || savingPayeeId) return;
-    setSavingPayeeId(payee.payeeId.toString());
-    try {
-      const tx = await updatePayee(chainId, payee, editDraftStatus, editDraftAddress.trim());
-      if (tx) cancelEditPayee();
-    } finally {
-      setSavingPayeeId(null);
-    }
+  if (orgInfo && !orgInfo.exists) {
+    return (
+      <PageContainer center maxWidth={1320}>
+        <Stack gap="lg" style={{ width: "100%" }}>
+          <PaymentsHero orgSlug={slug} chainName={chainName} />
+          <Card>
+            <CardContent>
+              <Stack gap="md" style={{ padding: "var(--spacing-md)" }}>
+                <Text.Body color="warn">
+                  Organization "{slug}" does not exist on this chain.
+                </Text.Body>
+                <Text.Body color="muted" size="sm">
+                  Use the organization switcher in the header to register it (Create new DAO → Register organization only).
+                </Text.Body>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Stack>
+      </PageContainer>
+    );
   }
 
   return (
     <PageContainer center maxWidth={1320}>
       <Stack gap="lg" style={{ width: "100%" }}>
-        <Card style={{ width: "100%", maxWidth: 900, alignSelf: "center" }}>
-          <CardContent>
-            <Stack>
-              <OrganizationPicker
-                value={slug}
-                onChange={(next) => {
-                  setSlug(next);
-                  setFetchedSlug("");
-                  setOrgInfo(null);
-                  setPayees([]);
-                  setIsAdmin(false);
-                }}
-                organizations={ownedOrganizations}
-                loadingOrganizations={loadingOwnedOrgs}
-                loadingFetch={loading}
-                onFetch={(next) => {
-                  const target = next.trim();
-                  if (!target) return;
-                  setSlug(target);
-                  setFetchedSlug(target);
-                }}
-                onCreateOrganization={handleCreateOrganization}
-                isCreating={isRegisteringOrg}
-              />
+        <PaymentsHero orgSlug={slug} chainName={chainName} />
 
-              {!!slug.trim() && (
-                <PayrollNavigation slug={slug.trim()} active="overview" title="Organization Management" isAdmin={isAdmin} />
-              )}
+        <PayrollNavigation tab={tab} onChange={setTab} isAdmin={isAdmin} />
 
-              {!!slug.trim() && !loading && orgInfo != null && !orgInfo.exists && (
-                <Text.Body color="warn" style={{ marginTop: "var(--spacing-sm)" }}>
-                  Organization "{slug.trim()}" does not exist.
-                </Text.Body>
-              )}
-            </Stack>
-          </CardContent>
-        </Card>
-
-        {!!slug.trim() && (loading || orgInfo?.exists === true) && (
-          <Card style={{ width: "100%" }}>
-            <CardContent>
-              <PayeesTable
-                payees={payees}
-                loading={loading}
-                searchEnabled
-                extraColumns={
-                  isPhone
-                    ? []
-                    : [
-                        { key: "status", header: "Status", allowOverflow: true },
-                        { key: "actions", header: "Actions", allowOverflow: true },
-                      ]
-                }
-                getExtraCells={
-                  isPhone
-                    ? undefined
-                    : (payee) => {
-                        const payeeId = payee.payeeId.toString();
-                        const isEditing = editingPayeeId === payeeId;
-                        const currentStatus = Number(payee.status ?? 0);
-
-                        return {
-                          ...(isEditing
-                            ? {
-                                address: (
-                                  <div onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} style={{ minWidth: 220 }}>
-                                    <AddressInput
-                                      value={editDraftAddress}
-                                      onChange={(e) => setEditDraftAddress((e.target as HTMLInputElement).value)}
-                                      placeholder="0x..."
-                                    />
-                                  </div>
-                                ),
-                              }
-                            : {}),
-                          status: isEditing ? (
-                            <div onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-                              <Row gap="sm" align="center" wrap={false}>
-                                <div style={{ minWidth: 160, position: "relative", zIndex: 5 }}>
-                                  <Select<number>
-                                    value={editDraftStatus}
-                                    onChange={(value) => setEditDraftStatus(Number(value))}
-                                    disabled={!isAdmin}
-                                  >
-                                    <SelectOption value={0} label="Active" />
-                                    <SelectOption value={1} label="On Leave" />
-                                    <SelectOption value={2} label="Inactive" />
-                                  </Select>
-                                </div>
-                              </Row>
-                            </div>
-                          ) : (
-                            payeeStatusLabel(currentStatus)
-                          ),
-                          actions: (
-                            <div onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-                              <Row gap="sm" align="center" wrap={false}>
-                                {!isEditing && (
-                                  <IconButton
-                                    size="xl"
-                                    iconFontSize="xl"
-                                    shape="square"
-                                    aria-label="Edit payee"
-                                    title="Edit payee"
-                                    style={{
-                                      flex: 0,
-                                      borderColor: "var(--colors-borderHover)",
-                                      color: "var(--colors-text-main)",
-                                    }}
-                                    disabled={!isAdmin}
-                                    onClick={() => beginEditPayee(payee)}
-                                  >
-                                    <span
-                                      style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        width: "1em",
-                                        height: "1em",
-                                        transform: "translate(-2px, 0px) rotate(90deg)",
-                                        transformOrigin: "center",
-                                        fontSize: "26px",
-                                        lineHeight: "1em",
-                                        fontWeight: 400,
-                                      }}
-                                    >
-                                      ✎
-                                    </span>
-                                  </IconButton>
-                                )}
-                                {isEditing && (
-                                  <>
-                                    <IconButton
-                                      size="xl"
-                                      iconFontSize="xl"
-                                      shape="square"
-                                      aria-label="Save payee"
-                                      title="Save payee"
-                                      style={{
-                                        flex: 0,
-                                        borderColor: "var(--colors-borderHover)",
-                                        color: "var(--colors-success)",
-                                        alignSelf: "center",
-                                      }}
-                                      disabled={!isAdmin || !chainId || !editDraftAddress.trim() || savingPayeeId !== null}
-                                      onClick={() => saveEditPayee(payee)}
-                                    >
-                                      {savingPayeeId === payeeId ? <Loader size={16} color="currentColor" /> : <SaveIcon size={26} />}
-                                    </IconButton>
-                                    <IconButton
-                                      size="xl"
-                                      iconFontSize="xl"
-                                      shape="square"
-                                      aria-label="Cancel edit"
-                                      title="Cancel edit"
-                                      style={{
-                                        flex: 0,
-                                        borderColor: "var(--colors-borderHover)",
-                                        color: "var(--colors-text-muted)",
-                                      }}
-                                      onClick={cancelEditPayee}
-                                    >
-                                      <span style={{ fontSize: 28, lineHeight: 1 }}>×</span>
-                                    </IconButton>
-                                  </>
-                                )}
-                              </Row>
-                            </div>
-                          ),
-                        };
-                      }
-                }
-                renderExpandedRow={
-                  isPhone
-                    ? (payee) => (
-                        <Stack gap="sm">
-                          <Text.Body size="sm" color="muted">
-                            Status: {payeeStatusLabel(Number(payee.status ?? 0))}
-                          </Text.Body>
-                          <Row justify="end">
-                            <ButtonSecondary
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                beginEditPayee(payee);
-                              }}
-                              disabled={!isAdmin}
-                              style={{ minWidth: 132, whiteSpace: "nowrap", padding: "10px 16px", minHeight: 40, borderRadius: "var(--radius-sm)" }}
-                            >
-                              Edit
-                            </ButtonSecondary>
-                          </Row>
-                        </Stack>
-                      )
-                    : undefined
-                }
-                onAddPayee={
-                  isAdmin && orgInfo?.exists
-                    ? {
-                        onSubmit: async (name, paymentAddress) => {
-                          if (!chainId || !slug) return;
-                          setIsOnboardingPayees(true);
-                          try {
-                            return await onboardPayee(chainId, slug, name, paymentAddress);
-                          } finally {
-                            setIsOnboardingPayees(false);
-                          }
-                        },
-                        loading: isOnboardingPayees,
-                        onSubmitBatch: async (rows) => {
-                          if (!chainId || !slug || rows.length === 0) return;
-                          setIsOnboardingPayees(true);
-                          try {
-                            return await batchOnboardPayees(chainId, slug, rows);
-                          } finally {
-                            setIsOnboardingPayees(false);
-                          }
-                        },
-                      }
-                    : undefined
-                }
-              />
-
-              {isPhone && editingPayee && (
-                <Sheet
-                  open={Boolean(editingPayee)}
-                  onClose={cancelEditPayee}
-                  placement="bottom"
-                >
-                  <div style={{ padding: "var(--spacing-md)", overflowY: "auto" }}>
-                    <Stack gap="md">
-                      <Text.Label>Edit Payee</Text.Label>
-                      <div style={{ minWidth: 160, position: "relative", zIndex: 5 }}>
-                        <Select<number>
-                          value={editDraftStatus}
-                          onChange={(value) => setEditDraftStatus(Number(value))}
-                          disabled={!isAdmin}
-                        >
-                          <SelectOption value={0} label="Active" />
-                          <SelectOption value={1} label="On Leave" />
-                          <SelectOption value={2} label="Inactive" />
-                        </Select>
-                      </div>
-                      <AddressInput
-                        value={editDraftAddress}
-                        onChange={(e) => setEditDraftAddress((e.target as HTMLInputElement).value)}
-                        placeholder="0x..."
-                      />
-                      <Row justify="end" gap="sm">
-                        <ButtonSecondary
-                          shape="rounded"
-                          onClick={cancelEditPayee}
-                          style={{
-                            minWidth: 132,
-                            minHeight: 40,
-                            whiteSpace: "nowrap",
-                            padding: "10px 16px",
-                            borderRadius: "var(--radius-sm)",
-                          }}
-                        >
-                          Cancel
-                        </ButtonSecondary>
-                        <ButtonPrimary
-                          shape="rounded"
-                          onClick={() => saveEditPayee(editingPayee)}
-                          style={{
-                            minWidth: 132,
-                            minHeight: 40,
-                            whiteSpace: "nowrap",
-                            padding: "10px 16px",
-                            borderRadius: "var(--radius-sm)",
-                          }}
-                          disabled={!isAdmin || !chainId || !editDraftAddress.trim() || savingPayeeId !== null}
-                        >
-                          {savingPayeeId === editingPayee.payeeId.toString()
-                            ? <Loader inline label="Saving" size={14} color="currentColor" />
-                            : "Save"}
-                        </ButtonPrimary>
-                      </Row>
-                    </Stack>
-                  </div>
-                </Sheet>
-              )}
-            </CardContent>
-          </Card>
+        {tab === "overview" && (
+          <PayeesView
+            slug={slug}
+            orgInfo={orgInfo}
+            payees={payees}
+            loading={loading}
+            isAdmin={isAdmin}
+            onPayeesChanged={refresh}
+          />
         )}
+        {tab === "batches" && <PayBatchesView slug={slug} isAdmin={isAdmin} />}
+        {tab === "earnings" && <EarningsView slug={slug} isAdmin={isAdmin} />}
+        {tab === "payrolls" && <PayrollsView slug={slug} isAdmin={isAdmin} />}
       </Stack>
     </PageContainer>
   );

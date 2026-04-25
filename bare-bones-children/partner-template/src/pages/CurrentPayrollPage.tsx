@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ethers } from "ethers";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import { SplitActionDropdown } from "../components/Button/SplitActionDropdown";
-import { Loader } from "../components/Loader/Loader";
 import { ERC20Mintable } from "../components/ERC20Mintable/ERC20Mintable";
 import { PayrollTreasuryFund } from "../components/PayrollTreasuryFund/PayrollTreasuryFund";
 import { useWalletProvider } from "../hooks/useWalletProvider";
@@ -31,7 +30,8 @@ import {
   type PayrollGrossView,
 } from "../utils/payroll/fetchPayrollViews";
 import { shortAddress } from "../utils/formatUtils";
-import { PayrollNavigation } from "../components/PayrollNavigation";
+import { formatPeriodHour } from "../utils/payroll/payrollStatusDisplay";
+import { ROUTES } from "../routes";
 import {
   formatAmountDisplay,
   parseBatchCodeLabel,
@@ -45,30 +45,9 @@ import {
   type PayrollConfigActionPayload,
 } from "../components/PayrollStagingManager";
 
-function payrollStatusColor(status: number | null): "main" | "secondary" | "label" | "muted" | "danger" | "warn" | "success" {
-  if (status === PayrollStatus.Draft) return "warn";
-  if (status === PayrollStatus.Processing) return "secondary";
-  if (status === PayrollStatus.Processed) return "secondary";
-  if (status === PayrollStatus.Finalizing) return "warn";
-  if (status === PayrollStatus.Finalized) return "success";
-  if (status === PayrollStatus.Cancelled) return "danger";
-  return "muted";
-}
-
-function formatPeriodHour(ts: number | null) {
-  if (!ts) return "-";
-  const date = new Date(ts * 1000);
-  return date.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    hour12: true,
-  });
-}
-
 export function CurrentPayrollPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { organizationId, payrollId } = useParams<{ organizationId: string; payrollId?: string }>();
   const slug = (organizationId ?? "").trim();
 
@@ -522,46 +501,71 @@ export function CurrentPayrollPage() {
           )}
         </Row>
 
-        <Card style={{ width: "100%", maxWidth: 860, alignSelf: "center" }}>
-          <CardContent>
-            <Stack>
-              <PayrollNavigation slug={slug} active="payrolls" title="Payroll Details" isAdmin={isAdmin} />
+        <div className="bb-prl-detail-back">
+          <button
+            className="bb-btn-ghost bb-btn-xs"
+            onClick={() => navigate(`${ROUTES.PAYMENTS_ORG(slug)}?tab=payrolls`)}
+            disabled={!slug}
+          >
+            ← All payrolls
+          </button>
+          {payrollId && <span className="bb-muted bb-small">/ Payroll #{payrollId}</span>}
+        </div>
 
-              {!slug && (
-                <Text.Body color="warn">
-                  Missing organization slug in route.
-                </Text.Body>
-              )}
+        {!slug && (
+          <Text.Body color="warn">Missing organization slug in route.</Text.Body>
+        )}
 
-              {slug && (
-                <Text.Body color="muted">
-                  Organization: <strong>{slug}</strong>
-                </Text.Body>
-              )}
-
-              {loading && <Loader label="Loading payroll data..." />}
-            </Stack>
-          </CardContent>
-        </Card>
+        {!!slug && (loading || (orgInfo?.exists && currentPayrollId !== null)) && (() => {
+          const tone =
+            payrollStatus === PayrollStatus.Draft
+              ? "draft"
+              : payrollStatus === PayrollStatus.Processing || payrollStatus === PayrollStatus.Processed
+                ? "info"
+                : payrollStatus === PayrollStatus.Finalizing
+                  ? "warn"
+                  : payrollStatus === PayrollStatus.Finalized
+                    ? "ok"
+                    : payrollStatus === PayrollStatus.Cancelled
+                      ? "error"
+                      : "draft";
+          return (
+            <div className={`bb-pr-status-card bb-pr-status-${tone}`}>
+              <div className="bb-pr-status-l">
+                <div className="bb-kicker">Cycle</div>
+                <div className="bb-pr-status-cycle">Payroll #{payrollId ?? "—"}</div>
+                <div className="bb-muted bb-small">
+                  {formatPeriodHour(payrollStartTime)} → {formatPeriodHour(payrollEndTime)}
+                </div>
+              </div>
+              <div className="bb-pr-status-m">
+                <div className="bb-kicker">Status</div>
+                <span className={`bb-status bb-status-${tone}`}>
+                  {payrollStatus == null ? "N/A" : payrollStatusLabel(payrollStatus)}
+                </span>
+                <div className="bb-muted bb-small">
+                  {payrollStatus === PayrollStatus.Draft && "Open for edits."}
+                  {payrollStatus === PayrollStatus.Processing && "Processing on-chain."}
+                  {payrollStatus === PayrollStatus.Processed && "Processing complete — finalize next."}
+                  {payrollStatus === PayrollStatus.Finalizing && "Finalizing transfers."}
+                  {payrollStatus === PayrollStatus.Finalized && "All transfers processed."}
+                  {payrollStatus === PayrollStatus.Cancelled && "Cancelled — no payouts sent."}
+                </div>
+              </div>
+              <div className="bb-pr-status-r">
+                <div className="bb-kicker">Batch template</div>
+                <div className="bb-pr-status-total bb-mono">{parseBatchCodeLabel(payrollTemplateCode)}</div>
+                {loading && <span className="bb-muted bb-small"><span className="bb-spinner bb-sm" /> Loading…</span>}
+              </div>
+              <div className="bb-pr-status-actions" />
+            </div>
+          );
+        })()}
 
         {!!slug && (loading || (orgInfo?.exists && currentPayrollId !== null)) && (
           <Card style={{ width: "100%" }}>
             <CardContent>
               <Stack gap="md">
-                <Stack gap="xs" style={{ paddingBottom: "var(--spacing-xs)" }}>
-                  <Row justify="between" align="center" wrap>
-                    <Text.Body color="muted">
-                      Batch Code: {parseBatchCodeLabel(payrollTemplateCode)}
-                    </Text.Body>
-                    <Text.Body color={payrollStatusColor(payrollStatus)}>
-                      {payrollStatus == null ? "N/A" : payrollStatusLabel(payrollStatus)}
-                    </Text.Body>
-                  </Row>
-                  <Text.Body color="muted">
-                    Period: {formatPeriodHour(payrollStartTime)} - {formatPeriodHour(payrollEndTime)}
-                  </Text.Body>
-                </Stack>
-
                 {payrollStatus === PayrollStatus.Finalized && !loading ? (
                   <Stack gap="sm">
                     <Text.Label>Finalized Payment Summary</Text.Label>

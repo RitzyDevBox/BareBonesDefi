@@ -6,28 +6,34 @@ export const lightTheme: AppTheme = {
   mode: ThemeMode.LIGHT,
   ...baseTheme,
   colors: {
-    background: "#f7f6f2",
-    surface: "#ffffff",
-    surfaceHover: "rgba(0,0,0,0.03)",
+    background: "#ebe9e2",
+    surface: "#f7f5f0",
+    surfaceHover: "rgba(0,0,0,0.04)",
+    surfaceElevated: "#ffffff",
 
-    border: "#e4e2dc",
-    borderHover: "#cfccc3",
+    border: "#c9c6bc",
+    borderHover: "#a8a59a",
 
     primary: "oklch(0.56 0.14 225)",
     primaryHover: "oklch(0.50 0.14 225)",
 
-    secondary: "#e4e2dc",
-    secondaryHover: "#cfccc3",
+    secondary: "#c9c6bc",
+    secondaryHover: "#a8a59a",
 
-    success: "oklch(0.62 0.14 148)",
+    success: "oklch(0.55 0.16 148)",
     warn: "oklch(0.72 0.14 78)",
     error: "oklch(0.58 0.17 25)",
 
     text: {
-      main: "#111112",
-      muted: "#5a5a60",
-      label: "#8a8a92",
+      main: "#0e0e10",
+      muted: "#46464c",
+      label: "#6f6f78",
     },
+  },
+
+  shadows: {
+    soft: "0 1px 0 rgba(0,0,0,.03) inset, 0 8px 22px -12px rgba(20,20,30,.18)",
+    medium: "0 1px 0 rgba(0,0,0,.03) inset, 0 12px 28px -10px rgba(20,20,30,.22)",
   },
 
   appBackground: {
@@ -36,9 +42,9 @@ export const lightTheme: AppTheme = {
     honeycomb: {
       enabled: true,
       hexSize: 40,
-      opacity: 0.05,
+      opacity: 0.025,
       animationSpeed: 0.8,
-      backgroundColor: "#f7f6f2",
+      backgroundColor: "#ebe9e2",
       hue: 225,
       saturation: 30,
       lightness: 55,

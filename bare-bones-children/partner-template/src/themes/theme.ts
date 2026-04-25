@@ -11,6 +11,7 @@ export interface AppTheme {
     background: string;
     surface: string;
     surfaceHover: string;
+    surfaceElevated: string;
     
     border: string;
     borderHover: string;

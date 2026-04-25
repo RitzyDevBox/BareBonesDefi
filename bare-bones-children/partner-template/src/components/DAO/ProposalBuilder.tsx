@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { ethers } from "ethers";
-import { Card, CardContent, Input } from "../BasicComponents";
-import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
+import { Input } from "../BasicComponents";
 import { FormField } from "../FormField/FormField";
 import { AddressInput } from "../Inputs/AddressInput";
 import { Bytes32Input } from "../Inputs/Bytes32Input";
 import { NumberInput } from "../Inputs/NumberInput";
 import { Uint256Input } from "../Inputs/Uint256Input";
 import { Select, SelectOption } from "../Select";
-import { Row, Stack } from "../Primitives";
+import { Stack } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import DAOGovernorABI from "../../abis/dao/DAOGovernor.abi.json";
 import ERC20ABI from "../../abis/ERC20.json";
@@ -841,8 +840,65 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
   }
 
   return (
-    <Stack gap="md">
+    <div className="bb-builder">
+      {/* Template strip — Deploy Wallet shortcut */}
+      <div className="bb-builder-section">
+        <div className="bb-builder-head">
+          <h4>Start from a template</h4>
+          <span className="bb-muted bb-small">Pre-fill the builder for a common action.</span>
+        </div>
+        <div className="bb-template-grid">
+          <button
+            type="button"
+            className="bb-template-card"
+            onClick={() => {
+              applyPreset("wallet-deploy");
+              setTarget(DEFAULT_BARE_BONES_CONFIG.diamondFactoryAddress);
+              setTargetSelectionLabel("Diamond Factory");
+              if (!description.trim()) setDescription("Deploy a new smart wallet");
+            }}
+          >
+            <span className="bb-template-icon">✦</span>
+            <div className="bb-template-body">
+              <span className="bb-template-name">Deploy Wallet</span>
+              <span className="bb-template-sub">
+                Deploy a new smart wallet via the Diamond Factory. Pre-fills the
+                target and description so you can review and submit.
+              </span>
+            </div>
+          </button>
+        </div>
+      </div>
 
+      {/* Identity section */}
+      <div className="bb-builder-section">
+        <div className="bb-builder-head">
+          <h4>Proposal</h4>
+        </div>
+        <div className="bb-field-grid">
+          <div className="bb-field bb-full">
+            <label>Description</label>
+            <Input
+              value={description}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDescription(event.target.value)}
+              placeholder="Describe this proposal"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Add a call section */}
+      <div className="bb-builder-section">
+        <div className="bb-builder-head">
+          <h4>
+            Add a call <span className="bb-muted">{stagedCalls.length > 0 && `· ${stagedCalls.length} staged`}</span>
+          </h4>
+          <span className="bb-muted bb-small">
+            Build one or more on-chain actions. Stage them, then submit together.
+          </span>
+        </div>
+
+        <div className="bb-builder-row">
           <FormField label="Contract Group" style={{ marginBottom: 0 }}>
             <Select value={actionGroup} onChange={(v) => handleChangeActionGroup(v as ActionGroup)}>
               {ACTION_GROUP_OPTIONS.map((option) => (
@@ -858,47 +914,25 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
               ))}
             </Select>
           </FormField>
+        </div>
 
-          <FormField label="Target Contract" style={{ marginBottom: 0 }}>
-            <AddressBookInput
-              value={target}
-              selectedLabel={targetSelectionLabel}
-              onClearSelection={() => {
-                setTarget("");
-                setTargetSelectionLabel(null);
-              }}
-              onChange={(event) => {
-                setTarget((event.target as HTMLInputElement).value);
-                setTargetSelectionLabel(null);
-              }}
-              onOpenBook={() => setAddressBookOpen(true)}
-              disabled={disabled}
-              loading={loading}
-            />
-          </FormField>
-
-          <FormField label="Proposal Description" style={{ marginBottom: 0 }}>
-            <Input value={description} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDescription(event.target.value)} placeholder="Describe this proposal" />
-          </FormField>
-
-          <Stack gap="sm">
-            <Text.Body size="sm" color="muted">
-              Standard Actions
-            </Text.Body>
-            <Row gap="sm">
-              <ButtonSecondary
-                fullWidth={false}
-                onClick={() => {
-                  applyPreset("wallet-deploy");
-                  setTarget(DEFAULT_BARE_BONES_CONFIG.diamondFactoryAddress);
-                  setTargetSelectionLabel("Diamond Factory");
-                  setDescription("Deploy a new smart wallet");
-                }}
-              >
-                Deploy Wallet
-              </ButtonSecondary>
-            </Row>
-          </Stack>
+        <FormField label="Target Contract" style={{ marginBottom: 0 }}>
+          <AddressBookInput
+            value={target}
+            selectedLabel={targetSelectionLabel}
+            onClearSelection={() => {
+              setTarget("");
+              setTargetSelectionLabel(null);
+            }}
+            onChange={(event) => {
+              setTarget((event.target as HTMLInputElement).value);
+              setTargetSelectionLabel(null);
+            }}
+            onOpenBook={() => setAddressBookOpen(true)}
+            disabled={disabled}
+            loading={loading}
+          />
+        </FormField>
 
           {actionPreset === "native-transfer" && (
             <NativeTransferForm
@@ -1231,88 +1265,127 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             </Stack>
           ) : null}
 
-          {error ? <Text.Body color="warn">{error}</Text.Body> : null}
+        {error ? (
+          <div className="bb-banner bb-banner-warn" style={{ marginBottom: 0 }}>
+            <span aria-hidden>⚠</span>
+            <div>{error}</div>
+            <span />
+          </div>
+        ) : null}
 
-          <Card style={{ background: "var(--colors-background)" }}>
-            <CardContent>
-              <Stack gap="sm">
-                <Text.Title align="left" size="sm">
-                  Staged Calls Preview
-                </Text.Title>
-                {stagedCalls.length === 0 ? (
-                  <Text.Body size="sm" color="muted">
-                    No staged calls yet.
-                  </Text.Body>
-                ) : (
-                  <Stack gap="sm">
-                    {stagedCalls.map((call, index) => (
-                      <Card key={`${call.target}-${call.functionSignature}-${index}`} style={{ background: "var(--colors-surface)" }}>
-                        <CardContent>
-                          <Stack gap="xs">
-                            <Text.Body size="sm" weight={600}>
-                              Call {index + 1}
-                            </Text.Body>
-                            <Text.Body size="sm">Target: {call.target}</Text.Body>
-                            <Text.Body size="sm">Function: {call.functionSignature}</Text.Body>
-                            <Text.Body size="sm">Value (wei): {call.valueWei}</Text.Body>
-                            <Text.Body size="sm">Calldata: {call.calldata}</Text.Body>
-                            <Row justify="end">
-                              <ButtonSecondary
-                                fullWidth={false}
-                                onClick={() =>
-                                  setStagedCalls((current) => current.filter((_, currentIndex) => currentIndex !== index))
-                                }
-                              >
-                                Remove
-                              </ButtonSecondary>
-                            </Row>
-                          </Stack>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Stack>
-                )}
-              </Stack>
-            </CardContent>
-          </Card>
+        <div className="bb-builder-actions">
+          <button
+            type="button"
+            className="bb-btn-primary"
+            disabled={disabled || loading}
+            onClick={handleStageCall}
+          >
+            + Stage call
+          </button>
+        </div>
+      </div>
 
-          <Stack gap="sm" style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
-            <ButtonSecondary fullWidth={false} disabled={disabled || loading} onClick={handleStageCall}>
-              Add Call to Proposal
-            </ButtonSecondary>
-            <ButtonPrimary fullWidth={false} disabled={disabled || loading} onClick={() => void handleSubmitProposal()}>
-              {loading ? "Submitting..." : `Submit Proposal (${stagedCalls.length})`}
-            </ButtonPrimary>
-            <ButtonSecondary
-              fullWidth={false}
-              disabled={loading}
-              onClick={() => {
-                setDescription("");
-                setTarget("");
-                setTargetSelectionLabel(null);
-                setGovernanceUintValue("");
-                setGovernanceAddressValue("");
-                setRoleAccountAddress("");
-                setWalletAddressValue("");
-                setWalletNonceValue("");
-                setDiamondFacetAddress("");
-                setDiamondSelector("");
-                setDiamondCutAction("0");
-                setDiamondInitAddress("");
-                setDiamondInitCalldata("");
-                setValuesByParam({});
-                setStagedCalls([]);
-                setError(null);
-                nativeTransferFormRef.current?.reset();
-                tokenTransferFormRef.current?.reset();
-                walletDeployFormRef.current?.reset();
-              }}
-            >
-              Reset Builder
-            </ButtonSecondary>
-          </Stack>
+      {/* Staged calls section */}
+      <div className="bb-builder-section">
+        <div className="bb-builder-head">
+          <h4>
+            Staged calls <span className="bb-muted">({stagedCalls.length})</span>
+          </h4>
+          <span className="bb-muted bb-small">
+            Calls execute in order, atomically, when the proposal is executed.
+          </span>
+        </div>
+        {stagedCalls.length === 0 ? (
+          <div className="bb-staged-empty">
+            <span aria-hidden>📎</span>
+            <span>No staged calls yet. Add one above, or use a template.</span>
+          </div>
+        ) : (
+          <div className="bb-staged-list">
+            {stagedCalls.map((call, index) => (
+              <div className="bb-staged-card" key={`${call.target}-${call.functionSignature}-${index}`}>
+                <div className="bb-staged-num">#{index + 1}</div>
+                <div className="bb-staged-body">
+                  <div className="bb-staged-line-1">
+                    <span className="bb-staged-target">{call.target.slice(0, 10)}…{call.target.slice(-6)}</span>
+                    <span className="bb-staged-dot">·</span>
+                    <span className="bb-staged-fn">{call.functionSignature}</span>
+                    {call.valueWei && call.valueWei !== "0" && (
+                      <>
+                        <span className="bb-staged-dot">·</span>
+                        <span className="bb-staged-val">{call.valueWei} wei</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="bb-staged-line-2">
+                    calldata {call.calldata.length > 18 ? `${call.calldata.slice(0, 12)}…${call.calldata.slice(-6)}` : call.calldata}
+                  </div>
+                </div>
+                <div className="bb-staged-actions">
+                  <button
+                    type="button"
+                    className="bb-icon-btn-sm bb-danger"
+                    aria-label="Remove staged call"
+                    onClick={() =>
+                      setStagedCalls((current) => current.filter((_, currentIndex) => currentIndex !== index))
+                    }
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-          <TargetAddressBookModal
+      {/* Submit footer */}
+      <div className="bb-builder-foot">
+        <span className="bb-muted bb-small bb-mono">
+          {stagedCalls.length === 0 ? "No calls staged" : `${stagedCalls.length} call${stagedCalls.length === 1 ? "" : "s"} ready`}
+        </span>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            className="bb-btn-ghost"
+            disabled={loading}
+            onClick={() => {
+              setDescription("");
+              setTarget("");
+              setTargetSelectionLabel(null);
+              setGovernanceUintValue("");
+              setGovernanceAddressValue("");
+              setRoleAccountAddress("");
+              setWalletAddressValue("");
+              setWalletNonceValue("");
+              setDiamondFacetAddress("");
+              setDiamondSelector("");
+              setDiamondCutAction("0");
+              setDiamondInitAddress("");
+              setDiamondInitCalldata("");
+              setValuesByParam({});
+              setStagedCalls([]);
+              setError(null);
+              nativeTransferFormRef.current?.reset();
+              tokenTransferFormRef.current?.reset();
+              walletDeployFormRef.current?.reset();
+            }}
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            className="bb-btn-primary"
+            disabled={disabled || loading}
+            onClick={() => void handleSubmitProposal()}
+          >
+            {loading ? <span className="bb-spinner bb-sm" /> : null}
+            {loading ? "Submitting…" : `Submit Proposal (${stagedCalls.length})`}
+          </button>
+        </div>
+      </div>
+
+      <TargetAddressBookModal
             isOpen={addressBookOpen}
             onClose={() => {
               setAddressBookOpen(false);
@@ -1351,6 +1424,6 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
               setConfigAddressBookOpen(null);
             }}
           />
-    </Stack>
+    </div>
   );
 }

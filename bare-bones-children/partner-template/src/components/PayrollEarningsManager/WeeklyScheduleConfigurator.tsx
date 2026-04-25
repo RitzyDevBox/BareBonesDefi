@@ -1,10 +1,4 @@
 import { useMemo, useState } from "react";
-import { Stack, Row } from "../Primitives";
-import { Text } from "../Primitives/Text";
-import { Input } from "../BasicComponents";
-import { NumberInput } from "../Inputs/NumberInput";
-import { ButtonSecondary } from "../Button/ButtonPrimary";
-import { IconButton } from "../Button/IconButton";
 import { ScheduleGrid } from "../Schedule/ScheduleGrid";
 
 const HOURS_IN_DAY = 24;
@@ -169,108 +163,91 @@ export function WeeklyScheduleConfigurator({
     );
   }
 
-  function renderEmbeddedCardLabel(label: string) {
-    return (
-      <Text.Label
-        style={{
-          position: "absolute",
-          top: 0,
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          background: "var(--colors-surface)",
-          padding: "0 var(--spacing-sm)",
-          whiteSpace: "nowrap",
-          lineHeight: 1,
-        }}
-      >
-        {label}
-      </Text.Label>
-    );
-  }
+  const multiplierRegex = /^\d*(\.\d*)?$/;
 
   return (
-    <Stack
-      gap="sm"
-      style={{
-        position: "relative",
-        border: "1px solid var(--colors-border)",
-        borderRadius: "var(--radius-md)",
-        padding: "var(--spacing-sm)",
-        paddingTop: "calc(var(--spacing-sm) + 2px)",
-      }}
-    >
-      {renderEmbeddedCardLabel("Weekly Schedule")}
-
-      <Row gap="sm" wrap justify="end" align="center">
-        <ButtonSecondary
-          style={{ flex: 0, minWidth: 170, whiteSpace: "nowrap", lineHeight: 1 }}
+    <div className="bb-ec-bands">
+      <div className="bb-ec-bands-head">
+        <span className="bb-ec-bands-title">Hours premiums</span>
+        <button
+          type="button"
+          className="bb-btn-ghost bb-btn-xs"
           onClick={addPremiumRow}
           disabled={!canEdit}
         >
-          Add Hours Premium
-        </ButtonSecondary>
-      </Row>
+          + Add hours premium
+        </button>
+      </div>
 
-      <Row gap="sm" wrap>
+      <div className="bb-ec-prem-tabs">
         {premiumRows.map((row) => {
           const selectedRow = row.id === selected?.id;
+          const hours = countMaskHours(row.mask);
           return (
             <button
               key={row.id}
               type="button"
+              className={`bb-ec-prem-tab${selectedRow ? " bb-active" : ""}`}
               onClick={() => setSelectedId(row.id)}
-              style={{
-                border: "1px solid var(--colors-border)",
-                borderRadius: 8,
-                padding: "6px 10px",
-                background: selectedRow ? "var(--colors-primary)" : "var(--colors-background)",
-                color: selectedRow ? "#fff" : "var(--colors-text-main)",
-                cursor: "pointer",
-              }}
             >
-              {row.label} ({countMaskHours(row.mask)}h)
+              {row.label}
+              <span className="bb-ec-prem-tab-n">{hours}h</span>
             </button>
           );
         })}
-      </Row>
+      </div>
 
       {selected && selectedIndex >= 0 && (
-        <Stack gap="sm">
-          <Row gap="sm" wrap align="end">
-            <Stack style={{ minWidth: 180 }}>
-              <Text.Body size="sm" color="muted">Label</Text.Body>
-              <Input
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="bb-field-grid" style={{ alignItems: "end" }}>
+            <div className="bb-field">
+              <label>Label</label>
+              <input
+                className="bb-input"
                 value={selected.label}
                 onChange={(e) => updatePremiumRow(selected.id, { label: e.target.value })}
                 disabled={!canEdit}
               />
-            </Stack>
-            <Stack style={{ minWidth: 180 }}>
-              <Text.Body size="sm" color="muted">Multiplier</Text.Body>
-              <NumberInput
+            </div>
+            <div className="bb-field">
+              <label>Multiplier</label>
+              <input
+                className="bb-input bb-mono"
+                type="text"
+                inputMode="decimal"
                 value={selected.multiplier}
-                onChange={(e) => updatePremiumRow(selected.id, { multiplier: (e.target as HTMLInputElement).value })}
-                allowDecimal
+                onChange={(e) => {
+                  const next = e.target.value;
+                  if (next === "" || multiplierRegex.test(next)) {
+                    updatePremiumRow(selected.id, { multiplier: next });
+                  }
+                }}
                 disabled={!canEdit}
               />
-            </Stack>
-            <IconButton
-              size="sm"
-              shape="square"
-              aria-label="Delete premium row"
-              onClick={() => removePremiumRow(selected.id)}
-              disabled={!canEdit || premiumRows.length <= 1}
-            >
-              🗑
-            </IconButton>
-            <ButtonSecondary
-              style={{ flex: 0, minWidth: 140 }}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="bb-btn-ghost bb-btn-xs"
               onClick={clearSelectedSchedule}
               disabled={!canEdit}
             >
-              Clear
-            </ButtonSecondary>
-          </Row>
+              Clear hours
+            </button>
+            <button
+              type="button"
+              className="bb-btn-ghost bb-btn-xs bb-danger"
+              onClick={() => removePremiumRow(selected.id)}
+              disabled={!canEdit || premiumRows.length <= 1}
+              title="Remove premium"
+              aria-label="Remove premium"
+              style={{ color: "var(--bb-error)" }}
+            >
+              Remove premium
+            </button>
+          </div>
 
           <ScheduleGrid
             mask={selected.mask}
@@ -278,8 +255,8 @@ export function WeeklyScheduleConfigurator({
             disabled={!canEdit}
             overlapMask={selectedOverlapMask}
           />
-        </Stack>
+        </div>
       )}
-    </Stack>
+    </div>
   );
 }

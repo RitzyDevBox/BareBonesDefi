@@ -49,16 +49,11 @@ export function Modal({
 
   useEffect(() => {
     if (!isOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (!wrapperRef.current?.contains(e.target as Node)) onClose();
-    }
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") { e.stopPropagation(); onClose(); }
     }
-    document.addEventListener("mousedown", handleClick);
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, onClose]);
@@ -71,8 +66,25 @@ export function Modal({
   const resolvedHeight = height === "auto" ? "auto" : toCss(height as number | string);
   const isFixedBody = uxMode === UXMode.FixedBody;
 
+  // Close on click only when the press starts AND ends on the scrim itself.
+  // This avoids closing when the user clicks a portaled child (e.g. Select dropdown
+  // options) that lives outside the modal box but isn't part of the backdrop.
+  const handleScrimMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      e.currentTarget.dataset.scrimPress = "1";
+    }
+  };
+  const handleScrimMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.currentTarget.dataset.scrimPress === "1" && e.target === e.currentTarget) {
+      onClose();
+    }
+    delete e.currentTarget.dataset.scrimPress;
+  };
+
   return createPortal(
     <div
+      onMouseDown={handleScrimMouseDown}
+      onMouseUp={handleScrimMouseUp}
       style={{
         position: "fixed",
         inset: 0,
