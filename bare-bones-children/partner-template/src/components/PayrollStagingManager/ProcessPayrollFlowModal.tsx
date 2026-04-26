@@ -15,6 +15,16 @@ interface ProcessPayrollFlowModalProps {
   payrollStatus: number | null;
   processFlowError: string | null;
   payrollStatusLabel: (status?: number) => string;
+  /**
+   * Set when the next step is finalize and the org's treasury can't cover the
+   * locked-in payroll. When non-null, the modal blocks Continue and shows a
+   * funding warning. Null means: not the finalize step, or treasury is funded.
+   */
+  treasuryShortfall?: {
+    shortfall: string;
+    treasury: string;
+    expected: string;
+  } | null;
 }
 
 const PAYROLL_STATUS = {
@@ -36,6 +46,7 @@ export function ProcessPayrollFlowModal({
   payrollStatus,
   processFlowError,
   payrollStatusLabel,
+  treasuryShortfall = null,
 }: ProcessPayrollFlowModalProps) {
   const screenSize = useMediaQuery();
   const isMobile = screenSize === ScreenSize.Phone;
@@ -106,15 +117,41 @@ export function ProcessPayrollFlowModal({
         </Text.Body>
       )}
 
+      {treasuryShortfall && (
+        <div
+          style={{
+            padding: "12px 14px",
+            background: "color-mix(in oklab, var(--colors-warn) 8%, var(--colors-surface))",
+            border: "1px solid color-mix(in oklab, var(--colors-warn) 32%, var(--colors-border))",
+            borderRadius: "var(--radius-md)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <Text.Body size="sm" color="warn" weight={600}>
+            Treasury underfunded — top up before finalizing.
+          </Text.Body>
+          <Text.Body size="sm" color="muted">
+            Locked-in payroll: <b>{treasuryShortfall.expected}</b> · Treasury balance:{" "}
+            <b>{treasuryShortfall.treasury}</b> · Shortfall:{" "}
+            <b style={{ color: "var(--colors-warn)" }}>{treasuryShortfall.shortfall}</b>
+          </Text.Body>
+          <Text.Body size="sm" color="muted">
+            Deposit at least the shortfall into the org treasury, then reopen this dialog to finalize.
+          </Text.Body>
+        </div>
+      )}
+
       {isFinalized ? (
         <Text.Body size="sm" color="success">Payroll is already finalized.</Text.Body>
       ) : isCancelled ? (
         <Text.Body size="sm" color="warn">Payroll is cancelled and cannot continue.</Text.Body>
-      ) : (
+      ) : !treasuryShortfall ? (
         <Text.Body size="sm" color="muted">
           If processing fails, click Continue again to resume from the last completed step.
         </Text.Body>
-      )}
+      ) : null}
 
       <Row justify="end" gap="sm">
         <ButtonSecondary style={{ flex: 0 }} onClick={onClose} disabled={isProcessing}>
@@ -123,7 +160,7 @@ export function ProcessPayrollFlowModal({
         <ButtonPrimary
           style={{ flex: 0 }}
           onClick={onContinue}
-          disabled={isProcessing || isFinalized || isCancelled}
+          disabled={isProcessing || isFinalized || isCancelled || Boolean(treasuryShortfall)}
         >
           {isProcessing ? "Working..." : processFlowError ? "Continue" : "Continue"}
         </ButtonPrimary>

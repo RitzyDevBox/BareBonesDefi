@@ -4,7 +4,7 @@ import MockERC20ABI from "../../abis/paymentPipelines/MockERC20.abi.json";
 import PayrollTreasuryABI from "../../abis/paymentPipelines/PayrollTreasury.abi.json";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 import { Card, CardContent } from "../BasicComponents";
-import { ButtonPrimary } from "../Button/ButtonPrimary";
+import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
 import { CopyButton } from "../Button/Actions/CopyButton";
 import { NumberInput } from "../Inputs/NumberInput";
 import { Stack, Row } from "../Primitives";
@@ -42,6 +42,7 @@ export function PayrollTreasuryFund({
   const [userBalance, setUserBalance] = useState<string>("0");
   const [loadingBalance, setLoadingBalance] = useState(false);
   const [isDepositing, setIsDepositing] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   const config = useMemo(() => {
     if (!chainId) return null;
@@ -164,8 +165,29 @@ export function PayrollTreasuryFund({
       `Deposited ${_amount} to treasury for ${organizationSlug}`
   );
 
+  const buildWithdrawTx = useCallback(
+    (_chainId: number, _org: string, amountStr: string) => {
+      if (!amountStr) throw new Error("Missing amount");
+
+      const parsed = ethers.utils.parseUnits(amountStr, DEFAULT_DECIMALS);
+      const slugBytes = ethers.utils.formatBytes32String(organizationSlug);
+
+      return {
+        to: resolvedTreasuryAddress,
+        data: treasuryIface.encodeFunctionData("withdraw", [slugBytes, parsed]),
+      } as any;
+    },
+    [organizationSlug, treasuryIface, resolvedTreasuryAddress]
+  );
+
+  const withdraw = useExecuteRawTx(
+    buildWithdrawTx,
+    (_chain: number, _org: string, _amount: string) =>
+      `Withdrew ${_amount} from treasury for ${organizationSlug}`
+  );
+
   async function handleDepositFunds() {
-    if (!chainId || !amount || disabled || !organizationSlug || !provider || !account || isDepositing) return;
+    if (!chainId || !amount || disabled || !organizationSlug || !provider || !account || isDepositing || isWithdrawing) return;
 
     setIsDepositing(true);
     try {
@@ -189,6 +211,39 @@ export function PayrollTreasuryFund({
       setIsDepositing(false);
     }
   }
+
+  async function handleWithdrawFunds() {
+    if (!chainId || !amount || disabled || !organizationSlug || isWithdrawing || isDepositing) return;
+
+    setIsWithdrawing(true);
+    try {
+      await withdraw(chainId, organizationSlug, amount);
+      setAmount("");
+    } catch (err) {
+      console.error("Error withdrawing funds:", err);
+    } finally {
+      setIsWithdrawing(false);
+    }
+  }
+
+  const parsedAmount = (() => {
+    if (!amount) return null;
+    try {
+      return ethers.utils.parseUnits(amount, DEFAULT_DECIMALS);
+    } catch {
+      return null;
+    }
+  })();
+
+  const treasuryBalanceWei = (() => {
+    try {
+      return ethers.utils.parseUnits(treasuryBalance || "0", DEFAULT_DECIMALS);
+    } catch {
+      return ethers.BigNumber.from(0);
+    }
+  })();
+
+  const exceedsTreasuryBalance = parsedAmount != null && parsedAmount.gt(treasuryBalanceWei);
 
   return (
     <Card style={{ width: "100%", height: "100%" }}>
@@ -230,7 +285,7 @@ export function PayrollTreasuryFund({
             </Stack>
 
             <Stack>
-              <Text.Label>Deposit Amount</Text.Label>
+              <Text.Label>Amount</Text.Label>
               <NumberInput
                 value={amount}
                 onChange={(e) => setAmount((e.target as HTMLInputElement).value)}
@@ -238,14 +293,45 @@ export function PayrollTreasuryFund({
                 disabled={disabled}
               />
 
-              <ButtonPrimary
-                onClick={handleDepositFunds}
-                disabled={!amount || disabled || !organizationSlug || isDepositing}
-                style={{ minWidth: 164 }}
-              >
-                {isDepositing ? <Loader inline size={14} color="currentColor" /> : null}
-                Supply Treasury
-              </ButtonPrimary>
+              <Row gap="sm" wrap>
+                <ButtonPrimary
+                  onClick={handleDepositFunds}
+                  disabled={
+                    !amount || disabled || !organizationSlug || isDepositing || isWithdrawing
+                  }
+                  style={{ flex: 1, minWidth: 140 }}
+                >
+                  {isDepositing ? <Loader inline size={14} color="currentColor" /> : null}
+                  Supply Treasury
+                </ButtonPrimary>
+                <ButtonSecondary
+                  onClick={handleWithdrawFunds}
+                  disabled={
+                    !amount ||
+                    disabled ||
+                    !organizationSlug ||
+                    isWithdrawing ||
+                    isDepositing ||
+                    parsedAmount == null ||
+                    parsedAmount.isZero() ||
+                    exceedsTreasuryBalance
+                  }
+                  title={
+                    exceedsTreasuryBalance
+                      ? "Amount exceeds treasury balance for this organization"
+                      : undefined
+                  }
+                  style={{ flex: 1, minWidth: 140 }}
+                >
+                  {isWithdrawing ? <Loader inline size={14} color="currentColor" /> : null}
+                  Withdraw
+                </ButtonSecondary>
+              </Row>
+              {exceedsTreasuryBalance && (
+                <Text.Body size="sm" color="warn">
+                  Withdraw amount exceeds the org's treasury balance ({formatTokenBalance(treasuryBalance)}).
+                </Text.Body>
+              )}
             </Stack>
           </Stack>
         </Stack>

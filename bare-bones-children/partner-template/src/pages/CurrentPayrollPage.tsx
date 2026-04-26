@@ -15,6 +15,7 @@ import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { getBareBonesConfiguration } from "../constants/misc";
 import { PayrollStatus, payeeStatusLabel, payrollStatusLabel } from "../constants/payroll";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
+import PayrollTreasuryABI from "../abis/paymentPipelines/PayrollTreasury.abi.json";
 import { Table } from "../components/Table";
 import type { OrganizationModel, PayeeModel } from "../models/payments";
 import { useProcessCurrentPayroll } from "../hooks/payroll/useProcessCurrentPayroll";
@@ -79,6 +80,11 @@ export function CurrentPayrollPage() {
   const [payrollEndTime, setPayrollEndTime] = useState<number | null>(null);
   const [isProcessFlowOpen, setIsProcessFlowOpen] = useState(false);
   const [processFlowError, setProcessFlowError] = useState<string | null>(null);
+  const [treasuryFundingCheck, setTreasuryFundingCheck] = useState<{
+    shortfallWei: ethers.BigNumber;
+    treasuryWei: ethers.BigNumber;
+    expectedWei: ethers.BigNumber;
+  } | null>(null);
   const [stagingMeta, setStagingMeta] = useState({
     hasStagedChanges: false,
     stagedCount: 0,
@@ -166,6 +172,80 @@ export function CurrentPayrollPage() {
     );
     return formatAmountDisplay(ethers.utils.formatEther(total));
   }, [finalizedGrosses]);
+
+  // Pre-finalize treasury check: when the user opens the process flow modal and
+  // the payroll is already past Process (i.e. the next step is Finalize), pull
+  // the locked-in grosses + treasury balance and surface any shortfall so the
+  // modal can block the Continue action with a clear message.
+  useEffect(() => {
+    if (!isProcessFlowOpen) {
+      setTreasuryFundingCheck(null);
+      return;
+    }
+    if (
+      !provider ||
+      !payrollManagerAddress ||
+      !slug ||
+      currentPayrollId == null ||
+      (payrollStatus !== PayrollStatus.Processed && payrollStatus !== PayrollStatus.Finalizing)
+    ) {
+      setTreasuryFundingCheck(null);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const manager = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
+        const slugBytes = ethers.utils.formatBytes32String(slug);
+
+        const treasuryAddress: string = await manager.treasury();
+        if (!treasuryAddress || treasuryAddress === ethers.constants.AddressZero) {
+          if (!cancelled) setTreasuryFundingCheck(null);
+          return;
+        }
+
+        const treasury = new ethers.Contract(treasuryAddress, PayrollTreasuryABI as any, provider);
+        const treasuryBal: ethers.BigNumber = await treasury.balanceOf(slugBytes);
+
+        const grosses = await fetchPayrollGrosses(
+          provider,
+          payrollManagerAddress,
+          slug,
+          currentPayrollId,
+        );
+        const expectedWei = grosses.reduce(
+          (acc, row) => acc.add(ethers.BigNumber.from(row.gross)),
+          ethers.BigNumber.from(0),
+        );
+
+        const shortfallWei = expectedWei.gt(treasuryBal)
+          ? expectedWei.sub(treasuryBal)
+          : ethers.BigNumber.from(0);
+
+        if (!cancelled) {
+          setTreasuryFundingCheck({ shortfallWei, treasuryWei: treasuryBal, expectedWei });
+        }
+      } catch (err) {
+        console.error("Failed to check treasury funding:", err);
+        if (!cancelled) setTreasuryFundingCheck(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isProcessFlowOpen, payrollStatus, provider, payrollManagerAddress, slug, currentPayrollId, version]);
+
+  const treasuryShortfall = useMemo(() => {
+    if (!treasuryFundingCheck) return null;
+    if (treasuryFundingCheck.shortfallWei.isZero()) return null;
+    return {
+      shortfall: formatAmountDisplay(ethers.utils.formatEther(treasuryFundingCheck.shortfallWei)),
+      treasury: formatAmountDisplay(ethers.utils.formatEther(treasuryFundingCheck.treasuryWei)),
+      expected: formatAmountDisplay(ethers.utils.formatEther(treasuryFundingCheck.expectedWei)),
+    };
+  }, [treasuryFundingCheck]);
 
   const totalGrossDisplay = payrollStatus === PayrollStatus.Finalized
     ? (finalizedTotalGross ?? "-")
@@ -655,7 +735,7 @@ export function CurrentPayrollPage() {
                     addSelectCompact={true}
                     disableAddPayee={isApplyingStaged}
                     panelTitle="Payroll Resolved Earnings"
-                    panelAddLabel="+ Add Additional"
+                    panelAddLabel="Add Additional"
                     getOnChainEarnings={(payee) => {
                       const payeeId = payee.payeeId.toString();
                       // Fall back to cached data for payees who were removed then
@@ -745,6 +825,7 @@ export function CurrentPayrollPage() {
           payrollStatus={payrollStatus}
           processFlowError={processFlowError}
           payrollStatusLabel={payrollStatusLabel}
+          treasuryShortfall={treasuryShortfall}
         />
 
       </Stack>
