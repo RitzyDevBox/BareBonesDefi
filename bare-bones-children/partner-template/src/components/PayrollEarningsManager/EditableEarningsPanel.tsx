@@ -112,19 +112,25 @@ function EarnCard({
 
   return (
     <div className={`bb-earn-card${stgClass}`}>
-      <div className={`bb-earn-kind ${ruleKindToClass(ruleKind)}`}>{ruleKindLabel(ruleKind)}</div>
-      <div style={{ minWidth: 0 }}>
-        <div className="bb-earn-card-name">
-          <span className={status === "deleted" ? "bb-strike" : undefined}>
-            <strong>{displayName}</strong>
+      <div className="bb-earn-card-body">
+        <div className="bb-earn-card-tags">
+          <span className={`bb-earn-kind ${ruleKindToClass(ruleKind)}`}>
+            {ruleKindLabel(ruleKind)}
           </span>
           {badge && (
             <span
-              className={`bb-stage-badge bb-stage-${badge.tone === "added" ? "add" : badge.tone === "edited" ? "edit" : "del"}`}
+              className={`bb-stage-badge bb-stage-${
+                badge.tone === "added" ? "add" : badge.tone === "edited" ? "edit" : "del"
+              }`}
             >
               {badge.label}
             </span>
           )}
+        </div>
+        <div className="bb-earn-card-name">
+          <span className={status === "deleted" ? "bb-strike" : undefined}>
+            <strong>{displayName}</strong>
+          </span>
         </div>
         <div className="bb-earn-card-meta">
           <span>{ruleName}</span>

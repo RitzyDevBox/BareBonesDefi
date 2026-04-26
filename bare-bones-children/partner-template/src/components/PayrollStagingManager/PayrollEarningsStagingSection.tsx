@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { Input } from "../BasicComponents";
 import { Modal } from "../Modal/Modal";
 import { Sheet } from "../Primitives/Sheet";
-import { NumberInput } from "../Inputs/NumberInput";
 import { CopyButton } from "../Button/Actions/CopyButton";
 import { Row, Stack } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
-import { Select, SelectOption } from "../Select";
 import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
 import { EditableEarningsPanel } from "../PayrollEarningsManager";
 import type { TableColumn } from "../Table";
@@ -524,142 +521,206 @@ export function PayrollEarningsStagingSection({
       ? "Override Earnings"
       : "Add Additional Earnings";
 
+  const codeOptions =
+    earningsModal.mode === EarningsModalMode.Additional
+      ? additionalModalCodes
+      : earningsModal.earning
+        ? [
+            {
+              earningsCodeId: earningsModal.earning.earningsCodeId,
+              isActive: true,
+              name: earningsModal.earning.name ?? "",
+              rule: earningsModal.earning.rule,
+              config: earningsModal.earning.config,
+            },
+          ]
+        : [];
+
   const earningsModalContent = (
     <Stack gap="md">
       <Text.Body color="muted" size="sm">
-        Payee: #{earningsModal.payee?.payeeId?.toString() ?? "-"} · {parsePayeeNameLabel(earningsModal.payee?.role ?? "")}
+        Payee: #{earningsModal.payee?.payeeId?.toString() ?? "-"} ·{" "}
+        {parsePayeeNameLabel(earningsModal.payee?.role ?? "")}
       </Text.Body>
 
-      <Stack>
-        <Text.Body size="sm" color="muted">Earnings Code</Text.Body>
-        <Select<string>
-          value={modalCodeId || null}
-          onChange={(v) => setModalCodeId(String(v ?? ""))}
-          disabled={!canEdit || earningsModal.mode !== EarningsModalMode.Additional}
-        >
-          {(earningsModal.mode === EarningsModalMode.Additional
-            ? additionalModalCodes
-            : earningsModal.earning
-            ? [
-                {
-                  earningsCodeId: earningsModal.earning.earningsCodeId,
-                  isActive: true,
-                  name: earningsModal.earning.name ?? "",
-                  rule: earningsModal.earning.rule,
-                  config: earningsModal.earning.config,
-                },
-              ]
-            : []
-          ).map((code) => (
-            <SelectOption
-              key={code.earningsCodeId.toString()}
-              value={code.earningsCodeId.toString()}
-              label={`${formatEarningsCodeIdLabel(code.earningsCodeId)} · ${formatEarningsCodeName(code.name)} · ${buildRuleMeta(code.rule, config).name}`}
-            />
-          ))}
-        </Select>
-      </Stack>
-
-      <Row justify="between" align="center" wrap>
-        <Text.Body size="sm" color="muted">
-          Rule: {selectedModalRuleMeta.name}
-        </Text.Body>
-        <Row gap="sm" align="center">
-          <Text.Body size="sm" color="muted">{shortAddress(selectedModalRule)}</Text.Body>
-          <CopyButton value={selectedModalRule} ariaLabel="Copy rule address" />
-        </Row>
-      </Row>
-
-      {selectedModalRuleMeta.configRequired && selectedModalCode && (
-        <Text.Body size="sm" color="muted">
-          Config: {decodeConfigDisplay(selectedModalCode.config, selectedModalCode.rule, config)}
-        </Text.Body>
-      )}
-
-      <Stack>
-        <Text.Body size="sm" color="muted">Rate</Text.Body>
-        <Input
-          value={modalRate}
-          onChange={(e) => setModalRate(e.target.value)}
-          placeholder="e.g. 20"
-          disabled={!canEdit}
-        />
-      </Stack>
-
-      {selectedModalRuleMeta.kind === RuleKind.Hourly && (
-        <Stack>
-          <Text.Body size="sm" color="muted">Hours Worked (runData)</Text.Body>
-          <NumberInput
-            value={modalHourlyRunData}
-            onChange={(e) =>
-              setModalHourlyRunData((e.target as HTMLInputElement).value)
-            }
-            allowDecimal={false}
-            disabled={!canEdit}
-          />
-        </Stack>
-      )}
-
-      {selectedModalRuleMeta.kind === RuleKind.Custom && (
-        <Stack>
-          <Text.Body size="sm" color="muted">Run Data (raw hex)</Text.Body>
-          <Input
-            value={modalRawRunData}
-            onChange={(e) => setModalRawRunData(e.target.value)}
-            placeholder="0x"
-            disabled={!canEdit}
-          />
-        </Stack>
-      )}
-
-      {selectedModalRuleMeta.kind === RuleKind.Weekly && (
-        <Stack gap="sm">
-          <Row justify="between" align="center" wrap>
-            <Stack gap="xs">
-              <Text.Body size="sm" color="muted">Premium Rate: {weeklyPremiumRateLabel}</Text.Body>
-              <Text.Body size="sm" color="muted">Schedule Hours: {weeklyScheduledHours}h</Text.Body>
-              <Text.Body size="sm" color="muted">Standard Hours: {weeklyStandardHours}h</Text.Body>
-              <Text.Body size="sm" color="muted">Premium Overlap: {weeklyPremiumOverlapHours}h</Text.Body>
-            </Stack>
-            <Row gap="sm" align="center" wrap>
-              <ButtonSecondary
-                style={{ flex: 0 }}
-                onClick={() => setModalWeeklyWorkedMask(new Array<boolean>(168).fill(false))}
-                disabled={!canEdit}
-              >
-                Clear
-              </ButtonSecondary>
-            </Row>
-          </Row>
-
-          <Stack
+      <div className="bb-field-grid" style={{ gap: 16 }}>
+        <div className="bb-field bb-full">
+          <label>Earnings Code</label>
+          <select
+            className="bb-input bb-mono"
+            value={modalCodeId}
+            onChange={(e) => setModalCodeId(e.target.value)}
+            disabled={!canEdit || earningsModal.mode !== EarningsModalMode.Additional}
+          >
+            {!modalCodeId && <option value="">— select an earnings code —</option>}
+            {codeOptions.map((code) => (
+              <option key={code.earningsCodeId.toString()} value={code.earningsCodeId.toString()}>
+                {formatEarningsCodeIdLabel(code.earningsCodeId)} ·{" "}
+                {formatEarningsCodeName(code.name)} · {buildRuleMeta(code.rule, config).name}
+              </option>
+            ))}
+          </select>
+          <div
+            className="bb-field-hint"
             style={{
-              border: "1px solid var(--colors-border)",
-              borderRadius: "var(--radius-md)",
-              padding: "var(--spacing-sm)",
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 8,
+              textTransform: "none",
+              letterSpacing: 0,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              <ScheduleGrid
-                mask={modalWeeklyWorkedMask}
-                onChange={setWeeklyWorkedHour}
-                disabled={!canEdit}
-                overlapMask={modalWeeklyPremiumMask}
-              />
-            </div>
-          </Stack>
-        </Stack>
-      )}
+            <span>Rule: {selectedModalRuleMeta.name}</span>
+            <span>·</span>
+            <span style={{ color: "var(--bb-text)" }}>{shortAddress(selectedModalRule)}</span>
+            <CopyButton value={selectedModalRule} ariaLabel="Copy rule address" />
+          </div>
+        </div>
 
-      <Row justify="end" gap="sm">
-        <ButtonSecondary style={{ flex: 0 }} onClick={closeEarningsModal}>
+        {selectedModalRuleMeta.configRequired && selectedModalCode && (
+          <div className="bb-field bb-full">
+            <label>Code Config</label>
+            <div
+              style={{
+                fontFamily: "var(--bb-font-mono)",
+                fontSize: 12.5,
+                color: "var(--bb-text-dim)",
+                background: "var(--bb-bg)",
+                border: "1px solid var(--bb-line)",
+                borderRadius: 8,
+                padding: "10px 12px",
+                wordBreak: "break-word",
+              }}
+            >
+              {decodeConfigDisplay(selectedModalCode.config, selectedModalCode.rule, config)}
+            </div>
+          </div>
+        )}
+
+        <div className="bb-field">
+          <label>Rate</label>
+          <input
+            className="bb-input bb-mono"
+            value={modalRate}
+            onChange={(e) => setModalRate(e.target.value)}
+            placeholder="e.g. 20"
+            disabled={!canEdit}
+            inputMode="decimal"
+          />
+          <div className="bb-field-hint">Per-payee rate. Encoded as wei.</div>
+        </div>
+
+        {selectedModalRuleMeta.kind === RuleKind.Hourly && (
+          <div className="bb-field">
+            <label>Hours Worked</label>
+            <input
+              className="bb-input bb-mono"
+              value={modalHourlyRunData}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (next === "" || /^\d*$/.test(next)) {
+                  setModalHourlyRunData(next);
+                }
+              }}
+              placeholder="0"
+              disabled={!canEdit}
+              inputMode="numeric"
+            />
+            <div className="bb-field-hint">Encoded as uint32 hours (runData).</div>
+          </div>
+        )}
+
+        {selectedModalRuleMeta.kind === RuleKind.Custom && (
+          <div className="bb-field bb-full">
+            <label>Run Data (raw hex)</label>
+            <input
+              className="bb-input bb-mono"
+              value={modalRawRunData}
+              onChange={(e) => setModalRawRunData(e.target.value)}
+              placeholder="0x"
+              disabled={!canEdit}
+            />
+            <div className="bb-field-hint">Encoded into runData as-is.</div>
+          </div>
+        )}
+
+        {selectedModalRuleMeta.kind === RuleKind.PerPayroll && (
+          <div className="bb-field bb-full">
+            <div className="bb-ec-onetime">
+              <span className="bb-ec-onetime-icon" aria-hidden>•</span>
+              <div className="bb-ec-onetime-body">
+                <b>No run data needed.</b>
+                <span className="bb-muted bb-small">
+                  Per-payroll earnings only need a rate — the on-chain rule reads the raw amount at
+                  finalize.
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedModalRuleMeta.kind === RuleKind.Weekly && (
+          <div className="bb-field bb-full">
+            <div className="bb-ec-bands">
+              <div className="bb-ec-bands-head">
+                <span className="bb-ec-bands-title">Hours worked this cycle</span>
+                <button
+                  type="button"
+                  className="bb-btn-ghost bb-btn-xs"
+                  onClick={() =>
+                    setModalWeeklyWorkedMask(new Array<boolean>(168).fill(false))
+                  }
+                  disabled={!canEdit}
+                >
+                  Clear hours
+                </button>
+              </div>
+
+              <div
+                className="bb-field-hint"
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 12,
+                  textTransform: "none",
+                  letterSpacing: 0,
+                  marginBottom: 10,
+                }}
+              >
+                <span>Premium rate: <b style={{ color: "var(--bb-text)" }}>{weeklyPremiumRateLabel}</b></span>
+                <span>·</span>
+                <span>Scheduled: <b style={{ color: "var(--bb-text)" }}>{weeklyScheduledHours}h</b></span>
+                <span>·</span>
+                <span>Standard: <b style={{ color: "var(--bb-text)" }}>{weeklyStandardHours}h</b></span>
+                <span>·</span>
+                <span>Premium overlap: <b style={{ color: "var(--bb-text)" }}>{weeklyPremiumOverlapHours}h</b></span>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <ScheduleGrid
+                  mask={modalWeeklyWorkedMask}
+                  onChange={setWeeklyWorkedHour}
+                  disabled={!canEdit}
+                  overlapMask={modalWeeklyPremiumMask}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Row justify="end" gap="sm" style={{ marginTop: 4 }}>
+        <ButtonSecondary style={{ flex: 0, minWidth: 120 }} onClick={closeEarningsModal}>
           Close
         </ButtonSecondary>
         {canEdit && (
           <ButtonPrimary
-            style={{ flex: 0 }}
+            style={{ flex: 0, minWidth: 120 }}
             onClick={handleSubmitEarning}
-            disabled={earningsModal.mode === EarningsModalMode.Additional && !selectedModalCode}
+            disabled={
+              earningsModal.mode === EarningsModalMode.Additional && !selectedModalCode
+            }
           >
             Stage
           </ButtonPrimary>

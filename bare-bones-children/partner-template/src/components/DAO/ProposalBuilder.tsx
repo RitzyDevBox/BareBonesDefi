@@ -440,6 +440,28 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
 
   const currentTargetType = useMemo(() => targetTypeForPreset(actionPreset), [actionPreset]);
 
+  // Human-readable label for the current call (shown in Call details head as a
+  // secondary line, since the chooser is in a separate card now). For ABI-driven
+  // presets (custom + calibur), prefer the actual function signature once one is
+  // picked; fall back to the preset label otherwise.
+  const presetLabelByValue = useMemo(() => {
+    const map = new Map<ProposalActionPreset, string>();
+    for (const group of Object.values(ACTION_OPTIONS)) {
+      for (const opt of group) map.set(opt.value, opt.label);
+    }
+    return map;
+  }, []);
+
+  const callDetailsSubLabel = useMemo(() => {
+    if (
+      (actionPreset === "custom" || actionPreset === "wallet-calibur-entry") &&
+      selectedFunctionSignature
+    ) {
+      return selectedFunctionSignature;
+    }
+    return presetLabelByValue.get(actionPreset) ?? actionPreset;
+  }, [actionPreset, selectedFunctionSignature, presetLabelByValue]);
+
   function applyPreset(preset: ProposalActionPreset) {
     setActionPreset(preset);
     setValuesByParam({});
@@ -841,12 +863,33 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
 
   return (
     <div className="bb-builder">
-      {/* Template strip — Deploy Wallet shortcut */}
+      {/* Identity section */}
       <div className="bb-builder-section">
         <div className="bb-builder-head">
-          <h4>Start from a template</h4>
-          <span className="bb-muted bb-small">Pre-fill the builder for a common action.</span>
+          <h4>Proposal</h4>
         </div>
+        <div className="bb-field-grid">
+          <div className="bb-field bb-full">
+            <label>Description</label>
+            <Input
+              value={description}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDescription(event.target.value)}
+              placeholder="Describe this proposal"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Choose call type — templates + manual chooser. Both are different ways
+          to pick the same thing: which kind of call this proposal will make. */}
+      <div className="bb-builder-section">
+        <div className="bb-builder-head">
+          <h4>Choose call type</h4>
+          <span className="bb-muted bb-small">
+            Start from a template or pick the contract group / action manually.
+          </span>
+        </div>
+
         <div className="bb-template-grid">
           <button
             type="button"
@@ -868,35 +911,6 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             </div>
           </button>
         </div>
-      </div>
-
-      {/* Identity section */}
-      <div className="bb-builder-section">
-        <div className="bb-builder-head">
-          <h4>Proposal</h4>
-        </div>
-        <div className="bb-field-grid">
-          <div className="bb-field bb-full">
-            <label>Description</label>
-            <Input
-              value={description}
-              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDescription(event.target.value)}
-              placeholder="Describe this proposal"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Add a call section */}
-      <div className="bb-builder-section">
-        <div className="bb-builder-head">
-          <h4>
-            Add a call <span className="bb-muted">{stagedCalls.length > 0 && `· ${stagedCalls.length} staged`}</span>
-          </h4>
-          <span className="bb-muted bb-small">
-            Build one or more on-chain actions. Stage them, then submit together.
-          </span>
-        </div>
 
         <div className="bb-builder-row">
           <FormField label="Contract Group" style={{ marginBottom: 0 }}>
@@ -914,6 +928,79 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
               ))}
             </Select>
           </FormField>
+        </div>
+
+        {actionPreset === "custom" ? (
+          <FormField label="ABI JSON / ABI Section" style={{ marginBottom: 0 }}>
+            <textarea
+              value={abiText}
+              onChange={(event) => {
+                setAbiText(event.target.value);
+                setSelectedFunctionSignature("");
+                setValuesByParam({});
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+              }}
+              rows={8}
+              style={{
+                width: "100%",
+                borderRadius: "var(--radius-md)",
+                border: "1px solid var(--colors-border)",
+                padding: "var(--spacing-md)",
+                background: "var(--colors-background)",
+                color: "var(--colors-text-main)",
+              }}
+            />
+          </FormField>
+        ) : null}
+
+        {(actionPreset === "custom" || actionPreset === "wallet-calibur-entry") ? (
+          <FormField label="Function" style={{ marginBottom: 0 }}>
+            <Select
+              value={selectedFunctionSignature || null}
+              onChange={(v) => {
+                setSelectedFunctionSignature(v as string);
+                setValuesByParam({});
+              }}
+              placeholder="Select function"
+            >
+              {functions.map((fragment) => (
+                <SelectOption key={fragment.format()} value={fragment.format()} label={fragment.format()} />
+              ))}
+            </Select>
+          </FormField>
+        ) : null}
+      </div>
+
+      {/* Call details — only the actual fields that build the call. */}
+      <div className="bb-builder-section">
+        <div className="bb-builder-head">
+          <h4>
+            Call details
+            {callDetailsSubLabel ? (
+              <span
+                className="bb-mono bb-small"
+                style={{
+                  marginLeft: 8,
+                  color: "var(--bb-text-dim)",
+                  fontWeight: 400,
+                  letterSpacing: 0,
+                }}
+              >
+                · {callDetailsSubLabel}
+              </span>
+            ) : null}
+            {stagedCalls.length > 0 ? (
+              <span className="bb-muted">{` · ${stagedCalls.length} staged`}</span>
+            ) : null}
+          </h4>
+          <span className="bb-muted bb-small">
+            Fill in the parameters, then stage. Calls execute in order, atomically, when the proposal is executed.
+          </span>
         </div>
 
         <FormField label="Target Contract" style={{ marginBottom: 0 }}>
@@ -1132,51 +1219,8 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             />
           )}
 
-          {actionPreset === "custom" || actionPreset === "wallet-calibur-entry" ? (
+          {(actionPreset === "custom" || actionPreset === "wallet-calibur-entry") && selectedFunction ? (
             <Stack gap="sm">
-              {actionPreset === "custom" ? (
-                <FormField label="ABI JSON / ABI Section" style={{ marginBottom: 0 }}>
-                  <textarea
-                    value={abiText}
-                    onChange={(event) => {
-                      setAbiText(event.target.value);
-                      setSelectedFunctionSignature("");
-                      setValuesByParam({});
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                    }}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                    }}
-                    rows={8}
-                    style={{
-                      width: "100%",
-                      borderRadius: "var(--radius-md)",
-                      border: "1px solid var(--colors-border)",
-                      padding: "var(--spacing-md)",
-                      background: "var(--colors-background)",
-                      color: "var(--colors-text-main)",
-                    }}
-                  />
-                </FormField>
-              ) : null}
-
-              <FormField label="Function" style={{ marginBottom: 0 }}>
-                <Select
-                  value={selectedFunctionSignature || null}
-                  onChange={(v) => {
-                    setSelectedFunctionSignature(v as string);
-                    setValuesByParam({});
-                  }}
-                  placeholder="Select function"
-                >
-                  {functions.map((fragment) => (
-                    <SelectOption key={fragment.format()} value={fragment.format()} label={fragment.format()} />
-                  ))}
-                </Select>
-              </FormField>
-
               {selectedFunction ? (
                 <Stack gap="sm">
                   <Text.Label>Function Inputs</Text.Label>

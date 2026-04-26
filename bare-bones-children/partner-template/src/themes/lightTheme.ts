@@ -27,7 +27,7 @@ export const lightTheme: AppTheme = {
     text: {
       main: "#0e0e10",
       muted: "#46464c",
-      label: "#6f6f78",
+      label: "#54545c",
     },
   },
 

@@ -58,11 +58,27 @@ export const WalletDeployForm = forwardRef<WalletDeployFormRef, ProposalFormProp
     const [authorizerSelectionLabel, setAuthorizerSelectionLabel] = useState<string | null>(null);
     const [initializerSelectionLabel, setInitializerSelectionLabel] = useState<string | null>(null);
 
-    const defaultAuthorizerAddress =
+    const ownerAuthorityResolverAddress =
       configAddresses?.find((entry) => entry.label.toLowerCase().includes("owner authority resolver"))?.address ?? "";
 
+    const defaultAuthorizerAddress = ownerAuthorityResolverAddress;
+
+    // The wallet-options bytes is forwarded to the chosen authorizer's `initialize(diamond, data)`.
+    // For OwnerAuthorityResolver that data is `abi.encode(address)` — the wallet's owner — so
+    // surface a clearer label whenever that resolver is selected. Other resolvers (e.g. NFT)
+    // encode different shapes, so leave the generic label in place.
+    const isOwnerAuthorityResolverSelected =
+      ownerAuthorityResolverAddress !== "" &&
+      state.authorizerAddress.trim().toLowerCase() === ownerAuthorityResolverAddress.toLowerCase();
+    const walletOptionsLabel = isOwnerAuthorityResolverSelected
+      ? "Wallet Owner (abi.encoded address)"
+      : "Wallet Options (hex bytes, optional)";
+
+    // Address-book entry registered by useProposalAddressBook is "Wallet Kernel Initializer"
+    // (see src/hooks/dao/useProposalAddressBook.ts). Match on "kernel initializer" so this
+    // stays robust if the label gets renamed slightly.
     const defaultInitializerAddress =
-      configAddresses?.find((entry) => entry.label.toLowerCase().includes("diamond kernel initializer"))?.address ?? "";
+      configAddresses?.find((entry) => entry.label.toLowerCase().includes("kernel initializer"))?.address ?? "";
 
     useEffect(() => {
       if (!defaultAuthorizerAddress || state.authorizerAddress) return;
@@ -218,7 +234,7 @@ export const WalletDeployForm = forwardRef<WalletDeployFormRef, ProposalFormProp
           />
         </FormField>
 
-        <FormField label="Wallet Options (hex bytes, optional)" style={{ marginBottom: 0 }}>
+        <FormField label={walletOptionsLabel} style={{ marginBottom: 0 }}>
           <Input
             value={state.optionsBytes}
             onChange={(event: React.ChangeEvent<HTMLInputElement>) =>

@@ -27,7 +27,7 @@ export const darkTheme: AppTheme = {
     text: {
       main: "#ededee",
       muted: "#a3a3aa",
-      label: "#6b6b74",
+      label: "#8e8e98",
     },
   },
   appBackground: {

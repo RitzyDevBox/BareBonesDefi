@@ -619,6 +619,11 @@ export function CurrentPayrollPage() {
                 </div>
               </div>
               <div className="bb-pr-status-m">
+                <div className="bb-kicker">Batch template</div>
+                <div className="bb-pr-status-total bb-mono">{parseBatchCodeLabel(payrollTemplateCode)}</div>
+                {loading && <span className="bb-muted bb-small"><span className="bb-spinner bb-sm" /> Loading…</span>}
+              </div>
+              <div className="bb-pr-status-r">
                 <div className="bb-kicker">Status</div>
                 <span className={`bb-status bb-status-${tone}`}>
                   {payrollStatus == null ? "N/A" : payrollStatusLabel(payrollStatus)}
@@ -631,11 +636,6 @@ export function CurrentPayrollPage() {
                   {payrollStatus === PayrollStatus.Finalized && "All transfers processed."}
                   {payrollStatus === PayrollStatus.Cancelled && "Cancelled — no payouts sent."}
                 </div>
-              </div>
-              <div className="bb-pr-status-r">
-                <div className="bb-kicker">Batch template</div>
-                <div className="bb-pr-status-total bb-mono">{parseBatchCodeLabel(payrollTemplateCode)}</div>
-                {loading && <span className="bb-muted bb-small"><span className="bb-spinner bb-sm" /> Loading…</span>}
               </div>
               <div className="bb-pr-status-actions" />
             </div>
