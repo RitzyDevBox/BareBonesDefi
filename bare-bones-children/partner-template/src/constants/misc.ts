@@ -2,6 +2,7 @@ import { ethers } from "ethers";
 import { TokenInfo } from "../components/TokenSelect/types";
 import polygonLogo from "../assets/chains/polygon-logo.webp";
 import hyperliquidLogo from "../assets/chains/hyperliquid-logo.png";
+import anvilLogo from "../assets/chains/anvil-logo.svg";
 import { FEATURE_FLAGS } from "./featureFlags";
 
 export const SwapRouter02ExecutorAddress = '0xBe6d02FD9335C2e1e33bBC174ad7ee36764C8EE7'
@@ -278,6 +279,7 @@ const BASE_CHAIN_INFO_MAP: Record<number, ChainInfo> = {
       symbol: "ETH",
       decimals: 18,
     },
+    logoUrl: anvilLogo,
     rpcUrls: [localEnv("VITE_LOCAL_RPC_URL") ?? "http://127.0.0.1:8545"],
     blockExplorerUrls: [localEnv("VITE_LOCAL_EXPLORER_URL") ?? "http://127.0.0.1:8545"],
     coinGeckoSlug: "ethereum",

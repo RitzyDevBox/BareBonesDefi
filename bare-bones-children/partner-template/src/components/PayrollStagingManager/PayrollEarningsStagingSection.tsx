@@ -70,6 +70,8 @@ interface PayrollEarningsStagingSectionProps {
   panelTitle: string;
   panelAddLabel: string;
   getOnChainEarnings: (payee: PayeeModel) => StagingEarningSourceRow[];
+  /** Optional badge rendered next to the panelTitle in the expanded panel header (e.g. payee status pill). */
+  getPanelHeaderBadge?: (payee: PayeeModel) => React.ReactNode;
   earningsCodes: EarningsCodeOption[];
   config: any;
 
@@ -143,6 +145,7 @@ export function PayrollEarningsStagingSection({
   panelTitle,
   panelAddLabel,
   getOnChainEarnings,
+  getPanelHeaderBadge,
   earningsCodes,
   config,
   onSave,
@@ -776,6 +779,7 @@ export function PayrollEarningsStagingSection({
               stagedRemovals={payeeRemovals}
               earningsCodeById={earningsCodeById}
               config={config}
+              headerBadge={getPanelHeaderBadge ? getPanelHeaderBadge(payee) : undefined}
               onAdd={() => openAddEarningModal(payee)}
               onEdit={(item, staged) => {
                 const source = getOnChainEarnings(payee).find(

@@ -18,6 +18,7 @@ export interface WalletContextValue {
   chainId: number | null;
   status: WalletStatus;
   connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
 }
 
 /* ================= HELPERS ================= */
@@ -169,6 +170,23 @@ export function WalletProvider({
     }
   }
 
+  async function disconnect() {
+    // EIP-2255 — supported by MetaMask + most modern injected wallets. The dApp
+    // can't *force* a wallet to disconnect (that's user-controlled), but
+    // revoking eth_accounts permission causes the wallet to drop the dApp's
+    // session so the user has to re-approve next time.
+    try {
+      await window.ethereum?.request?.({
+        method: "wallet_revokePermissions",
+        params: [{ eth_accounts: {} }],
+      });
+    } catch {
+      // Wallet doesn't support revoke — fall through and at least drop local state.
+    }
+    setAccount(null);
+    setStatus("idle");
+  }
+
   return (
     <WalletContext.Provider
       value={{
@@ -177,6 +195,7 @@ export function WalletProvider({
         chainId,
         status,
         connect,
+        disconnect,
       }}
     >
       {children}

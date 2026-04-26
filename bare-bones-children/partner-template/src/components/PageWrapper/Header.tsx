@@ -13,11 +13,13 @@ import { SettingsModal } from "../Settings/SettingsModal";
 import { useSettings } from "../../hooks/useSettings";
 import { DaoSwitcher } from "../Header/DaoSwitcher";
 import { CreateDaoModal } from "../Header/CreateDaoModal";
+import { WalletAccountSheet } from "./WalletAccountSheet";
 
 interface HeaderProps {
   account: string | null;
   chainId: number | null;
   onConnectWallet: () => void;
+  onDisconnectWallet: () => void | Promise<void>;
   onChainChange: (chainId: number) => void;
 }
 
@@ -73,17 +75,27 @@ function GearButton({ onClick }: { onClick: () => void }) {
 }
 
 export function Header(props: HeaderProps) {
-  const screen = useMediaQuery();
+  // Override the default phone breakpoint (480px) — we want the chain selector
+  // and DAO switcher to keep their full chrome down to 600px and only collapse
+  // (into the wallet sheet) on truly narrow phones.
+  const screen = useMediaQuery({ phoneMax: 600 });
   const isCompact = screen === ScreenSize.Phone || screen === ScreenSize.Tablet;
-  return isCompact ? <MobileHeader {...props} /> : <FullHeader {...props} />;
+  return isCompact ? (
+    <MobileHeader {...props} screen={screen} />
+  ) : (
+    <FullHeader {...props} />
+  );
 }
 
 function WalletStatus({
   account,
   onConnectWallet,
+  onClick,
 }: {
   account: string | null;
   onConnectWallet: () => void;
+  /** When set, the account pill becomes a button that opens (e.g.) the mobile wallet sheet. */
+  onClick?: () => void;
 }) {
   if (!account) {
     return (
@@ -93,22 +105,22 @@ function WalletStatus({
     );
   }
 
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        height: 36,
-        padding: "0 12px 0 10px",
-        borderRadius: "var(--radius-md)",
-        border: "1px solid var(--colors-border)",
-        background: "var(--colors-surface)",
-        fontSize: 13,
-        fontWeight: 500,
-        color: "var(--colors-text-main)",
-      }}
-    >
+  const baseStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    height: 36,
+    padding: "0 12px 0 10px",
+    borderRadius: "var(--radius-md)",
+    border: "1px solid var(--colors-border)",
+    background: "var(--colors-surface)",
+    fontSize: 13,
+    fontWeight: 500,
+    color: "var(--colors-text-main)",
+  };
+
+  const pillContent = (
+    <>
       <div
         style={{
           width: 18,
@@ -122,8 +134,23 @@ function WalletStatus({
       <span style={{ fontFamily: "monospace", fontSize: 13 }}>
         {shortAddress(account)}
       </span>
-    </div>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Open account, network, and organization"
+        style={{ ...baseStyle, cursor: "pointer", fontFamily: "inherit" }}
+      >
+        {pillContent}
+      </button>
+    );
+  }
+
+  return <div style={baseStyle}>{pillContent}</div>;
 }
 
 function NavLink({
@@ -160,12 +187,14 @@ function FullHeader({
   account,
   chainId,
   onConnectWallet,
+  onDisconnectWallet,
   onChainChange,
 }: HeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [walletPanelOpen, setWalletPanelOpen] = useState(false);
   const { settings, toggle } = useSettings();
 
   return (
@@ -202,11 +231,28 @@ function FullHeader({
                 showTestnets={settings.showTestnets}
               />
             )}
-            <WalletStatus account={account} onConnectWallet={onConnectWallet} />
+            <WalletStatus
+              account={account}
+              onConnectWallet={onConnectWallet}
+              onClick={account ? () => setWalletPanelOpen(true) : undefined}
+            />
             <GearButton onClick={() => setSettingsOpen(true)} />
           </div>
         </div>
       </header>
+
+      {account && (
+        <WalletAccountSheet
+          open={walletPanelOpen}
+          onClose={() => setWalletPanelOpen(false)}
+          account={account}
+          chainId={chainId}
+          onChainChange={onChainChange}
+          showTestnets={settings.showTestnets}
+          onCreateOrganization={() => setCreateOpen(true)}
+          onDisconnect={onDisconnectWallet}
+        />
+      )}
 
       <SettingsModal
         isOpen={settingsOpen}
@@ -225,10 +271,18 @@ function MobileHeader({
   chainId,
   onChainChange,
   onConnectWallet,
-}: HeaderProps) {
+  onDisconnectWallet,
+  screen,
+}: HeaderProps & { screen: ScreenSize }) {
   const navigate = useNavigate();
   const { settings, toggle } = useSettings();
   const [createOpen, setCreateOpen] = useState(false);
+  const [walletPanelOpen, setWalletPanelOpen] = useState(false);
+
+  // Phone (≤600px): chain + organization disappear from the header — they live
+  // inside the wallet panel that opens on tap of the account pill.
+  // Tablet (601-900px): selectors stay in the header at full size.
+  const hideHeaderSelectors = screen === ScreenSize.Phone;
 
   return (
     <>
@@ -239,18 +293,23 @@ function MobileHeader({
             <BareBonesLogo size={20} />
           </button>
 
-          {account && <DaoSwitcher compact onCreate={() => setCreateOpen(true)} />}
+          {account && !hideHeaderSelectors && (
+            <DaoSwitcher onCreate={() => setCreateOpen(true)} />
+          )}
 
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-            {account && chainId !== null && (
+            {account && chainId !== null && !hideHeaderSelectors && (
               <ChainSelector
                 chainId={chainId}
                 onChainChange={onChainChange}
                 showTestnets={settings.showTestnets}
-                compact
               />
             )}
-            <WalletStatus account={account} onConnectWallet={onConnectWallet} />
+            <WalletStatus
+              account={account}
+              onConnectWallet={onConnectWallet}
+              onClick={account ? () => setWalletPanelOpen(true) : undefined}
+            />
             <HamburgerMenu
               account={account}
               showTestnets={settings.showTestnets}
@@ -259,6 +318,19 @@ function MobileHeader({
           </div>
         </div>
       </header>
+
+      {account && (
+        <WalletAccountSheet
+          open={walletPanelOpen}
+          onClose={() => setWalletPanelOpen(false)}
+          account={account}
+          chainId={chainId}
+          onChainChange={onChainChange}
+          showTestnets={settings.showTestnets}
+          onCreateOrganization={() => setCreateOpen(true)}
+          onDisconnect={onDisconnectWallet}
+        />
+      )}
 
       <CreateDaoModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
     </>

@@ -13,7 +13,7 @@ import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { getBareBonesConfiguration } from "../constants/misc";
-import { PayrollStatus, payeeStatusLabel, payrollStatusLabel } from "../constants/payroll";
+import { PayeeStatus, PayrollStatus, payeeStatusLabel, payrollStatusLabel } from "../constants/payroll";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import PayrollTreasuryABI from "../abis/paymentPipelines/PayrollTreasury.abi.json";
 import { Table } from "../components/Table";
@@ -683,6 +683,7 @@ export function CurrentPayrollPage() {
                     canEdit={isAdmin && !isViewOnly && currentPayrollId != null}
                     headerActions={
                       <SplitActionDropdown
+                        compact={screenSize === ScreenSize.Phone}
                         label={isPreviewingPayroll ? "Previewing..." : "Preview"}
                         onPrimaryClick={handlePreviewPayroll}
                         primaryDisabled={currentPayrollId == null || isPreviewingPayroll || hasStagedChanges}
@@ -710,7 +711,7 @@ export function CurrentPayrollPage() {
                       ...(screenSize === ScreenSize.Phone ? [] : [{ key: "payeeStatus", header: "Status" }]),
                       {
                         key: "previewGross",
-                        header: screenSize === ScreenSize.Phone ? "Gross" : "Preview Gross",
+                        header: "Gross",
                         width: screenSize === ScreenSize.Phone ? "88px" : undefined,
                       },
                     ]}
@@ -736,6 +737,32 @@ export function CurrentPayrollPage() {
                     disableAddPayee={isApplyingStaged}
                     panelTitle="Payroll Resolved Earnings"
                     panelAddLabel="Add Additional"
+                    getPanelHeaderBadge={
+                      // The Status column is hidden from the table on phone; surface
+                      // the colored pill in the panel header there. On tablet/desktop
+                      // the column already shows it, so we don't double-up.
+                      screenSize === ScreenSize.Phone
+                        ? (payee) => {
+                            const row = payrollRunByPayeeId.get(payee.payeeId.toString());
+                            const status = (row?.payeeStatus ?? payee.status) as
+                              | number
+                              | undefined;
+                            const tone =
+                              status === PayeeStatus.Active
+                                ? "ok"
+                                : status === PayeeStatus.OnLeave
+                                  ? "warn"
+                                  : status === PayeeStatus.Inactive
+                                    ? "error"
+                                    : "draft";
+                            return (
+                              <span className={`bb-status bb-status-${tone}`}>
+                                {payeeStatusLabel(status)}
+                              </span>
+                            );
+                          }
+                        : undefined
+                    }
                     getOnChainEarnings={(payee) => {
                       const payeeId = payee.payeeId.toString();
                       // Fall back to cached data for payees who were removed then

@@ -104,6 +104,9 @@ export function Modal({
           width: resolvedWidth,
           maxWidth: resolvedMaxWidth,
           background: "var(--colors-surface)",
+          // Modal portals to document.body which has no global text color set;
+          // explicit color here keeps body text readable in dark mode.
+          color: "var(--colors-text-main)",
           border: "1px solid var(--colors-border)",
           borderRadius: "var(--radius-lg)",
           boxShadow: "var(--shadows-medium)",

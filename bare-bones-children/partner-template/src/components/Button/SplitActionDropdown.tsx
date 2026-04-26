@@ -11,6 +11,8 @@ interface SplitActionDropdownProps {
   onPrimaryClick: () => void;
   primaryDisabled?: boolean;
   actions: SplitActionItem[];
+  /** Tighter sizing for inline use in cramped toolbars (e.g. phone). */
+  compact?: boolean;
 }
 
 export function SplitActionDropdown({
@@ -18,7 +20,12 @@ export function SplitActionDropdown({
   onPrimaryClick,
   primaryDisabled = false,
   actions,
+  compact = false,
 }: SplitActionDropdownProps) {
+  const minHeight = compact ? 36 : 42;
+  const primaryPaddingX = compact ? 12 : 16;
+  const dropdownWidth = compact ? 32 : 40;
+  const labelFontSize = compact ? "0.85rem" : "0.95rem";
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -61,15 +68,15 @@ export function SplitActionDropdown({
           border: "none",
           background: "transparent",
           color: "var(--colors-text-main)",
-          minHeight: 42,
-          padding: "0 16px",
+          minHeight,
+          padding: `0 ${primaryPaddingX}px`,
           cursor: primaryDisabled ? "not-allowed" : "pointer",
           opacity: primaryDisabled ? 0.6 : 1,
           whiteSpace: "nowrap",
           margin: 0,
         }}
       >
-        <span style={{ fontSize: "0.95rem", fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: labelFontSize, fontWeight: 600 }}>{label}</span>
       </button>
 
       <button
@@ -81,8 +88,8 @@ export function SplitActionDropdown({
           borderLeft: "1px solid var(--colors-borderHover)",
           background: "var(--colors-background)",
           color: "var(--colors-text-main)",
-          width: 40,
-          minHeight: 42,
+          width: dropdownWidth,
+          minHeight,
           cursor: "pointer",
           display: "flex",
           alignItems: "center",

@@ -7,7 +7,7 @@ import { AppBackground } from "./components/PageWrapper/AppBackground";
 import { ActiveOrganizationProvider } from "./providers/ActiveOrganizationProvider";
 
 export default function App() {
-  const { account, chainId, connect, provider } = useWalletProvider();
+  const { account, chainId, connect, disconnect, provider } = useWalletProvider();
 
   return (
     <AppBackground>
@@ -17,6 +17,7 @@ export default function App() {
           account={account}
           chainId={chainId}
           onConnectWallet={connect}
+          onDisconnectWallet={disconnect}
           onChainChange={(chainId) => {
             if (!provider) return;
             switchOrAddEvmChain(provider, chainId);

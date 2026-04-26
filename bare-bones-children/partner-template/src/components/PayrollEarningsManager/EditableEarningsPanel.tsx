@@ -50,6 +50,8 @@ interface EditableEarningsPanelProps {
   onAdd: () => void;
   onEdit: (item: EditableEarningItem, staged: StagedEarningData) => void;
   onToggleRemove: (codeId: string) => void;
+  /** Optional decoration rendered next to the panel title (e.g. a payee status pill). */
+  headerBadge?: React.ReactNode;
 }
 
 function ruleKindToClass(kind: RuleKind): string {
@@ -201,6 +203,7 @@ export function EditableEarningsPanel({
   onAdd,
   onEdit,
   onToggleRemove,
+  headerBadge,
 }: EditableEarningsPanelProps) {
   const onChainCodeIds = new Set(onChainEarnings.map((e) => e.codeId));
   const newStagedEarnings = Array.from(stagedUpserts.entries()).filter(
@@ -217,16 +220,38 @@ export function EditableEarningsPanel({
           alignItems: "center",
           justifyContent: "space-between",
           gap: 8,
-          flexWrap: "wrap",
+          flexWrap: "nowrap",
         }}
       >
-        <span className="bb-kicker">{title}</span>
-        {isStagedAdd && (
-          <span className="bb-stage-badge bb-stage-add">Payee staged for add</span>
-        )}
-        {isStagedPayeeRemoval && (
-          <span className="bb-stage-badge bb-stage-del">Payee staged for removal</span>
-        )}
+        <span
+          className="bb-kicker"
+          style={{
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            minWidth: 0,
+            flex: "1 1 auto",
+          }}
+        >
+          {title}
+        </span>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            flexShrink: 0,
+            flexWrap: "nowrap",
+          }}
+        >
+          {isStagedAdd && (
+            <span className="bb-stage-badge bb-stage-add">Payee staged for add</span>
+          )}
+          {isStagedPayeeRemoval && (
+            <span className="bb-stage-badge bb-stage-del">Payee staged for removal</span>
+          )}
+          {headerBadge}
+        </div>
       </div>
 
       {isEmpty && (

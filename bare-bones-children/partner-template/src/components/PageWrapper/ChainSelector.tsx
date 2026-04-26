@@ -124,15 +124,17 @@ export function ChainSelector({ chainId, onChainChange, showTestnets = true, com
         <span style={{ fontSize: 10, opacity: 0.5, flexShrink: 0 }}>▼</span>
       </button>
 
-      {/* Portaled dropdown — compact: pinned to viewport right edge; full: aligned to trigger */}
+      {/* Portaled dropdown — right edge aligns with trigger's right edge in both
+          modes; clamped so the panel never hugs the viewport edge tighter than 8px. */}
       {open && createPortal(
         <div
           ref={dropdownRef}
           style={{
             position: "fixed",
             top: (triggerRect?.bottom ?? -9999) + 6,
-            right: compact ? 8 : window.innerWidth - (triggerRect?.right ?? 0),
+            right: Math.max(8, window.innerWidth - (triggerRect?.right ?? 0)),
             minWidth: 180,
+            maxWidth: "calc(100vw - 16px)",
             background: "var(--colors-surface)",
             border: "1px solid var(--colors-border)",
             borderRadius: "var(--radius-md)",

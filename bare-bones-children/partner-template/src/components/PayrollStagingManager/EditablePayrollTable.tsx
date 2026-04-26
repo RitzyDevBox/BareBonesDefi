@@ -55,6 +55,8 @@ interface RowProps {
   extraCells: Record<string, any>;
   onRemove?: () => void;
   renderExpandedRow: (payee: PayeeModel) => React.ReactNode;
+  /** Phone or tablet — drop the dedicated address column so extras (e.g. preview gross) stay visible. */
+  isCompactRow: boolean;
 }
 
 function PayrollRow({
@@ -68,6 +70,7 @@ function PayrollRow({
   extraCells,
   onRemove,
   renderExpandedRow,
+  isCompactRow,
 }: RowProps) {
   const status: "added" | "edited" | "deleted" | null = isRemoved
     ? "deleted"
@@ -85,13 +88,25 @@ function PayrollRow({
   const addressShort = shortAddress(payee.paymentAddress);
 
   const columnTemplate = useMemo(() => {
+    if (isCompactRow) {
+      // Address column is dropped below desktop (it appears under the name on the
+      // role line, and the expand panel reveals full details). This keeps important
+      // extra columns (e.g. Preview Gross) inside the visible grid track on phone
+      // AND tablet, where the full layout would otherwise overflow and clip.
+      const base = ["24px", "minmax(0, 1fr)"];
+      extraColumns.forEach((col) => {
+        base.push(col.width || "minmax(72px, auto)");
+      });
+      base.push(canEdit ? "32px" : "0");
+      return base.join(" ");
+    }
     const base = ["28px", "minmax(160px, 2fr)", "minmax(140px, 1.4fr)"];
     extraColumns.forEach((col) => {
       base.push(col.width || "minmax(120px, 1fr)");
     });
     base.push(canEdit ? "44px" : "0");
     return base.join(" ");
-  }, [extraColumns, canEdit]);
+  }, [extraColumns, canEdit, isCompactRow]);
 
   return (
     <>
@@ -124,12 +139,22 @@ function PayrollRow({
             </span>
             <StagedBadge kind={status} />
           </div>
-          <div className="bb-stg-payee-role">#{payee.payeeId.toString()}</div>
+          <div className="bb-stg-payee-role">
+            #{payee.payeeId.toString()}
+            {isCompactRow ? (
+              <>
+                <span style={{ margin: "0 4px", opacity: 0.6 }}>·</span>
+                <span className="bb-mono">{addressShort}</span>
+              </>
+            ) : null}
+          </div>
         </div>
 
-        <div className="bb-stg-cell bb-mono bb-small" style={{ color: "var(--bb-text-mute)" }}>
-          <span className={status === "deleted" ? "bb-strike" : undefined}>{addressShort}</span>
-        </div>
+        {!isCompactRow && (
+          <div className="bb-stg-cell bb-mono bb-small" style={{ color: "var(--bb-text-mute)" }}>
+            <span className={status === "deleted" ? "bb-strike" : undefined}>{addressShort}</span>
+          </div>
+        )}
 
         {extraColumns.map((col) => {
           const raw = extraCells[col.key];
@@ -195,7 +220,10 @@ export function EditablePayrollTable({
   disableClear = false,
 }: EditablePayrollTableProps) {
   const screenSize = useMediaQuery();
-  const isPhone = screenSize === ScreenSize.Phone;
+  // Use the compact (no-address) row layout for everything below desktop so the
+  // preview-gross / status / extras columns always stay visible inside the grid
+  // track on tablets too — at <900px the full layout overflows and clips.
+  const isCompactRow = screenSize !== ScreenSize.Desktop;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -228,13 +256,21 @@ export function EditablePayrollTable({
   }
 
   const headerColumnTemplate = useMemo(() => {
+    if (isCompactRow) {
+      const base = ["24px", "minmax(0, 1fr)"];
+      extraColumns.forEach((col) => {
+        base.push(col.width || "minmax(72px, auto)");
+      });
+      base.push(canEdit ? "32px" : "0");
+      return base.join(" ");
+    }
     const base = ["28px", "minmax(160px, 2fr)", "minmax(140px, 1.4fr)"];
     extraColumns.forEach((col) => {
       base.push(col.width || "minmax(120px, 1fr)");
     });
     base.push(canEdit ? "44px" : "0");
     return base.join(" ");
-  }, [extraColumns, canEdit]);
+  }, [extraColumns, canEdit, isCompactRow]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -257,16 +293,20 @@ export function EditablePayrollTable({
           )}
           <div className="bb-toolbar-spacer" />
           {headerActions}
-          <button
-            className="bb-btn-ghost bb-btn-xs"
-            onClick={expandAll}
-            disabled={filteredPayees.length === 0}
-          >
-            Expand all
-          </button>
-          <button className="bb-btn-ghost bb-btn-xs" onClick={collapseAll}>
-            Collapse all
-          </button>
+          {!isCompactRow && (
+            <>
+              <button
+                className="bb-btn-ghost bb-btn-xs"
+                onClick={expandAll}
+                disabled={filteredPayees.length === 0}
+              >
+                Expand all
+              </button>
+              <button className="bb-btn-ghost bb-btn-xs" onClick={collapseAll}>
+                Collapse all
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -276,9 +316,29 @@ export function EditablePayrollTable({
           role="row"
           style={{ gridTemplateColumns: headerColumnTemplate }}
         >
-          <div className="bb-stg-cell" aria-hidden />
+          {isCompactRow && filteredPayees.length > 0 ? (
+            (() => {
+              const allExpanded = expanded.size >= filteredPayees.length;
+              return (
+                <button
+                  type="button"
+                  className="bb-stg-expand bb-stg-expand-all"
+                  aria-label={allExpanded ? "Collapse all" : "Expand all"}
+                  title={allExpanded ? "Collapse all" : "Expand all"}
+                  onClick={() => {
+                    if (allExpanded) collapseAll();
+                    else expandAll();
+                  }}
+                >
+                  {allExpanded ? "−" : "+"}
+                </button>
+              );
+            })()
+          ) : (
+            <div className="bb-stg-cell" aria-hidden />
+          )}
           <div className="bb-stg-cell">Payee</div>
-          <div className="bb-stg-cell">Address</div>
+          {!isCompactRow && <div className="bb-stg-cell">Address</div>}
           {extraColumns.map((col) => (
             <div key={col.key} className="bb-stg-cell">
               {col.header}
@@ -316,6 +376,7 @@ export function EditablePayrollTable({
                 onTogglePayeeRemoval ? () => onTogglePayeeRemoval(id) : undefined
               }
               renderExpandedRow={renderExpandedRow}
+              isCompactRow={isCompactRow}
             />
           );
         })}
@@ -327,19 +388,30 @@ export function EditablePayrollTable({
             display: "flex",
             gap: 8,
             alignItems: "center",
-            flexWrap: "wrap",
+            // Always single-row: select shrinks via min-width: 0; button stays beside.
+            flexWrap: "nowrap",
+            // Right-align on desktop so the dropdown + button group sits to the
+            // right of the table; on phone/tablet it stretches to fill the row.
+            justifyContent: isCompactRow ? "stretch" : "flex-end",
             padding: 14,
             border: "1px dashed var(--bb-line)",
             borderRadius: 12,
             background: "color-mix(in oklab, var(--bb-accent) 4%, var(--bb-bg-elev))",
           }}
         >
-          <div style={{ flex: 1, minWidth: 240 }}>
+          <div
+            style={
+              isCompactRow
+                ? { flex: "1 1 0", minWidth: 0 }
+                : { flex: "0 1 360px", minWidth: 0, maxWidth: 360 }
+            }
+          >
             <select
               className="bb-input"
               value={selectedAddPayeeId || ""}
               onChange={(e) => onSelectedAddPayeeIdChange?.(e.target.value)}
               disabled={addablePayees.length === 0 || disableAddPayee}
+              style={{ minWidth: 0 }}
             >
               <option value="">
                 {addablePayees.length === 0
@@ -354,12 +426,13 @@ export function EditablePayrollTable({
             </select>
           </div>
           <button
-            className="bb-btn-primary"
+            className="bb-btn-primary bb-btn-add-payee"
             onClick={onAddPayee}
             disabled={!selectedAddPayeeId || addablePayees.length === 0 || disableAddPayee}
-            style={{ whiteSpace: "nowrap" }}
+            style={{ whiteSpace: "nowrap", flexShrink: 0 }}
           >
-            + {isPhone ? "Add" : "Add payee to batch"}
+            +<span className="bb-btn-add-payee-full"> Add payee to batch</span>
+            <span className="bb-btn-add-payee-short"> Add</span>
           </button>
         </div>
       )}

@@ -61,6 +61,15 @@
   border-radius: 6px;
 }
 
+/* "Add payee to batch" button: full label by default, just "Add" under 600px.
+   This breakpoint is wider than the phone media-query so the long label hides
+   on mid-sized tablets where the dropdown + button must share one row. */
+.bb-btn-add-payee-short { display: none; }
+@media (max-width: 600px) {
+  .bb-btn-add-payee-full { display: none; }
+  .bb-btn-add-payee-short { display: inline; }
+}
+
 /* small icon button */
 .bb-icon-btn-sm {
   width: 26px; height: 26px;
@@ -453,7 +462,9 @@
 
 .bb-search {
   display: flex; align-items: center; gap: 8px;
-  flex: 1; min-width: 220px; max-width: 420px;
+  /* max-width was 420px which capped growth on tablet (768-900px) and clipped
+     the placeholder. Bumped so it now expands with the toolbar. */
+  flex: 1; min-width: 220px; max-width: 640px;
   padding: 0 12px;
   height: 36px;
   border: 1px solid var(--bb-line);
@@ -538,6 +549,38 @@
   margin-bottom: 0;
 }
 
+/* Narrow phones (e.g. iPhone SE @ 375px) — search takes its own row, buttons
+   share the next row equally so neither gets clipped by the panel's overflow:hidden. */
+@media (max-width: 560px) {
+  .bb-panel-toolbar { gap: 8px; }
+  .bb-panel-toolbar-r {
+    width: 100%;
+    flex-shrink: 1;
+  }
+  .bb-panel-toolbar-r .bb-search {
+    flex-basis: 100%;
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+  .bb-panel-toolbar-r > button {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* Also fix the bb-toolbar (used by EditablePayrollTable for Expand/Collapse all
+     and any header actions). The search shrinks to share the row with the
+     compact preview/process button instead of forcing a wrap. */
+  .bb-toolbar { gap: 6px; flex-wrap: nowrap; }
+  .bb-toolbar > .bb-search {
+    min-width: 0;
+    max-width: none;
+    flex: 1 1 0;
+  }
+  .bb-toolbar-spacer { display: none; }
+  .bb-toolbar > button { flex: 1 1 auto; min-width: 0; }
+}
+
 /* =========================================================================
    Payees table
    ========================================================================= */
@@ -550,7 +593,11 @@
 .bb-payees-row,
 .bb-payees-row-edit {
   display: grid;
-  grid-template-columns: 2fr 1.4fr 1fr auto;
+  /* Last column is fixed (not `auto`) so fr distribution matches between head
+     and row. With `auto` the head's empty actions cell collapsed to 0, the
+     row's actions cell took ~32px, and the status pill ended up shifted
+     relative to the "Status" header. */
+  grid-template-columns: 2fr 1.4fr 1fr 36px;
   align-items: center;
   gap: 16px;
   padding: 12px 18px;
@@ -678,6 +725,14 @@
   cursor: pointer;
 }
 .bb-stg-expand:hover { color: var(--bb-text); border-color: var(--bb-line-strong); }
+.bb-stg-expand-all {
+  /* Mono +/- glyph instead of the row's ›. Slightly heavier so it reads as an
+     action affordance even at the small chevron size. */
+  font-family: var(--bb-font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+}
 .bb-stg-cell-actions { display: flex; gap: 4px; justify-content: flex-end; }
 .bb-stg-cell-gross { text-align: right; font-size: 13px; font-family: var(--bb-font-mono); }
 
@@ -698,6 +753,12 @@
   padding: 14px 16px 14px 60px;
   display: flex; flex-direction: column; gap: 8px;
   border-bottom: 1px solid var(--bb-line);
+}
+/* On phone/tablet (compact-row layout) the chevron column shrank to 24px, so
+   the desktop's 60px-left-padding leaves a huge dead gap on the left. Pull
+   the panel content closer to the row left edge. */
+@media (max-width: 900px) {
+  .bb-stg-children { padding-left: 16px; }
 }
 .bb-stg-child-empty {
   display: flex; align-items: center; gap: 8px;
@@ -1152,6 +1213,24 @@
   .bb-prl-cell-gross,
   .bb-prl-cell-status { grid-column: 1; font-size: 12.5px; }
   .bb-prl-cell-go { grid-column: 2; grid-row: 1; }
+
+  /* The header row is hidden on mobile, so each value cell prefixes itself with
+     a small mono label. Without these the rows render as bare numbers. */
+  .bb-prl-cell-window::before,
+  .bb-prl-cell-payees::before,
+  .bb-prl-cell-batches::before,
+  .bb-prl-cell-gross::before {
+    font-family: var(--bb-font-mono);
+    font-size: 10px;
+    color: var(--bb-text-mute);
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    margin-right: 6px;
+  }
+  .bb-prl-cell-window::before  { content: "Window"; }
+  .bb-prl-cell-payees::before  { content: "Nodes"; }
+  .bb-prl-cell-batches::before { content: "Done"; }
+  .bb-prl-cell-gross::before   { content: "Batch"; }
 }
 
 /* detail status card */
@@ -1187,14 +1266,20 @@
 }
 .bb-pr-status-cycle { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
 .bb-pr-status-total {
-  font-size: 18px; font-weight: 600; letter-spacing: -0.01em;
+  font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em;
   font-family: var(--bb-font-mono);
   word-break: break-word;
 }
 .bb-pr-status-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 @media (max-width: 880px) {
   .bb-pr-status-card { grid-template-columns: 1fr 1fr; }
+  /* Reorder so Status sits top-right and batch template drops to row 2.
+     Source order is L (cycle) → M (batch template) → R (status) → actions. */
+  .bb-pr-status-l { order: 1; }
+  .bb-pr-status-r { order: 2; align-items: flex-end; text-align: right; }
+  .bb-pr-status-m { order: 3; }
   .bb-pr-status-actions {
+    order: 4;
     grid-column: 1 / -1; justify-content: flex-end;
     padding-top: 10px; border-top: 1px solid var(--bb-line); margin-top: 6px;
   }
@@ -1560,7 +1645,8 @@
 .bb-dao-menu {
   position: absolute;
   top: calc(100% + 6px); left: 0;
-  min-width: 320px;
+  min-width: min(320px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
   background: var(--bb-bg-elev);
   border: 1px solid var(--bb-line);
   border-radius: 10px;
@@ -1570,7 +1656,12 @@
   animation: bb-pop .14s ease;
   max-height: 420px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
+/* Compact (mobile) header places the trigger near the right edge of the viewport.
+   Anchor the menu to the trigger's right edge so it opens leftward instead of
+   overflowing off-screen. */
+.bb-dao-menu-compact { left: auto; right: 0; }
 .bb-menu-section {
   padding: 6px 10px 4px;
   font-family: var(--bb-font-mono);
@@ -1600,6 +1691,15 @@
   font-size: 11.5px; color: var(--bb-text-mute);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-family: var(--bb-font-mono);
+}
+/* Wrapping variant for descriptor text that's too long to ellipsise readably
+   (e.g. the multi-line "Deploy governor, timelock & token wiring …" hint on the
+   Create new DAO button). */
+.bb-dao-item-sub.bb-dao-item-sub-wrap {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.35;
 }
 .bb-dao-item .bb-check { width: 14px; height: 14px; color: var(--bb-accent); opacity: 0; }
 .bb-dao-item.bb-checked .bb-check { opacity: 1; }

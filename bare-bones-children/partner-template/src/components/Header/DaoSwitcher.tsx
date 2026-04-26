@@ -31,7 +31,7 @@ export function DaoSwitcher({ onCreate, compact = false }: DaoSwitcherProps) {
       </button>
 
       {open && (
-        <div className="bb-dao-menu" role="menu">
+        <div className={`bb-dao-menu${compact ? " bb-dao-menu-compact" : ""}`} role="menu">
           <div className="bb-menu-section">
             <span>Your organizations</span>
             <span>{loadingOwnedOrgs ? "…" : ownedOrgs.length}</span>
@@ -77,9 +77,11 @@ export function DaoSwitcher({ onCreate, compact = false }: DaoSwitcherProps) {
             }}
           >
             <span className="bb-dao-create-icon">+</span>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <div className="bb-dao-item-name">Create new DAO</div>
-              <div className="bb-dao-item-sub">Deploy governor, timelock & token wiring — or just register an organization</div>
+              <div className="bb-dao-item-sub bb-dao-item-sub-wrap">
+                Deploy governor, timelock & token wiring — or just register an organization
+              </div>
             </div>
           </button>
         </div>
