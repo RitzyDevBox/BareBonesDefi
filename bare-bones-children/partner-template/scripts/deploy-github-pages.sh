@@ -50,11 +50,13 @@ if [[ ! -d "$DIST_DIR" ]]; then
   exit 1
 fi
 
-# Ensure local target branch exists (from remote if needed, otherwise create)
-if ! git show-ref --verify --quiet "refs/heads/${TARGET_BRANCH}"; then
-  if git ls-remote --exit-code --heads origin "$TARGET_BRANCH" >/dev/null 2>&1; then
-    git fetch origin "${TARGET_BRANCH}:${TARGET_BRANCH}"
-  fi
+# Ensure local target branch is in sync with origin so the push at the end
+# fast-forwards cleanly. Without this, deploys made from a clone that doesn't
+# track gh-pages history (e.g. another machine, or after another deploy ran)
+# get rejected with "fetch first".
+if git ls-remote --exit-code --heads origin "$TARGET_BRANCH" >/dev/null 2>&1; then
+  git fetch origin "$TARGET_BRANCH"
+  git update-ref "refs/heads/${TARGET_BRANCH}" "refs/remotes/origin/${TARGET_BRANCH}"
 fi
 
 if git show-ref --verify --quiet "refs/heads/${TARGET_BRANCH}"; then
