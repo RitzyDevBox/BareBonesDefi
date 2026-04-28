@@ -70,6 +70,13 @@ find "$WORKTREE_DIR" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
 cp -R "$DIST_DIR"/. "$WORKTREE_DIR"/
 touch "$WORKTREE_DIR/.nojekyll"
 
+# Custom domain — without this file, every deploy clears the GitHub Pages
+# custom-domain setting and bear-bones.xyz stops resolving until you re-add
+# it in the repo settings. Override via VITE_GH_PAGES_CNAME if you ever need
+# a different domain (e.g. a separate staging domain).
+GH_PAGES_CNAME="${VITE_GH_PAGES_CNAME:-bear-bones.xyz}"
+printf "%s\n" "$GH_PAGES_CNAME" > "$WORKTREE_DIR/CNAME"
+
 # Commit only if there are changes
 if [[ -n "$(git -C "$WORKTREE_DIR" status --porcelain)" ]]; then
   git -C "$WORKTREE_DIR" add -A

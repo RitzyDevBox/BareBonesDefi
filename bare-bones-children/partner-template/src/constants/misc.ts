@@ -336,6 +336,10 @@ export const CHAIN_INFO_MAP: Record<number, ChainInfo> = Object.fromEntries(
       return FEATURE_FLAGS.localAnvilChain;
     }
 
+    // Staging is a single-chain environment (Anvil only). Hide every other
+    // chain so users can't accidentally try to interact with real networks.
+    if (FEATURE_FLAGS.stagingOnlyChains) return false;
+
     return true;
   })
 ) as Record<number, ChainInfo>;
@@ -383,6 +387,8 @@ export const NATIVE_TOKENS_BY_CHAIN: Record<number, TokenInfo> = Object.fromEntr
     if (Number(chainId) === LOCAL_CHAIN_ID) {
       return FEATURE_FLAGS.localAnvilChain;
     }
+
+    if (FEATURE_FLAGS.stagingOnlyChains) return false;
 
     return true;
   })
