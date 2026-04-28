@@ -3,11 +3,14 @@ import { useWalletProvider } from "./hooks/useWalletProvider";
 import { switchOrAddEvmChain } from "./utils/chainUtils";
 import { ToastHost } from "./components/Toasts/ToastHost";
 import { Header } from "./components/PageWrapper/Header";
+import { UnsupportedChainBanner } from "./components/PageWrapper/UnsupportedChainBanner";
 import { AppBackground } from "./components/PageWrapper/AppBackground";
 import { ActiveOrganizationProvider } from "./providers/ActiveOrganizationProvider";
+import { useAutoFaucet } from "./hooks/useAutoFaucet";
 
 export default function App() {
   const { account, chainId, connect, disconnect, provider } = useWalletProvider();
+  useAutoFaucet();
 
   return (
     <AppBackground>
@@ -19,6 +22,14 @@ export default function App() {
           onConnectWallet={connect}
           onDisconnectWallet={disconnect}
           onChainChange={(chainId) => {
+            if (!provider) return;
+            switchOrAddEvmChain(provider, chainId);
+          }}
+        />
+
+        <UnsupportedChainBanner
+          chainId={chainId}
+          onSwitch={(chainId) => {
             if (!provider) return;
             switchOrAddEvmChain(provider, chainId);
           }}

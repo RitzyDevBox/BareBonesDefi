@@ -3,14 +3,18 @@ import { createPortal } from "react-dom";
 import { CHAIN_INFO_MAP } from "../../constants/misc";
 import { ImageWithFallback } from "../ImageWithFallback";
 
+const DROPDOWN_WIDTH = 220;
+
 interface ChainSelectorProps {
   chainId: number | null;
   onChainChange: (chainId: number) => void;
   showTestnets?: boolean;
   compact?: boolean;
+  /** When true, a null chainId is treated as "unknown network" rather than "no wallet". */
+  connected?: boolean;
 }
 
-export function ChainSelector({ chainId, onChainChange, showTestnets = true, compact = false }: ChainSelectorProps) {
+export function ChainSelector({ chainId, onChainChange, showTestnets = true, compact = false, connected = false }: ChainSelectorProps) {
   const [open, setOpen] = useState(false);
   const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -20,7 +24,7 @@ export function ChainSelector({ chainId, onChainChange, showTestnets = true, com
   const chains = showTestnets ? allChains : allChains.filter((c) => !c.testnet);
 
   const current = chainId != null ? CHAIN_INFO_MAP[chainId] : null;
-  const isUnknown = chainId != null && !current;
+  const isUnknown = (chainId != null && !current) || (chainId == null && connected);
 
   // Compute dropdown position synchronously before paint when open changes
   useLayoutEffect(() => {
@@ -77,16 +81,19 @@ export function ChainSelector({ chainId, onChainChange, showTestnets = true, com
         {isUnknown ? (
           <>
             <span
+              aria-label="Warning"
               style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: "var(--colors-warn)",
-                boxShadow: "0 0 0 2px color-mix(in oklab, var(--colors-warn) 30%, transparent)",
+                fontSize: 14,
+                lineHeight: 1,
+                color: "var(--colors-warn)",
                 flexShrink: 0,
+                display: "inline-flex",
+                alignItems: "center",
               }}
-            />
-            {!compact && <span>Unknown</span>}
+            >
+              ⚠
+            </span>
+            {!compact && <span>Unknown network</span>}
           </>
         ) : current ? (
           <>
@@ -124,16 +131,24 @@ export function ChainSelector({ chainId, onChainChange, showTestnets = true, com
         <span style={{ fontSize: 10, opacity: 0.5, flexShrink: 0 }}>▼</span>
       </button>
 
-      {/* Portaled dropdown — right edge aligns with trigger's right edge in both
-          modes; clamped so the panel never hugs the viewport edge tighter than 8px. */}
-      {open && createPortal(
+      {/* Portaled dropdown — right edge aligns with trigger's right edge,
+          clamped so the panel never hugs the viewport edge tighter than 8px.
+          Skip render until we have a trigger rect so the dropdown never
+          flashes in the wrong spot on first open. */}
+      {open && triggerRect && createPortal(
         <div
           ref={dropdownRef}
           style={{
             position: "fixed",
-            top: (triggerRect?.bottom ?? -9999) + 6,
-            right: Math.max(8, window.innerWidth - (triggerRect?.right ?? 0)),
-            minWidth: 180,
+            top: triggerRect.bottom + 6,
+            left: Math.max(
+              8,
+              Math.min(
+                triggerRect.right - DROPDOWN_WIDTH,
+                window.innerWidth - DROPDOWN_WIDTH - 8,
+              ),
+            ),
+            width: DROPDOWN_WIDTH,
             maxWidth: "calc(100vw - 16px)",
             background: "var(--colors-surface)",
             border: "1px solid var(--colors-border)",

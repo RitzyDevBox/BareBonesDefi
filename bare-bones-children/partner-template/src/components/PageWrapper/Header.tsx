@@ -75,10 +75,11 @@ function GearButton({ onClick }: { onClick: () => void }) {
 }
 
 export function Header(props: HeaderProps) {
-  // Override the default phone breakpoint (480px) — we want the chain selector
-  // and DAO switcher to keep their full chrome down to 600px and only collapse
-  // (into the wallet sheet) on truly narrow phones.
-  const screen = useMediaQuery({ phoneMax: 600 });
+  // Collapse to the hamburger/mobile header below 1210px — the full layout
+  // (DAO switcher + nav + chain selector + wallet pill) gets too cramped
+  // before that. The phone breakpoint (≤600px) further drops chrome into
+  // the wallet sheet on truly narrow phones.
+  const screen = useMediaQuery({ phoneMax: 600, tabletMax: 1210 });
   const isCompact = screen === ScreenSize.Phone || screen === ScreenSize.Tablet;
   return isCompact ? (
     <MobileHeader {...props} screen={screen} />
@@ -197,6 +198,10 @@ function FullHeader({
   const [walletPanelOpen, setWalletPanelOpen] = useState(false);
   const { settings, toggle } = useSettings();
 
+  // DEBUG — remove after verifying chain selector renders
+  // eslint-disable-next-line no-console
+  console.log("[FullHeader] account:", account, "chainId:", chainId, "showTestnets:", settings.showTestnets);
+
   return (
     <>
       <header style={headerStyle}>
@@ -224,13 +229,12 @@ function FullHeader({
 
           {/* Right side */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-            {account && chainId !== null && (
-              <ChainSelector
-                chainId={chainId}
-                onChainChange={onChainChange}
-                showTestnets={settings.showTestnets}
-              />
-            )}
+            <ChainSelector
+              chainId={chainId}
+              onChainChange={onChainChange}
+              showTestnets={settings.showTestnets}
+              connected={!!account}
+            />
             <WalletStatus
               account={account}
               onConnectWallet={onConnectWallet}
@@ -279,10 +283,12 @@ function MobileHeader({
   const [createOpen, setCreateOpen] = useState(false);
   const [walletPanelOpen, setWalletPanelOpen] = useState(false);
 
-  // Phone (≤600px): chain + organization disappear from the header — they live
-  // inside the wallet panel that opens on tap of the account pill.
-  // Tablet (601-900px): selectors stay in the header at full size.
+  // Phone (≤600px): DAO switcher disappears from the header (lives inside the
+  // wallet panel). Chain selector stays but shrinks to compact mode (logo +
+  // caret only) — chain status is important enough to keep visible at a glance.
+  // Tablet (601-900px): everything stays at full size.
   const hideHeaderSelectors = screen === ScreenSize.Phone;
+  const isPhone = screen === ScreenSize.Phone;
 
   return (
     <>
@@ -298,13 +304,13 @@ function MobileHeader({
           )}
 
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-            {account && chainId !== null && !hideHeaderSelectors && (
-              <ChainSelector
-                chainId={chainId}
-                onChainChange={onChainChange}
-                showTestnets={settings.showTestnets}
-              />
-            )}
+            <ChainSelector
+              chainId={chainId}
+              onChainChange={onChainChange}
+              showTestnets={settings.showTestnets}
+              compact={isPhone}
+              connected={!!account}
+            />
             <WalletStatus
               account={account}
               onConnectWallet={onConnectWallet}

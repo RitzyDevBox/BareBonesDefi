@@ -12,6 +12,7 @@ export const NATIVE_ADDRESS = ZERO_ADDRESS
 export const APP_NAME = import.meta.env.VITE_APP_NAME
 export const WALLECT_CONNECT_WALLET_NAME = APP_NAME
 export const DEFAULT_CHAIN_ID = Number(import.meta.env.VITE_DEFAULT_CHAIN_ID ?? 137);
+export const LOCAL_CHAIN_ID = Number(import.meta.env.VITE_LOCAL_CHAIN_ID ?? 31337);
 
 // Each transaction will trigger a state refresh but we add a delay since the graph takes some time to update
 export const DEFAULT_REFRESH_DELAY = 10000
@@ -36,7 +37,7 @@ const LOCAL_SVR_TEMPLATE_CONFIG: SvrTemplateDeploymentConfig = {
 
 export const SVR_TEMPLATE_CONFIG_BY_CHAIN: Partial<Record<number, SvrTemplateDeploymentConfig>> = {
   137: POLYGON_SVR_TEMPLATE_CONFIG,
-  31337: LOCAL_SVR_TEMPLATE_CONFIG,
+  [LOCAL_CHAIN_ID]: LOCAL_SVR_TEMPLATE_CONFIG,
 };
 
 export function getSvrTemplateDeploymentConfig(chainId: number): SvrTemplateDeploymentConfig {
@@ -61,7 +62,7 @@ const LOCAL_DAO_GOVERNOR_TEMPLATE_CONFIG: DaoGovernorTemplateDeploymentConfig = 
 
 export const DAO_GOVERNOR_TEMPLATE_CONFIG_BY_CHAIN: Partial<Record<number, DaoGovernorTemplateDeploymentConfig>> = {
   137: POLYGON_DAO_GOVERNOR_TEMPLATE_CONFIG,
-  31337: LOCAL_DAO_GOVERNOR_TEMPLATE_CONFIG,
+  [LOCAL_CHAIN_ID]: LOCAL_DAO_GOVERNOR_TEMPLATE_CONFIG,
 };
 
 export function getDaoGovernorTemplateDeploymentConfig(chainId: number): DaoGovernorTemplateDeploymentConfig {
@@ -70,7 +71,7 @@ export function getDaoGovernorTemplateDeploymentConfig(chainId: number): DaoGove
 
 export const MOCK_GOVERNANCE_TOKEN_BY_CHAIN: Partial<Record<number, string>> = {
   137: "0xe4368424E6728F8D53Ed524eE540FA8f0595dF43",
-  31337: import.meta.env.VITE_LOCAL_MOCK_GOVERNANCE_TOKEN_ADDRESS,
+  [LOCAL_CHAIN_ID]: import.meta.env.VITE_LOCAL_MOCK_GOVERNANCE_TOKEN_ADDRESS,
 };
 
 export function getMockGovernanceTokenByChain(chainId: number): string {
@@ -112,7 +113,7 @@ export interface BareBonesConfiguration {
 
 export const CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = {
   137: POLYGON_SECURE_VALUE_RESERVE_GRAPH_URL,
-  31337: ANVIL_SECURE_VALUE_RESERVE_GRAPH_URL,
+  [LOCAL_CHAIN_ID]: ANVIL_SECURE_VALUE_RESERVE_GRAPH_URL,
 };
 
 
@@ -203,7 +204,6 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
 
 export const DEFAULT_BROWSING_URL = "https://app.aave.com/";
 
-export const LOCAL_CHAIN_ID = 31337;
 const localEnv = (key: string): string | undefined => import.meta.env[key];
 
 const LOCAL_BARE_BONES_CONFIG_ENV_KEYS: Record<Exclude<keyof BareBonesConfiguration, "svrFactoryAddress">, string> = {
@@ -272,7 +272,7 @@ export interface ChainInfo {
 const BASE_CHAIN_INFO_MAP: Record<number, ChainInfo> = {
   [LOCAL_CHAIN_ID]: {
     chainId: LOCAL_CHAIN_ID,
-    chainName: "Anvil Local",
+    chainName: "Bare Bones Testnet",
     wethAddress: localEnv("VITE_LOCAL_WETH_ADDRESS") ?? ethers.constants.AddressZero,
     nativeCurrency: {
       name: "Ethereum",

@@ -88,6 +88,7 @@ export enum NormalizedTxError {
   REVERTED = "REVERTED",
   INSUFFICIENT_FUNDS = "INSUFFICIENT_FUNDS",
   NONCE_ERROR = "NONCE_ERROR",
+  RPC_INTERNAL = "RPC_INTERNAL",
   UNKNOWN = "UNKNOWN",
 }
 
@@ -141,9 +142,16 @@ export function normalizeEip1193Error(
   // Nonce / replacement issues
   if (
     code === "NONCE_EXPIRED" ||
-    code === "REPLACEMENT_UNDERPRICED"
+    code === "REPLACEMENT_UNDERPRICED" ||
+    /nonce/i.test(message)
   ) {
     return NormalizedTxError.NONCE_ERROR;
+  }
+
+  // JSON-RPC internal error — usually means the wallet/node had trouble
+  // submitting (stale nonce after Anvil restart, RPC desync, fee rejection).
+  if (code === -32603 || code === "-32603") {
+    return NormalizedTxError.RPC_INTERNAL;
   }
 
   return NormalizedTxError.UNKNOWN;
@@ -235,7 +243,18 @@ export function handleCommonTxError(
       return new Error("Insufficient funds for transaction");
 
     case NormalizedTxError.NONCE_ERROR:
-      return new Error("Transaction nonce error");
+      return new Error(
+        "Transaction nonce error. If you're on a local Anvil chain that was restarted, " +
+        "reset your wallet's account activity (MetaMask → Settings → Advanced → Clear activity tab data)."
+      );
+
+    case NormalizedTxError.RPC_INTERNAL:
+      return new Error(
+        "Wallet/RPC could not submit the transaction (JSON-RPC internal error). " +
+        "Common causes on a local chain: Anvil was restarted (reset MetaMask account activity), " +
+        "or the wallet is talking to a stale RPC endpoint. Simulation passing but submission failing " +
+        "almost always points to a stale nonce."
+      );
 
     case NormalizedTxError.UNKNOWN:
     default:

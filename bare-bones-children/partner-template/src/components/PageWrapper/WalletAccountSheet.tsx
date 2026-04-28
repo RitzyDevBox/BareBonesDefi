@@ -9,6 +9,9 @@ import { useActiveOrganization } from "../../providers/ActiveOrganizationProvide
 import { DaoAvatar } from "../Header/DaoAvatar";
 import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
 import { buildExplorerAddressLink } from "../../utils/explorerLinks";
+import { faucetAnvil } from "../../utils/faucetUtils";
+import { toastStore } from "../Toasts/toast.store";
+import { ToastBehavior, ToastPosition, ToastType } from "../Toasts/toast.types";
 
 interface WalletAccountSheetProps {
   open: boolean;
@@ -48,6 +51,7 @@ export function WalletAccountSheet({
   const isPhone = screen === ScreenSize.Phone;
 
   const [subPicker, setSubPicker] = useState<SubPicker>("none");
+  const [faucetBusy, setFaucetBusy] = useState(false);
 
   const { activeOrgSlug, setActiveOrgSlug, ownedOrgs, loadingOwnedOrgs } = useActiveOrganization();
 
@@ -60,6 +64,35 @@ export function WalletAccountSheet({
   function closeAll() {
     setSubPicker("none");
     onClose();
+  }
+
+  async function handleFaucet() {
+    if (chainId == null || faucetBusy) return;
+    setFaucetBusy(true);
+    try {
+      await faucetAnvil(account, chainId);
+      toastStore.show({
+        id: `faucet-${Date.now()}`,
+        title: "Test ETH delivered",
+        message: "Topped your account up to 100 ETH.",
+        type: ToastType.Success,
+        behavior: ToastBehavior.AutoClose,
+        durationMs: 4000,
+        position: ToastPosition.Top,
+      });
+    } catch (err) {
+      toastStore.show({
+        id: `faucet-err-${Date.now()}`,
+        title: "Faucet failed",
+        message: err instanceof Error ? err.message : "Unknown error",
+        type: ToastType.Error,
+        behavior: ToastBehavior.AutoClose,
+        durationMs: 6000,
+        position: ToastPosition.Top,
+      });
+    } finally {
+      setFaucetBusy(false);
+    }
   }
 
   const heroSection = (
@@ -228,6 +261,23 @@ export function WalletAccountSheet({
 
       {summaryRow("Network", networkValue, () => setSubPicker("chain"))}
       {summaryRow("Organization", orgValue, () => setSubPicker("organization"))}
+
+      {currentChain?.testnet && (
+        <button
+          type="button"
+          className="bb-btn-ghost"
+          onClick={handleFaucet}
+          disabled={faucetBusy}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+          }}
+        >
+          {faucetBusy ? "Topping up…" : "Get test ETH (100)"}
+        </button>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
         {explorerLink ? (

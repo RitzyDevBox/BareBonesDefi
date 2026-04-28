@@ -63,13 +63,12 @@ export function WalletProvider({
     setStatus("idle");
 
     // ---- authoritative sync helper ----
+    // Split into two independent try/catches: a failure in one (e.g. some
+    // wallets throw on eth_accounts when not connected) must not block the
+    // other. chainId can be read without any wallet permission.
     const syncWalletState = async () => {
       try {
-        const [accs, id] = await Promise.all([
-          web3Provider.send("eth_accounts", []) as Promise<string[]>,
-          web3Provider.send("eth_chainId", []) as Promise<unknown>,
-        ]);
-
+        const accs = (await web3Provider.send("eth_accounts", [])) as string[];
         if (!accs || accs.length === 0) {
           setAccount(null);
           setStatus("idle");
@@ -77,12 +76,23 @@ export function WalletProvider({
           setAccount(accs[0]);
           setStatus("connected");
         }
-
-        const parsed = normalizeChainId(id);
-        if (parsed !== null) setChainId(parsed);
       } catch {
         setAccount(null);
         setStatus("idle");
+      }
+
+      try {
+        const network = await web3Provider.getNetwork();
+        setChainId(network.chainId);
+      } catch {
+        try {
+          const id = await web3Provider.send("eth_chainId", []);
+          const parsed = normalizeChainId(id);
+          if (parsed !== null) setChainId(parsed);
+        } catch {
+          // No way to read chainId — leave it null so the chain selector
+          // stays hidden rather than showing stale data.
+        }
       }
     };
 
@@ -144,6 +154,15 @@ export function WalletProvider({
       if (accs.length > 0) {
         setAccount(accs[0]);
         setStatus("connected");
+
+        // Backfill chainId in case the initial mount-time sync failed
+        // (e.g. some wallets only expose eth_chainId after a connection).
+        try {
+          const network = await provider.getNetwork();
+          setChainId(network.chainId);
+        } catch {
+          // chainChanged listener will cover us if/when MetaMask switches.
+        }
       } else {
         setStatus("idle");
       }

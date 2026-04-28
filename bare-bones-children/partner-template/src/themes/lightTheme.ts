@@ -21,7 +21,7 @@ export const lightTheme: AppTheme = {
     secondaryHover: "#a8a59a",
 
     success: "oklch(0.55 0.16 148)",
-    warn: "oklch(0.72 0.14 78)",
+    warn: "oklch(0.55 0.16 78)",
     error: "oklch(0.58 0.17 25)",
 
     text: {
