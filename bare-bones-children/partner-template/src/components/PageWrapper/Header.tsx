@@ -198,10 +198,6 @@ function FullHeader({
   const [walletPanelOpen, setWalletPanelOpen] = useState(false);
   const { settings, toggle } = useSettings();
 
-  // DEBUG — remove after verifying chain selector renders
-  // eslint-disable-next-line no-console
-  console.log("[FullHeader] account:", account, "chainId:", chainId, "showTestnets:", settings.showTestnets);
-
   return (
     <>
       <header style={headerStyle}>
