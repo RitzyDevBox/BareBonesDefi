@@ -15,6 +15,7 @@ import { getBareBonesConfiguration } from "../../constants/misc";
 import { DEFAULT_PAY_BATCH_CODE } from "../../constants/payroll";
 import { shortAddress } from "../../utils/formatUtils";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
+import { orgSlugFor } from "../../utils/payroll/orgSlug";
 
 export enum PayrollPayType {
   Hourly = 0,
@@ -79,7 +80,7 @@ export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = fals
       setIsLoadingPayrollState(true);
       try {
         const contract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
-        const slugBytes = ethers.utils.formatBytes32String(slug);
+        const slugBytes = orgSlugFor(slug);
 
         const page = await contract.getPayBatchPayeesWithDefaults(slugBytes, DEFAULT_PAY_BATCH_CODE, 0, 500);
         const rows: any[] = page?.rows ?? page?.[0] ?? [];
@@ -158,7 +159,7 @@ export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = fals
         throw new Error("Payroll manager address is not configured");
       }
 
-      const slugBytes = ethers.utils.formatBytes32String(slugInput);
+      const slugBytes = orgSlugFor(slugInput);
       const parsedRate = ethers.utils.parseEther(rate || "0");
 
       const earningsRule =

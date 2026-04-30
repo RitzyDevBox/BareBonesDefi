@@ -23,6 +23,7 @@ import {
 } from "./WeeklyScheduleConfigurator";
 import { RuleType } from "./ruleTypes";
 import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
+import { orgSlugFor } from "../../utils/payroll/orgSlug";
 
 const UINT32_MAX_NUM = 4294967295;
 
@@ -355,7 +356,7 @@ export function PayrollEarningsManager({
   const registerTx = useExecuteRawTx(
     (_: number, orgSlug: string) => {
       if (!payrollManagerAddress || !config) throw new Error("Payroll manager config missing");
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      const slugBytes = orgSlugFor(orgSlug);
       const codeName = earningsCodeName.trim().toUpperCase();
       if (!codeName) throw new Error("Earnings code name is required");
       const codeNameBytes = ethers.utils.formatBytes32String(codeName);
@@ -390,7 +391,7 @@ export function PayrollEarningsManager({
       nextIsActive: boolean,
     ) => {
       if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      const slugBytes = orgSlugFor(orgSlug);
       return {
         to: payrollManagerAddress,
         data: payrollManagerInterface.encodeFunctionData("setEarningsCode", [

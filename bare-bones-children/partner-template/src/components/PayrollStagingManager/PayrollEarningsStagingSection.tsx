@@ -137,7 +137,7 @@ export function PayrollEarningsStagingSection({
   extraColumns = [],
   getExtraCells,
   formatAddPayeeLabel = (payee) =>
-    `${parsePayeeNameLabel(payee.role)} · #${payee.payeeId.toString()}`,
+    `${parsePayeeNameLabel(payee.nameSlug)} · #${payee.payeeId.toString()}`,
   addableEmptyMessage,
   addSelectMinWidth = 180,
   addSelectCompact = false,
@@ -543,7 +543,7 @@ export function PayrollEarningsStagingSection({
     <Stack gap="md">
       <Text.Body color="muted" size="sm">
         Payee: #{earningsModal.payee?.payeeId?.toString() ?? "-"} ·{" "}
-        {parsePayeeNameLabel(earningsModal.payee?.role ?? "")}
+        {parsePayeeNameLabel(earningsModal.payee?.nameSlug ?? "")}
       </Text.Body>
 
       <div className="bb-field-grid" style={{ gap: 16 }}>

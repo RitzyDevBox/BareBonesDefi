@@ -19,6 +19,7 @@ import {
   parsePayeeNameLabel,
 } from "../../utils/payroll/payrollFormatters";
 import { shortAddress } from "../../utils/formatUtils";
+import { orgSlugFor } from "../../utils/payroll/orgSlug";
 import {
   PayrollEarningsStagingSection,
   PayrollConfigActionKind,
@@ -183,7 +184,7 @@ export function PayBatchesView({ slug, isAdmin }: PayBatchesViewProps) {
     setBatchRows([]);
     try {
       const contract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      const slugBytes = orgSlugFor(orgSlug);
       const org = await contract.organizations(slugBytes);
       setOrgInfo({ owner: org.owner, exists: org.exists });
       if (!org.exists) {
@@ -258,7 +259,7 @@ export function PayBatchesView({ slug, isAdmin }: PayBatchesViewProps) {
   const createPayBatch = useExecuteRawTx(
     (_: number, orgSlug: string, payBatchCodeRaw: string) => {
       if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      const slugBytes = orgSlugFor(orgSlug);
       const payBatchCode = formatBatchCodeInput(payBatchCodeRaw);
       return {
         to: payrollManagerAddress,
@@ -274,7 +275,7 @@ export function PayBatchesView({ slug, isAdmin }: PayBatchesViewProps) {
       if (!actions || !Array.isArray(actions) || actions.length === 0) {
         throw new Error("No actions to apply");
       }
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      const slugBytes = orgSlugFor(orgSlug);
       const normalizedActions = normalizeConfigureActions(actions);
       const txActions = normalizedActions.map((action) => {
         const earningsCodeIds = action.earningsCodeIds.map((id) => ethers.BigNumber.from(id));
@@ -409,11 +410,11 @@ export function PayBatchesView({ slug, isAdmin }: PayBatchesViewProps) {
             baseIncludedPayeeIds={batchPayeeIds}
             canEdit={isAdmin}
             formatAddPayeeLabel={(payee) =>
-              `${parsePayeeNameLabel(payee.role)} · ${shortAddress(payee.paymentAddress)}`
+              `${parsePayeeNameLabel(payee.nameSlug)} · ${shortAddress(payee.paymentAddress)}`
             }
             addableEmptyMessage="All organization payees are already in this pay batch."
             panelTitle="Batch default earnings"
-            panelAddLabel="+ Add default earning"
+            panelAddLabel="Add default earning"
             getOnChainEarnings={(payee) => {
               const row = batchRowByPayeeId.get(payee.payeeId.toString());
               return row?.earnings ?? [];

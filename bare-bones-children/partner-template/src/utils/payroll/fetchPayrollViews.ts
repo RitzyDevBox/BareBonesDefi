@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 import { DEFAULT_PAY_BATCH_CODE } from "../../constants/payroll";
+import { orgSlugFor } from "./orgSlug";
 
 const DEFAULT_PAGE_SIZE = 100;
 
@@ -85,7 +86,7 @@ async function readAllPages<T>(
 }
 
 function toSlugBytes(slug: string) {
-  return ethers.utils.formatBytes32String(slug);
+  return orgSlugFor(slug);
 }
 
 export async function fetchOrganizationEarningsCodes(

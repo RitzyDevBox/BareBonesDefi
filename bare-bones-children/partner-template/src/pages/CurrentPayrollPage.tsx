@@ -33,6 +33,7 @@ import {
 import { shortAddress } from "../utils/formatUtils";
 import { formatPeriodHour } from "../utils/payroll/payrollStatusDisplay";
 import { ROUTES } from "../routes";
+import { orgSlugFor } from "../utils/payroll/orgSlug";
 import {
   formatAmountDisplay,
   parseBatchCodeLabel,
@@ -197,7 +198,7 @@ export function CurrentPayrollPage() {
     (async () => {
       try {
         const manager = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
-        const slugBytes = ethers.utils.formatBytes32String(slug);
+        const slugBytes = orgSlugFor(slug);
 
         const treasuryAddress: string = await manager.treasury();
         if (!treasuryAddress || treasuryAddress === ethers.constants.AddressZero) {
@@ -274,7 +275,7 @@ export function CurrentPayrollPage() {
         throw new Error("Payroll manager address missing");
       }
 
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      const slugBytes = orgSlugFor(orgSlug);
       return {
         to: payrollManagerAddress,
         data: payrollInterface.encodeFunctionData("configurePayroll", [slugBytes, payrollId, actions]),
@@ -295,7 +296,7 @@ export function CurrentPayrollPage() {
         throw new Error("Payroll manager address missing");
       }
 
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      const slugBytes = orgSlugFor(orgSlug);
       return {
         to: payrollManagerAddress,
         data: payrollInterface.encodeFunctionData("cancelPayroll", [slugBytes, payrollId]),
@@ -332,7 +333,7 @@ export function CurrentPayrollPage() {
         provider
       );
 
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      const slugBytes = orgSlugFor(orgSlug);
       const org = await contract.organizations(slugBytes);
 
       setOrgInfo({
@@ -497,7 +498,7 @@ export function CurrentPayrollPage() {
     setIsPreviewingPayroll(true);
     try {
       const manager = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
-      const slugBytes = ethers.utils.formatBytes32String(slug);
+      const slugBytes = orgSlugFor(slug);
 
       let cursor = 0;
       const limit = Math.max(1, payees.length * 2);
@@ -667,7 +668,7 @@ export function CurrentPayrollPage() {
                             id: gross.payeeId.toString(),
                             cells: {
                               payeeId: gross.payeeId.toString(),
-                              name: payee ? parsePayeeNameLabel(payee.role) : `Payee #${gross.payeeId.toString()}`,
+                              name: payee ? parsePayeeNameLabel(payee.nameSlug) : `Payee #${gross.payeeId.toString()}`,
                               paidAmount: formatAmountDisplay(ethers.utils.formatEther(gross.gross)),
                             },
                           };
@@ -729,7 +730,7 @@ export function CurrentPayrollPage() {
                       };
                     }}
                     formatAddPayeeLabel={(payee) =>
-                      `${parsePayeeNameLabel(payee.role)} · ${shortAddress(payee.paymentAddress)}`
+                      `${parsePayeeNameLabel(payee.nameSlug)} · ${shortAddress(payee.paymentAddress)}`
                     }
                     addableEmptyMessage="All organization payees are already in this payroll."
                     addSelectMinWidth={showResolvedCodesColumn ? 320 : 220}

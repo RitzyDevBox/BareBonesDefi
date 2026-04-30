@@ -33,77 +33,40 @@
             "internalType": "bytes"
           }
         ]
+      },
+      {
+        "name": "_authorityResolverSetter",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "batchOnboardPayeesAndConfigurePayBatch",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payBatchCode",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "configs",
-        "type": "tuple[]",
-        "internalType": "struct IPayrollEarningManager.BatchOnboardPayeeConfig[]",
-        "components": [
-          {
-            "name": "name",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "paymentAddress",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "params",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "assignments",
-            "type": "tuple[]",
-            "internalType": "struct IPayrollEarningManager.PayeeEarningsAssignment[]",
-            "components": [
-              {
-                "name": "earningsCodeId",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "rate",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "runData",
-                "type": "bytes",
-                "internalType": "bytes"
-              }
-            ]
-          }
-        ]
-      }
-    ],
+    "name": "authorityResolver",
+    "inputs": [],
     "outputs": [
       {
-        "name": "payeeIds",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
-    "stateMutability": "nonpayable"
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "authorityResolverSetter",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -118,6 +81,36 @@
         "name": "payrollId",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "configure",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "ops",
+        "type": "tuple[]",
+        "internalType": "struct IPayrollManager.OrgConfigOp[]",
+        "components": [
+          {
+            "name": "kind",
+            "type": "uint8",
+            "internalType": "enum IPayrollManager.OrgConfigOpKind"
+          },
+          {
+            "name": "data",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
       }
     ],
     "outputs": [],
@@ -282,6 +275,24 @@
   },
   {
     "type": "function",
+    "name": "configureSelf",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "calls",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "createPayBatch",
     "inputs": [
       {
@@ -331,6 +342,30 @@
       }
     ],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "daoOf",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "governor",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "timelock",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -675,7 +710,7 @@
             "internalType": "bytes32"
           },
           {
-            "name": "role",
+            "name": "nameSlug",
             "type": "bytes32",
             "internalType": "bytes32"
           },
@@ -1158,6 +1193,38 @@
   },
   {
     "type": "function",
+    "name": "launcher",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "nameOf",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "onboardPayee",
     "inputs": [
       {
@@ -1166,7 +1233,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "role",
+        "name": "nameSlug",
         "type": "bytes32",
         "internalType": "bytes32"
       },
@@ -1179,67 +1246,6 @@
         "name": "params",
         "type": "bytes",
         "internalType": "bytes"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "onboardPayeeAndConfigurePayBatch",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payBatchCode",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "name",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "paymentAddress",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "params",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "assignments",
-        "type": "tuple[]",
-        "internalType": "struct IPayrollEarningManager.PayeeEarningsAssignment[]",
-        "components": [
-          {
-            "name": "earningsCodeId",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "rate",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "runData",
-            "type": "bytes",
-            "internalType": "bytes"
-          }
-        ]
       }
     ],
     "outputs": [
@@ -1276,6 +1282,21 @@
         "name": "exists",
         "type": "bool",
         "internalType": "bool"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "governor",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "timelock",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -1295,6 +1316,30 @@
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "payeeByNameSlug",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -1369,7 +1414,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "role",
+        "name": "nameSlug",
         "type": "bytes32",
         "internalType": "bytes32"
       },
@@ -1543,9 +1588,52 @@
     "name": "registerOrganization",
     "inputs": [
       {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
         "name": "slug",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "registerOrganizationFor",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setAuthorityResolver",
+    "inputs": [
+      {
+        "name": "resolver",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -1578,6 +1666,61 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setLauncher",
+    "inputs": [
+      {
+        "name": "newLauncher",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setOrganizationDao",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "governor",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "timelock",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "slugOf",
+    "inputs": [
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -1736,12 +1879,17 @@
     "name": "updatePayee",
     "inputs": [
       {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
         "name": "payeeId",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "role",
+        "name": "nameSlug",
         "type": "bytes32",
         "internalType": "bytes32"
       },
@@ -1852,6 +2000,19 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AuthorityResolverSet",
+    "inputs": [
+      {
+        "name": "resolver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -2001,6 +2162,44 @@
   },
   {
     "type": "event",
+    "name": "LauncherSet",
+    "inputs": [
+      {
+        "name": "launcher",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OrganizationDaoSet",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "governor",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "timelock",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "OrganizationOwnerUpdated",
     "inputs": [
       {
@@ -2033,6 +2232,43 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OrganizationRegisteredFor",
+    "inputs": [
+      {
+        "name": "launcher",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
       }
     ],
     "anonymous": false
@@ -2269,6 +2505,37 @@
   },
   {
     "type": "event",
+    "name": "PayeeNameSlugUpdated",
+    "inputs": [
+      {
+        "name": "payeeId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "organizationSlug",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "oldNameSlug",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newNameSlug",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "PayeeOnboarded",
     "inputs": [
       {
@@ -2288,6 +2555,12 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "nameSlug",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
       }
     ],
     "anonymous": false
@@ -2585,6 +2858,11 @@
   },
   {
     "type": "error",
+    "name": "EmptyName",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "IndexOutOfBounds",
     "inputs": []
   },
@@ -2611,6 +2889,11 @@
   {
     "type": "error",
     "name": "InvalidPayee",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidPayeeNameSlug",
     "inputs": []
   },
   {
@@ -2645,7 +2928,12 @@
   },
   {
     "type": "error",
-    "name": "NotOrganizationOwner",
+    "name": "NotAuthorized",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotLauncher",
     "inputs": []
   },
   {
@@ -2656,6 +2944,16 @@
   {
     "type": "error",
     "name": "NotPayeeSelf",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotResolverSetter",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OrganizationDaoAlreadySet",
     "inputs": []
   },
   {
@@ -2686,6 +2984,11 @@
   {
     "type": "error",
     "name": "PayeeEarningNotAssigned",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PayeeNameSlugAlreadyTaken",
     "inputs": []
   },
   {
@@ -2736,6 +3039,11 @@
   {
     "type": "error",
     "name": "SlugAlreadyTaken",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnknownOrgConfigOpKind",
     "inputs": []
   }
 ]

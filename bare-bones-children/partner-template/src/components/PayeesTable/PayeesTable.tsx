@@ -17,7 +17,7 @@ import { TrashBinIcon } from "../../assets/icons/TrashBinIcon";
 interface Payee {
 	payeeId: ethers.BigNumber;
 	organizationSlug: string;
-	role: string;
+	nameSlug: string;
 	paymentAddress: string;
 	params: string;
 	status: number;
@@ -76,7 +76,7 @@ export function PayeesTable({
 
 		const query = searchQuery.toLowerCase();
 		return payees.filter((payee) => {
-			const name = safeParseName(payee.role).toLowerCase();
+			const name = safeParseName(payee.nameSlug).toLowerCase();
 			const address = payee.paymentAddress.toLowerCase();
 			const id = payee.payeeId.toString();
 
@@ -278,7 +278,7 @@ export function PayeesTable({
 							id: payee.payeeId.toString(),
 							cells: {
 								...(isPhone ? {} : { id: payee.payeeId.toNumber() }),
-								name: safeParseName(payee.role),
+								name: safeParseName(payee.nameSlug),
 								address: payee.paymentAddress,
 								...(getExtraCells ? getExtraCells(payee) : {}),
 							},

@@ -15,6 +15,7 @@ import { useTxRefresh } from "../../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../../constants/misc";
 import { shortAddress } from "../../utils/formatUtils";
 import { Loader } from "../Loader/Loader";
+import { orgSlugFor } from "../../utils/payroll/orgSlug";
 
 const DEFAULT_DECIMALS = 18;
 
@@ -91,7 +92,7 @@ export function PayrollTreasuryFund({
           provider
         );
 
-        const slugBytes = ethers.utils.formatBytes32String(organizationSlug);
+        const slugBytes = orgSlugFor(organizationSlug);
         const treasuryBal = await treasuryContract.balanceOf(slugBytes);
         setTreasuryBalance(
           ethers.utils.formatUnits(treasuryBal, DEFAULT_DECIMALS)
@@ -140,7 +141,7 @@ export function PayrollTreasuryFund({
       if (!amountStr) throw new Error("Missing amount");
 
       const parsed = ethers.utils.parseUnits(amountStr, DEFAULT_DECIMALS);
-      const slugBytes = ethers.utils.formatBytes32String(organizationSlug);
+      const slugBytes = orgSlugFor(organizationSlug);
 
       return {
         to: resolvedTreasuryAddress,
@@ -170,7 +171,7 @@ export function PayrollTreasuryFund({
       if (!amountStr) throw new Error("Missing amount");
 
       const parsed = ethers.utils.parseUnits(amountStr, DEFAULT_DECIMALS);
-      const slugBytes = ethers.utils.formatBytes32String(organizationSlug);
+      const slugBytes = orgSlugFor(organizationSlug);
 
       return {
         to: resolvedTreasuryAddress,

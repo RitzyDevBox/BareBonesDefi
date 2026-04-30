@@ -83,6 +83,77 @@
   },
   {
     "type": "function",
+    "name": "deployFor",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "cfg",
+        "type": "tuple",
+        "internalType": "struct DAOFactory.DAOConfig",
+        "components": [
+          {
+            "name": "name",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "timelockDelay",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "votingDelay",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
+            "name": "votingPeriod",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "proposalThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "quorumNumerator",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "cancellers",
+            "type": "address[]",
+            "internalType": "address[]"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "governor",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "timelock",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "namespacedFactory",
     "inputs": [],
     "outputs": [

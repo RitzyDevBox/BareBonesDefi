@@ -616,7 +616,13 @@
 .bb-payees-row:hover { background: color-mix(in oklab, var(--bb-accent) 4%, var(--bb-bg-elev)); }
 .bb-payees-row:last-child { border-bottom: 0; }
 .bb-payees-row.bb-deleted { opacity: .55; }
-.bb-payees-row-edit { background: color-mix(in oklab, var(--bb-accent) 6%, var(--bb-bg-elev-2)); }
+/* Edit row needs a wider actions column so Cancel + Save buttons fit without
+   overflowing into the Status cell. The 36px column above is sized for the
+   single icon button used on the read-only row. */
+.bb-payees-row-edit {
+  background: color-mix(in oklab, var(--bb-accent) 6%, var(--bb-bg-elev-2));
+  grid-template-columns: 2fr 1.4fr 1fr 160px;
+}
 .bb-payees-empty { padding: 32px; text-align: center; color: var(--bb-text-mute); font-size: 13px; }
 
 .bb-payees-cell { min-width: 0; }
@@ -657,12 +663,24 @@
 
 @media (max-width: 720px) {
   .bb-payees-head { display: none; }
-  .bb-payees-row,
+  /* Read-only rows: condense to a single horizontal line so the list isn't
+     three rows tall per payee. Address is already short-form (`0x12…ab`),
+     status pill is small, action sits at the end. */
+  .bb-payees-row {
+    grid-template-columns: 1fr auto auto auto;
+    gap: 10px;
+    padding: 10px 14px;
+    align-items: center;
+  }
+  /* Edit row stays vertically stacked (each input gets its own row) — trying to
+     cram all four cells into a 2D grid made the inputs too narrow to type into.
+     Since each row gets its own line, Cancel can stay full-text on mobile. */
   .bb-payees-row-edit {
     grid-template-columns: 1fr;
-    gap: 8px; padding: 14px 16px;
+    gap: 8px;
+    padding: 14px 16px;
   }
-  .bb-payees-cell-actions { justify-content: flex-start; }
+  .bb-payees-cell-actions { justify-content: flex-end; }
 }
 
 /* stage badges */
@@ -1326,8 +1344,10 @@
 
 .bb-modal-scrim {
   position: fixed; inset: 0; z-index: 9999;
-  background: color-mix(in oklab, var(--bb-bg) 70%, black);
-  backdrop-filter: blur(6px);
+  /* No backdrop-filter: blur — combined with the rAF honeycomb canvas in
+     AppBackground it forces full-viewport re-compositing every frame and
+     causes input lag inside the modal. Plain darker scrim is fine. */
+  background: color-mix(in oklab, var(--bb-bg) 50%, black);
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
   animation: bb-fade .15s ease;

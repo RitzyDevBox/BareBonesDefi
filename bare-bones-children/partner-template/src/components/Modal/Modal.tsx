@@ -88,9 +88,12 @@ export function Modal({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.35)",
-        backdropFilter: "blur(4px)",
-        WebkitBackdropFilter: "blur(4px)",
+        // No `backdropFilter: blur(...)` here. It looks nice but every keystroke
+        // inside the modal triggers a full-viewport recomposite of the blurred
+        // backdrop, which made typing in long forms (proposal builder, earnings
+        // schedule) feel laggy. Using a slightly darker plain scrim instead —
+        // the mobile Sheet does the same and is noticeably snappier.
+        background: "rgba(0,0,0,0.5)",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -115,6 +118,11 @@ export function Modal({
           flexDirection: "column",
           height: isFixedBody ? resolvedMaxHeight : resolvedHeight,
           maxHeight: resolvedMaxHeight,
+          // Promote to its own compositing layer so re-renders inside the modal
+          // (typing, list updates) don't trigger a paint of the page beneath.
+          willChange: "transform",
+          transform: "translateZ(0)",
+          contain: "layout paint",
         }}
       >
         {/* Header row — always rendered so CloseButton has a home */}

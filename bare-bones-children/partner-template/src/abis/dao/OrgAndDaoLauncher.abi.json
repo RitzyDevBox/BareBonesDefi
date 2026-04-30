@@ -1,0 +1,252 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "daoFactory_",
+        "type": "address",
+        "internalType": "contract DAOFactory"
+      },
+      {
+        "name": "orgManager_",
+        "type": "address",
+        "internalType": "contract OrganizationManager"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "daoFactory",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract DAOFactory"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "launch",
+    "inputs": [
+      {
+        "name": "cfg",
+        "type": "tuple",
+        "internalType": "struct OrgAndDaoLauncher.LaunchConfig",
+        "components": [
+          {
+            "name": "name",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "daoCfg",
+            "type": "tuple",
+            "internalType": "struct DAOFactory.DAOConfig",
+            "components": [
+              {
+                "name": "name",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "timelockDelay",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "votingDelay",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "votingPeriod",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "proposalThreshold",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "quorumNumerator",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "cancellers",
+                "type": "address[]",
+                "internalType": "address[]"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "governor",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "timelock",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "launchFor",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "cfg",
+        "type": "tuple",
+        "internalType": "struct OrgAndDaoLauncher.LaunchConfig",
+        "components": [
+          {
+            "name": "name",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "daoCfg",
+            "type": "tuple",
+            "internalType": "struct DAOFactory.DAOConfig",
+            "components": [
+              {
+                "name": "name",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "timelockDelay",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "votingDelay",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "votingPeriod",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "proposalThreshold",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "quorumNumerator",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "cancellers",
+                "type": "address[]",
+                "internalType": "address[]"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "governor",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "timelock",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "orgManager",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract OrganizationManager"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "OrgAndDaoLaunched",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "governor",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "timelock",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InvalidLaunchConfig",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidOwner",
+    "inputs": []
+  }
+]

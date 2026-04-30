@@ -5,6 +5,7 @@ import { useWalletProvider } from "../useWalletProvider";
 import { useTxRefresh } from "../../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../../constants/misc";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
+import { orgSlugFor } from "../../utils/payroll/orgSlug";
 
 enum PayrollManagerStep {
   ProcessChunk = "processChunk",
@@ -40,7 +41,7 @@ export function useProcessCurrentPayroll() {
         throw new Error("Payroll manager address is not configured");
       }
 
-      const slugBytes = ethers.utils.formatBytes32String(slugInput);
+      const slugBytes = orgSlugFor(slugInput);
 
       const data =
         step === PayrollManagerStep.ProcessChunk
@@ -88,7 +89,7 @@ export function useProcessCurrentPayroll() {
         throw new Error("Payroll ID is required to process payroll");
       }
 
-      const slugBytes = ethers.utils.formatBytes32String(slugInput);
+      const slugBytes = orgSlugFor(slugInput);
       const manager = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
       const readStatus = async () => {
         const run = await manager.slugToPayrollToRunMap(slugBytes, payrollId);

@@ -84,7 +84,7 @@ function PayrollRow({
       ? "bb-stg-added"
       : "";
 
-  const name = parsePayeeNameLabel(payee.role);
+  const name = parsePayeeNameLabel(payee.nameSlug);
   const addressShort = shortAddress(payee.paymentAddress);
 
   const columnTemplate = useMemo(() => {
@@ -232,7 +232,7 @@ export function EditablePayrollTable({
     if (!searchEnabled || !searchQuery.trim()) return payees;
     const q = searchQuery.trim().toLowerCase();
     return payees.filter((p) => {
-      const name = parsePayeeNameLabel(p.role).toLowerCase();
+      const name = parsePayeeNameLabel(p.nameSlug).toLowerCase();
       const addr = (p.paymentAddress || "").toLowerCase();
       const id = p.payeeId.toString();
       return name.includes(q) || addr.includes(q) || id.includes(q);

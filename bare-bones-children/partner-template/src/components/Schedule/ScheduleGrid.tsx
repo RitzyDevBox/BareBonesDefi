@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { Stack, Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { DividerLabel } from "../Primitives/DividerLabel";
@@ -27,6 +27,102 @@ function formatHour12(hour24: number) {
   const hour12 = normalized % 12 === 0 ? 12 : normalized % 12;
   return `${hour12}${period}`;
 }
+
+// Hoisted out of the component body so the same object reference is reused
+// across renders — lets `React.memo` short-circuit unchanged cells (each
+// schedule grid renders 168 of these).
+const HOUR_PALETTES = [
+  {
+    inactiveBg: "rgba(184, 134, 11, 0.14)",
+    activeBg: "#B8860B",
+    borderColor: "rgba(184, 134, 11, 0.58)",
+    textColor: "#7a5700",
+  },
+  {
+    inactiveBg: "rgba(213, 72, 158, 0.14)",
+    activeBg: "#D5489E",
+    borderColor: "rgba(213, 72, 158, 0.62)",
+    textColor: "#8c1f63",
+  },
+  {
+    inactiveBg: "rgba(22, 120, 72, 0.14)",
+    activeBg: "#167848",
+    borderColor: "rgba(22, 120, 72, 0.58)",
+    textColor: "#0c4a2e",
+  },
+] as const;
+
+interface HourButtonProps {
+  dayIndex: number;
+  hour: number;
+  active: boolean;
+  overlap: boolean;
+  disabled: boolean;
+  size: number;
+  fontSize: number;
+  title: string;
+}
+
+// Memoized so dragging only re-renders the cells whose `active`/`overlap`
+// actually flipped — without this, a single mask change re-renders all 168
+// cells which is a real perf hit (felt as input lag inside modals).
+const HourButton = memo(function HourButton({
+  dayIndex,
+  hour,
+  active,
+  overlap,
+  disabled,
+  size,
+  fontSize,
+  title,
+}: HourButtonProps) {
+  const palette = HOUR_PALETTES[Math.floor(hour / 8)];
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      data-day={dayIndex}
+      data-hour={hour}
+      title={title}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 4,
+        border: `1px solid ${palette.borderColor}`,
+        background: active ? palette.activeBg : palette.inactiveBg,
+        color: active ? "#fff" : palette.textColor,
+        opacity: disabled ? 0.6 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+        fontSize,
+        lineHeight: 1,
+        padding: 0,
+        position: "relative",
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        pointerEvents: disabled ? "none" : "auto",
+      }}
+    >
+      {overlap && active && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 1,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: "#ffd1eb",
+            border: "1px solid #b10f6b",
+            pointerEvents: "none",
+          }}
+        />
+      )}
+      {formatHour12(hour)}
+    </button>
+  );
+});
 
 export function ScheduleGrid({
   mask,
@@ -183,75 +279,18 @@ export function ScheduleGrid({
 
   const renderHourButton = (dayLabel: string, dayIndex: number, hour: number) => {
     const idx = hourIndex(dayIndex, hour);
-    const active = Boolean(mask[idx]);
-    const blockIndex = Math.floor(hour / 8);
-    const overlap = Boolean(overlapMask?.[idx]);
-    const palette =
-      blockIndex === 0
-        ? {
-            inactiveBg: "rgba(184, 134, 11, 0.14)",
-            activeBg: "#B8860B",
-            borderColor: "rgba(184, 134, 11, 0.58)",
-            textColor: "#7a5700",
-          }
-        : blockIndex === 1
-        ? {
-            inactiveBg: "rgba(213, 72, 158, 0.14)",
-            activeBg: "#D5489E",
-            borderColor: "rgba(213, 72, 158, 0.62)",
-            textColor: "#8c1f63",
-          }
-        : {
-            inactiveBg: "rgba(22, 120, 72, 0.14)",
-            activeBg: "#167848",
-            borderColor: "rgba(22, 120, 72, 0.58)",
-            textColor: "#0c4a2e",
-          };
     return (
-      <button
+      <HourButton
         key={`${dayLabel}-${hour}`}
-        type="button"
+        dayIndex={dayIndex}
+        hour={hour}
+        active={Boolean(mask[idx])}
+        overlap={Boolean(overlapMask?.[idx])}
         disabled={disabled}
-        data-day={dayIndex}
-        data-hour={hour}
+        size={hourButtonSize}
+        fontSize={hourButtonFontSize}
         title={`${dayLabel} ${formatHour12(hour)}`}
-        style={{
-          width: hourButtonSize,
-          height: hourButtonSize,
-          borderRadius: 4,
-          border: `1px solid ${palette.borderColor}`,
-          background: active ? palette.activeBg : palette.inactiveBg,
-          color: active ? "#fff" : palette.textColor,
-          opacity: disabled ? 0.6 : 1,
-          cursor: disabled ? "not-allowed" : "pointer",
-          fontSize: hourButtonFontSize,
-          lineHeight: 1,
-          padding: 0,
-          position: "relative",
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          pointerEvents: disabled ? "none" : "auto",
-        }}
-      >
-        {overlap && active && (
-          <span
-            aria-hidden
-            style={{
-              position: "absolute",
-              top: 1,
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: "#ffd1eb",
-              border: "1px solid #b10f6b",
-              pointerEvents: "none",
-            }}
-          />
-        )}
-        {formatHour12(hour)}
-      </button>
+      />
     );
   };
 

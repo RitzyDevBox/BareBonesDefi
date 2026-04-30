@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 import type { PayeeDefaultsView } from "./fetchPayrollViews";
+import { orgSlugFor } from "./orgSlug";
 
 const DEFAULT_PAGE_SIZE = 100;
 
@@ -16,7 +17,7 @@ function getFromOverride(from?: string) {
 }
 
 function toSlugBytes(slug: string) {
-  return ethers.utils.formatBytes32String(slug);
+  return orgSlugFor(slug);
 }
 
 function normalizePagedResult<T>(result: any): { rows: T[]; hasMore: boolean } {

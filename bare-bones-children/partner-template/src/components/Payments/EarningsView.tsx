@@ -19,6 +19,7 @@ import {
 import { shortAddress } from "../../utils/formatUtils";
 import { CopyButton } from "../Button/Actions/CopyButton";
 import { buildExplorerAddressLink } from "../../utils/explorerLinks";
+import { orgSlugFor } from "../../utils/payroll/orgSlug";
 
 interface EarningsViewProps {
   slug: string;
@@ -161,7 +162,7 @@ export function EarningsView({ slug, isAdmin }: EarningsViewProps) {
     (async () => {
       try {
         const contract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
-        const slugBytes = ethers.utils.formatBytes32String(slug);
+        const slugBytes = orgSlugFor(slug);
         const org = await contract.organizations(slugBytes);
         if (cancelled) return;
         if (!org.exists) {

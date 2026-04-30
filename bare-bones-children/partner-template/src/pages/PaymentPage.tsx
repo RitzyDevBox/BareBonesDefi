@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ethers } from "ethers";
 import { useParams, useSearchParams } from "react-router-dom";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
@@ -13,6 +12,7 @@ import { DEFAULT_CHAIN_ID, getBareBonesConfiguration } from "../constants/misc";
 import { fetchOrganizationInfo } from "../hooks/payroll/useOrganizationRegistry";
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";
 import type { OrganizationModel, PayeeModel } from "../models/payments";
+import { orgSlugFor } from "../utils/payroll/orgSlug";
 import {
   PaymentsHero,
   PayrollNavigation,
@@ -63,7 +63,7 @@ export function PaymentPage() {
         const list = await fetchPayeesByOrganization(
           readProvider,
           payrollManagerAddress,
-          info.slug ?? ethers.utils.formatBytes32String(slug),
+          info.slug ?? orgSlugFor(slug),
         );
         setPayees(list);
       } else {

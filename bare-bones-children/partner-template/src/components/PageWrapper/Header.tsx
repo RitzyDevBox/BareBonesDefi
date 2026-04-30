@@ -28,9 +28,11 @@ const headerStyle: React.CSSProperties = {
   top: 0,
   zIndex: 100,
   borderBottom: "1px solid var(--colors-border)",
-  backdropFilter: "blur(14px)",
-  WebkitBackdropFilter: "blur(14px)",
-  background: "color-mix(in oklab, var(--colors-background) 82%, transparent)",
+  // No `backdropFilter: blur(...)` — the AppBackground runs an rAF canvas
+  // animation; combining it with a blurred header forces a full-viewport
+  // re-composite every animation frame, which compounds with any open
+  // modal/scrim's compositing work and shows up as input lag.
+  background: "var(--colors-background)",
 };
 
 const innerStyle: React.CSSProperties = {

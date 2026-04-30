@@ -205,9 +205,8 @@ export function SettingsModal({ isOpen, onClose, showTestnets, onToggleTestnets 
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.35)",
-        backdropFilter: "blur(4px)",
-        WebkitBackdropFilter: "blur(4px)",
+        // No backdropFilter — same perf reason as Modal.tsx; see that file's comment.
+        background: "rgba(0,0,0,0.5)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

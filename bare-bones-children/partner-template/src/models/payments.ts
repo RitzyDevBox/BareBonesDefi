@@ -9,7 +9,11 @@ export interface OrganizationModel {
 export interface PayeeModel {
   payeeId: BigNumber;
   organizationSlug: string;
-  role: string;
+  /**
+   * Per-org unique handle for the payee. Used to be `role`; renamed in the
+   * payroll-pipeline rework to make uniqueness semantics explicit.
+   */
+  nameSlug: string;
   paymentAddress: string;
   params: string;
   status: number;

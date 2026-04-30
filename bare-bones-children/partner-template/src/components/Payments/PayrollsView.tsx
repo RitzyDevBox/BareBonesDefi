@@ -25,6 +25,7 @@ import {
   type PayrollRunRowView,
 } from "../../utils/payroll/payrollFormatters";
 import { ROUTES } from "../../routes";
+import { orgSlugFor } from "../../utils/payroll/orgSlug";
 
 interface PayrollsViewProps {
   slug: string;
@@ -242,7 +243,7 @@ export function PayrollsView({ slug, isAdmin }: PayrollsViewProps) {
   const createPayrollTx = useExecuteRawTx(
     (_: number, orgSlug: string, startTime: number, endTime: number, payBatchCode: string | null) => {
       if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
+      const slugBytes = orgSlugFor(orgSlug);
       const data = payBatchCode
         ? iface.encodeFunctionData("createPayroll", [slugBytes, payBatchCode, startTime, endTime])
         : iface.encodeFunctionData("createPayroll", [slugBytes, ethers.constants.HashZero, startTime, endTime]);
@@ -265,7 +266,7 @@ export function PayrollsView({ slug, isAdmin }: PayrollsViewProps) {
     (async () => {
       try {
         const manager = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
-        const slugBytes = ethers.utils.formatBytes32String(slug);
+        const slugBytes = orgSlugFor(slug);
         const org = await manager.organizations(slugBytes);
         if (cancelled) return;
 

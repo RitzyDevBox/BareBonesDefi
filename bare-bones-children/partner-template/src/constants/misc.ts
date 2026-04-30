@@ -107,6 +107,13 @@ export interface BareBonesConfiguration {
   weeklyScheduleRuleAddress: string;
   // DAO Configuration
   daoFactoryAddress: string;
+  /**
+   * Atomic org+DAO launcher. Registers the org in `OrganizationManager`,
+   * deploys the DAO via `DAOFactory.deployFor`, and writes the canonical
+   * (governor, timelock) into `OrganizationManager.daoOf(slug)` — all in
+   * a single tx. Frontend should prefer this over calling DAOFactory directly.
+   */
+  orgAndDaoLauncherAddress: string;
   // SVR Configuration
   svrFactoryAddress?: string;
 }
@@ -199,6 +206,8 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
 
   // DAO Configuration
   daoFactoryAddress: "0xf25ed7216A7Ae2a28492042E77A8eb7ba2878370",
+  // Defaults to zero — fill in once the launcher has been deployed for the chain.
+  orgAndDaoLauncherAddress: "0x0000000000000000000000000000000000000000",
 
 } as const;
 
@@ -228,6 +237,7 @@ const LOCAL_BARE_BONES_CONFIG_ENV_KEYS: Record<Exclude<keyof BareBonesConfigurat
   salaryPerSecondRuleAddress: "VITE_LOCAL_SALARY_RULE_ADDRESS",
   weeklyScheduleRuleAddress: "VITE_LOCAL_WEEKLY_SCHEDULE_RULE_ADDRESS",
   daoFactoryAddress: "VITE_LOCAL_DAO_FACTORY_ADDRESS",
+  orgAndDaoLauncherAddress: "VITE_LOCAL_ORG_AND_DAO_LAUNCHER_ADDRESS",
 };
 
 function buildLocalBareBonesOverride(): Partial<BareBonesConfiguration> {

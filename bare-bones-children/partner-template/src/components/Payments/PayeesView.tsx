@@ -3,11 +3,18 @@ import { ethers } from "ethers";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
 import { getBareBonesConfiguration } from "../../constants/misc";
-import { DEFAULT_PAY_BATCH_CODE, PayeeStatus } from "../../constants/payroll";
+import { PayeeStatus } from "../../constants/payroll";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 import type { OrganizationModel, PayeeModel } from "../../models/payments";
 import { shortAddress } from "../../utils/formatUtils";
 import { parsePayeeNameLabel } from "../../utils/payroll/payrollFormatters";
+import { OrgConfigOpKind, encodeOrgConfigOp } from "../../utils/payroll/orgConfigOps";
+import { orgSlugFor } from "../../utils/payroll/orgSlug";
+import { Row } from "../Primitives";
+import { Text } from "../Primitives/Text";
+import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
+import { IconButton } from "../Button/IconButton";
+import { AddressInput } from "../Inputs/AddressInput";
 
 interface PayeesViewProps {
   slug: string;
@@ -81,9 +88,8 @@ function PayeeRowEditor({ initial, onCancel, onSubmit, saving = false, showStatu
         />
       </div>
       <div className="bb-payees-cell">
-        <input
+        <AddressInput
           className="bb-input bb-input-sm bb-mono"
-          placeholder="0x…"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           disabled={saving}
@@ -104,17 +110,23 @@ function PayeeRowEditor({ initial, onCancel, onSubmit, saving = false, showStatu
         ) : null}
       </div>
       <div className="bb-payees-cell bb-payees-cell-actions">
-        <button className="bb-btn-ghost bb-btn-xs" onClick={onCancel} disabled={saving}>
+        <ButtonSecondary
+          size="sm"
+          fullWidth={false}
+          onClick={onCancel}
+          disabled={saving}
+        >
           Cancel
-        </button>
-        <button
-          className="bb-btn-primary bb-btn-xs"
+        </ButtonSecondary>
+        <ButtonPrimary
+          size="sm"
+          fullWidth={false}
           disabled={!valid || saving}
           onClick={() => onSubmit({ name: name.trim(), address: address.trim(), statusKey })}
         >
-          {saving ? <span className="bb-spinner bb-sm" /> : null}
-          {initial ? "Save" : "Stage payee"}
-        </button>
+          {saving ? <span className="bb-spinner bb-sm" style={{ marginRight: 6 }} /> : null}
+          Stage
+        </ButtonPrimary>
       </div>
     </div>
   );
@@ -252,73 +264,96 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [batchOpen, setBatchOpen] = useState(false);
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const [savingId] = useState<string | null>(null);
   const [onboarding, setOnboarding] = useState(false);
 
-  const onboardPayee = useExecuteRawTx(
-    (_: number, orgSlug: string, name: string, paymentAddress: string) => {
-      if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
-      const nameBytes = ethers.utils.formatBytes32String(name.trim());
-      return {
-        to: payrollManagerAddress,
-        data: iface.encodeFunctionData("onboardPayee", [slugBytes, nameBytes, paymentAddress, "0x"]),
-      } as any;
-    },
-    (_: number, __: string, name: string, paymentAddress: string) =>
-      `Onboarded ${name} (${shortAddress(paymentAddress)})`,
-  );
+  // Staged adds: collected via the inline row editor. New payees that don't
+  // exist on chain yet.
+  type StagedPayee = { id: string; name: string; address: string };
+  const [staged, setStaged] = useState<StagedPayee[]>([]);
+  // Staged edits: changes against existing on-chain payees. Keyed by
+  // payeeId-as-string. Submitted alongside adds in the same `configure` tx.
+  type StagedEdit = { name: string; address: string; statusKey: PayeeStatusKey };
+  const [stagedEdits, setStagedEdits] = useState<Record<string, StagedEdit>>({});
+  // Bumped on each successful stage to remount the editor (clears its uncontrolled inputs).
+  const [stageCounter, setStageCounter] = useState(0);
+  const [stageError, setStageError] = useState<string | null>(null);
 
-  const batchOnboardPayees = useExecuteRawTx(
-    (_: number, orgSlug: string, entries: Array<{ name: string; address: string }>) => {
+  // Single submit-staged-changes tx. Bundles every staged add (`PayeeOnboard`)
+  // and every staged edit (`PayeeUpdate`) into one `configure(slug, ops)` call.
+  // We always batch — no per-row immediate-fire paths anymore.
+  const batchSubmitChanges = useExecuteRawTx(
+    (
+      _: number,
+      orgSlug: string,
+      adds: StagedPayee[],
+      edits: Array<{ payee: PayeeModel; edit: StagedEdit }>,
+    ) => {
       if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-      if (!entries.length) throw new Error("No payees to onboard");
-      const slugBytes = ethers.utils.formatBytes32String(orgSlug);
-      const configs = entries.map((entry) => ({
-        name: ethers.utils.formatBytes32String(entry.name.trim()),
-        paymentAddress: entry.address.trim(),
-        params: "0x",
-        assignments: [],
-      }));
+      const total = adds.length + edits.length;
+      if (total === 0) throw new Error("No staged changes");
+      const slugBytes = orgSlugFor(orgSlug);
+      // Normalize to canonical EIP-55 checksum so ethers' Interface.encodeFunctionData
+      // doesn't reject addresses the user typed in lower-case or with a wrong-case digit.
+      // toLowerCase() strips whatever they typed; getAddress() reapplies the canonical form.
+      const normalizeAddr = (a: string) => ethers.utils.getAddress(a.trim().toLowerCase());
+      const ops = [
+        ...adds.map((entry) =>
+          encodeOrgConfigOp({
+            kind: OrgConfigOpKind.PayeeOnboard,
+            nameSlug: ethers.utils.formatBytes32String(entry.name.trim()),
+            paymentAddress: normalizeAddr(entry.address),
+            params: "0x",
+          }),
+        ),
+        ...edits.map(({ payee, edit }) =>
+          encodeOrgConfigOp({
+            kind: OrgConfigOpKind.PayeeUpdate,
+            payeeId: payee.payeeId,
+            nameSlug: ethers.utils.formatBytes32String(edit.name.trim()),
+            paymentAddress: normalizeAddr(edit.address),
+            params: payee.params, // preserve existing params; the editor doesn't expose them
+            status: statusCodeFromKey(edit.statusKey),
+          }),
+        ),
+      ];
       return {
         to: payrollManagerAddress,
-        data: iface.encodeFunctionData("batchOnboardPayeesAndConfigurePayBatch", [
-          slugBytes,
-          DEFAULT_PAY_BATCH_CODE,
-          configs,
-        ]),
+        data: iface.encodeFunctionData("configure", [slugBytes, ops]),
       } as any;
     },
-    (_: number, __: string, entries: Array<{ name: string; address: string }>) =>
-      `Onboarded ${entries.length} payee(s)`,
-  );
-
-  const updatePayee = useExecuteRawTx(
-    (_: number, payee: PayeeModel, nextStatus: number, nextAddress: string) => {
-      if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-      return {
-        to: payrollManagerAddress,
-        data: iface.encodeFunctionData("updatePayee", [
-          payee.payeeId,
-          payee.role,
-          nextAddress,
-          payee.params,
-          nextStatus,
-        ]),
-      } as any;
+    (
+      _: number,
+      __: string,
+      adds: StagedPayee[],
+      edits: Array<{ payee: PayeeModel; edit: StagedEdit }>,
+    ) => {
+      const a = adds.length;
+      const e = edits.length;
+      const parts: string[] = [];
+      if (a) parts.push(`${a} add${a === 1 ? "" : "s"}`);
+      if (e) parts.push(`${e} edit${e === 1 ? "" : "s"}`);
+      return `Submitted ${parts.join(" + ")}`;
     },
-    (_: number, payee: PayeeModel) => `Updated payee ${payee.payeeId.toString()}`,
   );
 
   const enriched = useMemo(
     () =>
-      payees.map((p) => ({
-        ...p,
-        idStr: p.payeeId.toString(),
-        nameLabel: parsePayeeNameLabel(p.role),
-        statusKey: statusKeyFromCode(Number(p.status ?? 0)),
-      })),
-    [payees],
+      payees.map((p) => {
+        const idStr = p.payeeId.toString();
+        const edit = stagedEdits[idStr];
+        return {
+          ...p,
+          idStr,
+          // When an edit is staged, render the EDITED values in the row so the user
+          // sees what's pending to be submitted.
+          nameLabel: edit?.name ?? parsePayeeNameLabel(p.nameSlug),
+          paymentAddress: edit?.address ?? p.paymentAddress,
+          statusKey: edit ? edit.statusKey : statusKeyFromCode(Number(p.status ?? 0)),
+          isEdited: Boolean(edit),
+        };
+      }),
+    [payees, stagedEdits],
   );
 
   const filtered = useMemo(() => {
@@ -335,27 +370,93 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
     return rows;
   }, [enriched, query]);
 
-  async function handleAddSubmit(draft: { name: string; address: string; statusKey: PayeeStatusKey }) {
+  function handleStageDraft(draft: { name: string; address: string; statusKey: PayeeStatusKey }) {
+    setStageError(null);
+    const name = draft.name.trim();
+    const address = draft.address.trim().toLowerCase();
+    // Match the row editor's permissive check: format-only, ignore EIP-55 checksum.
+    // The contract doesn't care about checksum casing.
+    if (!name || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      setStageError("Name and a valid 0x address are required.");
+      return;
+    }
+    // Don't let the user stage a duplicate of an existing on-chain payee or another staged row.
+    const dupAddress =
+      payees.some((p) => p.paymentAddress.toLowerCase() === address) ||
+      staged.some((s) => s.address.toLowerCase() === address);
+    const dupName =
+      enriched.some((p) => p.nameLabel.toLowerCase() === name.toLowerCase()) ||
+      staged.some((s) => s.name.toLowerCase() === name.toLowerCase());
+    if (dupAddress) {
+      setStageError(`Address ${shortAddress(address)} is already a payee or staged.`);
+      return;
+    }
+    if (dupName) {
+      setStageError(`Name "${name}" is already a payee or staged.`);
+      return;
+    }
+    setStaged((prev) => [
+      ...prev,
+      { id: `${Date.now()}-${prev.length}`, name, address },
+    ]);
+    setStageCounter((c) => c + 1);
+  }
+
+  function handleRemoveStaged(id: string) {
+    setStaged((prev) => prev.filter((s) => s.id !== id));
+  }
+
+  function handleDiscardStaged() {
+    setStaged([]);
+    setStageError(null);
+  }
+
+  function handleStageEdit(
+    payee: PayeeModel,
+    draft: { name: string; address: string; statusKey: PayeeStatusKey },
+  ) {
+    setStageError(null);
+    const name = draft.name.trim();
+    const address = draft.address.trim();
+    // Format-only check; ignore EIP-55 checksum casing (chain doesn't care).
+    if (!name || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      setStageError("Name and a valid 0x address are required.");
+      return;
+    }
+    setStagedEdits((prev) => ({
+      ...prev,
+      [payee.payeeId.toString()]: { name, address, statusKey: draft.statusKey },
+    }));
+    setEditingId(null);
+  }
+
+  function handleUndoEdit(payeeIdStr: string) {
+    setStagedEdits((prev) => {
+      const next = { ...prev };
+      delete next[payeeIdStr];
+      return next;
+    });
+  }
+
+  async function handleSubmitStaged() {
     if (!chainId || !slug) return;
+    const editEntries = Object.entries(stagedEdits)
+      .map(([idStr, edit]) => {
+        const payee = payees.find((p) => p.payeeId.toString() === idStr);
+        return payee ? { payee, edit } : null;
+      })
+      .filter((x): x is { payee: PayeeModel; edit: StagedEdit } => x !== null);
+    if (staged.length === 0 && editEntries.length === 0) return;
     setOnboarding(true);
+    setStageError(null);
     try {
-      await onboardPayee(chainId, slug, draft.name, draft.address);
+      await batchSubmitChanges(chainId, slug, staged, editEntries);
       await onPayeesChanged();
+      setStaged([]);
+      setStagedEdits({});
       setAdding(false);
     } finally {
       setOnboarding(false);
-    }
-  }
-
-  async function handleEditSubmit(payee: PayeeModel, draft: { name: string; address: string; statusKey: PayeeStatusKey }) {
-    if (!chainId) return;
-    setSavingId(payee.payeeId.toString());
-    try {
-      await updatePayee(chainId, payee, statusCodeFromKey(draft.statusKey), draft.address);
-      await onPayeesChanged();
-      setEditingId(null);
-    } finally {
-      setSavingId(null);
     }
   }
 
@@ -363,7 +464,14 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
     if (!chainId || !slug || rows.length === 0) return;
     setOnboarding(true);
     try {
-      await batchOnboardPayees(chainId, slug, rows);
+      // CSV-paste path goes through the same batched configure call — adds only,
+      // no edits — so it shares the dispatcher with the inline staging flow.
+      const adds: StagedPayee[] = rows.map((r, i) => ({
+        id: `csv-${Date.now()}-${i}`,
+        name: r.name,
+        address: r.address,
+      }));
+      await batchSubmitChanges(chainId, slug, adds, []);
       await onPayeesChanged();
       setBatchOpen(false);
     } finally {
@@ -416,16 +524,105 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
             <div className="bb-payees-cell" aria-hidden />
           </div>
 
+          {staged.length > 0 && (
+            <>
+              {staged.map((s) => (
+                <div key={s.id} className="bb-payees-row bb-stg-added" role="row">
+                  <div className="bb-payees-cell bb-payees-cell-name">
+                    <div className="bb-payees-name-row">
+                      <span className="bb-payees-name">{s.name}</span>
+                    </div>
+                    <div className="bb-payees-role bb-mono bb-small">staged</div>
+                  </div>
+                  <div className="bb-payees-cell bb-mono bb-small" style={{ color: "var(--bb-text-mute)" }}>
+                    {shortAddress(s.address)}
+                  </div>
+                  <div className="bb-payees-cell">
+                    <span className="bb-payee-status bb-payee-status-onhold">
+                      <span className="bb-payee-status-dot" style={{ background: "var(--bb-warn)" }} />
+                      Pending
+                    </span>
+                  </div>
+                  <div className="bb-payees-cell bb-payees-cell-actions">
+                    <IconButton
+                      size="lg"
+                      onClick={() => handleRemoveStaged(s.id)}
+                      title="Remove from batch"
+                      aria-label="Remove from batch"
+                      disabled={onboarding}
+                    >
+                      ✕
+                    </IconButton>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
           {adding && (
             <PayeeRowEditor
-              onCancel={() => setAdding(false)}
-              onSubmit={handleAddSubmit}
-              saving={onboarding}
+              key={`stage-editor-${stageCounter}`}
+              onCancel={() => { setAdding(false); setStageError(null); }}
+              onSubmit={handleStageDraft}
+              saving={false}
               showStatus={false}
             />
           )}
 
-          {!loading && filtered.length === 0 && !adding && (
+          {stageError && (
+            <div className="bb-banner bb-banner-warn" style={{ margin: 12 }}>
+              <span>⚠</span>
+              <div>{stageError}</div>
+              <span />
+            </div>
+          )}
+
+          {(staged.length > 0 || Object.keys(stagedEdits).length > 0) && (
+            <Row
+              gap="md"
+              justify="between"
+              style={{
+                padding: "10px 14px",
+                borderTop: "1px solid var(--bb-line)",
+                background: "var(--bb-bg-elev-2)",
+              }}
+            >
+              <Text.Body size="sm" color="muted">
+                {(() => {
+                  const a = staged.length;
+                  const e = Object.keys(stagedEdits).length;
+                  const parts: string[] = [];
+                  if (a) parts.push(`${a} add${a === 1 ? "" : "s"}`);
+                  if (e) parts.push(`${e} edit${e === 1 ? "" : "s"}`);
+                  return `${parts.join(" + ")} staged · submits as one transaction`;
+                })()}
+              </Text.Body>
+              <Row gap="sm">
+                <ButtonSecondary
+                  size="sm"
+                  fullWidth={false}
+                  onClick={() => {
+                    handleDiscardStaged();
+                    setStagedEdits({});
+                  }}
+                  disabled={onboarding}
+                >
+                  Discard
+                </ButtonSecondary>
+                <ButtonPrimary
+                  size="sm"
+                  fullWidth={false}
+                  onClick={() => void handleSubmitStaged()}
+                  disabled={!editable || onboarding}
+                >
+                  {onboarding ? <span className="bb-spinner bb-sm" style={{ marginRight: 6 }} /> : null}
+                  Submit ({staged.length + Object.keys(stagedEdits).length})
+                </ButtonPrimary>
+              </Row>
+            </Row>
+          )}
+
+          {!loading && filtered.length === 0 && !adding && staged.length === 0 && (
             <div className="bb-payees-empty">
               {payees.length === 0
                 ? "No payees yet. Add your first payee to get started."
@@ -441,18 +638,21 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
                   key={row.idStr}
                   initial={{ name: row.nameLabel, address: row.paymentAddress, statusKey: row.statusKey }}
                   onCancel={() => setEditingId(null)}
-                  onSubmit={(draft) => handleEditSubmit(row, draft)}
-                  saving={savingId === row.idStr}
+                  onSubmit={(draft) => handleStageEdit(row, draft)}
+                  saving={false}
                 />
               );
             }
+            const rowClass = `bb-payees-row${row.isEdited ? " bb-stg-edited" : ""}`;
             return (
-              <div key={row.idStr} className="bb-payees-row" role="row">
+              <div key={row.idStr} className={rowClass} role="row">
                 <div className="bb-payees-cell bb-payees-cell-name">
                   <div className="bb-payees-name-row">
                     <span className="bb-payees-name">{row.nameLabel || `Payee #${row.idStr}`}</span>
                   </div>
-                  <div className="bb-payees-role bb-mono bb-small">#{row.idStr}</div>
+                  <div className="bb-payees-role bb-mono bb-small">
+                    {row.isEdited ? "edited · pending" : `#${row.idStr}`}
+                  </div>
                 </div>
                 <div className="bb-payees-cell bb-mono bb-small" style={{ color: "var(--bb-text-mute)" }}>
                   {shortAddress(row.paymentAddress)}
@@ -461,15 +661,27 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
                   <PayeeStatusPill status={row.statusKey} />
                 </div>
                 <div className="bb-payees-cell bb-payees-cell-actions">
+                  {editable && row.isEdited && (
+                    <IconButton
+                      size="lg"
+                      onClick={() => handleUndoEdit(row.idStr)}
+                      title="Undo staged edit"
+                      aria-label="Undo staged edit"
+                      disabled={onboarding}
+                    >
+                      ↺
+                    </IconButton>
+                  )}
                   {editable && (
-                    <button
-                      className="bb-icon-btn-sm"
+                    <IconButton
+                      size="lg"
                       onClick={() => setEditingId(row.idStr)}
                       title="Edit payee"
+                      aria-label="Edit payee"
                       disabled={savingId !== null}
                     >
                       ✎
-                    </button>
+                    </IconButton>
                   )}
                 </div>
               </div>

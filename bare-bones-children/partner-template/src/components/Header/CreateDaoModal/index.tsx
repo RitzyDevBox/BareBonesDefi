@@ -52,12 +52,13 @@ function buildInitialForm(chainId: number | null, account: string | null) {
 export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModalProps) {
   const { account, chainId } = useWalletProvider();
   const { setActiveOrgSlug, refreshOwnedOrgs } = useActiveOrganization();
-  const { registerOrgOnly, deploy, authorizeOperator, isWorking, operatorApproved, config } = useDeployDao();
+  const { deploy, getCanonicalDao, isWorking, launcherConfigured, config } = useDeployDao();
 
   const initialStep: StepId = lockedOrgSlug ? 2 : 1;
   const [step, setStep] = useState<StepId>(initialStep);
   const [forms, setForms] = useState(() => buildInitialForm(chainId, account));
   const [error, setError] = useState<string | null>(null);
+  const [existingDao, setExistingDao] = useState<{ governor: string; timelock: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -65,8 +66,31 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
       setForms(lockedOrgSlug ? { ...base, identity: { ...base.identity, orgSlug: lockedOrgSlug } } : base);
       setStep(lockedOrgSlug ? 2 : 1);
       setError(null);
+      setExistingDao(null);
     }
   }, [isOpen, chainId, account, lockedOrgSlug]);
+
+  // Probe for an already-deployed canonical DAO whenever the org name settles.
+  // Debounced via name-trim watcher; if `daoOf` returns a non-zero governor we
+  // disable the deploy CTA — the on-chain write would revert anyway.
+  useEffect(() => {
+    if (!isOpen) return;
+    const name = forms.identity.orgSlug.trim();
+    if (!name) {
+      setExistingDao(null);
+      return;
+    }
+    let cancelled = false;
+    const handle = setTimeout(() => {
+      void getCanonicalDao(name).then((dao) => {
+        if (!cancelled) setExistingDao(dao);
+      });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [isOpen, forms.identity.orgSlug, getCanonicalDao]);
 
   const canContinueFromIdentity = useMemo(
     () => validateIdentity(forms.identity) === null,
@@ -77,7 +101,7 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
     [forms.governance],
   );
 
-  const daoFactoryConfigured = Boolean(config?.daoFactoryAddress);
+  const daoFactoryConfigured = Boolean(config?.daoFactoryAddress) && launcherConfigured;
 
   if (!isOpen) return null;
 
@@ -100,19 +124,6 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
     else if (step === 2 && !lockedOrgSlug) setStep(1);
   }
 
-  async function handleRegisterOrgOnly() {
-    setError(null);
-    const err = validateIdentity(forms.identity);
-    if (err) return setError(err);
-    const slug = forms.identity.orgSlug.trim();
-    const ok = await registerOrgOnly(slug);
-    if (ok) {
-      await refreshOwnedOrgs();
-      setActiveOrgSlug(slug);
-      onClose();
-    }
-  }
-
   async function handleDeploy() {
     setError(null);
     const idErr = validateIdentity(forms.identity);
@@ -122,9 +133,9 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
     const rolesErr = validateRoles(forms.roles);
     if (rolesErr) return setError(rolesErr);
 
-    const slug = forms.identity.orgSlug.trim();
+    const orgName = forms.identity.orgSlug.trim();
     const ok = await deploy({
-      orgSlug: slug,
+      orgName,
       token: forms.governance.token,
       timelockDelay: forms.governance.timelockDelay,
       votingDelay: forms.governance.votingDelay,
@@ -135,7 +146,7 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
     });
     if (ok) {
       await refreshOwnedOrgs();
-      setActiveOrgSlug(slug);
+      setActiveOrgSlug(orgName);
       onClose();
     }
   }
@@ -210,23 +221,19 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
           {!daoFactoryConfigured && step > 1 && (
             <div className="bb-banner bb-banner-warn" style={{ marginTop: 12, marginBottom: 0 }}>
               <span>⚠</span>
-              <div>DAO factory is not configured for this chain — only "Register organization only" will succeed.</div>
+              <div>OrgAndDaoLauncher is not configured for this chain — only "Register organization only" will succeed.</div>
               <span />
             </div>
           )}
 
-          {step === 3 && operatorApproved === false && (
+          {existingDao && step > 1 && (
             <div className="bb-banner bb-banner-warn" style={{ marginTop: 12, marginBottom: 0 }}>
               <span>⚠</span>
-              <div>One-time setup required: authorize DAOFactory as your namespaced deploy operator.</div>
-              <button
-                className="bb-btn-ghost bb-btn-xs"
-                disabled={isWorking}
-                onClick={() => void authorizeOperator()}
-              >
-                {isWorking ? <span className="bb-spinner bb-sm" /> : null}
-                Authorize
-              </button>
+              <div>
+                This org already has a canonical DAO — Governor at{" "}
+                <span className="bb-mono bb-small">{existingDao.governor}</span>. Deploying again will revert.
+              </div>
+              <span />
             </div>
           )}
         </div>
@@ -240,16 +247,6 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            {step === 1 && !lockedOrgSlug && (
-              <button
-                className="bb-btn-ghost"
-                onClick={() => void handleRegisterOrgOnly()}
-                disabled={isWorking || !forms.identity.orgSlug.trim()}
-              >
-                {isWorking ? <span className="bb-spinner bb-sm" /> : null}
-                Register organization only
-              </button>
-            )}
             {step < 3 && (
               <button
                 className="bb-btn-primary"
@@ -267,7 +264,7 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
               <button
                 className="bb-btn-primary"
                 onClick={() => void handleDeploy()}
-                disabled={isWorking || !daoFactoryConfigured || operatorApproved === false}
+                disabled={isWorking || !daoFactoryConfigured || existingDao !== null}
               >
                 {isWorking ? <span className="bb-spinner bb-sm" /> : null}
                 Deploy DAO
