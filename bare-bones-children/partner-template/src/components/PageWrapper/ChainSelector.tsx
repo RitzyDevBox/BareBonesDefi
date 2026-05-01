@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CHAIN_INFO_MAP, DEFAULT_CHAIN_ID } from "../../constants/misc";
+import { CHAIN_INFO_MAP } from "../../constants/misc";
 import { ImageWithFallback } from "../ImageWithFallback";
 
 const DROPDOWN_WIDTH = 220;
@@ -23,13 +23,7 @@ export function ChainSelector({ chainId, onChainChange, showTestnets = true, com
   const allChains = Object.values(CHAIN_INFO_MAP);
   const chains = showTestnets ? allChains : allChains.filter((c) => !c.testnet);
 
-  // Always show *some* chain. Wallet's if it's known, otherwise the deployment
-  // target's default (VITE_DEFAULT_CHAIN_ID — anvil locally, polygon on live,
-  // etc.). UnsupportedChainBanner handles the actual "wrong network" warning.
-  const current =
-    (chainId != null ? CHAIN_INFO_MAP[chainId] : null) ??
-    CHAIN_INFO_MAP[DEFAULT_CHAIN_ID] ??
-    null;
+  const current = chainId != null ? CHAIN_INFO_MAP[chainId] ?? null : null;
 
   // Compute dropdown position synchronously before paint when open changes
   useLayoutEffect(() => {
