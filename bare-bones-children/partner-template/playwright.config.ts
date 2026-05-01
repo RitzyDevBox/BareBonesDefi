@@ -5,10 +5,20 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
 const DEMO = process.env.PLAYWRIGHT_DEMO === "1";
 const SLOW_MO = Number(process.env.PLAYWRIGHT_SLOW_MO ?? 0);
 
-const VIDEO_SIZE = { width: 1920, height: 1080 };
+const RES_PRESETS = {
+  "720p":  { width: 1280, height: 720 },
+  "1080p": { width: 1920, height: 1080 },
+  "1440p": { width: 2560, height: 1440 },
+  "4k":    { width: 3840, height: 2160 },
+} as const;
+type ResKey = keyof typeof RES_PRESETS;
 
-const launchArgs: string[] = [];
-if (DEMO) launchArgs.push("--start-maximized");
+const presetKey = (process.env.PLAYWRIGHT_VIDEO_RES ?? "1080p") as ResKey;
+const preset = RES_PRESETS[presetKey] ?? RES_PRESETS["1080p"];
+const VIDEO_SIZE = {
+  width: Number(process.env.PLAYWRIGHT_VIDEO_WIDTH ?? preset.width),
+  height: Number(process.env.PLAYWRIGHT_VIDEO_HEIGHT ?? preset.height),
+};
 
 export default defineConfig({
   testDir: "./tests",
@@ -22,24 +32,16 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: DEMO ? { mode: "on", size: VIDEO_SIZE } : "off",
-    launchOptions: {
-      ...(SLOW_MO > 0 ? { slowMo: SLOW_MO } : {}),
-      ...(launchArgs.length ? { args: launchArgs } : {}),
-    },
+    launchOptions: SLOW_MO > 0 ? { slowMo: SLOW_MO } : undefined,
   },
   projects: [
     {
       name: "chromium",
-      use: DEMO
-        ? {
-            ...devices["Desktop Chrome"],
-            viewport: null,
-            deviceScaleFactor: undefined,
-          }
-        : {
-            ...devices["Desktop Chrome"],
-            viewport: { width: 1440, height: 900 },
-          },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: DEMO ? VIDEO_SIZE : { width: 1440, height: 900 },
+        deviceScaleFactor: 1,
+      },
     },
   ],
   webServer: {
