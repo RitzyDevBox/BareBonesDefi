@@ -16,6 +16,7 @@ export function Select<T extends string | number>({
   renderValue,
   disabled = false,
   compact = false,
+  dataTestId,
 }: {
   value: T | null;
   onChange: (v: T) => void;
@@ -27,6 +28,7 @@ export function Select<T extends string | number>({
   renderValue?: (opt: React.ReactElement | null) => React.ReactNode;
   disabled?: boolean;
   compact?: boolean;
+  dataTestId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
@@ -131,6 +133,7 @@ export function Select<T extends string | number>({
         onFocus={applyFocusRing}
         onBlur={removeFocusRing}
         onClick={handleToggle}
+        data-testid={dataTestId}
         style={{
           display: "flex",
           alignItems: "center",
@@ -178,6 +181,7 @@ export function Select<T extends string | number>({
       {open && !disabled && createPortal(
         <div
           ref={dropdownRef}
+          data-testid={dataTestId ? `${dataTestId}-options` : undefined}
           style={{
             position: "fixed",
             top: (triggerRect?.bottom ?? -9999) + 4,

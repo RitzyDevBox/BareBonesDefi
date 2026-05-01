@@ -24,6 +24,7 @@ export function DaoSwitcher({ onCreate, compact = false }: DaoSwitcherProps) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
+        data-testid="dao-switcher"
       >
         <DaoAvatar slug={activeOrgSlug || "?"} size={compact ? 18 : 20} />
         {!compact && <span className="bb-dao-sel-label">{activeLabel}</span>}
@@ -75,6 +76,7 @@ export function DaoSwitcher({ onCreate, compact = false }: DaoSwitcherProps) {
               setOpen(false);
               onCreate();
             }}
+            data-testid="dao-create-new"
           >
             <span className="bb-dao-create-icon">+</span>
             <div style={{ minWidth: 0 }}>

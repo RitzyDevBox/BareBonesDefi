@@ -27,6 +27,7 @@ export function StepIdentity({ form, onChange, locked }: StepIdentityProps) {
               onChange={(e) => onChange({ orgSlug: e.target.value })}
               placeholder="my-org"
               maxLength={31}
+              data-testid="dao-orgslug-input"
             />
           )}
           <div className="bb-field-hint">{locked ? "Organization slug is fixed for this deployment." : "Up to 31 bytes · used as the bytes32 identifier on-chain."}</div>

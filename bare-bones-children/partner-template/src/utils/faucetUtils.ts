@@ -1,10 +1,19 @@
 import { ethers } from "ethers";
-import { CHAIN_INFO_MAP } from "../constants/misc";
+import { CHAIN_INFO_MAP, getBareBonesConfiguration, getMockGovernanceTokenByChain } from "../constants/misc";
 
 const FAUCET_TARGET_ETH = "100";
 // Auto-faucet only kicks in below this — keeps us from clobbering an existing
 // balance every time the user reconnects.
 const AUTO_FAUCET_THRESHOLD_ETH = "1";
+
+// Mock token top-up — same idea as the ETH faucet but for the governance + payment
+// mock tokens deployed alongside anvil. Both contracts expose an open mint().
+const MOCK_TOKEN_TARGET_UNITS = "100000"; // 100k * 1e18
+const MOCK_TOKEN_THRESHOLD_UNITS = "1"; // re-mint when < 1 token, same posture as ETH
+
+const ANVIL_UNLOCKED_DEFAULT = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+const ERC20_BALANCE_OF_ABI = ["function balanceOf(address) view returns (uint256)"];
+const ERC20_MINT_ABI = ["function mint(address to, uint256 amount)"];
 
 function rpcFor(chainId: number): { provider: ethers.providers.JsonRpcProvider; rpcUrl: string } {
   const chain = CHAIN_INFO_MAP[chainId];
@@ -73,4 +82,57 @@ export async function maybeAutoFaucet(
   if (balance.gte(threshold)) return { topped: false, balance };
   const newBalance = await faucetAnvil(account, chainId);
   return { topped: true, balance: newBalance };
+}
+
+/**
+ * Mint mock governance + payment tokens to `account` if they're below the
+ * threshold. Both mock token contracts expose an open `mint(address,uint256)`,
+ * and we send the call from anvil's default unlocked account directly through
+ * the RPC — no user wallet popup. Only meaningful on testnets.
+ *
+ * Returns the list of token addresses that were topped up (empty if none).
+ */
+export async function maybeMintMockTokens(
+  account: string,
+  chainId: number,
+): Promise<{ minted: string[] }> {
+  const { provider } = rpcFor(chainId);
+  const config = getBareBonesConfiguration(chainId);
+
+  const tokens: { address: string; label: string }[] = [];
+  const govToken = getMockGovernanceTokenByChain(chainId);
+  if (govToken && govToken !== ethers.constants.AddressZero) {
+    tokens.push({ address: govToken, label: "governance" });
+  }
+  if (
+    config.mockPaymentTokenAddress &&
+    config.mockPaymentTokenAddress !== ethers.constants.AddressZero
+  ) {
+    tokens.push({ address: config.mockPaymentTokenAddress, label: "payment" });
+  }
+
+  const balanceIface = new ethers.utils.Interface(ERC20_BALANCE_OF_ABI);
+  const mintIface = new ethers.utils.Interface(ERC20_MINT_ABI);
+  const threshold = ethers.utils.parseUnits(MOCK_TOKEN_THRESHOLD_UNITS, 18);
+  const target = ethers.utils.parseUnits(MOCK_TOKEN_TARGET_UNITS, 18);
+
+  const minted: string[] = [];
+  for (const token of tokens) {
+    const balanceData = balanceIface.encodeFunctionData("balanceOf", [account]);
+    const balanceHex: string = await provider.send("eth_call", [
+      { to: token.address, data: balanceData },
+      "latest",
+    ]);
+    const balance = ethers.BigNumber.from(balanceHex || "0x0");
+    if (balance.gte(threshold)) continue;
+
+    const mintData = mintIface.encodeFunctionData("mint", [account, target]);
+    // Anvil signs server-side for any unlocked default account — no popup.
+    await provider.send("eth_sendTransaction", [
+      { from: ANVIL_UNLOCKED_DEFAULT, to: token.address, data: mintData },
+    ]);
+    minted.push(token.address);
+  }
+
+  return { minted };
 }

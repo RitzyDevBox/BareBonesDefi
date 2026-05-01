@@ -900,7 +900,11 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
 
         <div className="bb-builder-row">
           <FormField label="Contract Group" style={{ marginBottom: 0 }}>
-            <Select value={actionGroup} onChange={(v) => handleChangeActionGroup(v as ActionGroup)}>
+            <Select
+              value={actionGroup}
+              onChange={(v) => handleChangeActionGroup(v as ActionGroup)}
+              dataTestId="proposal-action-group"
+            >
               {ACTION_GROUP_OPTIONS.map((option) => (
                 <SelectOption key={option.value} value={option.value} label={option.label} />
               ))}
@@ -908,7 +912,11 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
           </FormField>
 
           <FormField label="Action" style={{ marginBottom: 0 }}>
-            <Select value={actionPreset} onChange={(v) => applyPreset(v as ProposalActionPreset)}>
+            <Select
+              value={actionPreset}
+              onChange={(v) => applyPreset(v as ProposalActionPreset)}
+              dataTestId="proposal-action"
+            >
               {(ACTION_OPTIONS[actionGroup] ?? []).map((option) => (
                 <SelectOption key={option.value} value={option.value} label={option.label} />
               ))}
@@ -1096,6 +1104,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
               <Uint256Input
                 value={governanceUintValue}
                 onChange={(event: React.ChangeEvent<HTMLInputElement>) => setGovernanceUintValue(event.target.value)}
+                data-testid="proposal-uint-value"
               />
             </FormField>
           ) : null}
@@ -1327,6 +1336,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             className="bb-btn-primary"
             disabled={disabled || loading}
             onClick={handleStageCall}
+            data-testid="proposal-stage"
           >
             + Stage call
           </button>
@@ -1426,6 +1436,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             className="bb-btn-primary"
             disabled={disabled || loading}
             onClick={() => void handleSubmitProposal()}
+            data-testid="proposal-submit"
           >
             {loading ? <span className="bb-spinner bb-sm" /> : null}
             {loading ? "Submitting…" : `Submit Proposal (${stagedCalls.length})`}

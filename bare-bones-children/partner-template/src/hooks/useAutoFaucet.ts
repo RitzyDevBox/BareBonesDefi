@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { ethers } from "ethers";
 import { useWalletProvider } from "./useWalletProvider";
 import { CHAIN_INFO_MAP } from "../constants/misc";
-import { faucetAnvil, getNativeBalance } from "../utils/faucetUtils";
+import { faucetAnvil, getNativeBalance, maybeMintMockTokens } from "../utils/faucetUtils";
 import { toastStore } from "../components/Toasts/toast.store";
 import { ToastBehavior, ToastPosition, ToastType } from "../components/Toasts/toast.types";
 
@@ -30,30 +30,48 @@ export function useAutoFaucet() {
         if (cancelled) return;
 
         const threshold = ethers.utils.parseEther(AUTO_FAUCET_THRESHOLD_ETH);
-        if (balance.gte(threshold)) return;
+        const ethNeedsTopUp = balance.lt(threshold);
 
-        toastStore.show({
-          id: inProgressId,
-          title: "Topping up test ETH…",
-          message: `Balance below ${AUTO_FAUCET_THRESHOLD_ETH} ETH on ${chain.chainName}. Requesting faucet.`,
-          type: ToastType.Info,
-          behavior: ToastBehavior.Persistent,
-          position: ToastPosition.Top,
-        });
+        if (ethNeedsTopUp) {
+          toastStore.show({
+            id: inProgressId,
+            title: "Topping up test ETH…",
+            message: `Balance below ${AUTO_FAUCET_THRESHOLD_ETH} ETH on ${chain.chainName}. Requesting faucet.`,
+            type: ToastType.Info,
+            behavior: ToastBehavior.Persistent,
+            position: ToastPosition.Top,
+          });
 
-        await faucetAnvil(account, chainId);
-        toastStore.close(inProgressId);
-        if (cancelled) return;
+          await faucetAnvil(account, chainId);
+          toastStore.close(inProgressId);
+          if (cancelled) return;
 
-        toastStore.show({
-          id: `auto-faucet-success-${Date.now()}`,
-          title: "Test ETH delivered",
-          message: "Topped your account up to 100 ETH.",
-          type: ToastType.Success,
-          behavior: ToastBehavior.AutoClose,
-          durationMs: 4000,
-          position: ToastPosition.Top,
-        });
+          toastStore.show({
+            id: `auto-faucet-success-${Date.now()}`,
+            title: "Test ETH delivered",
+            message: "Topped your account up to 100 ETH.",
+            type: ToastType.Success,
+            behavior: ToastBehavior.AutoClose,
+            durationMs: 4000,
+            position: ToastPosition.Top,
+          });
+        }
+
+        // Even if ETH was already funded, the user may have arrived with no
+        // governance/payment tokens (initial supply went to a fixed treasury).
+        // Mint mock tokens via anvil's unlocked default — no popup.
+        const { minted } = await maybeMintMockTokens(account, chainId);
+        if (!cancelled && minted.length > 0) {
+          toastStore.show({
+            id: `auto-faucet-tokens-${Date.now()}`,
+            title: "Test tokens delivered",
+            message: `Minted mock token${minted.length === 1 ? "" : "s"} to your account.`,
+            type: ToastType.Success,
+            behavior: ToastBehavior.AutoClose,
+            durationMs: 4000,
+            position: ToastPosition.Top,
+          });
+        }
       } catch (err) {
         toastStore.close(inProgressId);
         if (cancelled) return;

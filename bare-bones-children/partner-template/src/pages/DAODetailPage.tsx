@@ -354,6 +354,7 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
                   fullWidth={false}
                   disabled={checkingEligibility}
                   onClick={() => setShowProposalForm(true)}
+                  data-testid="dao-create-proposal"
                 >
                   {checkingEligibility ? "Checking…" : "Create Proposal"}
                 </ButtonSecondary>
@@ -368,6 +369,7 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
                     fullWidth={false}
                     disabled={delegatingVotePower}
                     onClick={() => void handleSelfDelegate()}
+                    data-testid="dao-self-delegate"
                   >
                     {delegatingVotePower ? "Delegating…" : "Self-Delegate Votes"}
                   </ButtonSecondary>
@@ -385,6 +387,7 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
             <ButtonSecondary
               disabled={checkingEligibility}
               onClick={() => setShowProposalForm(true)}
+              data-testid="dao-create-proposal"
             >
               {checkingEligibility ? "Checking…" : "Create Proposal"}
             </ButtonSecondary>
@@ -397,6 +400,7 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
               <ButtonSecondary
                 disabled={delegatingVotePower}
                 onClick={() => void handleSelfDelegate()}
+                data-testid="dao-self-delegate"
               >
                 {delegatingVotePower ? "Delegating…" : "Self-Delegate Votes"}
               </ButtonSecondary>

@@ -256,6 +256,7 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
                   (step === 1 && !canContinueFromIdentity) ||
                   (step === 2 && !canContinueFromGovernance)
                 }
+                data-testid="dao-modal-continue"
               >
                 Continue →
               </button>
@@ -265,6 +266,7 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
                 className="bb-btn-primary"
                 onClick={() => void handleDeploy()}
                 disabled={isWorking || !daoFactoryConfigured || existingDao !== null}
+                data-testid="dao-modal-deploy"
               >
                 {isWorking ? <span className="bb-spinner bb-sm" /> : null}
                 Deploy DAO
