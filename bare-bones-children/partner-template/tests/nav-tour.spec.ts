@@ -1,12 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
-import { installVisualCursor, moveAndClick } from "./_demo/visualCursor";
-
-const HOLD_MS = 1500;
+import { installVisualCursor, moveAndClick, hold } from "./_demo/visualCursor";
 
 async function clickNav(page: Page, label: string) {
   const link = page.getByRole("button", { name: label, exact: true });
   await moveAndClick(page, link);
-  await page.waitForTimeout(HOLD_MS);
+  await hold(page, 1500);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -17,7 +15,7 @@ test("nav bar tour", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("#root")).not.toBeEmpty();
   await page.mouse.move(200, 200);
-  await page.waitForTimeout(HOLD_MS);
+  await hold(page, 1500);
 
   await clickNav(page, "Wallet");
   await clickNav(page, "Browser");

@@ -1,6 +1,10 @@
 import type { Page, Locator } from "@playwright/test";
 
+const DEMO = process.env.PLAYWRIGHT_DEMO === "1";
+
 export async function installVisualCursor(page: Page) {
+  if (!DEMO) return;
+
   await page.addInitScript(() => {
     const init = () => {
       if (document.getElementById("__pw_cursor")) return;
@@ -79,6 +83,11 @@ export async function moveAndClick(
   locator: Locator,
   opts: { steps?: number; pauseBeforeClick?: number } = {}
 ) {
+  if (!DEMO) {
+    await locator.click();
+    return;
+  }
+
   const { steps = 25, pauseBeforeClick = 250 } = opts;
   await locator.scrollIntoViewIfNeeded();
   const box = await locator.boundingBox();
@@ -88,4 +97,9 @@ export async function moveAndClick(
   await page.mouse.move(x, y, { steps });
   await page.waitForTimeout(pauseBeforeClick);
   await page.mouse.click(x, y);
+}
+
+export async function hold(page: Page, ms: number) {
+  if (!DEMO) return;
+  await page.waitForTimeout(ms);
 }

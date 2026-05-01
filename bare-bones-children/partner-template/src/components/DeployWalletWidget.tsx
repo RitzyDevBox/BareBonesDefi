@@ -5,6 +5,7 @@ import { useWalletProvider } from "../hooks/useWalletProvider";
 import { Stack, Surface, ClickableSurface } from "./Primitives";
 import { Text } from "./Primitives/Text";
 import { ButtonPrimary } from "./Button/ButtonPrimary";
+import { Loader } from "./Loader/Loader";
 
 import {
   buildDeployEOAOwnerBasedDiamondRawTx,
@@ -57,40 +58,49 @@ export function DeployDiamondWidget({
 
     setIsDeploying(true);
 
-    try {
-      await executeTx(
-        provider,
-        async () =>
-          buildDeployEOAOwnerBasedDiamondRawTx({
-            owner: account,
-            chainId,
-            organizationId,
-          }),
-        lifecycle,
-        (receipt) => {
-          const { diamondAddress, index } =
-            parseDiamondDeployedFromReceipt(receipt);
+    // executeTx returns once the tx is broadcast, but the loader needs to
+    // stay up until the tx is mined (onComplete) or errors (onError). Tie
+    // isDeploying to those callbacks instead of the await.
+    await executeTx(
+      provider,
+      async () =>
+        buildDeployEOAOwnerBasedDiamondRawTx({
+          owner: account,
+          chainId,
+          organizationId,
+        }),
+      {
+        ...lifecycle,
+        onComplete: (msg) => {
+          lifecycle.onComplete?.(msg);
+          setIsDeploying(false);
+        },
+        onError: (err) => {
+          lifecycle.onError?.(err);
+          setIsDeploying(false);
+        },
+      },
+      (receipt) => {
+        const { diamondAddress, index } =
+          parseDiamondDeployedFromReceipt(receipt);
 
-          setDeployedAddress(diamondAddress);
-          setWalletIndex(index);
-          onDeployed?.(diamondAddress, index);
+        setDeployedAddress(diamondAddress);
+        setWalletIndex(index);
+        onDeployed?.(diamondAddress, index);
 
-          var message =  organizationId
-            ? `Wallet deployed under ${organizationId}`
-            : `Wallet deployed`;
+        const message = organizationId
+          ? `Wallet deployed under ${organizationId}`
+          : `Wallet deployed`;
 
-          triggerRefresh({
-            hash: receipt.transactionHash,
-            message,
-          });
+        triggerRefresh({
+          hash: receipt.transactionHash,
+          message,
+        });
 
-          return message;
-        }
-      );
-    } finally {
-      setIsDeploying(false);
-    }
-  }, [provider, account, chainId, organizationId, lifecycle, onDeployed]);
+        return message;
+      }
+    );
+  }, [provider, account, chainId, organizationId, lifecycle, onDeployed, triggerRefresh]);
 
   return (
     <Stack gap="md">
@@ -121,7 +131,7 @@ export function DeployDiamondWidget({
       }
 
       <ButtonPrimary onClick={deploy} disabled={isDeploying}>
-        {isDeploying ? "Deploying…" : "Deploy Wallet"}
+        {isDeploying ? <Loader inline label="Deploying…" /> : "Deploy Wallet"}
       </ButtonPrimary>
 
       {deployedAddress && (
