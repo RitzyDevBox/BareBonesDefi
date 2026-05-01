@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CHAIN_INFO_MAP } from "../../constants/misc";
+import { CHAIN_INFO_MAP, DEFAULT_CHAIN_ID } from "../../constants/misc";
 import { ImageWithFallback } from "../ImageWithFallback";
 
 const DROPDOWN_WIDTH = 220;
@@ -10,11 +10,11 @@ interface ChainSelectorProps {
   onChainChange: (chainId: number) => void;
   showTestnets?: boolean;
   compact?: boolean;
-  /** When true, a null chainId is treated as "unknown network" rather than "no wallet". */
+  /** Reserved — kept for callsite compatibility. */
   connected?: boolean;
 }
 
-export function ChainSelector({ chainId, onChainChange, showTestnets = true, compact = false, connected = false }: ChainSelectorProps) {
+export function ChainSelector({ chainId, onChainChange, showTestnets = true, compact = false }: ChainSelectorProps) {
   const [open, setOpen] = useState(false);
   const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -23,8 +23,13 @@ export function ChainSelector({ chainId, onChainChange, showTestnets = true, com
   const allChains = Object.values(CHAIN_INFO_MAP);
   const chains = showTestnets ? allChains : allChains.filter((c) => !c.testnet);
 
-  const current = chainId != null ? CHAIN_INFO_MAP[chainId] : null;
-  const isUnknown = (chainId != null && !current) || (chainId == null && connected);
+  // Always show *some* chain. Wallet's if it's known, otherwise the deployment
+  // target's default (VITE_DEFAULT_CHAIN_ID — anvil locally, polygon on live,
+  // etc.). UnsupportedChainBanner handles the actual "wrong network" warning.
+  const current =
+    (chainId != null ? CHAIN_INFO_MAP[chainId] : null) ??
+    CHAIN_INFO_MAP[DEFAULT_CHAIN_ID] ??
+    null;
 
   // Compute dropdown position synchronously before paint when open changes
   useLayoutEffect(() => {
@@ -78,24 +83,7 @@ export function ChainSelector({ chainId, onChainChange, showTestnets = true, com
           whiteSpace: "nowrap",
         }}
       >
-        {isUnknown ? (
-          <>
-            <span
-              aria-label="Warning"
-              style={{
-                fontSize: 14,
-                lineHeight: 1,
-                color: "var(--colors-warn)",
-                flexShrink: 0,
-                display: "inline-flex",
-                alignItems: "center",
-              }}
-            >
-              ⚠
-            </span>
-            {!compact && <span>Unknown network</span>}
-          </>
-        ) : current ? (
+        {current ? (
           <>
             {current.logoUrl ? (
               <ImageWithFallback

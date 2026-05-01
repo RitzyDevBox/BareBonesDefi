@@ -1,16 +1,15 @@
 import React from "react";
 import { Input } from "../BasicComponents";
+import { sanitizeHexString } from "./hexSanitize";
 
 const HEX_LIKE_REGEX = /^(0x)?[0-9a-fA-F]*$/;
 
 export function AddressInput({ value, onChange, style, ...rest }: React.InputHTMLAttributes<HTMLInputElement>) {
   function sanitize(v: string) {
-    v = v.trim();
-    v = v.replace(/[^0-9a-fA-Fx]/g, "");
-    if (v.startsWith("0X")) v = "0x" + v.slice(2);
-    if (v.includes("x") && !v.startsWith("0x")) v = "0x" + v.replace(/x/gi, "");
-    if (v.startsWith("0x")) return v.slice(0, 42);
-    return v.slice(0, 40);
+    const hex = sanitizeHexString(v.trim());
+    // Cap to address length: 0x + 40 hex chars = 42, or 40 if no prefix.
+    if (hex.startsWith("0x")) return hex.slice(0, 42);
+    return hex.slice(0, 40);
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {

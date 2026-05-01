@@ -863,25 +863,11 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
 
   return (
     <div className="bb-builder">
-      {/* Identity section */}
-      <div className="bb-builder-section">
-        <div className="bb-builder-head">
-          <h4>Proposal</h4>
-        </div>
-        <div className="bb-field-grid">
-          <div className="bb-field bb-full">
-            <label>Description</label>
-            <Input
-              value={description}
-              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDescription(event.target.value)}
-              placeholder="Describe this proposal"
-            />
-          </div>
-        </div>
-      </div>
-
       {/* Choose call type — templates + manual chooser. Both are different ways
-          to pick the same thing: which kind of call this proposal will make. */}
+          to pick the same thing: which kind of call this proposal will make.
+          Rendered FIRST because the call type drives which fields appear below
+          (and pre-fills the description); making the user pick "what" before
+          "why" lines up the form with how they actually fill it out. */}
       <div className="bb-builder-section">
         <div className="bb-builder-head">
           <h4>Choose call type</h4>
@@ -974,6 +960,24 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             </Select>
           </FormField>
         ) : null}
+      </div>
+
+      {/* Identity / description — placed after call-type so a template can
+          pre-fill the description (see `applyPreset`) and the user just edits. */}
+      <div className="bb-builder-section">
+        <div className="bb-builder-head">
+          <h4>Proposal</h4>
+        </div>
+        <div className="bb-field-grid">
+          <div className="bb-field bb-full">
+            <label>Description</label>
+            <Input
+              value={description}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDescription(event.target.value)}
+              placeholder="Describe this proposal"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Call details — only the actual fields that build the call. */}

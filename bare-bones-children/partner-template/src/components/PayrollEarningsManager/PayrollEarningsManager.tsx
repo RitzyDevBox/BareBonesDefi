@@ -27,6 +27,18 @@ import { orgSlugFor } from "../../utils/payroll/orgSlug";
 
 const UINT32_MAX_NUM = 4294967295;
 
+/**
+ * Which earnings-code editor action is currently in-flight. Used to drive the
+ * loader on the specific button the user clicked rather than every action
+ * button at once.
+ */
+enum PendingAction {
+  None = "none",
+  Register = "register",
+  Save = "save",
+  Toggle = "toggle",
+}
+
 function NumberFieldInput(props: {
   value: string;
   onChange: (next: string) => void;
@@ -173,7 +185,11 @@ export function PayrollEarningsManager({
   const [weeklyPremiumRows, setWeeklyPremiumRows] = useState<WeeklyPremiumMaskDraft[]>(defaultWeeklyRows);
   const [salaryPeriodDays, setSalaryPeriodDays] = useState("7");
   const [isActive, setIsActive] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Track WHICH button kicked off the in-flight tx so only that one spins.
+  // Previously we used a single boolean and both Save and Deactivate showed a
+  // loader simultaneously regardless of which one the user clicked.
+  const [pendingAction, setPendingAction] = useState<PendingAction>(PendingAction.None);
+  const isSubmitting = pendingAction !== PendingAction.None;
 
   const editingTarget = mode === "edit" ? target ?? null : null;
   const editingRuleType = editingTarget ? resolveRuleType(editingTarget.rule) : null;
@@ -411,19 +427,21 @@ export function PayrollEarningsManager({
 
   async function handleRegister() {
     if (!chainId || !canRegister || isSubmitting) return;
-    setIsSubmitting(true);
+    setPendingAction(PendingAction.Register);
     try {
       await registerTx(chainId, slug);
       onSubmitted?.();
       onClose();
     } finally {
-      setIsSubmitting(false);
+      setPendingAction(PendingAction.None);
     }
   }
 
   async function handleEdit(nextIsActive: boolean) {
     if (!chainId || !canSaveEdit || !editingTarget || isSubmitting || isCustomEditing) return;
-    setIsSubmitting(true);
+    // Save vs (de)activate share the same on-chain call but use different
+    // pending labels so the loader appears on the clicked button only.
+    setPendingAction(nextIsActive === isActive ? PendingAction.Save : PendingAction.Toggle);
     try {
       await setEarningsCodeTx(
         chainId,
@@ -435,7 +453,7 @@ export function PayrollEarningsManager({
       onSubmitted?.();
       onClose();
     } finally {
-      setIsSubmitting(false);
+      setPendingAction(PendingAction.None);
     }
   }
 
@@ -594,39 +612,46 @@ export function PayrollEarningsManager({
                     <span aria-hidden style={{ width: 32 }} />
                   )}
 
+                  {/* Per-band descriptor — moved out of `isLast` so every tier
+                      shows its own "0 – 40 hrs paid at rate × N" line, not just
+                      the last one. */}
+                  <div
+                    className="bb-field-hint"
+                    style={{
+                      gridColumn: "2 / -1",
+                      textTransform: "none",
+                      letterSpacing: 0,
+                    }}
+                  >
+                    {descriptor}
+                  </div>
+
+                  {/* Last tier only: option to treat it as the unbounded
+                      "all remaining hours" band. */}
                   {isLast && (
-                    <div
-                      style={{ gridColumn: "2 / -1", display: "flex", flexDirection: "column", gap: 6 }}
+                    <label
+                      style={{
+                        gridColumn: "2 / -1",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: 12,
+                        color: "var(--bb-text-dim)",
+                        fontFamily: "inherit",
+                        letterSpacing: 0,
+                        textTransform: "none",
+                      }}
                     >
-                      <label
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 8,
-                          fontSize: 12,
-                          color: "var(--bb-text-dim)",
-                          fontFamily: "inherit",
-                          letterSpacing: 0,
-                          textTransform: "none",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={band.isRemaining}
-                          disabled={!canEdit || isCustomEditing}
-                          onChange={(e) =>
-                            updateHourlyBand(index, "isRemaining", String(e.target.checked))
-                          }
-                        />
-                        Treat last tier as remaining hours (∞)
-                      </label>
-                      <div
-                        className="bb-field-hint"
-                        style={{ textTransform: "none", letterSpacing: 0 }}
-                      >
-                        {descriptor}
-                      </div>
-                    </div>
+                      <input
+                        type="checkbox"
+                        checked={band.isRemaining}
+                        disabled={!canEdit || isCustomEditing}
+                        onChange={(e) =>
+                          updateHourlyBand(index, "isRemaining", String(e.target.checked))
+                        }
+                      />
+                      Treat last tier as remaining hours (∞)
+                    </label>
                   )}
                 </div>
               );
@@ -694,7 +719,7 @@ export function PayrollEarningsManager({
           disabled={!canRegister || isSubmitting || !earningsCodeName.trim()}
           onClick={handleRegister}
         >
-          {isSubmitting ? <Loader inline size={14} color="currentColor" /> : null}
+          {pendingAction === PendingAction.Register ? <Loader inline size={14} color="currentColor" /> : null}
           Register
         </ButtonPrimary>
       </Row>
@@ -708,7 +733,7 @@ export function PayrollEarningsManager({
           disabled={!canSaveEdit || isSubmitting}
           onClick={() => handleEdit(!isActive)}
         >
-          {isSubmitting ? <Loader inline size={14} color="currentColor" /> : null}
+          {pendingAction === PendingAction.Toggle ? <Loader inline size={14} color="currentColor" /> : null}
           {isActive ? "Deactivate" : "Activate"}
         </ButtonSecondary>
         <ButtonPrimary
@@ -716,7 +741,7 @@ export function PayrollEarningsManager({
           disabled={!canSaveEdit || isSubmitting || isCustomEditing}
           onClick={() => handleEdit(isActive)}
         >
-          {isSubmitting ? <Loader inline size={14} color="currentColor" /> : null}
+          {pendingAction === PendingAction.Save ? <Loader inline size={14} color="currentColor" /> : null}
           Save
         </ButtonPrimary>
       </Row>

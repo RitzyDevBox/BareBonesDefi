@@ -1,38 +1,38 @@
 import React, { useMemo, useState } from "react";
 import { sanitizeHexString } from "./hexSanitize";
 
-type Bytes32Mode = "hex" | "utf8";
+type BytesMode = "hex" | "utf8";
 
-interface Bytes32InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  defaultMode?: Bytes32Mode;
+interface HexBytesInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  defaultMode?: BytesMode;
 }
 
 const HEX_LIKE_REGEX = /^(0x)?[0-9a-fA-F]*$/;
 
-function sanitizeHex(v: string) {
-  const next = sanitizeHexString(v.trim());
-  // Cap to bytes32: 0x + 64 hex chars = 66, or 64 if no prefix.
-  if (next.startsWith("0x")) return next.slice(0, 66);
-  return next.slice(0, 64);
-}
-
-export function Bytes32Input({
+/**
+ * Variable-length bytes input with a HEX/UTF8 toggle. Mirrors `Bytes32Input`
+ * but without a length cap — for fields like ABI-encoded options that can be
+ * any length. Emits the raw typed string; consumers should detect with
+ * `ethers.utils.isHexString(value)` and fall back to `toUtf8Bytes(value)` for
+ * UTF-8 input (matching the convention used by the proposal-builder encoder).
+ */
+export function HexBytesInput({
   defaultMode = "hex",
   value,
   onChange,
   style,
   ...rest
-}: Bytes32InputProps) {
-  const [mode, setMode] = useState<Bytes32Mode>(defaultMode);
+}: HexBytesInputProps) {
+  const [mode, setMode] = useState<BytesMode>(defaultMode);
 
   const placeholder = useMemo(
-    () => (mode === "hex" ? "0x... (bytes32)" : "UTF-8 text (max 31 bytes)"),
+    () => (mode === "hex" ? "0x..." : "UTF-8 text"),
     [mode]
   );
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value;
-    const next = mode === "hex" ? sanitizeHex(raw) : raw;
+    const next = mode === "hex" ? sanitizeHexString(raw) : raw;
     onChange?.({ ...(e as any), target: { ...(e.target as any), value: next } });
   }
 
@@ -45,7 +45,7 @@ export function Bytes32Input({
     }
 
     e.preventDefault();
-    const next = mode === "hex" ? sanitizeHex(pasted) : pasted;
+    const next = mode === "hex" ? sanitizeHexString(pasted) : pasted;
     onChange?.({ ...(e as any), target: { ...(e.target as any), value: next } });
   }
 
@@ -89,7 +89,7 @@ export function Bytes32Input({
 
       <select
         value={mode}
-        onChange={(event) => setMode(event.target.value as Bytes32Mode)}
+        onChange={(event) => setMode(event.target.value as BytesMode)}
         style={{
           border: "none",
           outline: "none",

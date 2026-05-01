@@ -10,49 +10,60 @@ import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { useActiveOrganization } from "../providers/ActiveOrganizationProvider";
 import { shortAddress } from "../utils/formatUtils";
-import { fetchDaoGovernorsByNames } from "../utils/graph/daoGraphService";
 import { GovHero } from "../components/DAO/GovHero";
 import { DAODetailPage } from "./DAODetailPage";
 import { CreateDaoModal } from "../components/Header/CreateDaoModal";
+import { getBareBonesConfiguration } from "../constants/misc";
+import { orgSlugFor } from "../utils/payroll/orgSlug";
+import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 
 interface DaoDeploymentSummary {
   name: string;
   governor: string;
-  txHash: string;
 }
 
 export function DAOsPage() {
-  const { account, chainId } = useWalletProvider();
+  const { provider, account, chainId } = useWalletProvider();
   const { version } = useTxRefresh();
   const { activeOrgSlug, ownedOrgs } = useActiveOrganization();
+  const config = useMemo(() => (chainId ? getBareBonesConfiguration(chainId) : null), [chainId]);
+  const payrollManagerAddress = config?.payrollManagerAddress;
 
   const [deploymentsByOrg, setDeploymentsByOrg] = useState<Record<string, DaoDeploymentSummary>>({});
   const [loading, setLoading] = useState(false);
   const [showDeployModal, setShowDeployModal] = useState(false);
 
+  // Source of truth for "is a canonical DAO deployed for this org" is the
+  // payroll contract's `daoOf(slug)` view — set write-once by the launcher.
+  // The subgraph used to back this lookup but went out of sync whenever the
+  // graph node was down, so the page would wrongly offer "Deploy DAO" for an
+  // org that already had one (and the on-chain write would then revert).
   useEffect(() => {
     let cancelled = false;
-    if (chainId == null || ownedOrgs.length === 0) {
+    if (!provider || !payrollManagerAddress || ownedOrgs.length === 0) {
       setDeploymentsByOrg({});
       return;
     }
     setLoading(true);
-    fetchDaoGovernorsByNames(chainId, ownedOrgs)
-      .then((governors) => {
+    const contract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
+    Promise.all(
+      ownedOrgs.map(async (name) => {
+        try {
+          const slug = orgSlugFor(name);
+          const [governor]: [string, string] = await contract.daoOf(slug);
+          if (!governor || governor === ethers.constants.AddressZero) return null;
+          return { name, governor: ethers.utils.getAddress(governor) };
+        } catch {
+          return null;
+        }
+      }),
+    )
+      .then((results) => {
         if (cancelled) return;
         const byOrg: Record<string, DaoDeploymentSummary> = {};
-        for (const governor of governors) {
-          const name = (governor.name ?? "").trim();
-          if (!name) continue;
-          try {
-            byOrg[name.toLowerCase()] = {
-              name,
-              governor: ethers.utils.getAddress(governor.id),
-              txHash: String(governor.txHash ?? ""),
-            };
-          } catch {
-            // skip malformed entries
-          }
+        for (const result of results) {
+          if (!result) continue;
+          byOrg[result.name.toLowerCase()] = result;
         }
         setDeploymentsByOrg(byOrg);
       })
@@ -65,7 +76,7 @@ export function DAOsPage() {
     return () => {
       cancelled = true;
     };
-  }, [chainId, ownedOrgs, version]);
+  }, [provider, payrollManagerAddress, ownedOrgs, version]);
 
   const activeDeployment = useMemo(() => {
     const slug = activeOrgSlug?.trim().toLowerCase();
