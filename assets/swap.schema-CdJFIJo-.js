@@ -1,0 +1,1 @@
+import{F as o}from"./index-BnJhffXg.js";const n={fields:[{id:"tokenA",component:o.TOKEN_AMOUNT_PICKER,label:"From Token"},{id:"tokenB",component:o.TOKEN_AMOUNT_PICKER,label:"To Token"},{id:"amountIn",component:o.AMOUNT,label:"Amount In"},{id:"slippage",component:o.PERCENT,label:"Slippage"}]};export{n as SWAP_SCHEMA,n as default};
