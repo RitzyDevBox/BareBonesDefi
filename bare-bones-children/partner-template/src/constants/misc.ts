@@ -4,6 +4,7 @@ import polygonLogo from "../assets/chains/polygon-logo.webp";
 import hyperliquidLogo from "../assets/chains/hyperliquid-logo.png";
 import anvilLogo from "../assets/chains/anvil-logo.svg";
 import { FEATURE_FLAGS } from "./featureFlags";
+import { DEPLOYMENT_TARGET, STAGING_CHAIN_ID, STAGING_RPC_URL, STAGING_SVR_GRAPH_URL } from "../config/deployment";
 
 export const SwapRouter02ExecutorAddress = '0xBe6d02FD9335C2e1e33bBC174ad7ee36764C8EE7'
 export const testTokenAddress = "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c";
@@ -11,8 +12,19 @@ export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const NATIVE_ADDRESS = ZERO_ADDRESS
 export const APP_NAME = import.meta.env.VITE_APP_NAME
 export const WALLECT_CONNECT_WALLET_NAME = APP_NAME
-export const DEFAULT_CHAIN_ID = Number(import.meta.env.VITE_DEFAULT_CHAIN_ID ?? 137);
-export const LOCAL_CHAIN_ID = Number(import.meta.env.VITE_LOCAL_CHAIN_ID ?? 31337);
+export const DEFAULT_CHAIN_ID = Number(
+  DEPLOYMENT_TARGET === "staging"
+    ? STAGING_CHAIN_ID
+    : (import.meta.env.VITE_DEFAULT_CHAIN_ID ?? 137),
+);
+// On staging this is the staging Anvil's chain id (set by ANVIL_CHAIN_ID on
+// the server); locally it's the dev anvil's 31337. The variable name is kept
+// as LOCAL_* for backwards compat — semantically it's "the dev/test chain
+// the build is configured to talk to."
+export const LOCAL_CHAIN_ID = Number(
+  import.meta.env.VITE_LOCAL_CHAIN_ID
+    ?? (DEPLOYMENT_TARGET === "staging" ? STAGING_CHAIN_ID : 31337),
+);
 
 // Each transaction will trigger a state refresh but we add a delay since the graph takes some time to update
 export const DEFAULT_REFRESH_DELAY = 10000
@@ -81,7 +93,9 @@ export function getMockGovernanceTokenByChain(chainId: number): string {
 }
 
 export const POLYGON_SECURE_VALUE_RESERVE_GRAPH_URL = 'https://api.goldsky.com/api/public/project_clze9a4nvee2w01wbaw2y7wzc/subgraphs/secure-value-reserve/1.0.1/gn'
-export const ANVIL_SECURE_VALUE_RESERVE_GRAPH_URL = import.meta.env.VITE_LOCAL_SVR_GRAPH_URL ?? 'http://127.0.0.1:8000/subgraphs/name/secure-value-reserve-local'
+export const ANVIL_SECURE_VALUE_RESERVE_GRAPH_URL = DEPLOYMENT_TARGET === "staging"
+  ? STAGING_SVR_GRAPH_URL
+  : (import.meta.env.VITE_LOCAL_SVR_GRAPH_URL ?? 'http://127.0.0.1:8000/subgraphs/name/secure-value-reserve-local')
 
 export interface BareBonesConfiguration {
   diamondFactoryAddress: string;
@@ -290,8 +304,16 @@ const BASE_CHAIN_INFO_MAP: Record<number, ChainInfo> = {
       decimals: 18,
     },
     logoUrl: anvilLogo,
-    rpcUrls: [localEnv("VITE_LOCAL_RPC_URL") ?? "http://127.0.0.1:8545"],
-    blockExplorerUrls: [localEnv("VITE_LOCAL_EXPLORER_URL") ?? "http://127.0.0.1:8545"],
+    rpcUrls: [
+      DEPLOYMENT_TARGET === "staging"
+        ? STAGING_RPC_URL
+        : (localEnv("VITE_LOCAL_RPC_URL") ?? "http://127.0.0.1:8545"),
+    ],
+    blockExplorerUrls: [
+      DEPLOYMENT_TARGET === "staging"
+        ? STAGING_RPC_URL
+        : (localEnv("VITE_LOCAL_EXPLORER_URL") ?? "http://127.0.0.1:8545"),
+    ],
     coinGeckoSlug: "ethereum",
     supportsEip1559: true,
     minPriorityFeeGwei: 1,
