@@ -22,6 +22,20 @@ function markIntroSeen(): void {
   }
 }
 
+/** Imperatively (re-)open the intro from anywhere — e.g. the "Show staging
+ *  intro again" row in SettingsModal. The mounted modal subscribes to this
+ *  in a useEffect; calling it before the modal mounts is a no-op (which is
+ *  fine — it's only ever invoked from inside the same React tree). */
+let externalOpen: (() => void) | null = null;
+export function showStagingIntro(): void {
+  try {
+    window.localStorage.removeItem(SEEN_FLAG_KEY);
+  } catch {
+    /* see markIntroSeen */
+  }
+  externalOpen?.();
+}
+
 /** Greets first-time visitors to the staging deployment with the auto-faucet
  *  + 3h chain-reset facts. Only ever rendered on staging — on local dev or
  *  prod (none yet) it short-circuits to null. */
@@ -33,6 +47,15 @@ export function StagingIntroModal() {
     if (!enabled) return;
     if (!hasSeenIntro()) setOpen(true);
   }, [enabled]);
+
+  // Wire up the imperative reopen trigger while mounted. Component is mounted
+  // once at the App level so this binding is global for the session.
+  useEffect(() => {
+    externalOpen = () => setOpen(true);
+    return () => {
+      externalOpen = null;
+    };
+  }, []);
 
   if (!enabled) return null;
 

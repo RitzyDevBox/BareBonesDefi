@@ -24,20 +24,20 @@ function rpcFor(chainId: number): { provider: ethers.providers.JsonRpcProvider; 
   return { provider: new ethers.providers.JsonRpcProvider(rpcUrl), rpcUrl };
 }
 
-/** Derive the staging proxy's `/faucet` URL from the configured RPC URL.
- *  `https://staging.bear-bones.xyz/rpc` → `https://staging.bear-bones.xyz/faucet`.
+/** Derive a sibling proxy endpoint URL from the configured RPC URL.
+ *  `https://staging.bear-bones.xyz/rpc` → `https://staging.bear-bones.xyz/<path>`.
  *  For a raw Anvil RPC (e.g. `http://127.0.0.1:8545` in local dev) this still
  *  produces something, but the POST will fail and we'll fall back to a direct
- *  `anvil_setBalance` JSON-RPC call. */
-function faucetUrlFromRpc(rpcUrl: string): string {
+ *  JSON-RPC call. */
+function proxyEndpoint(rpcUrl: string, path: string): string {
   try {
     const u = new URL(rpcUrl);
-    u.pathname = "/faucet";
+    u.pathname = path;
     u.search = "";
     u.hash = "";
     return u.toString();
   } catch {
-    return rpcUrl.replace(/\/rpc\/?$/, "") + "/faucet";
+    return rpcUrl.replace(/\/rpc\/?$/, "") + path;
   }
 }
 
@@ -54,7 +54,7 @@ export async function faucetAnvil(account: string, chainId: number): Promise<eth
   const target = ethers.utils.parseEther(FAUCET_TARGET_ETH);
 
   // Path A: dedicated proxy endpoint.
-  const faucetUrl = faucetUrlFromRpc(rpcUrl);
+  const faucetUrl = proxyEndpoint(rpcUrl, "/faucet");
   try {
     const res = await fetch(faucetUrl, {
       method: "POST",
@@ -96,7 +96,7 @@ export async function maybeMintMockTokens(
   account: string,
   chainId: number,
 ): Promise<{ minted: string[] }> {
-  const { provider } = rpcFor(chainId);
+  const { provider, rpcUrl } = rpcFor(chainId);
   const config = getBareBonesConfiguration(chainId);
 
   const tokens: { address: string; label: string }[] = [];
@@ -115,6 +115,7 @@ export async function maybeMintMockTokens(
   const mintIface = new ethers.utils.Interface(ERC20_MINT_ABI);
   const threshold = ethers.utils.parseUnits(MOCK_TOKEN_THRESHOLD_UNITS, 18);
   const target = ethers.utils.parseUnits(MOCK_TOKEN_TARGET_UNITS, 18);
+  const mintUrl = proxyEndpoint(rpcUrl, "/mint-mock-token");
 
   const minted: string[] = [];
   for (const token of tokens) {
@@ -126,11 +127,33 @@ export async function maybeMintMockTokens(
     const balance = ethers.BigNumber.from(balanceHex || "0x0");
     if (balance.gte(threshold)) continue;
 
-    const mintData = mintIface.encodeFunctionData("mint", [account, target]);
-    // Anvil signs server-side for any unlocked default account — no popup.
-    await provider.send("eth_sendTransaction", [
-      { from: ANVIL_UNLOCKED_DEFAULT, to: token.address, data: mintData },
-    ]);
+    // Path A: dedicated proxy endpoint. Required against the staging RPC,
+    // which denies eth_sendTransaction (it would let any visitor send as
+    // anvil's pre-unlocked dev account). The proxy enforces the mint()
+    // selector and a fixed amount, then dispatches internally.
+    let viaProxy = false;
+    try {
+      const res = await fetch(mintUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: token.address, recipient: account }),
+      });
+      if (res.ok) {
+        viaProxy = true;
+      }
+    } catch {
+      // Network failure — fall through to direct anvil call.
+    }
+
+    if (!viaProxy) {
+      // Path B: direct eth_sendTransaction against bare local Anvil. Works
+      // because there's no allowlist proxy in front in local dev. Will be
+      // denied by the staging proxy — but Path A succeeds there.
+      const mintData = mintIface.encodeFunctionData("mint", [account, target]);
+      await provider.send("eth_sendTransaction", [
+        { from: ANVIL_UNLOCKED_DEFAULT, to: token.address, data: mintData },
+      ]);
+    }
     minted.push(token.address);
   }
 

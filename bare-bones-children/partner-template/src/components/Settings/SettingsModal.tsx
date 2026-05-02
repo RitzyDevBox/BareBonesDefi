@@ -7,6 +7,8 @@ import { Sheet } from "../Primitives/Sheet";
 import { Stack } from "../Primitives";
 import { ButtonBase } from "../Button/ButtonBase";
 import { IconButton } from "../Button/IconButton";
+import { DEPLOYMENT_TARGET } from "../../config/deployment";
+import { showStagingIntro } from "../Staging/StagingIntroModal";
 
 interface ToggleSwitchProps {
   on: boolean;
@@ -127,7 +129,9 @@ interface SettingsModalProps {
 function SettingsBody({
   showTestnets,
   onToggleTestnets,
-}: Pick<SettingsModalProps, "showTestnets" | "onToggleTestnets">) {
+  onClose,
+}: Pick<SettingsModalProps, "showTestnets" | "onToggleTestnets"> & { onClose: () => void }) {
+  const isStaging = DEPLOYMENT_TARGET === "staging";
   return (
     <Stack gap="none">
       <SettingsRow
@@ -140,6 +144,31 @@ function SettingsBody({
         subtitle="Display testnet networks in the chain selector"
         right={<ToggleSwitch on={showTestnets} onChange={onToggleTestnets} />}
       />
+      {isStaging && (
+        <SettingsRow
+          title="Staging intro"
+          subtitle="Re-open the auto-faucet + chain reset explainer"
+          right={
+            <ButtonBase
+              shape="pill"
+              onClick={() => {
+                showStagingIntro();
+                onClose();
+              }}
+              style={{
+                padding: "6px 14px",
+                fontSize: 12,
+                fontWeight: 500,
+                background: "var(--colors-surface)",
+                color: "var(--colors-text-main)",
+                border: "1px solid var(--colors-border)",
+              }}
+            >
+              Show again
+            </ButtonBase>
+          }
+        />
+      )}
     </Stack>
   );
 }
@@ -193,7 +222,7 @@ export function SettingsModal({ isOpen, onClose, showTestnets, onToggleTestnets 
               ✕
             </IconButton>
           </div>
-          <SettingsBody showTestnets={showTestnets} onToggleTestnets={onToggleTestnets} />
+          <SettingsBody showTestnets={showTestnets} onToggleTestnets={onToggleTestnets} onClose={onClose} />
         </div>
       </Sheet>
     );
@@ -252,7 +281,7 @@ export function SettingsModal({ isOpen, onClose, showTestnets, onToggleTestnets 
 
         {/* Body */}
         <div style={{ padding: "0 22px 4px" }}>
-          <SettingsBody showTestnets={showTestnets} onToggleTestnets={onToggleTestnets} />
+          <SettingsBody showTestnets={showTestnets} onToggleTestnets={onToggleTestnets} onClose={onClose} />
         </div>
       </div>
     </div>,
