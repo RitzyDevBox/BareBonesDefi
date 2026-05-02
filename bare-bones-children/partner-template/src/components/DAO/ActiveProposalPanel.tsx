@@ -34,6 +34,7 @@ function VoteButton({
     <button
       disabled={disabled}
       onClick={onClick}
+      data-testid={`proposal-vote-${choice}`}
       style={{
         padding: "0 14px",
         height: 34,

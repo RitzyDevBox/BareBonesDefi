@@ -29,10 +29,18 @@ export async function warpTime(seconds: number, rpcUrl?: string) {
   await rpc("evm_mine", [], rpcUrl);
 }
 
-/** Mine `blocks` blocks. Useful for governor blockNumber-based voting periods. */
+/** Mine `blocks` blocks. Uses anvil_mine for batch counts (instant) and falls
+ *  back to evm_mine if anvil_mine isn't supported (e.g., a hardhat node). */
 export async function mine(blocks: number = 1, rpcUrl?: string) {
-  for (let i = 0; i < blocks; i++) {
-    await rpc("evm_mine", [], rpcUrl);
+  if (blocks <= 0) return;
+  try {
+    await rpc("anvil_mine", ["0x" + blocks.toString(16)], rpcUrl);
+    return;
+  } catch {
+    // anvil_mine not supported — loop with evm_mine.
+    for (let i = 0; i < blocks; i++) {
+      await rpc("evm_mine", [], rpcUrl);
+    }
   }
 }
 

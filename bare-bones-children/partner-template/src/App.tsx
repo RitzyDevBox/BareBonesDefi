@@ -6,6 +6,7 @@ import { Header } from "./components/PageWrapper/Header";
 import { AppBackground } from "./components/PageWrapper/AppBackground";
 import { ActiveOrganizationProvider } from "./providers/ActiveOrganizationProvider";
 import { useAutoFaucet } from "./hooks/useAutoFaucet";
+import { StagingIntroModal } from "./components/Staging/StagingIntroModal";
 
 export default function App() {
   const { account, chainId, connect, disconnect, provider } = useWalletProvider();
@@ -15,6 +16,7 @@ export default function App() {
     <AppBackground>
       <ActiveOrganizationProvider>
         <ToastHost />
+        <StagingIntroModal />
         <Header
           account={account}
           chainId={chainId}
