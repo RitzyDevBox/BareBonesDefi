@@ -1,0 +1,1 @@
+import{N as e,U as o,F as s}from"./index-CR6F0k5d.js";const a={fields:[{id:"asset",component:s.TOKEN_AMOUNT_PICKER,label:"ETH Amount",options:{userScope:o.SmartWallet,defaultTokenAddressResolver:()=>e,preventTokenChange:!0}}]};export{a as WRAP_SCHEMA,a as default};
