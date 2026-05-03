@@ -545,7 +545,11 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
           maxHeight="90vh"
         >
           <ProposalBuilder
-            disabled={!governorAddress || checkingEligibility}
+            // Don't gate the whole form on `checkingEligibility` — the
+            // user already passed eligibility to open the modal, and the
+            // periodic re-check would briefly flip this true every 5s
+            // (Stage / Submit buttons would flicker disabled).
+            disabled={!governorAddress}
             loading={submittingProposal}
             governorAddress={governorAddress}
             onSubmit={handleSubmitProposal}

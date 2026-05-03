@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "VITE_DEPLOYMENT_TARGET=local vite",
+    "dev:staging": "VITE_DEPLOYMENT_TARGET=staging vite",
+    "dev:live": "VITE_DEPLOYMENT_TARGET=live vite",
     "build": "tsc && vite build",
     "build:local": "VITE_DEPLOYMENT_TARGET=local tsc && vite build",
     "build:staging": "VITE_DEPLOYMENT_TARGET=staging tsc && vite build",

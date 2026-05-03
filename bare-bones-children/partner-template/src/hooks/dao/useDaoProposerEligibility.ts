@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ethers } from "ethers";
 import DAOGovernorABI from "../../abis/dao/DAOGovernor.abi.json";
 import { useGlobalTick } from "../useGlobalTick";
@@ -26,6 +26,12 @@ export function useDaoProposerEligibility({ governorAddress, account, provider, 
   // Tied to the shared global tick so we don't spin up a per-component
   // setInterval.
   const periodicRefresh = useGlobalTick(5);
+
+  // SWR: only flip `checkingEligibility = true` on user-meaningful loads
+  // (DAO/account/version changed). Background ticks recompute silently
+  // and only swap state values when the new answer arrives — otherwise
+  // every 5s the button flashes "Checking…" then back to its real label.
+  const lastFreshKeyRef = useRef<string>("");
 
   useEffect(() => {
     let isActive = true;
@@ -56,10 +62,18 @@ export function useDaoProposerEligibility({ governorAddress, account, provider, 
         if (!isActive) return;
         setCanPropose(false);
         setEligibilityMessage("Connect your wallet to create proposals.");
+        lastFreshKeyRef.current = "";
         return;
       }
 
-      setCheckingEligibility(true);
+      // Fresh load = something the user (or a tx) actually changed.
+      // Silent refresh = the periodic tick fired. Only flip the loading
+      // flag on the former; the latter recomputes quietly so the
+      // Create-Proposal button doesn't flash "Checking…" every 5s.
+      const freshKey = `${governorAddress}::${account}::${version}`;
+      const isFreshLoad = lastFreshKeyRef.current !== freshKey;
+      lastFreshKeyRef.current = freshKey;
+      if (isFreshLoad) setCheckingEligibility(true);
 
       try {
         const codeAtAddress = await provider.getCode(governorAddress);
@@ -144,6 +158,12 @@ export function useDaoProposerEligibility({ governorAddress, account, provider, 
         setCanPropose(false);
         setEligibilityMessage(err instanceof Error ? err.message : "Unable to verify proposer eligibility for this DAO.");
       } finally {
+        // Always clear when the active run finishes. Silent refreshes never
+        // *set* the flag (the isFreshLoad guard above), so this is a no-op
+        // for them. Gating the clear on isFreshLoad caused a stuck-true bug
+        // when the effect re-fired mid-await: the cancelled run skipped
+        // the clear (isActive=false), and the new run saw isFreshLoad=false
+        // (ref already mutated) and skipped it too.
         if (isActive) setCheckingEligibility(false);
       }
     }
