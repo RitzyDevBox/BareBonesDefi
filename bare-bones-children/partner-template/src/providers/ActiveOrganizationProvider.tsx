@@ -107,6 +107,19 @@ export function ActiveOrganizationProvider({ children }: { children: React.React
     refreshKey: txVersion,
   });
 
+  // Drop a stale activeOrgSlug if the on-chain owned-orgs list says it
+  // doesn't exist anymore. Common cause: the chain was reset (anvil restore,
+  // staging refresh, --fresh redeploy) so previous orgs are gone, but
+  // localStorage still has the old slug. Without this the nav-bar
+  // selector keeps showing the dead org and downstream queries fail.
+  useEffect(() => {
+    if (loadingOwnedOrgs) return;
+    if (!activeOrgSlug) return;
+    if (organizations.length === 0 || !organizations.includes(activeOrgSlug)) {
+      setActiveOrgSlugState(null);
+    }
+  }, [loadingOwnedOrgs, organizations, activeOrgSlug]);
+
   const [activeOrgInfo, setActiveOrgInfo] = useState<OrganizationModel | null>(null);
 
   useEffect(() => {

@@ -39,19 +39,32 @@ test("create proposal and cast a For vote", async ({ page }) => {
 
   // 4. Self-delegate if the button is visible (delegation persists across
   // DAOs for the same MGT contract — re-runs may already be delegated).
+  // Race-condition note: createProposal renders *immediately* in its
+  // "Checking…" disabled state while eligibility loads, so racing against
+  // its mere visibility always wins on "propose" and skips delegation.
+  // We instead race delegate-visible vs createProposal-ENABLED — i.e.,
+  // wait until the eligibility check has actually committed to one of
+  // the two end states.
   const selfDelegate = page.getByTestId("dao-self-delegate");
   const createProposal = page.getByTestId("dao-create-proposal");
 
-  const firstVisible = await Promise.race([
+  const firstReady = await Promise.race([
     selfDelegate
       .waitFor({ state: "visible", timeout: 30_000 })
       .then(() => "delegate" as const),
-    createProposal
-      .waitFor({ state: "visible", timeout: 30_000 })
+    page
+      .waitForFunction(
+        () => {
+          const el = document.querySelector('[data-testid="dao-create-proposal"]');
+          return el instanceof HTMLButtonElement && !el.disabled;
+        },
+        null,
+        { timeout: 30_000 },
+      )
       .then(() => "propose" as const),
   ]);
 
-  if (firstVisible === "delegate") {
+  if (firstReady === "delegate") {
     await selfDelegate.click();
     await expect(
       page.getByText(/Delegated voting power to your wallet/i)
@@ -62,8 +75,12 @@ test("create proposal and cast a For vote", async ({ page }) => {
   }
 
   // 5. Open Create Proposal → "Governance Management" → "Set Voting Delay".
+  // The button shows "Checking…" disabled while the dapp polls the
+  // governor's canPropose() — that takes a couple of refresh cycles
+  // after the delegation tx lands. Default toBeEnabled timeout (5s)
+  // isn't enough; widen to 30s like the visibility check.
   await expect(createProposal).toBeVisible({ timeout: 30_000 });
-  await expect(createProposal).toBeEnabled();
+  await expect(createProposal).toBeEnabled({ timeout: 30_000 });
   await createProposal.click();
 
   await page.getByTestId("proposal-action-group").click();

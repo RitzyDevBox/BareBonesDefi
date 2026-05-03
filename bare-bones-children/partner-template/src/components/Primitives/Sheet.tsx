@@ -125,7 +125,6 @@ export function Sheet({
           // Sheet portals to document.body — no inherited text color, so
           // anchor it explicitly so dark-mode body text stays readable.
           color: cssVar("colors-text-main"),
-          boxShadow: cssVar("shadows-medium"),
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",

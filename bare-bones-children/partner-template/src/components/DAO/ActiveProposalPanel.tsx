@@ -538,6 +538,7 @@ export function ActiveProposalPanel({
                               fullWidth={false}
                               disabled={isActioning}
                               onClick={() => onCancel(proposal)}
+                              data-testid="proposal-cancel"
                               style={{
                                 color: "var(--colors-error)",
                                 borderColor: "color-mix(in oklab, var(--colors-error) 35%, var(--colors-border))",
@@ -553,6 +554,7 @@ export function ActiveProposalPanel({
                               fullWidth={false}
                               disabled={isActioning}
                               onClick={() => onQueue(proposal)}
+                              data-testid="proposal-queue"
                             >
                               {isQueueing ? "Queueing…" : "Queue for Execution"}
                             </ButtonPrimary>
@@ -581,6 +583,7 @@ export function ActiveProposalPanel({
                                   fullWidth={false}
                                   disabled={isActioning || !canExecuteTimelockActions || !isReadyByCountdown}
                                   onClick={() => onExecute(proposal)}
+                                  data-testid="proposal-execute"
                                 >
                                   {isExecuting ? "Executing…" : "Execute Proposal"}
                                 </ButtonPrimary>

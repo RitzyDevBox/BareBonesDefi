@@ -112,7 +112,6 @@ export function Modal({
           color: "var(--colors-text-main)",
           border: "1px solid var(--colors-border)",
           borderRadius: "var(--radius-lg)",
-          boxShadow: "var(--shadows-medium)",
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",

@@ -45,19 +45,30 @@ test("create a Set Voting Delay proposal", async ({ page }) => {
   // so on a re-run the EOA may already have voting power → the Self-Delegate
   // button is hidden and Create Proposal is shown directly. Race the two so
   // the spec works in both states.
+  // Race-condition note: createProposal renders *immediately* in its
+  // "Checking…" disabled state while eligibility loads, so racing against
+  // its mere visibility always wins on "propose" and skips delegation.
+  // We instead race delegate-visible vs createProposal-ENABLED.
   const selfDelegate = page.getByTestId("dao-self-delegate");
   const createProposal = page.getByTestId("dao-create-proposal");
 
-  const firstVisible = await Promise.race([
+  const firstReady = await Promise.race([
     selfDelegate
       .waitFor({ state: "visible", timeout: 30_000 })
       .then(() => "delegate" as const),
-    createProposal
-      .waitFor({ state: "visible", timeout: 30_000 })
+    page
+      .waitForFunction(
+        () => {
+          const el = document.querySelector('[data-testid="dao-create-proposal"]');
+          return el instanceof HTMLButtonElement && !el.disabled;
+        },
+        null,
+        { timeout: 30_000 },
+      )
       .then(() => "propose" as const),
   ]);
 
-  if (firstVisible === "delegate") {
+  if (firstReady === "delegate") {
     await selfDelegate.click();
     await expect(
       page.getByText(/Delegated voting power to your wallet/i)
@@ -70,9 +81,11 @@ test("create a Set Voting Delay proposal", async ({ page }) => {
   }
 
   // 5. Wait for canPropose to flip true (governor re-checks eligibility after
-  // the delegation tx mines and the txRefresh fires).
+  // the delegation tx mines and the txRefresh fires). The button sits in
+  // "Checking…" disabled while polling — default 5s toBeEnabled timeout
+  // isn't enough.
   await expect(createProposal).toBeVisible({ timeout: 30_000 });
-  await expect(createProposal).toBeEnabled();
+  await expect(createProposal).toBeEnabled({ timeout: 30_000 });
   await createProposal.click();
 
   // 6. ProposalBuilder modal — pick "Governance Management" → "Set Voting Delay".

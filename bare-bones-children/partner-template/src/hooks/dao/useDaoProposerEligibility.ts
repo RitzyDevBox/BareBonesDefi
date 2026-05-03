@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import DAOGovernorABI from "../../abis/dao/DAOGovernor.abi.json";
+import { useGlobalTick } from "../useGlobalTick";
 
 type Params = {
   governorAddress: string;
@@ -19,6 +20,12 @@ export function useDaoProposerEligibility({ governorAddress, account, provider, 
   const [canPropose, setCanPropose] = useState(false);
   const [eligibilityMessage, setEligibilityMessage] = useState<string | null>(null);
   const [checkingEligibility, setCheckingEligibility] = useState(false);
+  // Periodic refresh — between txs blocks still advance (under
+  // --block-time), so eligibility can flip from "not enough votes" to
+  // "enough votes" once the chain progresses past the delegation block.
+  // Tied to the shared global tick so we don't spin up a per-component
+  // setInterval.
+  const periodicRefresh = useGlobalTick(5);
 
   useEffect(() => {
     let isActive = true;
@@ -90,8 +97,25 @@ export function useDaoProposerEligibility({ governorAddress, account, provider, 
           throw new Error(explainError("getVotes(account, timepoint)", err));
         }
 
+        // "Current" voting power is queried on the token directly via
+        // IVotes.getVotes(address) — the no-timepoint variant. Going
+        // through Governor.getVotes(addr, currentClock) always reverts
+        // with ERC5805FutureLookup ("0xecd3f81e: GG") because OZ
+        // disallows querying votes at the live clock value. We fall back
+        // to the historical value if the token call fails for any other
+        // reason.
         try {
-          votingPowerAtCurrentClock = ethers.BigNumber.from(await governor.getVotes(account, currentClock));
+          const tokenAddress: string = await governor.token();
+          if (ethers.utils.isAddress(tokenAddress) && tokenAddress !== ethers.constants.AddressZero) {
+            const token = new ethers.Contract(
+              tokenAddress,
+              ["function getVotes(address) view returns (uint256)"],
+              provider,
+            );
+            votingPowerAtCurrentClock = ethers.BigNumber.from(await token.getVotes(account));
+          } else {
+            votingPowerAtCurrentClock = votingPower;
+          }
         } catch {
           votingPowerAtCurrentClock = votingPower;
         }
@@ -126,7 +150,7 @@ export function useDaoProposerEligibility({ governorAddress, account, provider, 
 
     void checkEligibility();
     return () => { isActive = false; };
-  }, [provider, governorAddress, account, version]);
+  }, [provider, governorAddress, account, version, periodicRefresh]);
 
   return { canPropose, eligibilityMessage, checkingEligibility };
 }

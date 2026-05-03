@@ -251,7 +251,6 @@ export function SettingsModal({ isOpen, onClose, showTestnets, onToggleTestnets 
           background: "var(--colors-surface)",
           border: "1px solid var(--colors-border)",
           borderRadius: "var(--radius-lg)",
-          boxShadow: "var(--shadows-medium)",
           overflow: "hidden",
         }}
       >

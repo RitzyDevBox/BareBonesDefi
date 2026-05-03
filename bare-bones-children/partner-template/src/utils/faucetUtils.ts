@@ -41,6 +41,20 @@ function proxyEndpoint(rpcUrl: string, path: string): string {
   }
 }
 
+/** Returns true when the RPC URL looks like a *proxy* (has a meaningful
+ *  path, e.g. `/rpc`) rather than a bare anvil endpoint. Bare anvil
+ *  doesn't expose `/faucet` / `/mint-mock-token`, and POST'ing to those
+ *  paths against it generates a CORS preflight failure that pollutes
+ *  the dapp console — so we skip Path A entirely on local. */
+function rpcUrlLooksProxied(rpcUrl: string): boolean {
+  try {
+    const u = new URL(rpcUrl);
+    return u.pathname !== "" && u.pathname !== "/";
+  } catch {
+    return false;
+  }
+}
+
 export async function getNativeBalance(account: string, chainId: number): Promise<ethers.BigNumber> {
   return rpcFor(chainId).provider.getBalance(account);
 }
@@ -53,17 +67,22 @@ export async function faucetAnvil(account: string, chainId: number): Promise<eth
   const { provider, rpcUrl } = rpcFor(chainId);
   const target = ethers.utils.parseEther(FAUCET_TARGET_ETH);
 
-  // Path A: dedicated proxy endpoint.
-  const faucetUrl = proxyEndpoint(rpcUrl, "/faucet");
-  try {
-    const res = await fetch(faucetUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ address: account }),
-    });
-    if (res.ok) return target;
-  } catch {
-    // Network failure — fall through to JSON-RPC fallback.
+  // Path A: dedicated proxy endpoint. Only attempt when we're actually
+  // pointed at a proxy (URL has a path). Bare anvil doesn't expose
+  // /faucet — calling it would just generate a CORS preflight failure
+  // in the console.
+  if (rpcUrlLooksProxied(rpcUrl)) {
+    const faucetUrl = proxyEndpoint(rpcUrl, "/faucet");
+    try {
+      const res = await fetch(faucetUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ address: account }),
+      });
+      if (res.ok) return target;
+    } catch {
+      // Network failure — fall through to JSON-RPC fallback.
+    }
   }
 
   // Path B: direct anvil_setBalance (works against bare Anvil; will be denied
@@ -115,7 +134,8 @@ export async function maybeMintMockTokens(
   const mintIface = new ethers.utils.Interface(ERC20_MINT_ABI);
   const threshold = ethers.utils.parseUnits(MOCK_TOKEN_THRESHOLD_UNITS, 18);
   const target = ethers.utils.parseUnits(MOCK_TOKEN_TARGET_UNITS, 18);
-  const mintUrl = proxyEndpoint(rpcUrl, "/mint-mock-token");
+  const isProxied = rpcUrlLooksProxied(rpcUrl);
+  const mintUrl = isProxied ? proxyEndpoint(rpcUrl, "/mint-mock-token") : null;
 
   const minted: string[] = [];
   for (const token of tokens) {
@@ -130,19 +150,23 @@ export async function maybeMintMockTokens(
     // Path A: dedicated proxy endpoint. Required against the staging RPC,
     // which denies eth_sendTransaction (it would let any visitor send as
     // anvil's pre-unlocked dev account). The proxy enforces the mint()
-    // selector and a fixed amount, then dispatches internally.
+    // selector and a fixed amount, then dispatches internally. Skipped
+    // when pointed at bare anvil — that endpoint doesn't exist there
+    // and the preflight CORS failure would just spam the console.
     let viaProxy = false;
-    try {
-      const res = await fetch(mintUrl, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token: token.address, recipient: account }),
-      });
-      if (res.ok) {
-        viaProxy = true;
+    if (mintUrl) {
+      try {
+        const res = await fetch(mintUrl, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token: token.address, recipient: account }),
+        });
+        if (res.ok) {
+          viaProxy = true;
+        }
+      } catch {
+        // Network failure — fall through to direct anvil call.
       }
-    } catch {
-      // Network failure — fall through to direct anvil call.
     }
 
     if (!viaProxy) {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
 import { Link, useParams } from "react-router-dom";
 import DAOGovernorABI from "../abis/dao/DAOGovernor.abi.json";
@@ -10,6 +10,7 @@ import { ProposalBuilder } from "../components/DAO/ProposalBuilder";
 import type { DaoProposalSummary, ProposalBuildPayload } from "../components/DAO/types";
 import { Card, CardContent } from "../components/BasicComponents";
 import { ButtonSecondary } from "../components/Button/ButtonPrimary";
+import { Loader } from "../components/Loader/Loader";
 import { Modal } from "../components/Modal/Modal";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Stack } from "../components/Primitives";
@@ -110,6 +111,61 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
     }
     return map;
   }, [activeProposals, account]);
+
+  // ─── Undelegated balance display ────────────────────────────────────────────
+  // Reads the connected wallet's governance-token balance + current
+  // delegate; surfaces a "you have N tokens to delegate" hint next to the
+  // self-delegate button so users understand why proposing is gated. If
+  // the wallet has already delegated, balance still shows but it's no
+  // longer "undelegated" — we suppress in that case.
+  const [undelegatedVotesDisplay, setUndelegatedVotesDisplay] = useState<string>("");
+  useEffect(() => {
+    let cancelled = false;
+    const tokenAddress = governanceOverview?.tokenAddress;
+    if (!provider || !account || !tokenAddress || !shouldShowDelegatePrompt) {
+      setUndelegatedVotesDisplay("");
+      return;
+    }
+    void (async () => {
+      try {
+        const token = new ethers.Contract(
+          tokenAddress,
+          [
+            "function balanceOf(address) view returns (uint256)",
+            "function decimals() view returns (uint8)",
+            "function symbol() view returns (string)",
+            "function delegates(address) view returns (address)",
+          ],
+          provider as ethers.providers.Provider,
+        );
+        const [balanceRaw, decimals, symbol, delegate] = await Promise.all([
+          token.balanceOf(account),
+          token.decimals().catch(() => 18),
+          token.symbol().catch(() => ""),
+          token.delegates(account).catch(() => ethers.constants.AddressZero),
+        ]);
+        if (cancelled) return;
+        const isDelegated =
+          delegate && delegate !== ethers.constants.AddressZero;
+        const undelegated = isDelegated
+          ? ethers.BigNumber.from(0)
+          : ethers.BigNumber.from(balanceRaw);
+        if (undelegated.isZero()) {
+          setUndelegatedVotesDisplay("");
+          return;
+        }
+        const human = ethers.utils.formatUnits(undelegated, decimals);
+        // Trim trailing ".0" / unnecessary zeros for clean display.
+        const trimmed = human.replace(/\.?0+$/, "");
+        setUndelegatedVotesDisplay(`${trimmed}${symbol ? " " + symbol : ""}`);
+      } catch {
+        if (!cancelled) setUndelegatedVotesDisplay("");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [provider, account, governanceOverview?.tokenAddress, shouldShowDelegatePrompt, version]);
 
   // ─── Transaction hooks ──────────────────────────────────────────────────────
 
@@ -226,7 +282,12 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
     if (!canPropose) throw new Error(eligibilityMessage || "You are not eligible to create proposals.");
     setSubmittingProposal(true);
     try {
-      await executePropose(chainId, payload);
+      // executePropose returns the tx if it landed; undefined if gas
+      // estimation reverted / user cancelled / etc. Only close the
+      // modal on a real submission so failures keep the form filled
+      // for retry.
+      const tx = await executePropose(chainId, payload);
+      if (tx) setShowProposalForm(false);
     } finally {
       setSubmittingProposal(false);
     }
@@ -254,12 +315,36 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
     const tokenAddress = governanceOverview?.tokenAddress;
     if (!tokenAddress) throw new Error("Governance token address unavailable.");
     setDelegatingVotePower(true);
+    const startedAt = Date.now();
+    let tx: ethers.providers.TransactionResponse | undefined;
     try {
-      await executeSelfDelegate(chainId, tokenAddress, account);
-      window.setTimeout(() => {
-        triggerRefresh({ message: "Rechecking proposer eligibility after delegation" });
-      }, 1500);
+      tx = await executeSelfDelegate(chainId, tokenAddress, account);
+      if (!tx) {
+        // executeTx returns undefined when build / gas-estimate / send fails;
+        // its lifecycle already showed an error toast, but we surface the
+        // rawer detail to devtools so it's easy to copy/paste.
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[delegate] tx not submitted — gas estimation likely reverted. " +
+            "Common causes: token contract address mismatch (governanceOverview.tokenAddress " +
+            `= ${tokenAddress}), token has no balance for ${account}, or token doesn't expose delegate(address).`,
+        );
+      } else {
+        window.setTimeout(() => {
+          triggerRefresh({ message: "Rechecking proposer eligibility after delegation" });
+        }, 1500);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[delegate] failed:", err);
+      throw err;
     } finally {
+      // Keep the spinner up for at least 800ms so users actually see it
+      // even when gas-estimation reverts and the call returns instantly.
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < 800) {
+        await new Promise((r) => setTimeout(r, 800 - elapsed));
+      }
       setDelegatingVotePower(false);
     }
   }
@@ -365,13 +450,22 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
                   <Text.Body size="sm" color="warn" style={{ textAlign: "right", maxWidth: 460 }}>
                     {eligibilityMessage}
                   </Text.Body>
+                  {undelegatedVotesDisplay ? (
+                    <Text.Body size="xs" color="muted" style={{ textAlign: "right" }}>
+                      Undelegated balance: <strong>{undelegatedVotesDisplay}</strong>
+                    </Text.Body>
+                  ) : null}
                   <ButtonSecondary
                     fullWidth={false}
                     disabled={delegatingVotePower}
                     onClick={() => void handleSelfDelegate()}
                     data-testid="dao-self-delegate"
                   >
-                    {delegatingVotePower ? "Delegating…" : "Self-Delegate Votes"}
+                    {delegatingVotePower ? (
+                      <Loader inline label="Delegating…" size={14} />
+                    ) : (
+                      "Self-Delegate Votes"
+                    )}
                   </ButtonSecondary>
                 </>
               ) : null}
@@ -397,12 +491,21 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
               <Text.Body size="sm" color="warn">
                 {eligibilityMessage}
               </Text.Body>
+              {undelegatedVotesDisplay ? (
+                <Text.Body size="xs" color="muted">
+                  Undelegated balance: <strong>{undelegatedVotesDisplay}</strong>
+                </Text.Body>
+              ) : null}
               <ButtonSecondary
                 disabled={delegatingVotePower}
                 onClick={() => void handleSelfDelegate()}
                 data-testid="dao-self-delegate"
               >
-                {delegatingVotePower ? "Delegating…" : "Self-Delegate Votes"}
+                {delegatingVotePower ? (
+                  <Loader inline label="Delegating…" size={14} />
+                ) : (
+                  "Self-Delegate Votes"
+                )}
               </ButtonSecondary>
             </>
           )}

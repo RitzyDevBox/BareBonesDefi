@@ -63,8 +63,12 @@ export async function installMockWallet(page: Page, opts: MockWalletOpts = {}) {
         }) {
           const entry: { method: string; params: unknown[]; result?: unknown; error?: string } = { method, params };
           rpcLog.push(entry);
+          // Use console.debug so the trace stays out of the default
+          // DevTools view (it spams on every poll). Tests can still read
+          // the full history via window.__pwRpcLog, and devs can flip
+          // DevTools to "Verbose" log level to see it inline.
           // eslint-disable-next-line no-console
-          console.log("[mockWallet] →", method, params);
+          console.debug("[mockWallet] →", method, params);
 
           try {
             let result: unknown;
@@ -105,12 +109,18 @@ export async function installMockWallet(page: Page, opts: MockWalletOpts = {}) {
             }
             entry.result = result;
             // eslint-disable-next-line no-console
-            console.log("[mockWallet] ←", method, result);
+            console.debug("[mockWallet] ←", method, result);
             return result;
           } catch (err) {
             entry.error = (err as Error).message;
+            // Reverts ("execution reverted: …") are normal traffic for
+            // dapps that probe state (e.g. checking whether an org slug
+            // exists). The dapp catches them and acts accordingly; we
+            // shouldn't spam the console.error stream with them.
+            const msg = (err as Error).message ?? "";
+            const isRevert = /execution reverted|reverted with custom error/i.test(msg);
             // eslint-disable-next-line no-console
-            console.error("[mockWallet] ✗", method, err);
+            (isRevert ? console.debug : console.error)("[mockWallet] ✗", method, err);
             throw err;
           }
         },

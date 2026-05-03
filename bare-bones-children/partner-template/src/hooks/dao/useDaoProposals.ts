@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useGlobalTick } from "../useGlobalTick";
 import { ethers } from "ethers";
 import DAOGovernorABI from "../../abis/dao/DAOGovernor.abi.json";
 import ERC20ABI from "../../abis/ERC20.json";
@@ -129,6 +130,19 @@ export function useDaoProposals({ governorAddress, chainId, provider, version }:
   const [allProposals, setAllProposals] = useState<DaoProposalSummary[]>([]);
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [daoName, setDaoName] = useState<string>("");
+  // Periodic refresh (every 5s). Picks up state transitions that happen
+  // *between* user actions — most importantly proposals moving from
+  // Pending → Active once votingDelay blocks pass, so the UI doesn't
+  // sit on stale state until the next tx triggers txRefresh.
+  const periodicRefresh = useGlobalTick(5);
+
+  // Tracks the last "user-meaningful" load key so we can distinguish a
+  // fresh load (navigated to a different DAO, or a tx just landed) from
+  // a silent background refresh (tick fired). Fresh loads show the
+  // loading skeleton; silent refreshes leave the existing list visible
+  // until the new payload arrives. Prevents the whole-list flicker every
+  // 5 seconds.
+  const lastFreshKeyRef = useRef<string>("");
 
   useEffect(() => {
     let isActive = true;
@@ -155,11 +169,22 @@ export function useDaoProposals({ governorAddress, chainId, provider, version }:
 
     async function loadProposals() {
       if (!governorAddress || chainId == null) {
-        if (isActive) setAllProposals([]);
+        if (isActive) {
+          setAllProposals([]);
+          lastFreshKeyRef.current = "";
+        }
         return;
       }
 
-      setLoadingProposals(true);
+      // Distinguish "user-meaningful" loads (changed DAO / chain, or a
+      // tx just landed) from silent ticks. Only the former shows the
+      // loading skeleton; the latter keeps the existing list visible
+      // and quietly swaps data when the new payload arrives. That
+      // eliminates the every-5s full-list flicker.
+      const freshKey = `${governorAddress}::${chainId}::${version}`;
+      const isFreshLoad = lastFreshKeyRef.current !== freshKey;
+      lastFreshKeyRef.current = freshKey;
+      if (isFreshLoad) setLoadingProposals(true);
 
       try {
         const [graphProposals, graphVotes] = await Promise.all([
@@ -316,7 +341,10 @@ export function useDaoProposals({ governorAddress, chainId, provider, version }:
         if (isActive) setAllProposals(enriched);
       } catch (err) {
         console.error("Failed to load proposals:", err);
-        if (isActive) setAllProposals([]);
+        // Only wipe the list on a fresh user-triggered load. On a
+        // background-refresh failure (network blip, subgraph hiccup)
+        // keep the previous data visible — better stale than empty.
+        if (isFreshLoad && isActive) setAllProposals([]);
       } finally {
         if (isActive) setLoadingProposals(false);
       }
@@ -324,7 +352,7 @@ export function useDaoProposals({ governorAddress, chainId, provider, version }:
 
     void loadProposals();
     return () => { isActive = false; };
-  }, [provider, governorAddress, chainId, version]);
+  }, [provider, governorAddress, chainId, version, periodicRefresh]);
 
   const activeProposals = useMemo(
     () => allProposals.filter((p) => p.state === 0 || p.state === 1 || p.state === 4 || p.state === 5),

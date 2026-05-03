@@ -22,6 +22,11 @@ const VIDEO_SIZE = {
 
 export default defineConfig({
   testDir: "./tests",
+  // Re-flash anvil's chain to its post-deploy "golden" snapshot once per
+  // `playwright test` invocation. Tests within a run then share whatever
+  // state earlier tests wrote — convenient for multi-step flows like
+  // "create DAO" then "vote on it" — and the next run starts clean.
+  globalSetup: "./tests/_lib/global-setup.ts",
   fullyParallel: !DEMO,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -45,7 +50,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "yarn dev",
+    // npm, not yarn — yarn isn't installed in this repo's tooling. If :5173
+    // is already serving (start-test-env / a manual `npm run dev` shell),
+    // Playwright reuses that and skips spawning a new one.
+    command: "npm run dev",
     url: BASE_URL,
     reuseExistingServer: true,
     timeout: 120_000,
