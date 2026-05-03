@@ -1,0 +1,1 @@
+import{U as o,F as e}from"./index-sToxwDtG.js";const t={fields:[{id:"asset",component:e.TOKEN_AMOUNT_PICKER,label:"Asset",options:{userScope:o.SmartWallet}},{id:"recipient",component:e.ADDRESS,label:"Recipient Address"}]};export{t as WITHDRAW_SCHEMA,t as default};
