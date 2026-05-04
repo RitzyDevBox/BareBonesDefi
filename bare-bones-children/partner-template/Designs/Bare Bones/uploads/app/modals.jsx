@@ -99,7 +99,7 @@ function WalletModal({ wallet, chain, onClose, onDisconnect }) {
 }
 
 // --- Settings Modal ---
-function SettingsModal({ onClose, theme, setTheme, showTestnets, setShowTestnets, notifications, setNotifications, showTokenBalances, setShowTokenBalances }) {
+function SettingsModal({ onClose, theme, setTheme, showTestnets, setShowTestnets, notifications, setNotifications }) {
   return (
     <Modal title="Settings" onClose={onClose}>
       <div className="modal-body tight">
@@ -135,14 +135,6 @@ function SettingsModal({ onClose, theme, setTheme, showTestnets, setShowTestnets
             <div className="sr-sub">Toast when new proposals go live</div>
           </div>
           <button className={`switch${notifications ? ' on' : ''}`} onClick={() => setNotifications(v => !v)} aria-pressed={notifications} />
-        </div>
-
-        <div className="settings-row">
-          <div>
-            <div className="sr-title">Show token balances</div>
-            <div className="sr-sub">Display wallet balances in token pickers</div>
-          </div>
-          <button className={`switch${showTokenBalances ? ' on' : ''}`} onClick={() => setShowTokenBalances(v => !v)} aria-pressed={showTokenBalances} />
         </div>
 
         <div className="settings-row">

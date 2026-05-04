@@ -39,60 +39,65 @@ function EarningsCatalogPage({ chain, activeDao, wallet, isAdmin }) {
 
   return (
     <>
-      <div className="ec-bar">
-        <div className="ec-bar-l">
-          <label className="pb-bar-label">Rule type</label>
-          <select className="input ec-rule-sel" value={filterRule} onChange={e => setFilterRule(e.target.value)}>
-            <option value="all">All rule types</option>
-            {RULE_TYPES.map(rt => (
-              <option key={rt.id} value={rt.id}>{rt.label} — {rt.sub}</option>
+      <div className="panel">
+        <div className="panel-toolbar">
+          <div className="panel-toolbar-l">
+            <label className="pb-bar-label">Rule type</label>
+            <select className="input ec-rule-sel" value={filterRule} onChange={e => setFilterRule(e.target.value)}>
+              <option value="all">All rule types</option>
+              {RULE_TYPES.map(rt => (
+                <option key={rt.id} value={rt.id}>{rt.label} — {rt.sub}</option>
+              ))}
+            </select>
+          </div>
+          <div className="panel-toolbar-r">
+            <button className="btn-primary btn-sm" onClick={() => setAdding(true)} disabled={!editable}>
+              <I.Plus size={13} /> Add earning
+            </button>
+          </div>
+        </div>
+
+        <div className="panel-body">
+          <div className="ec-section-head">
+            <div>
+              <h3>User earnings codes</h3>
+              <div className="muted small">Editable by admins · {userFiltered.length} of {catalog.user.length} shown</div>
+            </div>
+          </div>
+          <div className="ec-grid">
+            {userFiltered.length === 0 && (
+              <div className="ec-empty muted">No user codes match this rule type.</div>
+            )}
+            {userFiltered.map(c => (
+              <EarningCodeCard
+                key={c.id}
+                code={c}
+                editable={editable}
+                system={false}
+                onEdit={() => setEditing(c)}
+                onToggleActive={() => onToggleActive(c.id)}
+              />
             ))}
-          </select>
-        </div>
-        <div className="pay-toolbar-spacer" />
-        <button className="btn-primary btn-sm" onClick={() => setAdding(true)} disabled={!editable}>
-          <I.Plus size={13} /> Add earning
-        </button>
-      </div>
-
-      <div className="ec-section">
-        <div className="ec-section-head">
-          <div>
-            <h3>User earnings codes</h3>
-            <div className="muted small">Editable by admins · {userFiltered.length} of {catalog.user.length} shown</div>
           </div>
-        </div>
-        <div className="ec-grid">
-          {userFiltered.length === 0 && (
-            <div className="ec-empty muted">No user codes match this rule type.</div>
-          )}
-          {userFiltered.map(c => (
-            <EarningCodeCard
-              key={c.id}
-              code={c}
-              editable={editable}
-              system={false}
-              onEdit={() => setEditing(c)}
-              onToggleActive={() => onToggleActive(c.id)}
-            />
-          ))}
         </div>
       </div>
 
-      <div className="ec-section">
-        <div className="ec-section-head">
+      <div className="panel">
+        <div className="panel-head">
           <div>
-            <h3>System earnings codes</h3>
-            <div className="muted small">Governance-managed · read-only · {sysFiltered.length} shown</div>
+            <span className="kicker">System earnings codes</span>
+            <div className="muted small" style={{ marginTop: 2 }}>Governance-managed · read-only · {sysFiltered.length} shown</div>
           </div>
         </div>
-        <div className="ec-grid">
-          {sysFiltered.length === 0 && (
-            <div className="ec-empty muted">No system codes match this rule type.</div>
-          )}
-          {sysFiltered.map(c => (
-            <EarningCodeCard key={c.id} code={c} editable={false} system={true} />
-          ))}
+        <div className="panel-body">
+          <div className="ec-grid">
+            {sysFiltered.length === 0 && (
+              <div className="ec-empty muted">No system codes match this rule type.</div>
+            )}
+            {sysFiltered.map(c => (
+              <EarningCodeCard key={c.id} code={c} editable={false} system={true} />
+            ))}
+          </div>
         </div>
       </div>
 

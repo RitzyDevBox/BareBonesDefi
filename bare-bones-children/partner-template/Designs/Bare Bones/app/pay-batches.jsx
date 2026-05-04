@@ -164,14 +164,20 @@ function PayBatchesPage({ chain, activeDao, wallet, isAdmin }) {
         </div>
       )}
 
-      <div className="pay-toolbar">
-        <div className="pay-toolbar-spacer" />
-        <button className="btn-ghost btn-sm" onClick={() => setExpanded(new Set(view.map(r => r.id)))} disabled={!view.length}>Expand all</button>
-        <button className="btn-ghost btn-sm" onClick={() => setExpanded(new Set())}>Collapse all</button>
-        <button className="btn-primary btn-sm" onClick={() => setAdding(true)} disabled={!editable || candidates.length === 0}>
-          <I.Plus size={13} /> Add payee to batch
-        </button>
-      </div>
+      <div className="panel">
+        <div className="panel-toolbar">
+          <div className="panel-toolbar-l">
+            <span className="kicker">{selected.name}</span>
+            <span className="muted small">{view.filter(r => r.__status !== 'deleted').length} member{view.filter(r => r.__status !== 'deleted').length === 1 ? '' : 's'}</span>
+          </div>
+          <div className="panel-toolbar-r">
+            <button className="btn-ghost btn-sm" onClick={() => setExpanded(new Set(view.map(r => r.id)))} disabled={!view.length}>Expand all</button>
+            <button className="btn-ghost btn-sm" onClick={() => setExpanded(new Set())}>Collapse all</button>
+            <button className="btn-primary btn-sm" onClick={() => setAdding(true)} disabled={!editable || candidates.length === 0}>
+              <I.Plus size={13} /> Add payee to batch
+            </button>
+          </div>
+        </div>
 
       {adding && (
         <div className="pb-add-shelf">
@@ -196,7 +202,7 @@ function PayBatchesPage({ chain, activeDao, wallet, isAdmin }) {
         </div>
       )}
 
-      <div className="stg-table" role="table" aria-label="Pay batch members">
+      <div className="stg-table panel-table" role="table" aria-label="Pay batch members">
         <div className="stg-head" role="row">
           <div className="stg-cell stg-cell-expand" aria-hidden />
           <div className="stg-cell stg-cell-name">Payee</div>
@@ -229,6 +235,7 @@ function PayBatchesPage({ chain, activeDao, wallet, isAdmin }) {
             onUndoEarning={(cid) => mutators.undoChild(row.id, cid)}
           />
         ))}
+      </div>
       </div>
 
       <StagedFooter

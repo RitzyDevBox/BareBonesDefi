@@ -7,9 +7,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "density": "comfortable",
   "fontPairing": "display",
   "cardStyle": "bordered",
-  "honeycomb": true,
-  "mobilePreview": false,
-  "navMode": "unified"
+  "honeycomb": true
 }/*EDITMODE-END*/;
 
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -20,7 +18,6 @@ function App() {
   const [wallet, setWallet] = React.useState(null);
   const [showTestnets, setShowTestnets] = React.useState(false);
   const [notifications, setNotifications] = React.useState(true);
-  const [showTokenBalances, setShowTokenBalances] = React.useState(true);
   const [theme, setTheme] = React.useState('dark');
   const [walletOpen, setWalletOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -106,11 +103,6 @@ function App() {
     document.body.classList.toggle('has-bg', !!tweaks.honeycomb);
   }, [tweaks.honeycomb]);
 
-  // mobile preview frame
-  React.useEffect(() => {
-    document.body.classList.toggle('mobile-preview', !!tweaks.mobilePreview);
-  }, [tweaks.mobilePreview]);
-
   // --- wallet ---
   const connect = () => {
     window.toast.info('Requesting wallet…', { duration: 1500 });
@@ -142,7 +134,6 @@ function App() {
   }, [route, notifications]);
 
   return (
-    <SettingsContext.Provider value={{ showTokenBalances }}>
     <div className="app">
       <Honeycomb enabled={!!tweaks.honeycomb} />
       <Nav
@@ -155,14 +146,12 @@ function App() {
         onOpenWallet={() => setWalletOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onConnect={connect}
-        onDisconnect={disconnect}
-        navMode={tweaks.navMode}
       />
       <main>
         {route === 'home' && <Landing goGovernance={() => setRoute('governance')} />}
         {route === 'governance' && <Governance chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'wallets' && <WalletsPage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
-        {route === 'payments' && <PaymentsPage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
+        {route === 'payments' && <PayeesPage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'docs' && (
           <section className="section">
             <div className="container">
@@ -191,7 +180,6 @@ function App() {
           theme={theme} setTheme={setTheme}
           showTestnets={showTestnets} setShowTestnets={setShowTestnets}
           notifications={notifications} setNotifications={setNotifications}
-          showTokenBalances={showTokenBalances} setShowTokenBalances={setShowTokenBalances}
         />
       )}
       {createDaoOpen && (
@@ -230,17 +218,6 @@ function App() {
         <TweakSection label="Background" />
         <TweakToggle label="Honeycomb" value={tweaks.honeycomb}
                      onChange={(v) => setTweak('honeycomb', v)} />
-        <TweakSection label="Nav layout" />
-        <TweakRadio label="Mode" value={tweaks.navMode}
-                    options={[
-                      { value: 'unified', label: 'Unified' },
-                      { value: 'split',   label: 'Split' },
-                      { value: 'minimal', label: 'Minimal' },
-                    ]}
-                    onChange={(v) => setTweak('navMode', v)} />
-        <TweakSection label="Preview" />
-        <TweakToggle label="Mobile frame" value={tweaks.mobilePreview}
-                     onChange={(v) => setTweak('mobilePreview', v)} />
         <TweakSection label="Demo toasts" />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
           <button className="twk-field" style={{ cursor: 'pointer' }}
@@ -254,7 +231,6 @@ function App() {
         </div>
       </TweaksPanel>
     </div>
-    </SettingsContext.Provider>
   );
 }
 

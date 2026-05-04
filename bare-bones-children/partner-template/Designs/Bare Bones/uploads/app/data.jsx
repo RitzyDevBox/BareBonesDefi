@@ -233,10 +233,6 @@ const TOKEN_REGISTRY = {
     { symbol: 'ETH',  name: 'Ether',         address: 'native', decimals: 18, logo: 'eth',  balance: '10000.0' },
     { symbol: 'TEST', name: 'Test Token',    address: '0x5FbDB2315678afecb367f032d93F642f64180aa3', decimals: 18, logo: 'tst',  balance: '1000.0' },
   ],
-  80002: [ // Polygon Amoy testnet
-    { symbol: 'MATIC', name: 'Polygon (test)',   address: 'native', decimals: 18, logo: 'matic', balance: '50.0' },
-    { symbol: 'tUSDC', name: 'Test USDC',         address: '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582', decimals: 6,  logo: 'usdc', balance: '5,000.00' },
-  ],
 };
 
 // Smart wallets — seeded fixtures per (org, chain). Empty arrays trigger deploy state.
@@ -262,85 +258,33 @@ const ORGS = [
   { id: 'octant-lab', name: 'Octant Lab' },
 ];
 
-// Earnings codes — small catalog used by payee earnings configs
-// kind: 'hourly' | 'weekly' | 'custom'
-const EARNING_CODES = [
-  { id: 'ec_base',    name: 'Base salary',     kind: 'weekly',  token: 'USDC', defaultRate: 50 },   // $/hr scheduled
-  { id: 'ec_hourly',  name: 'Hourly contract', kind: 'hourly',  token: 'USDC', defaultRate: 85 },   // $/hr × hours
-  { id: 'ec_bonus',   name: 'Milestone bonus', kind: 'custom',  token: 'QRM',  defaultRate: 0 },
-  { id: 'ec_stipend', name: 'Stipend',         kind: 'weekly',  token: 'USDC', defaultRate: 30 },
-  { id: 'ec_retainer',name: 'Retainer',        kind: 'custom',  token: 'USDC', defaultRate: 0 },
-];
-
-// 7 days × 24 hours bitmask helper. Schedule is stored as a 168-char "0"/"1" string.
-const emptySchedule = () => '0'.repeat(168);
-// Mon-Fri 9am-5pm
-const fullTimeSchedule = () => {
-  const arr = Array(168).fill('0');
-  for (let d = 1; d <= 5; d++) for (let h = 9; h < 17; h++) arr[d * 24 + h] = '1';
-  return arr.join('');
-};
-
-// Payees — seeded per (org, chain). Each payee has nested earnings configs.
-// state: 'system' (created by automation/governance) | 'user' (manual)
+// Payees — seeded per (org, chain). Each payee has nested payment configurations.
+// state: 'system' (created by automation, governance, etc.) | 'user' (manual)
 const PAYEES_SEED = {
   'quorum': {
     137: [
       {
-        id: 'p1', name: 'Alex Rivera',
-        role: 'Senior Engineer',
-        address: '0x9F2Ab3C4d5E6f7A8b9C0D1e2F3a4B5c6D7e8F9A0',
-        payeeStatus: 'active',
+        id: 'p1', name: 'Core Engineering', address: '0x9F2Ab3C4d5E6f7A8b9C0D1e2F3a4B5c6D7e8F9A0',
         configs: [
-          { id: 'c1', name: 'Base salary',  codeId: 'ec_base',   kind: 'weekly', token: 'USDC',
-            rate: 65, schedule: fullTimeSchedule(), state: 'system',
-            note: 'Mon–Fri 9–5 · Streamed weekly' },
-          { id: 'c2', name: 'On-call hours', codeId: 'ec_hourly', kind: 'hourly', token: 'USDC',
-            rate: 95, hours: 12, state: 'user',
-            note: 'Logged via on-call tracker · billed per cycle' },
+          { id: 'c1', name: 'Monthly stipend', address: '0x9F2Ab3C4d5E6f7A8b9C0D1e2F3a4B5c6D7e8F9A0', rate: '12,500 USDC / mo', state: 'system', tags: ['vesting', 'streaming'], note: 'Streamed via Sablier from Treasury main' },
+          { id: 'c2', name: 'Q2 milestone bonus', address: '0x9F2Ab3C4d5E6f7A8b9C0D1e2F3a4B5c6D7e8F9A0', rate: '25,000 QRM', state: 'user', tags: ['one-off'], note: 'Released on milestone #4 sign-off' },
         ],
       },
       {
-        id: 'p2', name: 'Priya Shah',
-        role: 'Design Lead',
-        address: '0x6B1c2D3e4F5a6B7c8D9e0F1a2B3c4D5e6F7a8B90',
-        payeeStatus: 'active',
+        id: 'p2', name: 'Public Goods Fund', address: '0x6B1c2D3e4F5a6B7c8D9e0F1a2B3c4D5e6F7a8B90',
         configs: [
-          { id: 'c3', name: 'Base salary',  codeId: 'ec_base',   kind: 'weekly', token: 'USDC',
-            rate: 60, schedule: fullTimeSchedule(), state: 'system',
-            note: '40 hr/week' },
-          { id: 'c4', name: 'Q2 milestone',  codeId: 'ec_bonus',  kind: 'custom', token: 'QRM',
-            rate: 0, raw: '0x000000000000000000000000000000000000000000003635c9adc5dea00000', amount: 1000, state: 'user',
-            note: 'Released on Q2 sign-off' },
+          { id: 'c3', name: 'Retroactive PG round', address: '0x6B1c2D3e4F5a6B7c8D9e0F1a2B3c4D5e6F7a8B90', rate: '250,000 QRM / quarter', state: 'system', tags: ['governance', 'retro'], note: 'Allocated by Proposal #47' },
         ],
       },
       {
-        id: 'p3', name: 'Trail of Bits',
-        role: 'Audit Partner',
-        address: '0x12abCdef34567890aBcDeF1234567890ABCdEf12',
-        payeeStatus: 'active',
+        id: 'p3', name: 'Audit Reserve · Trail of Bits', address: '0x12abCdef34567890aBcDeF1234567890ABCdEf12',
         configs: [
-          { id: 'c5', name: 'Diamond audit', codeId: 'ec_retainer', kind: 'custom', token: 'USDC',
-            rate: 0, raw: '0x000000000000000000000000000000000000000000000000000000002710c000', amount: 90000, state: 'user',
-            note: '50% on kickoff · 50% on report' },
+          { id: 'c4', name: 'Diamond audit', address: '0x12abCdef34567890aBcDeF1234567890ABCdEf12', rate: '180,000 USDC', state: 'user', tags: ['audit'], note: 'Paid 50% upfront, 50% on report delivery' },
+          { id: 'c5', name: 'Annual retainer',  address: '0x12abCdef34567890aBcDeF1234567890ABCdEf12', rate: '60,000 USDC / yr', state: 'system', tags: ['retainer'], note: 'Auto-renews unless governance vetoes' },
         ],
       },
       {
-        id: 'p4', name: 'Maya Tanaka',
-        role: 'Contributor',
-        address: '0xAbCDeF0123456789aBcDeF0123456789aBcDeF01',
-        payeeStatus: 'onhold',
-        configs: [
-          { id: 'c6', name: 'Hourly contract', codeId: 'ec_hourly', kind: 'hourly', token: 'USDC',
-            rate: 85, hours: 32, state: 'user',
-            note: 'Billed bi-weekly' },
-        ],
-      },
-      {
-        id: 'p5', name: 'Public Goods Pool',
-        role: 'Group · 12 members',
-        address: '0x88aB2c3D4e5F6a7B8c9D0e1F2a3B4c5D6e7F8a9C',
-        payeeStatus: 'active',
+        id: 'p4', name: 'Validator Rewards Pool', address: '0xAbCDeF0123456789aBcDeF0123456789aBcDeF01',
         configs: [],
       },
     ],
@@ -351,90 +295,4 @@ const PAYEES_SEED = {
   'octant-lab': { 137: [], 1: [], 31337: [] },
 };
 
-// Payroll run status. The page swaps view based on this.
-const PAYROLL_RUN_SEED = {
-  cycle: 'May 2026 · Cycle 09',
-  status: 'draft', // 'draft' | 'preview' | 'locked' | 'finalized' | 'cancelled'
-  startedAt: 'May 1, 2026',
-  closesAt: 'May 31, 2026',
-  totalPreview: null, // set by Preview action
-};
-
-// Pay Batches — group payees + default earnings assignments. Apply uses configurePayBatch.
-const PAY_BATCHES_SEED = [
-  {
-    id: 'pb-eng',  name: 'Engineering · Bi-weekly', members: ['p1', 'p4'],
-    cadence: 'Bi-weekly · Fridays', token: 'USDC',
-    note: 'All full-time + contractor engineers paid out of the Engineering Safe.',
-  },
-  {
-    id: 'pb-design', name: 'Design · Monthly', members: ['p2'],
-    cadence: 'Monthly · Last business day', token: 'USDC',
-    note: 'Design team retainer batch.',
-  },
-  {
-    id: 'pb-vendors', name: 'Vendors · Per-invoice', members: ['p3'],
-    cadence: 'On invoice', token: 'USDC',
-    note: 'Vendors and audit partners. Manual approval per invoice.',
-  },
-  {
-    id: 'pb-pubgoods', name: 'Public Goods · Quarterly', members: ['p5'],
-    cadence: 'Quarterly · End of quarter', token: 'QRM',
-    note: 'Routes to Public Goods Pool multisig.',
-  },
-];
-
-// Earnings Catalog — separate from per-payee earnings configs.
-// User codes: editable, can deactivate. System codes: read-only, governance-managed.
-const EARNINGS_CATALOG_SEED = {
-  user: [
-    { id: 'uc_base',   name: 'Base salary',     ruleType: 'salary',  active: true,
-      cfg: { annual: 120000, token: 'USDC' }, updated: '2026-04-12', note: 'Standard salary band' },
-    { id: 'uc_hourly', name: 'Hourly contract', ruleType: 'hourly',  active: true,
-      cfg: { bands: [{ uptoHrs: 40, mult: 1.0 }, { uptoHrs: 50, mult: 1.5 }, { uptoHrs: null, mult: 2.0 }], maxHrs: 60, token: 'USDC' },
-      updated: '2026-04-08', note: 'Tiered: 1× to 40h, 1.5× to 50h, 2× thereafter' },
-    { id: 'uc_oncall', name: 'On-call premium', ruleType: 'weekly',  active: true,
-      cfg: { multiplier: 1.5, schedule: 'nights+weekends' }, updated: '2026-03-30', note: 'Outside standard schedule' },
-    { id: 'uc_milest', name: 'Milestone bonus', ruleType: 'oneTime', active: true,
-      cfg: {}, updated: '2026-04-01', note: 'Triggered by governance vote' },
-    { id: 'uc_retain', name: 'Retainer',        ruleType: 'oneTime', active: false,
-      cfg: {}, updated: '2026-02-14', note: 'Inactive — superseded by uc_base' },
-  ],
-  system: [
-    { id: 'sc_grant',   name: 'Grant disbursement', ruleType: 'oneTime', active: true,
-      updated: '2026-01-10', note: 'Auto-deployed by governance proposal #38' },
-    { id: 'sc_revshare', name: 'Revenue share',     ruleType: 'salary',  active: true,
-      updated: '2025-12-04', note: 'Streamed weekly from treasury surplus' },
-    { id: 'sc_audit',    name: 'Audit retainer',    ruleType: 'oneTime', active: true,
-      updated: '2026-03-20', note: 'Vendor audit partners' },
-  ],
-};
-
-// Payroll cycles — historical + current.
-const PAYROLLS_SEED = [
-  { id: 'pr-2026-09', cycle: 'May 2026 · Cycle 09', status: 'draft',
-    startedAt: 'May 1, 2026', closesAt: 'May 31, 2026',
-    payees: 5, gross: null, batches: ['pb-eng', 'pb-design', 'pb-vendors', 'pb-pubgoods'] },
-  { id: 'pr-2026-08', cycle: 'Apr 2026 · Cycle 08', status: 'finalized',
-    startedAt: 'Apr 1, 2026', closesAt: 'Apr 30, 2026',
-    payees: 5, gross: 118420, batches: ['pb-eng', 'pb-design', 'pb-vendors'] },
-  { id: 'pr-2026-07', cycle: 'Mar 2026 · Cycle 07', status: 'finalized',
-    startedAt: 'Mar 1, 2026', closesAt: 'Mar 31, 2026',
-    payees: 4, gross: 102350, batches: ['pb-eng', 'pb-design'] },
-  { id: 'pr-2026-06', cycle: 'Feb 2026 · Cycle 06', status: 'cancelled',
-    startedAt: 'Feb 1, 2026', closesAt: 'Feb 28, 2026',
-    payees: 0, gross: 0, batches: [] },
-  { id: 'pr-2026-05', cycle: 'Jan 2026 · Cycle 05', status: 'finalized',
-    startedAt: 'Jan 1, 2026', closesAt: 'Jan 31, 2026',
-    payees: 4, gross: 98700, batches: ['pb-eng', 'pb-design'] },
-];
-
-// Rule type catalog used by Earnings page Add/Edit form.
-const RULE_TYPES = [
-  { id: 'hourly',  label: 'Hourly',   sub: 'Tiered bands · multipliers', desc: 'Pays an hourly rate that scales with hours worked. Tiers add multipliers past thresholds.' },
-  { id: 'weekly',  label: 'Weekly',   sub: 'Schedule premium',           desc: 'Premium applied for hours worked outside a recurring weekly schedule (nights, weekends).' },
-  { id: 'oneTime', label: 'One-time', sub: 'No config',                  desc: 'Single payment with no recurring rule. Useful for grants, milestone bonuses, retainers.' },
-  { id: 'salary',  label: 'Salary',   sub: 'Annual / streamed',          desc: 'Fixed annual amount streamed across the cycle.' },
-];
-
-Object.assign(window, { CHAINS, MOCK_WALLET, shortAddr, shortHex, PROPOSALS_ACTIVE, PROPOSALS_HIST, DAO_CONFIG, DAOS_SEED, makeCalldata, TOKEN_REGISTRY, WALLETS_SEED, ORGS, PAYEES_SEED, EARNING_CODES, PAYROLL_RUN_SEED, emptySchedule, fullTimeSchedule, PAY_BATCHES_SEED, EARNINGS_CATALOG_SEED, PAYROLLS_SEED, RULE_TYPES });
+Object.assign(window, { CHAINS, MOCK_WALLET, shortAddr, shortHex, PROPOSALS_ACTIVE, PROPOSALS_HIST, DAO_CONFIG, DAOS_SEED, makeCalldata, TOKEN_REGISTRY, WALLETS_SEED, ORGS, PAYEES_SEED });

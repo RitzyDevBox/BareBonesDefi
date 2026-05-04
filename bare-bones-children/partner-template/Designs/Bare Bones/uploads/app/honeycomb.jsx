@@ -107,7 +107,7 @@ function Honeycomb({ enabled }) {
             `color-mix(in oklab, ${colors.accent} ${Math.round(accentAlpha * 28)}%, transparent)`);
         } else {
           drawHex(hex.x, hex.y, hex.size,
-            `color-mix(in oklab, ${colors.line} ${Math.round(baseAlpha * (colors.isLight ? 110 : 260))}%, transparent)`,
+            `color-mix(in oklab, ${colors.line} ${Math.round(baseAlpha * 260)}%, transparent)`,
             sweep > 0.3
               ? `color-mix(in oklab, ${colors.accent} ${Math.round(sweep * 6)}%, transparent)`
               : null);

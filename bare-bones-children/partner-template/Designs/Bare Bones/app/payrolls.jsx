@@ -61,11 +61,12 @@ function PayrollsList({ cycles, onOpen }) {
     <>
       {/* Active cycles — hoisted as cards */}
       {active.length > 0 && (
-        <div className="prl-active">
-          <div className="prl-section-head">
+        <div className="panel">
+          <div className="panel-head">
             <span className="kicker">Open cycles</span>
             <span className="muted small">Editable · click to manage</span>
           </div>
+          <div className="panel-body">
           <div className="prl-active-grid">
             {active.map(c => (
               <button key={c.id} className={`prl-active-card prl-tone-${statusTone(c.status)}`} onClick={() => onOpen(c.id)}>
@@ -98,16 +99,18 @@ function PayrollsList({ cycles, onOpen }) {
               </button>
             ))}
           </div>
+          </div>
         </div>
       )}
 
       {/* Historic table */}
-      <div className="prl-section-head" style={{ marginTop: active.length > 0 ? 28 : 0 }}>
-        <span className="kicker">Historic payrolls</span>
-        <span className="muted small">{historic.length} cycle{historic.length === 1 ? '' : 's'}</span>
-      </div>
+      <div className="panel">
+        <div className="panel-head">
+          <span className="kicker">Historic payrolls</span>
+          <span className="muted small">{historic.length} cycle{historic.length === 1 ? '' : 's'}</span>
+        </div>
 
-      <div className="prl-table" role="table" aria-label="Historic payrolls">
+        <div className="prl-table panel-table" role="table" aria-label="Historic payrolls">
         <div className="prl-head" role="row">
           <div className="prl-cell prl-cell-cycle">Cycle</div>
           <div className="prl-cell prl-cell-window">Window</div>
@@ -137,6 +140,7 @@ function PayrollsList({ cycles, onOpen }) {
             <div className="prl-cell prl-cell-go"><I.Arrow size={12} /></div>
           </button>
         ))}
+      </div>
       </div>
     </>
   );
@@ -313,16 +317,27 @@ function PayrollDetail({ chain, activeDao, wallet, isAdmin, cycle, onBack, onUpd
       )}
 
       {!isOpenCycle ? (
-        <FinalizedTable payees={view.filter(p => p.__status !== 'deleted')} />
+        <div className="panel">
+          <div className="panel-head">
+            <span className="kicker">Payouts</span>
+            <span className="muted small">{view.filter(p => p.__status !== 'deleted').length} payees · read-only</span>
+          </div>
+          <FinalizedTable payees={view.filter(p => p.__status !== 'deleted')} />
+        </div>
       ) : (
-        <>
-          <div className="pay-toolbar">
-            <div className="pay-toolbar-spacer" />
-            <button className="btn-ghost btn-sm" onClick={() => setExpanded(new Set(view.map(r => r.id)))} disabled={!view.length}>Expand all</button>
-            <button className="btn-ghost btn-sm" onClick={() => setExpanded(new Set())}>Collapse all</button>
+        <div className="panel">
+          <div className="panel-toolbar">
+            <div className="panel-toolbar-l">
+              <span className="kicker">Run editor</span>
+              <span className="muted small">{view.filter(r => r.__status !== 'deleted').length} payees in this cycle</span>
+            </div>
+            <div className="panel-toolbar-r">
+              <button className="btn-ghost btn-sm" onClick={() => setExpanded(new Set(view.map(r => r.id)))} disabled={!view.length}>Expand all</button>
+              <button className="btn-ghost btn-sm" onClick={() => setExpanded(new Set())}>Collapse all</button>
+            </div>
           </div>
 
-          <div className="stg-table" role="table" aria-label="Payroll run">
+          <div className="stg-table panel-table" role="table" aria-label="Payroll run">
             <div className="stg-head" role="row">
               <div className="stg-cell stg-cell-expand" aria-hidden />
               <div className="stg-cell stg-cell-name">Payee</div>
@@ -354,7 +369,7 @@ function PayrollDetail({ chain, activeDao, wallet, isAdmin, cycle, onBack, onUpd
               />
             ))}
           </div>
-        </>
+        </div>
       )}
 
       <StagedFooter

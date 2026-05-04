@@ -1,27 +1,21 @@
 // ProposalBuilder — multi-call proposal authoring with presets, contract picker,
 // custom ABI parsing, address book, and staged-call preview.
 
-// --- Address book: defer to the global address-book module which categorizes
-//     entries (Connected, Core, Other DAOs, Smart wallets, Saved contacts).
-//     We add a few legacy "recipient" aliases as saved contacts so existing
-//     templates resolve to friendly names.
-const LEGACY_RECIPIENTS = [
-  { address: '0xD4C4A1eB425E6F7a8B9c0D1e2F3a4B5c6Defu1d0', name: 'Public Goods Fund', note: 'Retro funding pool' },
-  { address: '0xa3C4b91E2D5F8a6B4c5D6e7F8a9B0c1D2e3F4b21', name: 'Audit pool', note: 'Security audit reserve' },
-  { address: '0x33aB2c3D4e5F6a7B8c9D0e1F2a3B4c5D6e7F8a9C', name: 'QRC research', note: 'Research collective' },
-  { address: '0x4Aa3D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9A0b1C2', name: 'Treasury multisig', note: '4-of-7 multisig' },
-];
-
-// Used for legacy template resolution (look up by name → address)
-const buildAddressBookLegacy = (dao, wallet) => {
-  const list = [
+// --- Address book: named addresses pulled from current DAO + treasury aliases ---
+const buildAddressBook = (dao, wallet) => {
+  const book = [
     { name: 'Governor', address: dao.governor.address, role: 'Core contract' },
     { name: 'Timelock', address: dao.timelock.address, role: 'Core contract' },
     { name: dao.symbol + ' token', address: dao.token.address, role: 'Core contract' },
-    ...LEGACY_RECIPIENTS.map(r => ({ name: r.name, address: r.address, role: 'Recipient' })),
+    { name: 'Treasury multisig', address: '0x4Aa3D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9A0b1C2', role: 'Multisig' },
+    { name: 'Public Goods Fund', address: '0xD4C4A1eB425E6F7a8B9c0D1e2F3a4B5c6Defu1d0', role: 'Recipient' },
+    { name: 'Audit pool', address: '0xa3C4b91E2D5F8a6B4c5D6e7F8a9B0c1D2e3F4b21', role: 'Recipient' },
+    { name: 'QRC research', address: '0x33aB2c3D4e5F6a7B8c9D0e1F2a3B4c5D6e7F8a9C', role: 'Recipient' },
   ];
-  if (wallet) list.unshift({ name: 'You', address: wallet.address, role: 'EOA' });
-  return list;
+  if (wallet) {
+    book.unshift({ name: 'You', address: wallet.address, role: 'EOA · ' + (wallet.ens || 'no ENS') });
+  }
+  return book;
 };
 
 // --- Contract group definitions: standard contracts + their callable functions ---
@@ -212,36 +206,66 @@ const parseAbi = (text) => {
   }
 };
 
-// --- Address book input (delegates to the modal-based AddressInput from address-book.jsx) ---
-// The wrapper accepts the legacy `book` prop (a flat list); we re-categorize it for the modal.
-function AddressBookInput({ value, onChange, book, placeholder, chain }) {
-  // Convert legacy flat list to categorized entries the modal expects.
-  // book entries have shape { name, address, role }; we map by role.
-  const categorized = React.useMemo(() => book.map((b, i) => {
-    let category = 'custom';
-    let kind = 'eoa';
-    if (b.role === 'EOA' || (b.role || '').startsWith('EOA')) { category = 'connected'; }
-    else if (b.role === 'Core contract') {
-      category = 'core';
-      if (/governor/i.test(b.name)) kind = 'governor';
-      else if (/timelock/i.test(b.name)) kind = 'timelock';
-      else kind = 'token';
-    }
-    return {
-      id: `${category}:${i}:${b.address}`,
-      name: b.name, sub: b.role || '',
-      address: b.address, category, kind,
-    };
-  }), [book]);
+// --- Address book popover input ---
+function AddressBookInput({ value, onChange, book, placeholder, allowAny = true }) {
+  const [open, setOpen] = React.useState(false);
+  const [filter, setFilter] = React.useState('');
+  const ref = React.useRef(null);
+  useClickOutside(ref, () => setOpen(false), open);
+
+  const matched = book.find(b => b.address.toLowerCase() === (value || '').toLowerCase());
+  const filtered = book.filter(b =>
+    b.name.toLowerCase().includes(filter.toLowerCase()) ||
+    b.address.toLowerCase().includes(filter.toLowerCase())
+  );
 
   return (
-    <AddressInput
-      value={value}
-      onChange={onChange}
-      book={categorized}
-      placeholder={placeholder}
-      chain={chain}
-    />
+    <div className="ab-wrap" ref={ref}>
+      {matched ? (
+        <button type="button" className="ab-tag" onClick={() => setOpen(v => !v)}>
+          <span className="ab-tag-name">{matched.name}</span>
+          <span className="ab-tag-addr mono">{shortHex(matched.address, 6, 4)}</span>
+          <I.Caret size={11} />
+        </button>
+      ) : (
+        <div className="ab-input-wrap">
+          <input
+            className="input mono ab-input"
+            value={value || ''}
+            onChange={e => onChange(e.target.value)}
+            placeholder={placeholder || '0x… or pick from book'}
+          />
+          <button type="button" className="ab-book-btn" onClick={() => setOpen(v => !v)}
+                  aria-label="Open address book" title="Address book">
+            <I.Book size={14} />
+          </button>
+        </div>
+      )}
+      {open && (
+        <div className="ab-pop" role="menu">
+          <div className="ab-search">
+            <I.Search size={12} />
+            <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Search address book…" autoFocus />
+            {matched && (
+              <button type="button" className="ab-clear" onClick={() => { onChange(''); setOpen(false); setFilter(''); }}>
+                Clear
+              </button>
+            )}
+          </div>
+          <div className="ab-list">
+            {filtered.map(b => (
+              <button key={b.address} type="button" className="ab-item"
+                      onClick={() => { onChange(b.address); setOpen(false); setFilter(''); }}>
+                <span className="ab-item-name">{b.name}</span>
+                <span className="ab-item-role">{b.role}</span>
+                <span className="ab-item-addr mono">{shortHex(b.address, 8, 6)}</span>
+              </button>
+            ))}
+            {filtered.length === 0 && <div className="ab-empty">No matches.</div>}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -253,7 +277,7 @@ function ParamInput({ param, value, onChange, book, chain }) {
               onChange={(t) => onChange(t)} />;
   }
   if (param.type === 'address') {
-    return <AddressBookInput value={value} onChange={onChange} book={book} chain={chain} placeholder="0x… or pick" />;
+    return <AddressBookInput value={value} onChange={onChange} book={book} placeholder="0x… or pick" />;
   }
   if (param.type === 'enum') {
     return (
@@ -281,7 +305,7 @@ function ParamInput({ param, value, onChange, book, chain }) {
 
 // --- Main builder ---
 function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
-  const book = React.useMemo(() => buildAddressBookLegacy(dao, wallet), [dao, wallet]);
+  const book = React.useMemo(() => buildAddressBook(dao, wallet), [dao, wallet]);
   const templates = React.useMemo(() => PROPOSAL_TEMPLATES(dao), [dao]);
 
   const [title, setTitle] = React.useState('');
@@ -531,7 +555,7 @@ function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
             <CurrencySelector chain={chain} value={target}
               onChange={(t) => setTarget(t.address === 'native' ? '0x0000000000000000000000000000000000000000' : t.address)} />
           ) : (
-            <AddressBookInput value={target} onChange={setTarget} book={book} chain={chain} placeholder="0x… or pick from address book" />
+            <AddressBookInput value={target} onChange={setTarget} book={book} placeholder="0x… or pick from address book" />
           )}
         </div>
 

@@ -167,7 +167,7 @@ const ACTION_SCHEMA = {
 
 function UniversalWalletActionForm({ chain, wallet, action, onSubmit }) {
   const schema = ACTION_SCHEMA[action];
-  const tokens = TOKEN_REGISTRY[chain.chainId] || [];
+  const tokens = TOKEN_REGISTRY[chain.id] || [];
   const [token, setToken] = React.useState(tokens[0]);
   const [amount, setAmount] = React.useState('');
   const [recipient, setRecipient] = React.useState(wallet?.address || '');
@@ -267,7 +267,7 @@ function VaultInteractTab({ chain, wallet }) {
   const [action, setAction] = React.useState('deposit');
   const [assetType, setAssetType] = React.useState('native');
   const [amount, setAmount] = React.useState('');
-  const [token, setToken] = React.useState((TOKEN_REGISTRY[chain.chainId] || [])[0]);
+  const [token, setToken] = React.useState((TOKEN_REGISTRY[chain.id] || [])[0]);
   const [contract, setContract] = React.useState('');
   const [tokenId, setTokenId] = React.useState('');
   const [recipient, setRecipient] = React.useState('');

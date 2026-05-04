@@ -1,4 +1,5 @@
-// CurrencySelector — token picker with logo, symbol, copy/scan, custom add/remove.
+// CurrencySelector — modal-based token picker.
+// Trigger button + <Modal> with: list, search, custom add, copy address, view on scan, balances.
 
 // Inline SVG logos — abstract glyphs, no real branding.
 const LOGOS = {
@@ -22,134 +23,323 @@ const CUSTOM_KEY = 'qrm-custom-tokens';
 const loadCustom = () => { try { return JSON.parse(localStorage.getItem(CUSTOM_KEY)) || {}; } catch { return {}; } };
 const saveCustom = (m) => { try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(m)); } catch {} };
 
-function CurrencySelector({ chain, value, onChange, label = 'Token', disabled = false, showBalance = true, balanceSource }) {
-  const [open, setOpen] = React.useState(false);
-  const [filter, setFilter] = React.useState('');
-  const [adding, setAdding] = React.useState(false);
-  const [draft, setDraft] = React.useState({ address: '', symbol: '', decimals: '18' });
-  const [custom, setCustom] = React.useState(loadCustom());
-  const ref = React.useRef(null);
-  useClickOutside(ref, () => { setOpen(false); setAdding(false); }, open);
+// Settings context — currently exposes `showTokenBalances`. Created in main.jsx.
+const SettingsContext = React.createContext({ showTokenBalances: true });
 
-  const builtIn = TOKEN_REGISTRY[chain.id] || [];
-  const userTokens = (custom[chain.id] || []);
+// Format balance: respect global show-balances setting.
+const fmtBalance = (val, show) => {
+  if (!show) return '••••';
+  return val ?? '0';
+};
+
+// --- Trigger button -----------------------------------------------------
+function CurrencySelector({ chain, value, onChange, label = 'Token', disabled = false, balanceSource }) {
+  const [open, setOpen] = React.useState(false);
+  const [custom, setCustom] = React.useState(loadCustom());
+  const settings = React.useContext(SettingsContext);
+
+  const builtIn = TOKEN_REGISTRY[chain.chainId] || [];
+  const userTokens = (custom[chain.chainId] || []);
   const all = [...builtIn, ...userTokens.map(t => ({ ...t, custom: true }))];
   const selected = all.find(t => (t.address || '').toLowerCase() === (value || '').toLowerCase()) || all[0];
 
-  const filtered = all.filter(t =>
-    t.symbol.toLowerCase().includes(filter.toLowerCase()) ||
-    (t.name || '').toLowerCase().includes(filter.toLowerCase()) ||
-    (t.address || '').toLowerCase().includes(filter.toLowerCase())
-  );
+  if (!selected) {
+    return <div className="muted">No tokens on this chain</div>;
+  }
 
-  const pick = (t) => {
-    onChange?.(t);
-    setOpen(false); setFilter('');
+  const balOf = (t) => (balanceSource && balanceSource[t.symbol]) || t.balance;
+
+  return (
+    <>
+      <button type="button" className="ccy-trigger" disabled={disabled} onClick={() => setOpen(true)}>
+        <TokenLogo token={selected} size={22} />
+        <span className="ccy-sym">{selected.symbol}</span>
+        <span className="ccy-name">{selected.name}</span>
+        <span className="ccy-bal mono">{fmtBalance(balOf(selected), settings.showTokenBalances)}</span>
+        <I.Caret size={11} />
+      </button>
+      {open && (
+        <TokenSelectModal
+          chain={chain}
+          selected={selected}
+          custom={custom}
+          setCustom={setCustom}
+          balanceSource={balanceSource}
+          showBalances={settings.showTokenBalances}
+          onPick={(t) => { onChange?.(t); setOpen(false); }}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// --- Modal --------------------------------------------------------------
+function TokenSelectModal({ chain, selected, custom, setCustom, balanceSource, showBalances, onPick, onClose }) {
+  const [filter, setFilter] = React.useState('');
+  const [tab, setTab] = React.useState('all'); // 'all' | 'custom'
+  const [adding, setAdding] = React.useState(false);
+  const [draft, setDraft] = React.useState({ address: '', symbol: '', decimals: '18' });
+  const [importing, setImporting] = React.useState(false);
+
+  const builtIn = TOKEN_REGISTRY[chain.chainId] || [];
+  const userTokens = (custom[chain.chainId] || []);
+  const all = [...builtIn, ...userTokens.map(t => ({ ...t, custom: true }))];
+
+  const list = (tab === 'custom' ? all.filter(t => t.custom) : all);
+  const filtered = list.filter(t => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return true;
+    return t.symbol.toLowerCase().includes(q)
+        || (t.name || '').toLowerCase().includes(q)
+        || (t.address || '').toLowerCase().includes(q);
+  });
+
+  const balOf = (t) => (balanceSource && balanceSource[t.symbol]) || t.balance;
+
+  const isAddrValid = /^0x[0-9a-f]{40}$/i.test(draft.address);
+  const isAddrAlready = isAddrValid && all.some(t => (t.address || '').toLowerCase() === draft.address.toLowerCase());
+
+  const importByAddress = () => {
+    if (!isAddrValid) { window.toast.error('Invalid address', { description: 'Expected 0x… 40 hex chars.' }); return; }
+    if (isAddrAlready) { window.toast.warning('Already in list', { duration: 2000 }); return; }
+    // Simulate on-chain symbol/decimals lookup.
+    setImporting(true);
+    setTimeout(() => {
+      setImporting(false);
+      // Keep what they typed if anything; otherwise mock a symbol from address.
+      const fakeSym = draft.symbol.trim().toUpperCase() || ('T' + draft.address.slice(2, 5).toUpperCase());
+      setDraft(d => ({ ...d, symbol: fakeSym }));
+      window.toast.info('Token resolved', {
+        description: `${fakeSym} · ${draft.decimals || 18} decimals`,
+        duration: 2200,
+      });
+    }, 650);
   };
 
   const addCustom = () => {
-    if (!/^0x[0-9a-f]{40}$/i.test(draft.address)) { window.toast.error('Invalid address'); return; }
+    if (!isAddrValid) { window.toast.error('Invalid address'); return; }
     if (!draft.symbol.trim()) { window.toast.error('Symbol required'); return; }
-    const t = { symbol: draft.symbol.trim().toUpperCase(), name: draft.symbol.trim(), address: draft.address, decimals: Number(draft.decimals) || 18, logo: 'generic', balance: '0' };
-    const next = { ...custom, [chain.id]: [...(custom[chain.id] || []), t] };
+    if (isAddrAlready) { window.toast.warning('Already in list'); return; }
+    const t = {
+      symbol: draft.symbol.trim().toUpperCase(),
+      name: draft.symbol.trim(),
+      address: draft.address,
+      decimals: Number(draft.decimals) || 18,
+      logo: 'generic',
+      balance: '0',
+      custom: true,
+    };
+    const next = { ...custom, [chain.chainId]: [...(custom[chain.chainId] || []), t] };
     setCustom(next); saveCustom(next);
     setAdding(false); setDraft({ address: '', symbol: '', decimals: '18' });
     window.toast.success('Token added', { description: `${t.symbol} · ${shortHex(t.address, 6, 4)}`, duration: 2500 });
-    pick(t);
+    onPick(t);
   };
 
   const removeCustom = (t, e) => {
     e.stopPropagation();
-    const next = { ...custom, [chain.id]: (custom[chain.id] || []).filter(x => x.address !== t.address) };
+    const next = { ...custom, [chain.chainId]: (custom[chain.chainId] || []).filter(x => x.address !== t.address) };
     setCustom(next); saveCustom(next);
     window.toast.warning('Token removed', { description: t.symbol, duration: 2200 });
-    if (selected && selected.address === t.address) onChange?.(builtIn[0]);
   };
 
   const copyAddr = async (t, e) => {
     e.stopPropagation();
     if (t.address === 'native') { window.toast.info('Native asset', { description: 'No contract address.', duration: 2000 }); return; }
-    try { await navigator.clipboard.writeText(t.address); window.toast.success('Address copied', { description: t.address, duration: 2000 }); } catch {}
+    try {
+      await navigator.clipboard.writeText(t.address);
+      window.toast.success('Address copied', { description: t.address, duration: 2000 });
+    } catch {
+      window.toast.error('Copy failed');
+    }
   };
+
   const openScan = (t, e) => {
     e.stopPropagation();
-    if (t.address === 'native' || !chain.explorer) { window.toast.warning('No explorer', { duration: 1800 }); return; }
-    window.toast.info('Opening explorer', { description: `${chain.explorer}/token/${shortHex(t.address)}`, duration: 2500 });
+    if (t.address === 'native' || !chain.explorer) {
+      window.toast.warning(chain.explorer ? 'Native asset' : 'No explorer', {
+        description: chain.explorer ? 'No contract page for native asset.' : 'This chain has no block explorer.',
+        duration: 2000,
+      });
+      return;
+    }
+    window.toast.info('Opening explorer', {
+      description: `${chain.explorer}/token/${t.address}`,
+      duration: 2500,
+    });
   };
 
-  if (!selected) return <div className="muted">No tokens on this chain</div>;
-
   return (
-    <div className="ccy-wrap" ref={ref}>
-      <button type="button" className="ccy-trigger" disabled={disabled} onClick={() => setOpen(v => !v)}>
-        <TokenLogo token={selected} size={22} />
-        <span className="ccy-sym">{selected.symbol}</span>
-        <span className="ccy-name">{selected.name}</span>
-        {showBalance && (
-          <span className="ccy-bal mono">
-            {(balanceSource && balanceSource[selected.symbol]) || selected.balance}
+    <Modal title="Select token" onClose={onClose} width={480}>
+      <div className="tsm-body">
+        {/* Search */}
+        <div className="tsm-search">
+          <I.Search size={13} />
+          <input
+            autoFocus
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Search name, symbol, or paste 0x…"
+          />
+          {filter && (
+            <button className="icon-btn-sm" aria-label="Clear" onClick={() => setFilter('')}>
+              <I.Close size={11} />
+            </button>
+          )}
+        </div>
+
+        {/* Tabs */}
+        <div className="tsm-tabs">
+          <button className={`tsm-tab${tab === 'all' ? ' on' : ''}`} onClick={() => setTab('all')}>
+            All <span className="tsm-tab-count">{all.length}</span>
+          </button>
+          <button className={`tsm-tab${tab === 'custom' ? ' on' : ''}`} onClick={() => setTab('custom')}>
+            Custom <span className="tsm-tab-count">{userTokens.length}</span>
+          </button>
+          <div style={{ flex: 1 }} />
+          <span className="tsm-chain-label">
+            <span className="chain-dot" style={{ '--dot': chain.dot }}></span>
+            {chain.name}
           </span>
-        )}
-        <I.Caret size={11} />
-      </button>
-      {open && (
-        <div className="ccy-pop">
-          <div className="ab-search">
-            <I.Search size={12} />
-            <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Search by symbol, name, address…" autoFocus />
-          </div>
-          <div className="ccy-list">
-            {filtered.map(t => (
-              <div key={t.address + t.symbol} className={`ccy-item${selected.address === t.address ? ' picked' : ''}`} onClick={() => pick(t)}>
-                <TokenLogo token={t} size={26} />
-                <div className="ccy-item-k">
-                  <div className="ccy-item-line1">
-                    <span className="ccy-item-sym">{t.symbol}</span>
-                    <span className="ccy-item-name">{t.name}</span>
-                    {t.custom && <span className="ccy-tag">Custom</span>}
+        </div>
+
+        {/* List */}
+        <div className="tsm-list">
+          {filtered.map(t => {
+            const isPicked = selected && selected.address === t.address;
+            return (
+              <div
+                key={t.address + t.symbol}
+                className={`tsm-row${isPicked ? ' picked' : ''}`}
+                onClick={() => onPick(t)}
+              >
+                <TokenLogo token={t} size={32} />
+                <div className="tsm-row-main">
+                  <div className="tsm-row-line1">
+                    <span className="tsm-row-sym">{t.symbol}</span>
+                    <span className="tsm-row-name">{t.name}</span>
+                    {t.custom && <span className="tsm-tag">Custom</span>}
+                    {t.address === 'native' && <span className="tsm-tag tsm-tag-native">Native</span>}
                   </div>
-                  <div className="ccy-item-line2 mono">
-                    {t.address === 'native' ? 'Native' : shortHex(t.address, 8, 6)}
+                  <div className="tsm-row-line2 mono">
+                    {t.address === 'native' ? `${chain.short} · ${t.decimals} decimals` : `${shortHex(t.address, 8, 6)} · ${t.decimals} decimals`}
                   </div>
                 </div>
-                <div className="ccy-item-bal mono">{(balanceSource && balanceSource[t.symbol]) || t.balance}</div>
-                <div className="ccy-item-acts">
-                  <button className="icon-btn-sm" title="Copy address" onClick={(e) => copyAddr(t, e)}><I.Copy size={11} /></button>
-                  <button className="icon-btn-sm" title="View on explorer" onClick={(e) => openScan(t, e)}><I.Ext size={11} /></button>
-                  {t.custom && (
-                    <button className="icon-btn-sm danger" title="Remove" onClick={(e) => removeCustom(t, e)}><I.Close size={11} /></button>
+                <div className="tsm-row-right">
+                  {showBalances && (
+                    <div className="tsm-row-bal mono">{balOf(t)}</div>
                   )}
+                  <div className="tsm-row-acts" onClick={e => e.stopPropagation()}>
+                    <button className="icon-btn-sm" title="Copy address" onClick={(e) => copyAddr(t, e)}>
+                      <I.Copy size={11} />
+                    </button>
+                    <button className="icon-btn-sm" title={chain.explorer ? `View on ${chain.explorer}` : 'No explorer'} onClick={(e) => openScan(t, e)}>
+                      <I.Ext size={11} />
+                    </button>
+                    {t.custom && (
+                      <button className="icon-btn-sm danger" title="Remove" onClick={(e) => removeCustom(t, e)}>
+                        <I.Close size={11} />
+                      </button>
+                    )}
+                  </div>
                 </div>
+                {isPicked && <I.Check size={14} className="tsm-row-check" />}
               </div>
-            ))}
-            {filtered.length === 0 && <div className="ab-empty">No matches.</div>}
-          </div>
-          <div className="ccy-foot">
-            {!adding ? (
-              <button type="button" className="ccy-add-btn" onClick={() => setAdding(true)}>
-                <I.Plus size={12} /> Add custom token
+            );
+          })}
+
+          {filtered.length === 0 && !adding && (
+            <div className="tsm-empty">
+              {/^0x[0-9a-f]{40}$/i.test(filter.trim()) ? (
+                <>
+                  <div className="tsm-empty-title">Token not in list</div>
+                  <div className="tsm-empty-sub">Import this address as a custom token.</div>
+                  <button className="btn-primary btn-sm" style={{ marginTop: 12 }}
+                          onClick={() => { setDraft({ address: filter.trim(), symbol: '', decimals: '18' }); setAdding(true); setFilter(''); }}>
+                    <I.Plus size={11} /> Import token
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="tsm-empty-title">No matches</div>
+                  <div className="tsm-empty-sub">Try a different search or add a custom token below.</div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Add custom panel */}
+        {adding && (
+          <div className="tsm-add-panel">
+            <div className="tsm-add-head">
+              <span className="tsm-add-title">Add custom token</span>
+              <button className="icon-btn-sm" onClick={() => { setAdding(false); setDraft({ address: '', symbol: '', decimals: '18' }); }}>
+                <I.Close size={11} />
               </button>
-            ) : (
-              <div className="ccy-add-form">
-                <input className="input mono" placeholder="0x… contract address"
-                       value={draft.address} onChange={e => setDraft(d => ({ ...d, address: e.target.value }))} />
-                <div className="ccy-add-row">
-                  <input className="input" placeholder="Symbol (e.g. USDT)"
-                         value={draft.symbol} onChange={e => setDraft(d => ({ ...d, symbol: e.target.value }))} />
-                  <input className="input" placeholder="Decimals" type="number"
-                         value={draft.decimals} onChange={e => setDraft(d => ({ ...d, decimals: e.target.value }))} />
+            </div>
+            <div className="tsm-add-grid">
+              <div className="tsm-add-field tsm-add-field-wide">
+                <label>Contract address</label>
+                <div className="tsm-input-with-action">
+                  <input className="input mono" placeholder="0x…"
+                         value={draft.address}
+                         onChange={e => setDraft(d => ({ ...d, address: e.target.value }))} />
+                  <button className="btn-ghost btn-sm" onClick={importByAddress} disabled={!isAddrValid || importing}>
+                    {importing ? 'Resolving…' : 'Resolve'}
+                  </button>
                 </div>
-                <div className="ccy-add-actions">
-                  <button type="button" className="btn-ghost btn-sm" onClick={() => setAdding(false)}>Cancel</button>
-                  <button type="button" className="btn-primary btn-sm" onClick={addCustom}>Add token</button>
-                </div>
+                {draft.address && !isAddrValid && (
+                  <span className="tsm-add-hint err">Must be 0x… followed by 40 hex characters</span>
+                )}
+                {isAddrAlready && (
+                  <span className="tsm-add-hint err">This token is already in the list</span>
+                )}
               </div>
-            )}
+              <div className="tsm-add-field">
+                <label>Symbol</label>
+                <input className="input" placeholder="USDT" maxLength={10}
+                       value={draft.symbol}
+                       onChange={e => setDraft(d => ({ ...d, symbol: e.target.value }))} />
+              </div>
+              <div className="tsm-add-field">
+                <label>Decimals</label>
+                <input className="input" type="number" min="0" max="36"
+                       value={draft.decimals}
+                       onChange={e => setDraft(d => ({ ...d, decimals: e.target.value }))} />
+              </div>
+            </div>
+            <div className="tsm-add-warn">
+              <I.Warn size={12} />
+              Anyone can create a token with any name. Always verify the contract address before transacting.
+            </div>
+            <div className="tsm-add-actions">
+              <button className="btn-ghost btn-sm" onClick={() => { setAdding(false); setDraft({ address: '', symbol: '', decimals: '18' }); }}>Cancel</button>
+              <button className="btn-primary btn-sm" disabled={!isAddrValid || !draft.symbol.trim() || isAddrAlready} onClick={addCustom}>
+                Add token
+              </button>
+            </div>
           </div>
+        )}
+      </div>
+
+      {!adding && (
+        <div className="modal-foot tsm-foot">
+          <span className="tsm-foot-meta">
+            <I.Eye size={11} /> {showBalances ? 'Balances visible' : 'Balances hidden'}
+            <span className="tsm-foot-sep">·</span>
+            <button className="tsm-foot-link" onClick={() => window.toast.info('Balance visibility', { description: 'Toggle in Settings → Show token balances.', duration: 2800 })}>
+              Settings
+            </button>
+          </span>
+          <button className="btn-primary btn-sm" onClick={() => setAdding(true)}>
+            <I.Plus size={11} /> Add custom token
+          </button>
         </div>
       )}
-    </div>
+    </Modal>
   );
 }
 
-Object.assign(window, { CurrencySelector, TokenLogo });
+Object.assign(window, { CurrencySelector, TokenLogo, SettingsContext, TokenSelectModal });

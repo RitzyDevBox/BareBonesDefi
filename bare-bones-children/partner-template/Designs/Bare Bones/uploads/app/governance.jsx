@@ -547,9 +547,6 @@ function Governance({ chain, wallet, onConnect, activeDao }) {
             <button className={`tab${tab === 'history' ? ' active' : ''}`} onClick={() => setTab('history')}>
               History<span className="count">{history.length}</span>
             </button>
-            <button className={`tab${tab === 'members' ? ' active' : ''}`} onClick={() => setTab('members')}>
-              Members<span className="count">{(window.MEMBERS_SEED || []).length}</span>
-            </button>
             <button className={`tab${tab === 'config' ? ' active' : ''}`} onClick={() => setTab('config')}>
               Configuration
             </button>
@@ -586,7 +583,6 @@ function Governance({ chain, wallet, onConnect, activeDao }) {
             </div>
           )}
           {tab === 'config' && <ConfigGrid chain={chain} dao={dao} />}
-          {tab === 'members' && <MembersModule />}
           {tab === 'create' && <ProposalBuilder chain={chain} wallet={wallet} dao={dao} onCreate={createProp} />}
         </div>
       </section>

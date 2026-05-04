@@ -145,45 +145,45 @@ function PayeesPage({ chain, activeDao, wallet, isAdmin }) {
         </div>
       )}
 
-      {/* status filter chips */}
-      <div className="payees-filter">
-        {[
-          { id: 'all',        label: 'All',        n: counts.all },
-          { id: 'active',     label: 'Active',     n: counts.active },
-          { id: 'onhold',     label: 'On hold',    n: counts.onhold },
-          { id: 'terminated', label: 'Terminated', n: counts.terminated },
-        ].map(f => (
-          <button
-            key={f.id}
-            type="button"
-            className={`payees-filter-chip${statusFilter === f.id ? ' active' : ''}`}
-            onClick={() => setStatusFilter(f.id)}
-          >
-            {f.label} <span className="payees-filter-n mono">{f.n}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="pay-toolbar">
-        <div className="pay-search">
-          <I.Search size={14} />
-          <input
-            placeholder="Search payees, addresses, roles…"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-          />
-          {query && <button className="pay-search-x" onClick={() => setQuery('')} aria-label="Clear"><I.X size={12} /></button>}
+      <div className="panel">
+        <div className="panel-toolbar">
+          <div className="panel-toolbar-l">
+            {[
+              { id: 'all',        label: 'All',        n: counts.all },
+              { id: 'active',     label: 'Active',     n: counts.active },
+              { id: 'onhold',     label: 'On hold',    n: counts.onhold },
+              { id: 'terminated', label: 'Terminated', n: counts.terminated },
+            ].map(f => (
+              <button
+                key={f.id}
+                type="button"
+                className={`payees-filter-chip${statusFilter === f.id ? ' active' : ''}`}
+                onClick={() => setStatusFilter(f.id)}
+              >
+                {f.label} <span className="payees-filter-n mono">{f.n}</span>
+              </button>
+            ))}
+          </div>
+          <div className="panel-toolbar-r">
+            <div className="pay-search panel-search">
+              <I.Search size={14} />
+              <input
+                placeholder="Search payees, addresses, roles…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+              />
+              {query && <button className="pay-search-x" onClick={() => setQuery('')} aria-label="Clear"><I.X size={12} /></button>}
+            </div>
+            <button className="btn-ghost btn-sm" onClick={() => setBatchSheet(true)} disabled={!editable}>
+              <I.Layers size={13} /> Batch onboard
+            </button>
+            <button className="btn-primary btn-sm" onClick={() => setAddingPayee(true)} disabled={!editable}>
+              <I.Plus size={13} /> Add payee
+            </button>
+          </div>
         </div>
-        <div className="pay-toolbar-spacer" />
-        <button className="btn-ghost btn-sm" onClick={() => setBatchSheet(true)} disabled={!editable}>
-          <I.Layers size={13} /> Batch onboard
-        </button>
-        <button className="btn-primary btn-sm" onClick={() => setAddingPayee(true)} disabled={!editable}>
-          <I.Plus size={13} /> Add payee
-        </button>
-      </div>
 
-      <div className="payees-table" role="table" aria-label="Payees">
+      <div className="payees-table panel-table" role="table" aria-label="Payees">
         <div className="payees-head" role="row">
           <div className="payees-cell payees-cell-name">Payee</div>
           <div className="payees-cell payees-cell-addr">Address</div>
@@ -217,6 +217,7 @@ function PayeesPage({ chain, activeDao, wallet, isAdmin }) {
             onUndo={() => { mutators.undoRow(row.id); setEditingPayee(null); }}
           />
         ))}
+      </div>
       </div>
 
       <StagedFooter
