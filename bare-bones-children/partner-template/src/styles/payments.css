@@ -1861,3 +1861,74 @@
   margin-top: 12px;
 }
 .bb-proc-ack input { margin-top: 3px; }
+
+/* =========================================================================
+   Unified Context Pill — combined DAO / chain / wallet (mobile/tablet nav)
+   On narrow widths the three context controls become one pill so the user
+   can still see their org + chain + wallet at a glance without burning the
+   entire header on three separate buttons.
+   ========================================================================= */
+.bb-ctx-pill {
+  display: inline-flex; align-items: stretch;
+  height: 36px;
+  background: var(--bb-bg-elev);
+  border: 1px solid var(--bb-line);
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13px; font-weight: 500;
+  color: var(--bb-text);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  min-width: 0;
+  max-width: 100%;
+}
+.bb-ctx-pill:hover { border-color: var(--bb-line-strong); background: var(--bb-bg-elev-2); }
+.bb-ctx-pill.bb-ctx-pill-connect {
+  background: var(--bb-accent);
+  color: var(--bb-accent-ink);
+  border-color: var(--bb-accent);
+  padding: 0 14px;
+}
+.bb-ctx-pill.bb-ctx-pill-connect:hover { filter: brightness(0.95); background: var(--bb-accent); }
+
+.bb-ctx-seg {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 0 10px;
+  min-width: 0;
+}
+.bb-ctx-seg + .bb-ctx-seg { border-left: 1px solid var(--bb-line); }
+.bb-ctx-seg-dao { padding-left: 8px; max-width: 180px; }
+.bb-ctx-seg-chain { padding: 0 10px; }
+.bb-ctx-seg-wallet { padding-right: 12px; max-width: 140px; }
+
+.bb-ctx-dao-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.bb-ctx-wallet-addr {
+  font-family: var(--bb-font-mono); font-size: 12px; color: var(--bb-text-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bb-ctx-chain-label { color: var(--bb-text-dim); font-size: 12px; white-space: nowrap; }
+
+/* Below 600px collapse labels — keep avatars/dots so scope is still legible */
+@media (max-width: 600px) {
+  .bb-ctx-dao-name,
+  .bb-ctx-chain-label,
+  .bb-ctx-wallet-addr { display: none; }
+  .bb-ctx-seg { padding: 0 10px; }
+  .bb-ctx-seg-dao { padding-left: 8px; }
+  .bb-ctx-seg-wallet { padding-right: 10px; }
+}
+
+.bb-ctx-wallet-avatar {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: conic-gradient(from 210deg, #6b8cff, var(--bb-accent), #ff8fb3, #6b8cff);
+  flex-shrink: 0;
+}
+.bb-ctx-chain-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--bb-accent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--bb-accent) 30%, transparent);
+  flex-shrink: 0;
+}
+

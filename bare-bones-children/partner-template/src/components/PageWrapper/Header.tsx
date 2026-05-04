@@ -14,6 +14,7 @@ import { useSettings } from "../../hooks/useSettings";
 import { DaoSwitcher } from "../Header/DaoSwitcher";
 import { CreateDaoModal } from "../Header/CreateDaoModal";
 import { WalletAccountSheet } from "./WalletAccountSheet";
+import { ContextPill } from "./ContextPill";
 
 interface HeaderProps {
   account: string | null;
@@ -77,17 +78,13 @@ function GearButton({ onClick }: { onClick: () => void }) {
 }
 
 export function Header(props: HeaderProps) {
-  // Collapse to the hamburger/mobile header below 1210px — the full layout
-  // (DAO switcher + nav + chain selector + wallet pill) gets too cramped
-  // before that. The phone breakpoint (≤600px) further drops chrome into
-  // the wallet sheet on truly narrow phones.
-  const screen = useMediaQuery({ phoneMax: 600, tabletMax: 1210 });
+  // Collapse to the unified mobile header below 1210px — the full split layout
+  // (DAO switcher + nav + chain selector + wallet pill) gets too cramped before
+  // that. Below the threshold a single ContextPill replaces the three controls
+  // so the user still sees their org / chain / wallet at a glance.
+  const screen = useMediaQuery({ tabletMax: 1210 });
   const isCompact = screen === ScreenSize.Phone || screen === ScreenSize.Tablet;
-  return isCompact ? (
-    <MobileHeader {...props} screen={screen} />
-  ) : (
-    <FullHeader {...props} />
-  );
+  return isCompact ? <MobileHeader {...props} /> : <FullHeader {...props} />;
 }
 
 function WalletStatus({
@@ -211,8 +208,6 @@ function FullHeader({
             <span>{APP_NAME}</span>
           </button>
 
-          {account && <DaoSwitcher onCreate={() => setCreateOpen(true)} />}
-
           {/* Nav links */}
           <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
             {NAV_ITEMS.map((item) => (
@@ -225,8 +220,10 @@ function FullHeader({
             ))}
           </div>
 
-          {/* Right side */}
+          {/* Right side — DAO / chain / wallet kept adjacent so the visual
+              grouping carries over to the mobile ContextPill that merges them. */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            {account && <DaoSwitcher onCreate={() => setCreateOpen(true)} />}
             <ChainSelector
               chainId={chainId}
               onChainChange={onChainChange}
@@ -274,45 +271,33 @@ function MobileHeader({
   onChainChange,
   onConnectWallet,
   onDisconnectWallet,
-  screen,
-}: HeaderProps & { screen: ScreenSize }) {
+}: HeaderProps) {
   const navigate = useNavigate();
   const { settings, toggle } = useSettings();
   const [createOpen, setCreateOpen] = useState(false);
   const [walletPanelOpen, setWalletPanelOpen] = useState(false);
 
-  // Phone (≤600px): DAO switcher disappears from the header (lives inside the
-  // wallet panel). Chain selector stays but shrinks to compact mode (logo +
-  // caret only) — chain status is important enough to keep visible at a glance.
-  // Tablet (601-900px): everything stays at full size.
-  const hideHeaderSelectors = screen === ScreenSize.Phone;
-  const isPhone = screen === ScreenSize.Phone;
+  // Below the desktop split-mode breakpoint we render a single unified
+  // ContextPill that combines DAO + chain + wallet. Tapping it opens the
+  // existing WalletAccountSheet, which already houses the chain picker, org
+  // picker, faucet, explorer, and disconnect — so the pill stays as a single
+  // tap target while still surfacing the user's current scope at a glance.
 
   return (
     <>
       <header style={headerStyle}>
         <div style={innerStyle}>
-          {/* Brand */}
+          {/* Brand — icon only on mobile, doubles as "home" affordance */}
           <button style={brandStyle} onClick={() => navigate("/")} aria-label={`${APP_NAME} home`}>
             <BareBonesLogo size={20} />
           </button>
 
-          {account && !hideHeaderSelectors && (
-            <DaoSwitcher onCreate={() => setCreateOpen(true)} />
-          )}
-
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-            <ChainSelector
-              chainId={chainId}
-              onChainChange={onChainChange}
-              showTestnets={settings.showTestnets}
-              compact={isPhone}
-              connected={!!account}
-            />
-            <WalletStatus
+            <ContextPill
               account={account}
+              chainId={chainId}
               onConnectWallet={onConnectWallet}
-              onClick={account ? () => setWalletPanelOpen(true) : undefined}
+              onOpen={() => setWalletPanelOpen(true)}
             />
             <HamburgerMenu
               account={account}
