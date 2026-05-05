@@ -7,8 +7,9 @@ import { Sheet } from "../Primitives/Sheet";
 import { Stack } from "../Primitives";
 import { ButtonBase } from "../Button/ButtonBase";
 import { IconButton } from "../Button/IconButton";
-import { DEPLOYMENT_TARGET } from "../../config/deployment";
+import { DEPLOYMENT_TARGET, DeploymentTarget } from "../../config/deployment";
 import { showStagingIntro } from "../Staging/StagingIntroModal";
+import { useSettings, SettingsKey, DevFeatureKey } from "../../hooks/useSettings";
 
 interface ToggleSwitchProps {
   on: boolean;
@@ -126,12 +127,30 @@ interface SettingsModalProps {
   onToggleTestnets: () => void;
 }
 
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontFamily: "monospace",
+        fontSize: 10,
+        textTransform: "uppercase",
+        letterSpacing: "0.12em",
+        color: "var(--colors-text-label)",
+        padding: "18px 0 6px",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function SettingsBody({
   showTestnets,
   onToggleTestnets,
   onClose,
 }: Pick<SettingsModalProps, "showTestnets" | "onToggleTestnets"> & { onClose: () => void }) {
-  const isStaging = DEPLOYMENT_TARGET === "staging";
+  const isStaging = DEPLOYMENT_TARGET === DeploymentTarget.Staging;
+  const { settings, toggle, toggleDevFlag } = useSettings();
   return (
     <Stack gap="none">
       <SettingsRow
@@ -166,6 +185,30 @@ function SettingsBody({
             >
               Show again
             </ButtonBase>
+          }
+        />
+      )}
+
+      <SectionLabel>Features in development</SectionLabel>
+      <SettingsRow
+        title="Show in-development features"
+        subtitle="Master switch for unfinished features. Off by default."
+        right={
+          <ToggleSwitch
+            on={settings[SettingsKey.FeaturesInDevelopment]}
+            onChange={() => toggle(SettingsKey.FeaturesInDevelopment)}
+          />
+        }
+      />
+      {settings[SettingsKey.FeaturesInDevelopment] && (
+        <SettingsRow
+          title="Members & Roles"
+          subtitle="Members directory, role bundles, and permission registry."
+          right={
+            <ToggleSwitch
+              on={settings.devFlags[DevFeatureKey.Members]}
+              onChange={() => toggleDevFlag(DevFeatureKey.Members)}
+            />
           }
         />
       )}

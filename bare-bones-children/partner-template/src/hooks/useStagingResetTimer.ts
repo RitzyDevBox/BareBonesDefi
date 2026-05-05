@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { DEPLOYMENT_TARGET, STAGING_RPC_URL } from "../config/deployment";
+import { DEPLOYMENT_TARGET, DeploymentTarget, STAGING_RPC_URL } from "../config/deployment";
 
 interface ResetInfo {
   intervalSeconds: number;
@@ -26,7 +26,7 @@ interface UseStagingResetTimerResult {
 const REFETCH_INTERVAL_MS = 60_000;
 
 function endpointUrl(): string | null {
-  if (DEPLOYMENT_TARGET !== "staging") return null;
+  if (DEPLOYMENT_TARGET !== DeploymentTarget.Staging) return null;
   try {
     const u = new URL(STAGING_RPC_URL);
     u.pathname = "/reset-info";
@@ -39,7 +39,7 @@ function endpointUrl(): string | null {
 }
 
 export function useStagingResetTimer(): UseStagingResetTimerResult {
-  const enabled = DEPLOYMENT_TARGET === "staging";
+  const enabled = DEPLOYMENT_TARGET === DeploymentTarget.Staging;
   const [secondsUntilReset, setSeconds] = useState<number | null>(null);
   const [intervalSeconds, setInterval_] = useState<number | null>(null);
   const [nextResetAt, setNextResetAt] = useState<Date | null>(null);

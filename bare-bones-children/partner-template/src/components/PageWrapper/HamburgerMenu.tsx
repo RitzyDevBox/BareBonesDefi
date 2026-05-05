@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Text } from "../Primitives/Text";
-import { NAV_ITEMS } from "./navConfig";
+import { useNavItems } from "./navConfig";
 import { useNavigate } from "react-router-dom";
 import { shortAddress } from "../../utils/formatUtils";
 import { Sheet } from "../Primitives/Sheet";
@@ -19,6 +19,7 @@ export function HamburgerMenu({ account, showTestnets, onToggleTestnets }: Hambu
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const navigate = useNavigate();
+  const navItems = useNavItems();
 
   return (
     <>
@@ -56,7 +57,7 @@ export function HamburgerMenu({ account, showTestnets, onToggleTestnets }: Hambu
         )}
 
         <div>
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <div
               key={item.id}
               onClick={() => { navigate(item.path); setOpen(false); }}

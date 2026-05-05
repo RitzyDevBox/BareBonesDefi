@@ -7,6 +7,8 @@ import { shortAddress } from "../../utils/formatUtils";
 import { buildExplorerAddressLink } from "../../utils/explorerLinks";
 import { ActiveProposalPanel } from "./ActiveProposalPanel";
 import type { DaoGovernanceOverview, DaoProposalSummary } from "./types";
+import { MembersSection } from "../Members/MembersSection";
+import { DevFeatureKey, useDevFeature } from "../../hooks/useSettings";
 
 // ─── Config grid ─────────────────────────────────────────────────────────────
 
@@ -152,7 +154,7 @@ function ConfigGrid({
 
 // ─── Tab bar ──────────────────────────────────────────────────────────────────
 
-type TabId = "active" | "history" | "config";
+type TabId = "active" | "history" | "config" | "members";
 
 const TAB_BASE: React.CSSProperties = {
   padding: "12px 16px",
@@ -258,6 +260,7 @@ export function ProposalsList({
 }: Props) {
   const [tab, setTab] = useState<TabId>("active");
   const [search, setSearch] = useState("");
+  const membersEnabled = useDevFeature(DevFeatureKey.Members);
 
   const filterFn = (p: DaoProposalSummary) => {
     if (!search.trim()) return true;
@@ -290,9 +293,15 @@ export function ProposalsList({
             <Tab label="Active" count={activeProposals.length} active={tab === "active"} onClick={() => setTab("active")} />
             <Tab label="History" count={historicalProposals.length} active={tab === "history"} onClick={() => setTab("history")} />
             <Tab label="Configuration" active={tab === "config"} onClick={() => setTab("config")} />
+            {/* Members & Roles — gated behind the dev-feature flag (settings).
+                Sits next to Configuration since it's an organization-level
+                surface, not a per-proposal one. */}
+            {membersEnabled && (
+              <Tab label="Members" active={tab === "members"} onClick={() => setTab("members")} />
+            )}
           </Row>
 
-          {tab !== "config" && (
+          {tab !== "config" && tab !== "members" && (
             <input
               type="text"
               value={search}
@@ -366,6 +375,8 @@ export function ProposalsList({
               <Text.Body color="muted">No governance configuration available.</Text.Body>
             )
           )}
+
+          {tab === "members" && membersEnabled && <MembersSection />}
         </div>
       </CardContent>
     </Card>

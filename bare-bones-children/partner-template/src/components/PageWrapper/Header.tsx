@@ -7,10 +7,10 @@ import { ChainSelector } from "./ChainSelector";
 import { BareBonesLogo } from "./BareBonesLogo";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMediaQuery, ScreenSize } from "../../hooks/useMediaQuery";
-import { NAV_ITEMS } from "./navConfig";
+import { useNavItems } from "./navConfig";
 import { HamburgerMenu } from "./HamburgerMenu";
 import { SettingsModal } from "../Settings/SettingsModal";
-import { useSettings } from "../../hooks/useSettings";
+import { useSettings, SettingsKey } from "../../hooks/useSettings";
 import { DaoSwitcher } from "../Header/DaoSwitcher";
 import { CreateDaoModal } from "../Header/CreateDaoModal";
 import { WalletAccountSheet } from "./WalletAccountSheet";
@@ -196,6 +196,7 @@ function FullHeader({
   const [createOpen, setCreateOpen] = useState(false);
   const [walletPanelOpen, setWalletPanelOpen] = useState(false);
   const { settings, toggle } = useSettings();
+  const navItems = useNavItems();
 
   return (
     <>
@@ -210,7 +211,7 @@ function FullHeader({
 
           {/* Nav links */}
           <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <NavLink
                 key={item.id}
                 label={item.label}
@@ -257,7 +258,7 @@ function FullHeader({
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         showTestnets={settings.showTestnets}
-        onToggleTestnets={() => toggle("showTestnets")}
+        onToggleTestnets={() => toggle(SettingsKey.ShowTestnets)}
       />
 
       <CreateDaoModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
@@ -302,7 +303,7 @@ function MobileHeader({
             <HamburgerMenu
               account={account}
               showTestnets={settings.showTestnets}
-              onToggleTestnets={() => toggle("showTestnets")}
+              onToggleTestnets={() => toggle(SettingsKey.ShowTestnets)}
             />
           </div>
         </div>

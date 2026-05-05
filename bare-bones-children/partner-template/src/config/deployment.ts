@@ -1,21 +1,23 @@
-export type DeploymentTarget = "local" | "staging" | "live";
+export enum DeploymentTarget {
+  Local = "local",
+  Staging = "staging",
+  Live = "live",
+}
 
 function normalizeDeploymentTarget(value: unknown): DeploymentTarget {
-  const normalized = String(value ?? "local").trim().toLowerCase();
+  const normalized = String(value ?? DeploymentTarget.Local).trim().toLowerCase();
 
-  if (normalized === "staging" || normalized === "live") {
-    return normalized;
-  }
-
-  return "local";
+  if (normalized === DeploymentTarget.Staging) return DeploymentTarget.Staging;
+  if (normalized === DeploymentTarget.Live) return DeploymentTarget.Live;
+  return DeploymentTarget.Local;
 }
 
 export const DEPLOYMENT_TARGET = normalizeDeploymentTarget(import.meta.env.VITE_DEPLOYMENT_TARGET);
 
 export const DEPLOYMENT_CONFIG = {
   target: DEPLOYMENT_TARGET,
-  showLocalChains: DEPLOYMENT_TARGET === "local",
-  showTestnetsByDefault: DEPLOYMENT_TARGET !== "live",
+  showLocalChains: DEPLOYMENT_TARGET === DeploymentTarget.Local,
+  showTestnetsByDefault: DEPLOYMENT_TARGET !== DeploymentTarget.Live,
 };
 
 // Staging chain endpoints. The staging Anvil + graph live behind a single

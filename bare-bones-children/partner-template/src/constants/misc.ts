@@ -3,7 +3,7 @@ import { TokenInfo } from "../components/TokenSelect/types";
 import polygonLogo from "../assets/chains/polygon-logo.webp";
 import hyperliquidLogo from "../assets/chains/hyperliquid-logo.png";
 import anvilLogo from "../assets/chains/anvil-logo.svg";
-import { DEPLOYMENT_TARGET, STAGING_CHAIN_ID, STAGING_RPC_URL, STAGING_SVR_GRAPH_URL } from "../config/deployment";
+import { DEPLOYMENT_TARGET, DeploymentTarget, STAGING_CHAIN_ID, STAGING_RPC_URL, STAGING_SVR_GRAPH_URL } from "../config/deployment";
 
 export const SwapRouter02ExecutorAddress = '0xBe6d02FD9335C2e1e33bBC174ad7ee36764C8EE7'
 export const testTokenAddress = "0x8900e4fcd3c2e6d5400fde29719eb8b5fc811b3c";
@@ -20,13 +20,13 @@ export const LOCAL_CHAIN_ID = Number(import.meta.env.VITE_LOCAL_CHAIN_ID ?? 3133
 // per deployment target. Edit this to expose/hide chains without touching
 // the chain definitions.
 export const VISIBLE_CHAIN_IDS: readonly number[] =
-  DEPLOYMENT_TARGET === "staging" ? [STAGING_CHAIN_ID]
-  : DEPLOYMENT_TARGET === "live" ? [POLYGON_CHAIN_ID, HYPERLIQUID_CHAIN_ID]
+  DEPLOYMENT_TARGET === DeploymentTarget.Staging ? [STAGING_CHAIN_ID]
+  : DEPLOYMENT_TARGET === DeploymentTarget.Live ? [POLYGON_CHAIN_ID, HYPERLIQUID_CHAIN_ID]
   : [LOCAL_CHAIN_ID, POLYGON_CHAIN_ID, HYPERLIQUID_CHAIN_ID];
 
 export const DEFAULT_CHAIN_ID = Number(
   import.meta.env.VITE_DEFAULT_CHAIN_ID
-    ?? (DEPLOYMENT_TARGET === "staging" ? STAGING_CHAIN_ID : POLYGON_CHAIN_ID),
+    ?? (DEPLOYMENT_TARGET === DeploymentTarget.Staging ? STAGING_CHAIN_ID : POLYGON_CHAIN_ID),
 );
 
 // Each transaction will trigger a state refresh but we add a delay since the graph takes some time to update
