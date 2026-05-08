@@ -44,6 +44,7 @@ export const PERMISSIONS_SEED: Permission[] = [
     sigRequirement: { type: SignatureRequirementType.Multisig, threshold: 2, of: 4 },
     timeLock: null,
     validity: { start: "2026-01-01", end: null },
+    rateLimit: null,
     usedByRoles: 3,
   },
   {
@@ -57,6 +58,7 @@ export const PERMISSIONS_SEED: Permission[] = [
     sigRequirement: { type: SignatureRequirementType.Multisig, threshold: 3, of: 4 },
     timeLock: "24h",
     validity: { start: "2026-01-01", end: null },
+    rateLimit: null,
     usedByRoles: 1,
   },
   {
@@ -70,6 +72,7 @@ export const PERMISSIONS_SEED: Permission[] = [
     sigRequirement: { type: SignatureRequirementType.Single },
     timeLock: null,
     validity: { start: "2026-01-01", end: null },
+    rateLimit: null,
     usedByRoles: 4,
   },
   {
@@ -83,6 +86,7 @@ export const PERMISSIONS_SEED: Permission[] = [
     sigRequirement: { type: SignatureRequirementType.Single },
     timeLock: null,
     validity: { start: "2026-01-01", end: null },
+    rateLimit: null,
     usedByRoles: 2,
   },
   {
@@ -96,6 +100,7 @@ export const PERMISSIONS_SEED: Permission[] = [
     sigRequirement: { type: SignatureRequirementType.Multisig, threshold: 2, of: 3 },
     timeLock: null,
     validity: { start: "2026-01-01", end: null },
+    rateLimit: { maxCalls: 4, windowSeconds: 86400 },
     usedByRoles: 2,
   },
   {
@@ -109,6 +114,7 @@ export const PERMISSIONS_SEED: Permission[] = [
     sigRequirement: { type: SignatureRequirementType.Multisig, threshold: 4, of: 5 },
     timeLock: "48h",
     validity: { start: "2026-01-01", end: "2026-12-31" },
+    rateLimit: { maxCalls: 1, windowSeconds: 604800 },
     usedByRoles: 1,
   },
 ];
@@ -122,6 +128,7 @@ export const ROLES_SEED: Role[] = [
     permissions: ["perm_treasury_small", "perm_payroll", "perm_propose"],
     cap: { maxMembers: 5 },
     isDefault: true,
+    isSystemRole: false,
     memberCount: 2,
   },
   {
@@ -132,6 +139,7 @@ export const ROLES_SEED: Role[] = [
     permissions: ["perm_treasury_large", "perm_treasury_small", "perm_cancel", "perm_propose"],
     cap: { maxMembers: 7 },
     isDefault: true,
+    isSystemRole: false,
     memberCount: 3,
   },
   {
@@ -142,6 +150,7 @@ export const ROLES_SEED: Role[] = [
     permissions: ["perm_treasury_small", "perm_propose", "perm_payroll"],
     cap: null,
     isDefault: true,
+    isSystemRole: false,
     memberCount: 1,
   },
   {
@@ -152,6 +161,7 @@ export const ROLES_SEED: Role[] = [
     permissions: [],
     cap: null,
     isDefault: true,
+    isSystemRole: false,
     memberCount: 4,
   },
   {
@@ -162,6 +172,7 @@ export const ROLES_SEED: Role[] = [
     permissions: ["perm_propose"],
     cap: null,
     isDefault: true,
+    isSystemRole: false,
     memberCount: 8,
   },
   {
@@ -172,6 +183,7 @@ export const ROLES_SEED: Role[] = [
     permissions: [],
     cap: null,
     isDefault: true,
+    isSystemRole: false,
     memberCount: 2,
   },
   {
@@ -182,6 +194,7 @@ export const ROLES_SEED: Role[] = [
     permissions: ["perm_treasury_small", "perm_treasury_large"],
     cap: { maxValue: "$50,000", maxMembers: 4 },
     isDefault: false,
+    isSystemRole: false,
     memberCount: 4,
   },
 ];

@@ -131,6 +131,14 @@ export interface BareBonesConfiguration {
    * a single tx. Frontend should prefer this over calling DAOFactory directly.
    */
   orgAndDaoLauncherAddress: string;
+  /**
+   * Singleton on-chain authorizer (per chain) that gates privileged calls
+   * to PayrollManager and any registered org contract. Slug-scoped: every
+   * org shares this contract but acts on its own role/permission set.
+   * Bootstrapped automatically by `OrgAndDaoLauncher.launch`. Source:
+   * `BareBonesDiamond/src/auth/MultiTenantAuth.sol`.
+   */
+  multiTenantAuthAddress: string;
   // SVR Configuration
   svrFactoryAddress?: string;
 }
@@ -227,6 +235,12 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   // Defaults to zero — fill in once the launcher has been deployed for the chain.
   orgAndDaoLauncherAddress: "0x0000000000000000000000000000000000000000",
 
+  // MultiTenantAuth singleton — defaults to zero until the per-chain deploy
+  // has happened; CREATE3 makes the address deterministic from the deployer
+  // EOA + salt. Local + staging anvils share the same address; mainnet will
+  // get its own deterministic value when the deploy script lands.
+  multiTenantAuthAddress: "0x0000000000000000000000000000000000000000",
+
 } as const;
 
 export const DEFAULT_BROWSING_URL = "https://app.aave.com/";
@@ -256,6 +270,7 @@ const LOCAL_BARE_BONES_CONFIG_ENV_KEYS: Record<Exclude<keyof BareBonesConfigurat
   weeklyScheduleRuleAddress: "VITE_LOCAL_WEEKLY_SCHEDULE_RULE_ADDRESS",
   daoFactoryAddress: "VITE_LOCAL_DAO_FACTORY_ADDRESS",
   orgAndDaoLauncherAddress: "VITE_LOCAL_ORG_AND_DAO_LAUNCHER_ADDRESS",
+  multiTenantAuthAddress: "VITE_LOCAL_MULTI_TENANT_AUTH_ADDRESS",
 };
 
 function buildLocalBareBonesOverride(): Partial<BareBonesConfiguration> {
@@ -299,6 +314,7 @@ const STAGING_BARE_BONES_CONFIG_ENV_KEYS: Record<Exclude<keyof BareBonesConfigur
   weeklyScheduleRuleAddress: "VITE_STAGING_WEEKLY_SCHEDULE_RULE_ADDRESS",
   daoFactoryAddress: "VITE_STAGING_DAO_FACTORY_ADDRESS",
   orgAndDaoLauncherAddress: "VITE_STAGING_ORG_AND_DAO_LAUNCHER_ADDRESS",
+  multiTenantAuthAddress: "VITE_STAGING_MULTI_TENANT_AUTH_ADDRESS",
 };
 
 function buildStagingBareBonesOverride(): Partial<BareBonesConfiguration> {

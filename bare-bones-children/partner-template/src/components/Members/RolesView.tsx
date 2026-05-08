@@ -70,8 +70,8 @@ export function RolesView({
               >
                 <div className="bb-m-role-item-top">
                   <span className="bb-m-role-item-name">{r.name}</span>
-                  <span className={r.isDefault ? "bb-m-role-default" : "bb-m-role-custom"}>
-                    {r.isDefault ? "default" : "custom"}
+                  <span className={r.isSystemRole ? "bb-m-role-default" : r.isDefault ? "bb-m-role-default" : "bb-m-role-custom"}>
+                    {r.isSystemRole ? "system" : r.isDefault ? "default" : "custom"}
                   </span>
                 </div>
                 <div className="bb-m-role-item-desc">{r.desc}</div>
@@ -113,17 +113,25 @@ export function RolesView({
                   <p className="bb-m-role-detail-desc">{sel.desc}</p>
                 </div>
                 <div className="bb-m-role-detail-actions">
-                  <button className="bb-btn-ghost bb-btn-xs" onClick={() => onOpenBuilder(sel)}>
-                    {sel.isDefault ? "Duplicate" : "Edit"}
-                  </button>
-                  {!sel.isDefault && (
-                    <button
-                      className="bb-btn-ghost bb-btn-xs"
-                      style={{ color: "var(--bb-error)" }}
-                      onClick={() => onDeleteRole(sel.id)}
-                    >
-                      Delete
-                    </button>
+                  {sel.isSystemRole ? (
+                    <span style={{ fontSize: 11, color: "var(--bb-text-mute)", fontFamily: "var(--bb-font-mono)" }}>
+                      system role · read-only
+                    </span>
+                  ) : (
+                    <>
+                      <button className="bb-btn-ghost bb-btn-xs" onClick={() => onOpenBuilder(sel)}>
+                        {sel.isDefault ? "Duplicate" : "Edit"}
+                      </button>
+                      {!sel.isDefault && (
+                        <button
+                          className="bb-btn-ghost bb-btn-xs"
+                          style={{ color: "var(--bb-error)" }}
+                          onClick={() => onDeleteRole(sel.id)}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

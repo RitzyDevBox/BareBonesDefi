@@ -11,9 +11,27 @@
         "name": "orgManager_",
         "type": "address",
         "internalType": "contract OrganizationManager"
+      },
+      {
+        "name": "auth_",
+        "type": "address",
+        "internalType": "contract MultiTenantAuth"
       }
     ],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "auth",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract MultiTenantAuth"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -86,6 +104,40 @@
                 "name": "cancellers",
                 "type": "address[]",
                 "internalType": "address[]"
+              }
+            ]
+          },
+          {
+            "name": "authCfg",
+            "type": "tuple",
+            "internalType": "struct OrgAndDaoLauncher.AuthConfig",
+            "components": [
+              {
+                "name": "superAdmin",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "superAdminNameSlug",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "initialAdmins",
+                "type": "tuple[]",
+                "internalType": "struct MultiTenantAuth.BootstrapAdmin[]",
+                "components": [
+                  {
+                    "name": "wallet",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "nameSlug",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  }
+                ]
               }
             ]
           }
@@ -169,6 +221,40 @@
                 "name": "cancellers",
                 "type": "address[]",
                 "internalType": "address[]"
+              }
+            ]
+          },
+          {
+            "name": "authCfg",
+            "type": "tuple",
+            "internalType": "struct OrgAndDaoLauncher.AuthConfig",
+            "components": [
+              {
+                "name": "superAdmin",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "superAdminNameSlug",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "initialAdmins",
+                "type": "tuple[]",
+                "internalType": "struct MultiTenantAuth.BootstrapAdmin[]",
+                "components": [
+                  {
+                    "name": "wallet",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "nameSlug",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  }
+                ]
               }
             ]
           }

@@ -214,6 +214,9 @@ function Tab({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 type Props = {
+  /** bytes32 hex slug for the org (`orgSlugFor(daoName)`). Required for
+   *  the Members tab to read MTA state. Empty string disables it. */
+  slug?: string;
   activeProposals: DaoProposalSummary[];
   historicalProposals: DaoProposalSummary[];
   loading?: boolean;
@@ -237,6 +240,7 @@ type Props = {
 };
 
 export function ProposalsList({
+  slug = "",
   activeProposals,
   historicalProposals,
   loading = false,
@@ -376,7 +380,7 @@ export function ProposalsList({
             )
           )}
 
-          {tab === "members" && membersEnabled && <MembersSection />}
+          {tab === "members" && membersEnabled && <MembersSection slug={slug} />}
         </div>
       </CardContent>
     </Card>

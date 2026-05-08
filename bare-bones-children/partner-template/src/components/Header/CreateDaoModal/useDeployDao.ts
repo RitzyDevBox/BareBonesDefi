@@ -7,6 +7,14 @@ import { getBareBonesConfiguration } from "../../../constants/misc";
 import OrgAndDaoLauncherABI from "../../../abis/dao/OrgAndDaoLauncher.abi.json";
 import PayrollManagerABI from "../../../abis/paymentPipelines/PayrollManager.abi.json";
 
+/** Free-form display name for an admin entry. Encoded into a bytes32
+ *  `nameSlug` for on-chain storage at deploy time; truncated to 31 chars
+ *  to fit. Empty string falls back to a contract-derived sentinel. */
+export interface AdminInit {
+  wallet: string;
+  name: string;
+}
+
 export interface DaoDeployParams {
   /**
    * Canonical org name. Slug = keccak256(bytes(name)) and the DAO Governor's
@@ -20,6 +28,20 @@ export interface DaoDeployParams {
   proposalThreshold: string;
   quorumNumerator: string;
   cancellers: string[];
+  /**
+   * MultiTenantAuth super-admin for the new slug. Empty string is forwarded
+   * as `address(0)`, which the launcher rewrites to the freshly-deployed
+   * timelock — the recommended default.
+   */
+  authSuperAdmin: string;
+  /** Optional display name for the super admin member row. When omitted AND
+   *  the launcher is substituting the timelock, the contract defaults to
+   *  `"Timelock"`. */
+  authSuperAdminName: string;
+  /** Initial Admin role members seeded by `MultiTenantAuth.bootstrap`.
+   *  Each entry's `name` is packed into bytes32 for on-chain storage; empty
+   *  names fall back to a contract-derived sentinel. */
+  authInitialAdmins: AdminInit[];
 }
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -100,6 +122,23 @@ export function useDeployDao() {
       if (!launcherAddress || !launcherConfigured) {
         throw new Error("OrgAndDaoLauncher not configured for this chain.");
       }
+      // Empty super-admin → address(0) → launcher substitutes the freshly
+      // deployed timelock as the slug's super-admin (recommended default).
+      const superAdmin = params.authSuperAdmin
+        ? ethers.utils.getAddress(params.authSuperAdmin)
+        : ZERO_ADDRESS;
+      // bytes32(0) for the super-admin name lets the launcher pick the
+      // default — `"Timelock"` when the timelock substitution kicks in,
+      // otherwise the contract's keccak-derived sentinel.
+      const superAdminNameSlug = params.authSuperAdminName.trim()
+        ? ethers.utils.formatBytes32String(params.authSuperAdminName.trim().slice(0, 31))
+        : ethers.constants.HashZero;
+      const initialAdmins = params.authInitialAdmins.map((a) => ({
+        wallet: ethers.utils.getAddress(a.wallet),
+        nameSlug: a.name.trim()
+          ? ethers.utils.formatBytes32String(a.name.trim().slice(0, 31))
+          : ethers.constants.HashZero,
+      }));
       const cfg = {
         name: params.orgName.trim(),
         daoCfg: {
@@ -113,6 +152,13 @@ export function useDeployDao() {
           proposalThreshold: params.proposalThreshold,
           quorumNumerator: params.quorumNumerator,
           cancellers: params.cancellers,
+        },
+        // MultiTenantAuth bootstrap config — slug is gated by this contract
+        // for the lifetime of the org. See BareBonesDiamond/src/auth/MultiTenantAuth.sol.
+        authCfg: {
+          superAdmin,
+          superAdminNameSlug,
+          initialAdmins,
         },
       };
       return {

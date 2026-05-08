@@ -342,7 +342,14 @@ function RoleStep({
   allRoles: Role[];
   allPermissions: Permission[];
 }) {
-  const compatible = allRoles.filter((r) => r.accountTypes.includes(accountType));
+  // System roles (SuperAdmin / Admin / Pauser / etc.) are managed at the
+  // contract level only — never assignable through the standard onboarding
+  // UX. Hide them from this picker so the user can't accidentally try to
+  // assign them via assignRoles (the contract would either revert or, for
+  // SuperAdmin specifically, only accept transferSuperAdmin).
+  const compatible = allRoles.filter(
+    (r) => !r.isSystemRole && r.accountTypes.includes(accountType),
+  );
 
   function toggle(id: string) {
     set("roles", form.roles.includes(id) ? form.roles.filter((r) => r !== id) : [...form.roles, id]);

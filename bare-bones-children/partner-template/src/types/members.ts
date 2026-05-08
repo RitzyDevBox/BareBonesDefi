@@ -56,6 +56,12 @@ export enum ActivityKind {
   Kyc = "kyc",
 }
 
+export enum SlugStatus {
+  Active = "active",
+  Paused = "paused",
+  Locked = "locked",
+}
+
 export interface AccountType {
   id: AccountTypeId;
   name: string;
@@ -86,6 +92,7 @@ export interface Permission {
   sigRequirement: SignatureRequirement;
   timeLock: string | null;
   validity: { start: string; end: string | null };
+  rateLimit: { maxCalls: number; windowSeconds: number } | null;
   usedByRoles: number;
 }
 
@@ -97,6 +104,12 @@ export interface Role {
   permissions: string[];
   cap: { maxMembers?: number; maxValue?: string } | null;
   isDefault: boolean;
+  /** Built-in role (SuperAdmin, Admin, Pauser, RoleManager, MemberManager,
+   *  PermissionManager, PayrollOperator, TreasuryOperator). System roles are
+   *  not editable, deletable, or assignable via the standard role-assignment
+   *  UX — they exist as a contract invariant, surfaced via the subgraph's
+   *  synthesized rows. */
+  isSystemRole: boolean;
   memberCount: number;
 }
 

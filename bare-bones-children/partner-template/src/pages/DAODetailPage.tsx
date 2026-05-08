@@ -26,6 +26,7 @@ import { useDaoGovernanceOverview } from "../hooks/dao/useDaoGovernanceOverview"
 import { useDaoProposals } from "../hooks/dao/useDaoProposals";
 import { useDaoVoteStatus } from "../hooks/dao/useDaoVoteStatus";
 import { useDaoProposerEligibility } from "../hooks/dao/useDaoProposerEligibility";
+import { orgSlugFor } from "../utils/payroll/orgSlug";
 
 type DAODetailPageProps = {
   daoAddressOverride?: string;
@@ -95,6 +96,13 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
   const effectiveDaoName = useMemo(
     () => daoName || governanceOverview?.onchainName || "DAO",
     [daoName, governanceOverview?.onchainName]
+  );
+  // MTA slug is keccak256 of the org name (canonical convention shared with
+  // payroll). Empty when we haven't resolved a name yet — the Members tab
+  // gates itself on that.
+  const orgSlugBytes = useMemo(
+    () => (daoName ? orgSlugFor(daoName) : ""),
+    [daoName],
   );
   const canExecuteTimelockActions = Boolean(governanceOverview?.openExecutor || governanceOverview?.connectedIsExecutor);
   const canCancelTimelockActions = Boolean(governanceOverview?.openCanceller || governanceOverview?.connectedIsCanceller);
@@ -513,6 +521,7 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
       )}
 
       <ProposalsList
+        slug={orgSlugBytes}
         activeProposals={activeProposals}
         historicalProposals={historicalProposals}
         loading={loadingProposals}

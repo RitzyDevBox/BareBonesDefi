@@ -13,6 +13,7 @@ import DAOGovernorABI from "../../abis/dao/DAOGovernor.abi.json";
 import ERC20ABI from "../../abis/ERC20.json";
 import CaliburEntryABI from "../../abis/diamond/facets/CaliburEntry.abi.json";
 import DiamondCutFacetABI from "../../abis/diamond/facets/DiamondCutFacet.abi.json";
+import MultiTenantAuthABI from "../../abis/auth/MultiTenantAuth.abi.json";
 import { TargetAddressBookModal } from "./TargetAddressBookModal";
 import { AddressBookInput } from "../Inputs/AddressBookInput";
 import { useProposalAddressBook, type AddressBookTargetType } from "../../hooks/dao/useProposalAddressBook";
@@ -114,6 +115,7 @@ const TIMELOCK_ROLE_ABI_OBJECT = [
 const TOKEN_FUNCTIONS_ABI_OBJECT = [...(ERC20ABI as any[]), ...TOKEN_FUNCTIONS_EXTENSION_ABI_OBJECT] as any[];
 const TOKEN_FUNCTIONS_ABI_TEXT = JSON.stringify(TOKEN_FUNCTIONS_ABI_OBJECT, null, 2);
 const CALIBUR_ABI_TEXT = JSON.stringify(CaliburEntryABI, null, 2);
+const MTA_ABI_TEXT = JSON.stringify(MultiTenantAuthABI, null, 2);
 
 const TOKEN_FUNCTIONS_INTERFACE = new ethers.utils.Interface(TOKEN_FUNCTIONS_ABI_OBJECT as any);
 const GOVERNANCE_INTERFACE = new ethers.utils.Interface(DAOGovernorABI as any);
@@ -125,7 +127,7 @@ const PROPOSER_ROLE_ID = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("PROPOS
 const CANCELLER_ROLE_ID = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("CANCELLER_ROLE"));
 const EXECUTOR_ROLE_ID = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXECUTOR_ROLE"));
 
-type ActionGroup = "token" | "governance" | "smart-wallet" | "custom";
+type ActionGroup = "token" | "governance" | "smart-wallet" | "authorizer" | "custom";
 
 type ProposalActionPreset =
   | "native-transfer"
@@ -151,12 +153,14 @@ type ProposalActionPreset =
   | "wallet-diamond-cut"
   | "wallet-calibur-entry"
   | "wallet-deploy"
+  | "auth-mta-function"
   | "custom";
 
 const ACTION_GROUP_OPTIONS: Array<{ value: ActionGroup; label: string }> = [
   { value: "token", label: "Token & Currency Functions" },
   { value: "governance", label: "Governance Management" },
   { value: "smart-wallet", label: "Smart Wallet / Diamond" },
+  { value: "authorizer", label: "Authorizer / Roles & Permissions" },
   { value: "custom", label: "Custom ABI" },
 ];
 
@@ -188,6 +192,9 @@ const ACTION_OPTIONS: Record<ActionGroup, Array<{ value: ProposalActionPreset; l
     { value: "wallet-set-execution-authority-resolver", label: "Set Execution Authority Resolver" },
     { value: "wallet-invalidate-nonce", label: "Invalidate Nonce" },
     { value: "wallet-diamond-cut", label: "Diamond Cut" },
+  ],
+  authorizer: [
+    { value: "auth-mta-function", label: "Authorizer Function (MTA)" },
   ],
   custom: [{ value: "custom", label: "Custom ABI Function" }],
 };
@@ -252,6 +259,7 @@ function targetTypeForPreset(preset: ProposalActionPreset): AddressBookTargetTyp
     return "governance";
   if (GOVERNANCE_ROLE_CONFIG[preset]) return "governance";
   if (preset === "wallet-deploy") return "config";
+  if (preset === "auth-mta-function") return "config";
   if (["wallet-update-entry-point", "wallet-set-execution-authority-resolver", "wallet-invalidate-nonce", "wallet-diamond-cut", "wallet-calibur-entry"].includes(preset)) return "wallet";
   return "custom";
 }
@@ -372,6 +380,7 @@ function defaultDescriptionForAction(preset: ProposalActionPreset) {
     "wallet-diamond-cut": "Diamond cut",
     "wallet-calibur-entry": "Calibur entry function call",
     "wallet-deploy": "Deploy a new smart wallet",
+    "auth-mta-function": "Authorizer (MTA) function call",
     custom: "",
   };
   return map[preset];
@@ -454,7 +463,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
 
   const callDetailsSubLabel = useMemo(() => {
     if (
-      (actionPreset === "custom" || actionPreset === "wallet-calibur-entry") &&
+      (actionPreset === "custom" || actionPreset === "wallet-calibur-entry" || actionPreset === "auth-mta-function") &&
       selectedFunctionSignature
     ) {
       return selectedFunctionSignature;
@@ -484,6 +493,12 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
 
     if (preset === "wallet-calibur-entry") {
       setAbiText(CALIBUR_ABI_TEXT);
+      setSelectedFunctionSignature("");
+      setValuesByParam({});
+    }
+
+    if (preset === "auth-mta-function") {
+      setAbiText(MTA_ABI_TEXT);
       setSelectedFunctionSignature("");
       setValuesByParam({});
     }
@@ -952,7 +967,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
           </FormField>
         ) : null}
 
-        {(actionPreset === "custom" || actionPreset === "wallet-calibur-entry") ? (
+        {(actionPreset === "custom" || actionPreset === "wallet-calibur-entry" || actionPreset === "auth-mta-function") ? (
           <FormField label="Function" style={{ marginBottom: 0 }}>
             <Select
               value={selectedFunctionSignature || null}
@@ -1232,7 +1247,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             />
           )}
 
-          {(actionPreset === "custom" || actionPreset === "wallet-calibur-entry") && selectedFunction ? (
+          {(actionPreset === "custom" || actionPreset === "wallet-calibur-entry" || actionPreset === "auth-mta-function") && selectedFunction ? (
             <Stack gap="sm">
               {selectedFunction ? (
                 <Stack gap="sm">

@@ -14,10 +14,19 @@ import {
   fetchOrganizationInfo,
   useOwnedOrganizations,
 } from "../hooks/payroll/useOrganizationRegistry";
+import { useMemberOrganizations } from "../hooks/auth/useMemberOrganizations";
 import { getBareBonesConfiguration } from "../constants/misc";
 import type { OrganizationModel } from "../models/payments";
 
 const STORAGE_KEY = "barebones.activeOrg";
+const STORAGE_KEY_AT = "barebones.activeOrg.at";
+
+// Indexer-lag grace period: when the user just selected a slug (or refreshed
+// shortly after onboarding), the MTA subgraph may not have caught up. During
+// this window we keep the slug and re-poll the owned + member queries
+// instead of clearing on a transient empty result.
+const SELECTION_GRACE_MS = 60_000;
+const GRACE_RECHECK_MS = 4_000;
 
 interface ActiveOrganizationContextValue {
   activeOrgSlug: string | null;
@@ -31,21 +40,29 @@ interface ActiveOrganizationContextValue {
 
 const ActiveOrganizationContext = createContext<ActiveOrganizationContextValue | null>(null);
 
-function readStored(): string | null {
-  if (typeof window === "undefined") return null;
+function readStored(): { slug: string | null; selectedAt: number } {
+  if (typeof window === "undefined") return { slug: null, selectedAt: 0 };
   try {
     const v = window.localStorage.getItem(STORAGE_KEY);
-    return v && v.trim() ? v : null;
+    const slug = v && v.trim() ? v : null;
+    const atRaw = window.localStorage.getItem(STORAGE_KEY_AT);
+    const selectedAt = atRaw ? Number(atRaw) || 0 : 0;
+    return { slug, selectedAt };
   } catch {
-    return null;
+    return { slug: null, selectedAt: 0 };
   }
 }
 
-function writeStored(slug: string | null) {
+function writeStored(slug: string | null, selectedAt: number) {
   if (typeof window === "undefined") return;
   try {
-    if (slug) window.localStorage.setItem(STORAGE_KEY, slug);
-    else window.localStorage.removeItem(STORAGE_KEY);
+    if (slug) {
+      window.localStorage.setItem(STORAGE_KEY, slug);
+      window.localStorage.setItem(STORAGE_KEY_AT, String(selectedAt));
+    } else {
+      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(STORAGE_KEY_AT);
+    }
   } catch {
     // ignore quota / private-mode errors
   }
@@ -68,10 +85,19 @@ export function ActiveOrganizationProvider({ children }: { children: React.React
 
   const config = useMemo(() => (chainId ? getBareBonesConfiguration(chainId) : null), [chainId]);
 
+  const initialStored = useMemo(() => readStored(), []);
+
   const [activeOrgSlug, setActiveOrgSlugState] = useState<string | null>(() => {
     const fromUrl = params.organizationId?.trim();
     if (fromUrl) return fromUrl;
-    return readStored();
+    return initialStored.slug;
+  });
+  // Timestamp (ms) of when the current `activeOrgSlug` was selected. Used by
+  // the clear-stale effect to avoid wiping a freshly-picked slug while the
+  // subgraph is still indexing the corresponding membership row.
+  const [selectedAt, setSelectedAt] = useState<number>(() => {
+    if (params.organizationId?.trim()) return Date.now();
+    return initialStored.selectedAt || 0;
   });
 
   const urlOrgSlug = params.organizationId?.trim() || null;
@@ -80,17 +106,21 @@ export function ActiveOrganizationProvider({ children }: { children: React.React
   // URL → context: when the user navigates to a route with :organizationId, adopt it.
   useEffect(() => {
     if (!urlOrgSlug) return;
-    if (urlOrgSlug !== activeOrgSlug) setActiveOrgSlugState(urlOrgSlug);
+    if (urlOrgSlug !== activeOrgSlug) {
+      setActiveOrgSlugState(urlOrgSlug);
+      setSelectedAt(Date.now());
+    }
   }, [urlOrgSlug]);
 
   // Persist context to localStorage
   useEffect(() => {
-    writeStored(activeOrgSlug);
-  }, [activeOrgSlug]);
+    writeStored(activeOrgSlug, selectedAt);
+  }, [activeOrgSlug, selectedAt]);
 
   const setActiveOrgSlug = useCallback(
     (slug: string | null) => {
       setActiveOrgSlugState(slug);
+      setSelectedAt(slug ? Date.now() : 0);
       // If the user is currently on an org-scoped route, swap the slug in the URL.
       if (slug && urlOrgSlug && urlOrgSlug !== slug) {
         const nextPath = replaceOrgInPath(location.pathname, urlOrgSlug, slug);
@@ -100,25 +130,91 @@ export function ActiveOrganizationProvider({ children }: { children: React.React
     [urlOrgSlug, location.pathname, location.search, navigate],
   );
 
+  // Bumps every `GRACE_RECHECK_MS` while we're inside the selection grace
+  // window AND the slug isn't yet visible to the access checks. Hooks below
+  // include this in their refresh keys so they re-poll without us re-mounting
+  // anything.
+  const [graceTick, setGraceTick] = useState(0);
+
   const { organizations, loading: loadingOwnedOrgs, reload } = useOwnedOrganizations({
     provider: provider || undefined,
     payrollManagerAddress: config?.payrollManagerAddress,
     owner: account,
-    refreshKey: txVersion,
+    refreshKey: `${txVersion}-${graceTick}`,
   });
 
-  // Drop a stale activeOrgSlug if the on-chain owned-orgs list says it
-  // doesn't exist anymore. Common cause: the chain was reset (anvil restore,
-  // staging refresh, --fresh redeploy) so previous orgs are gone, but
-  // localStorage still has the old slug. Without this the nav-bar
-  // selector keeps showing the dead org and downstream queries fail.
+  // Membership check: parallel to "owned", but pulls from the MTA subgraph
+  // so plain members (non-deployers) also count as having access. Resolves
+  // bytes32 slug hashes back to org names via PayrollManager.nameOf so we
+  // can compare against `activeOrgSlug` (which is the human-readable name).
+  const { organizations: memberOrgs, loading: loadingMemberOrgs } = useMemberOrganizations({
+    provider: provider || undefined,
+    payrollManagerAddress: config?.payrollManagerAddress,
+    chainId,
+    account,
+    refreshKey: `${txVersion}-${graceTick}`,
+  });
+
+  // Drop a stale activeOrgSlug if the user has no access via ownership or
+  // membership. Common causes: chain reset (anvil restore, staging refresh,
+  // --fresh redeploy), the user was removed from the org, or localStorage
+  // holds a slug from a different account.
+  //
+  // Two guards prevent erroneous wipes:
+  //   1. Wallet readiness — on a hard refresh the wallet auto-reconnect is
+  //      async; until provider+account+chainId are populated the access
+  //      queries early-return with empty results.
+  //   2. Selection grace — when the slug was just picked (or refresh hit
+  //      shortly after onboarding) the MTA subgraph may not yet have
+  //      indexed the membership row. Within `SELECTION_GRACE_MS` of
+  //      selection we keep the slug and trigger a re-poll instead of
+  //      wiping; the `graceTick` effect below drives the re-poll.
   useEffect(() => {
-    if (loadingOwnedOrgs) return;
+    if (!provider || !account || chainId == null) return;
+    if (loadingOwnedOrgs || loadingMemberOrgs) return;
     if (!activeOrgSlug) return;
-    if (organizations.length === 0 || !organizations.includes(activeOrgSlug)) {
-      setActiveOrgSlugState(null);
-    }
-  }, [loadingOwnedOrgs, organizations, activeOrgSlug]);
+    const hasAccess =
+      organizations.includes(activeOrgSlug) || memberOrgs.includes(activeOrgSlug);
+    if (hasAccess) return;
+    const elapsed = selectedAt > 0 ? Date.now() - selectedAt : Infinity;
+    if (elapsed < SELECTION_GRACE_MS) return; // grace tick handles re-polling
+    setActiveOrgSlugState(null);
+    setSelectedAt(0);
+  }, [
+    provider,
+    account,
+    chainId,
+    loadingOwnedOrgs,
+    loadingMemberOrgs,
+    organizations,
+    memberOrgs,
+    activeOrgSlug,
+    selectedAt,
+  ]);
+
+  // Grace re-poll: while inside the selection grace window AND the slug
+  // isn't yet visible in either access check, bump `graceTick` on a timer
+  // so the queries re-run. Stops as soon as access is confirmed or the
+  // grace window expires.
+  useEffect(() => {
+    if (!activeOrgSlug || !provider || !account || chainId == null) return;
+    const elapsed = selectedAt > 0 ? Date.now() - selectedAt : Infinity;
+    if (elapsed >= SELECTION_GRACE_MS) return;
+    const hasAccess =
+      organizations.includes(activeOrgSlug) || memberOrgs.includes(activeOrgSlug);
+    if (hasAccess) return;
+    const id = window.setTimeout(() => setGraceTick((t) => t + 1), GRACE_RECHECK_MS);
+    return () => window.clearTimeout(id);
+  }, [
+    activeOrgSlug,
+    selectedAt,
+    provider,
+    account,
+    chainId,
+    organizations,
+    memberOrgs,
+    graceTick,
+  ]);
 
   const [activeOrgInfo, setActiveOrgInfo] = useState<OrganizationModel | null>(null);
 

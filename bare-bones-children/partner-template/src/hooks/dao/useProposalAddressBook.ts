@@ -192,6 +192,7 @@ export function useProposalAddressBook(governorAddress: string) {
       { address: config.facetFallbackFailureHook, label: "Facet Fallback Failure Hook" },
       { address: config.barebones4337Facet, label: "Barebones 4337 Facet (Calibur Entry)" },
       { address: config.diamondFactoryAddress, label: "Diamond Factory" },
+      { address: config.multiTenantAuthAddress, label: "Multi-Tenant Authorizer" },
     ];
   }, [chainId]);
 

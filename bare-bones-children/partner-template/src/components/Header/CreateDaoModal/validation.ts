@@ -29,6 +29,23 @@ export interface GovernanceForm {
 
 export interface RolesForm {
   cancellers: string[];
+  /**
+   * MultiTenantAuth super-admin for the new org's slug. Empty string means
+   * "let the launcher default to the freshly-deployed timelock" (the launcher
+   * substitutes the timelock when `authCfg.superAdmin == address(0)`).
+   */
+  authSuperAdmin: string;
+  /**
+   * Display name for the super-admin member row (encoded into bytes32 on
+   * submit). Empty defaults to `"Timelock"` when the launcher substitutes
+   * the timelock; otherwise to a contract-derived sentinel.
+   */
+  authSuperAdminName: string;
+  /**
+   * Initial Admin role members seeded by `MultiTenantAuth.bootstrap`. Each
+   * entry pairs a wallet with a display name (bytes32 on-chain).
+   */
+  authInitialAdmins: Array<{ wallet: string; name: string }>;
 }
 
 export function validateIdentity(form: IdentityForm): string | null {
@@ -61,6 +78,18 @@ export function validateRoles(form: RolesForm): string | null {
   if (trimmed.length === 0) return "At least one canceller address is required.";
   for (const a of trimmed) {
     if (!isAddr(a)) return `Canceller address "${a}" is invalid.`;
+  }
+  // Super-admin is optional — empty string defaults to the timelock on-chain.
+  const sa = form.authSuperAdmin.trim();
+  if (sa && !isAddr(sa)) return `Super-admin address "${sa}" is invalid.`;
+  if (form.authSuperAdminName.length > 31) {
+    return "Super-admin display name must fit in 31 bytes.";
+  }
+  for (const a of form.authInitialAdmins) {
+    const w = a.wallet.trim();
+    if (!w) continue; // skip empty rows
+    if (!isAddr(w)) return `Initial admin address "${w}" is invalid.`;
+    if (a.name.length > 31) return `Initial admin name "${a.name}" must fit in 31 bytes.`;
   }
   return null;
 }

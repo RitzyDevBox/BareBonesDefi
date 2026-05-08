@@ -1,15 +1,16 @@
 import { useMemo, useState } from "react";
 import { shortAddress } from "../../utils/formatUtils";
 import {
-  Permission, Role, SignatureRequirementType,
+  Member, Permission, Role, SignatureRequirementType,
 } from "../../types/members";
 import { constraintOpLabel, formatConstraintValue } from "../../data/membersSeed";
 import { MembersSubNav, SubTab } from "./MembersSubNav";
+import { MemberAvatar } from "./shared";
 
 interface PermissionsViewProps {
   permissions: Permission[];
   roles: Role[];
-  membersCount: number;
+  members: Member[];
   onGoMembers: () => void;
   onGoRoles: () => void;
   /** `null` opens the builder for a new permission; an existing permission opens it for edit. */
@@ -23,9 +24,21 @@ function sigBadge(p: Permission): string {
     : "single";
 }
 
+function formatRateLimit(rl: Permission["rateLimit"]): string | null {
+  if (!rl) return null;
+  const w = rl.windowSeconds;
+  let unit = "s";
+  let value = w;
+  if (w % 86400 === 0) { unit = "d"; value = w / 86400; }
+  else if (w % 3600 === 0) { unit = "h"; value = w / 3600; }
+  else if (w % 60 === 0) { unit = "m"; value = w / 60; }
+  return `${rl.maxCalls}/${value}${unit}`;
+}
+
 export function PermissionsView({
-  permissions, roles, membersCount, onGoMembers, onGoRoles, onOpenBuilder, onDeletePerm,
+  permissions, roles, members, onGoMembers, onGoRoles, onOpenBuilder, onDeletePerm,
 }: PermissionsViewProps) {
+  const membersCount = members.length;
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -40,6 +53,18 @@ export function PermissionsView({
 
   const sel = permissions.find((p) => p.id === selectedId) ?? null;
   const usedByRolesFor = (pid: string) => roles.filter((r) => r.permissions.includes(pid));
+
+  const holdersFor = (pid: string): Array<{ member: Member; viaRoles: string[] }> => {
+    const carryingRoles = usedByRolesFor(pid);
+    const carryingIds = new Set(carryingRoles.map((r) => r.id));
+    const out: Array<{ member: Member; viaRoles: string[] }> = [];
+    for (const m of members) {
+      const intersect = m.roles.filter((rid) => carryingIds.has(rid));
+      if (intersect.length === 0) continue;
+      out.push({ member: m, viaRoles: intersect.map((rid) => carryingRoles.find((r) => r.id === rid)?.name ?? rid) });
+    }
+    return out;
+  };
 
   return (
     <div className="bb-m-page">
@@ -86,7 +111,13 @@ export function PermissionsView({
               >
                 <div className="bb-m-role-item-top">
                   <span className="bb-m-role-item-name">{p.name}</span>
-                  <span className="bb-pm-sig-mini">{sigBadge(p)}</span>
+                  {p.id.startsWith("draft_") ? (
+                    <span className="bb-m-role-custom" style={{ background: "color-mix(in srgb, var(--bb-warn) 18%, transparent)" }}>
+                      draft
+                    </span>
+                  ) : (
+                    <span className="bb-pm-sig-mini">{sigBadge(p)}</span>
+                  )}
                 </div>
                 <div className="bb-m-role-item-desc" style={{ fontFamily: "var(--bb-font-mono)", fontSize: 11 }}>
                   {p.targetName} · {p.function.split("(")[0]}
@@ -99,6 +130,12 @@ export function PermissionsView({
                     <>
                       <span className="bb-dot">·</span>
                       <span>{p.timeLock} timelock</span>
+                    </>
+                  )}
+                  {p.rateLimit && (
+                    <>
+                      <span className="bb-dot">·</span>
+                      <span>{formatRateLimit(p.rateLimit)}</span>
                     </>
                   )}
                 </div>
@@ -207,7 +244,70 @@ export function PermissionsView({
                     {sel.validity.end ?? "perpetual"}
                   </div>
                 </div>
+                <div className="bb-m-meta">
+                  <div className="bb-kicker">Rate limit</div>
+                  <div className="bb-m-meta-val" style={{ fontSize: 14, fontFamily: "var(--bb-font-mono)" }}>
+                    {formatRateLimit(sel.rateLimit) ?? "None"}
+                  </div>
+                </div>
               </div>
+
+              {(() => {
+                const carryingRoles = usedByRolesFor(sel.id);
+                const holders = holdersFor(sel.id);
+                return (
+                  <>
+                    <div className="bb-amw-section-head">
+                      Granted via roles
+                      <span style={{ marginLeft: "auto", color: "var(--bb-text-mute)" }}>
+                        {carryingRoles.length} role{carryingRoles.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    {carryingRoles.length === 0 ? (
+                      <div className="bb-amw-empty">Not bundled into any role yet — no member holds this permission.</div>
+                    ) : (
+                      <div className="bb-amw-perm-list">
+                        {carryingRoles.map((r) => (
+                          <div key={r.id} className="bb-amw-perm-row">
+                            <span aria-hidden>≡</span>
+                            <div>
+                              <div className="bb-amw-perm-name">{r.name}</div>
+                              <div className="bb-amw-perm-sub">
+                                {r.permissions.length} bundled · {members.filter((m) => m.roles.includes(r.id)).length} holder{members.filter((m) => m.roles.includes(r.id)).length === 1 ? "" : "s"}
+                              </div>
+                            </div>
+                            <span className={r.isDefault ? "bb-m-role-default" : "bb-m-role-custom"}>
+                              {r.isDefault ? "default" : "custom"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="bb-amw-section-head">
+                      Held by members
+                      <span style={{ marginLeft: "auto", color: "var(--bb-text-mute)" }}>
+                        {holders.length} member{holders.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    {holders.length === 0 ? (
+                      <div className="bb-amw-empty">No member currently holds this permission.</div>
+                    ) : (
+                      <div className="bb-m-role-members">
+                        {holders.slice(0, 16).map(({ member: m, viaRoles }) => (
+                          <div key={m.id} className="bb-m-role-member-chip" title={`via ${viaRoles.join(", ")}`}>
+                            <MemberAvatar member={m} size={20} />
+                            <span style={{ fontSize: 12 }}>{m.name}</span>
+                          </div>
+                        ))}
+                        {holders.length > 16 && (
+                          <span className="bb-m-chip bb-m-chip-more">+{holders.length - 16}</span>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </>
           )}
         </div>

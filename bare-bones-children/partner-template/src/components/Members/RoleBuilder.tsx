@@ -13,14 +13,25 @@ interface RoleBuilderProps {
   onSave: (role: Role) => void;
 }
 
+// Reserved system role names — `createRoles` reverts with `IsSystemRole()`
+// for any of these. Validation lives in the form so the user gets feedback
+// before the tx, not as a raw revert.
+const RESERVED_NAMES = new Set([
+  "SuperAdmin",
+  "Admin",
+  "Pauser",
+  "RoleManager",
+  "MemberManager",
+  "PermissionManager",
+  "PayrollOperator",
+  "TreasuryOperator",
+]);
+
 interface RoleForm {
   name: string;
   desc: string;
   accountTypes: AccountTypeId[];
   permissions: string[];
-  capEnabled: boolean;
-  maxMembers: string;
-  maxValue: string;
 }
 
 function formInitial(initial: Role | null, isDuplicate: boolean): RoleForm {
@@ -29,9 +40,6 @@ function formInitial(initial: Role | null, isDuplicate: boolean): RoleForm {
     desc: initial?.desc ?? "",
     accountTypes: initial?.accountTypes ?? [AccountTypeId.Member],
     permissions: initial?.permissions ?? [],
-    capEnabled: !!initial?.cap,
-    maxMembers: initial?.cap?.maxMembers != null ? String(initial.cap.maxMembers) : "",
-    maxValue: initial?.cap?.maxValue ?? "",
   };
 }
 
@@ -63,24 +71,21 @@ export function RoleBuilder({ initialRole, allPermissions, onClose, onSave }: Ro
       : [...form.accountTypes, id]);
   }
 
-  const canSave = form.name.trim().length > 1 && form.accountTypes.length > 0;
+  const trimmedName = form.name.trim();
+  const isReservedName = RESERVED_NAMES.has(trimmedName);
+  const canSave = trimmedName.length > 1 && form.accountTypes.length > 0 && !isReservedName;
 
   function submit() {
     if (!canSave) return;
-    const cap = form.capEnabled
-      ? {
-          ...(form.maxMembers ? { maxMembers: Number(form.maxMembers) } : {}),
-          ...(form.maxValue ? { maxValue: form.maxValue } : {}),
-        }
-      : null;
     const next: Role = {
       id: isEdit && initialRole ? initialRole.id : `role_${Math.random().toString(36).slice(2, 8)}`,
-      name: form.name.trim(),
+      name: trimmedName,
       desc: form.desc.trim(),
       accountTypes: form.accountTypes,
       permissions: form.permissions,
-      cap: cap && (cap.maxMembers != null || cap.maxValue) ? cap : null,
+      cap: initialRole?.cap ?? null,
       isDefault: false,
+      isSystemRole: false,
       memberCount: isEdit && initialRole ? initialRole.memberCount : 0,
     };
     onSave(next);
@@ -91,11 +96,13 @@ export function RoleBuilder({ initialRole, allPermissions, onClose, onSave }: Ro
   const footer = (
     <>
       <div className="bb-amw-foot-hint">
-        {!canSave
-          ? "Name + at least one account type required"
-          : isEdit
-            ? "On-chain role record will be updated"
-            : "New role will be created and stored on-chain"}
+        {isReservedName
+          ? `"${trimmedName}" is a system role name. Pick a different name.`
+          : !canSave
+            ? "Name + at least one account type required"
+            : isEdit
+              ? "On-chain role record will be updated"
+              : "New role will be created and stored on-chain"}
       </div>
       <div className="bb-amw-foot-actions">
         <button className="bb-btn-ghost bb-btn-xs" onClick={onClose}>Cancel</button>
@@ -182,47 +189,6 @@ export function RoleBuilder({ initialRole, allPermissions, onClose, onSave }: Ro
           })}
         </div>
 
-        <div className="bb-amw-section-head">Caps &amp; guardrails</div>
-        <label className="bb-amw-kyc-row" style={{
-          padding: 12, background: "var(--bb-bg)", border: "1px solid var(--bb-line)",
-          borderRadius: 10, cursor: "pointer",
-        }}>
-          <input
-            type="checkbox"
-            checked={form.capEnabled}
-            onChange={(e) => set("capEnabled", e.target.checked)}
-          />
-          <span>
-            <b>Apply role-level caps</b>
-            <span className="bb-amw-kyc-hint">
-              Independent of permission-level constraints. Useful for capping headcount or aggregate spend.
-            </span>
-          </span>
-        </label>
-        {form.capEnabled && (
-          <div className="bb-amw-grid" style={{ marginTop: 10 }}>
-            <div className="bb-amw-field">
-              <label>Max members</label>
-              <input
-                className="bb-amw-input"
-                type="number"
-                min={0}
-                value={form.maxMembers}
-                onChange={(e) => set("maxMembers", e.target.value)}
-                placeholder="e.g. 5"
-              />
-            </div>
-            <div className="bb-amw-field">
-              <label>Max single-tx value</label>
-              <input
-                className="bb-amw-input bb-mono"
-                value={form.maxValue}
-                onChange={(e) => set("maxValue", e.target.value)}
-                placeholder="$50,000"
-              />
-            </div>
-          </div>
-        )}
       </div>
     </MembersModal>
   );

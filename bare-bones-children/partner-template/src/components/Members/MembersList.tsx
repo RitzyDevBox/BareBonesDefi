@@ -18,6 +18,9 @@ interface MembersListProps {
   onAddMember: () => void;
   onGoRoles: () => void;
   onGoPermissions: () => void;
+  onOpenSlugSettings: () => void;
+  onOpenTakeOwnership: () => void;
+  registeredContractsCount: number;
 }
 
 const ACCT_FILTER_ALL = "all" as const;
@@ -32,6 +35,7 @@ const STATUS_BAR: Array<typeof STATUS_FILTER_ALL | OnboardingStatus> = [
 
 export function MembersList({
   members, roles, onOpenMember, onAddMember, onGoRoles, onGoPermissions,
+  onOpenSlugSettings, onOpenTakeOwnership, registeredContractsCount,
 }: MembersListProps) {
   const [q, setQ] = useState("");
   const [acctFilter, setAcctFilter] = useState<AccountTypeId | typeof ACCT_FILTER_ALL>(ACCT_FILTER_ALL);
@@ -85,6 +89,10 @@ export function MembersList({
         >
           Export
         </button>
+        <button className="bb-btn-ghost bb-btn-xs" onClick={onOpenTakeOwnership}>
+          + Take ownership{registeredContractsCount > 0 && ` (${registeredContractsCount})`}
+        </button>
+        <button className="bb-btn-ghost bb-btn-xs" onClick={onOpenSlugSettings}>⚙ Slug settings</button>
         <button className="bb-btn-primary bb-btn-xs" onClick={onAddMember}>+ Add member</button>
       </MembersSubNav>
 
@@ -165,8 +173,29 @@ export function MembersList({
                   )}
                 </td>
                 <td>
-                  <span style={{ fontSize: 12, color: "var(--bb-text-dim)", fontFamily: "var(--bb-font-mono)" }}>
-                    {shortAddress(m.wallet.address)}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 12, color: "var(--bb-text-dim)", fontFamily: "var(--bb-font-mono)" }}>
+                      {shortAddress(m.wallet.address)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void navigator.clipboard?.writeText(m.wallet.address);
+                        notify(ToastType.Success, "Address copied", undefined, 1400);
+                      }}
+                      style={{
+                        background: "transparent",
+                        border: 0,
+                        padding: "0 4px",
+                        cursor: "pointer",
+                        color: "var(--bb-text-mute)",
+                        fontSize: 12,
+                      }}
+                      aria-label="Copy address"
+                    >
+                      ⧉
+                    </button>
                   </span>
                   {!m.wallet.deployed && (
                     <span className="bb-m-warn-tag" title="Wallet not yet deployed">undeployed</span>

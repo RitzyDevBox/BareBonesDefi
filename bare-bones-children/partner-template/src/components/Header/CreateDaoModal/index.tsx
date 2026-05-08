@@ -45,6 +45,12 @@ function buildInitialForm(chainId: number | null, account: string | null) {
     } as GovernanceForm,
     roles: {
       cancellers: [account ?? ""],
+      // Super-admin defaults to the launcher's substitution (the freshly
+      // deployed timelock) when left blank — that matches the contract
+      // behaviour and is what most orgs want out of the box.
+      authSuperAdmin: "",
+      authSuperAdminName: "",
+      authInitialAdmins: [],
     } as RolesForm,
   };
 }
@@ -143,6 +149,11 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
       proposalThreshold: forms.governance.proposalThreshold,
       quorumNumerator: forms.governance.quorumNumerator,
       cancellers: forms.roles.cancellers.map((c) => c.trim()).filter(Boolean),
+      authSuperAdmin: forms.roles.authSuperAdmin.trim(),
+      authSuperAdminName: forms.roles.authSuperAdminName.trim(),
+      authInitialAdmins: forms.roles.authInitialAdmins
+        .map((a) => ({ wallet: a.wallet.trim(), name: a.name.trim() }))
+        .filter((a) => a.wallet.length > 0),
     });
     if (ok) {
       await refreshOwnedOrgs();
