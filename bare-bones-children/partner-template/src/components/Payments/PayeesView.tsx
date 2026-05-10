@@ -2,13 +2,13 @@ import { useMemo, useState } from "react";
 import { ethers } from "ethers";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
+import { useMtaActions } from "../../hooks/auth/useMtaActions";
 import { getBareBonesConfiguration } from "../../constants/misc";
 import { PayeeStatus } from "../../constants/payroll";
-import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
+import MultiTenantAuthABI from "../../abis/auth/MultiTenantAuth.abi.json";
 import type { OrganizationModel, PayeeModel } from "../../models/payments";
 import { shortAddress } from "../../utils/formatUtils";
 import { parsePayeeNameLabel } from "../../utils/payroll/payrollFormatters";
-import { OrgConfigOpKind, encodeOrgConfigOp } from "../../utils/payroll/orgConfigOps";
 import { orgSlugFor } from "../../utils/payroll/orgSlug";
 import { Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
@@ -257,8 +257,14 @@ function BatchOnboardSheet({ onClose, onSubmit, submitting }: BatchSheetProps) {
 export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesChanged }: PayeesViewProps) {
   const { chainId } = useWalletProvider();
   const config = useMemo(() => (chainId ? getBareBonesConfiguration(chainId) : null), [chainId]);
-  const payrollManagerAddress = config?.payrollManagerAddress;
-  const iface = useMemo(() => new ethers.utils.Interface(PayrollManagerABI as any), []);
+  const mtaAddress = config?.multiTenantAuthAddress;
+  const mtaIface = useMemo(() => new ethers.utils.Interface(MultiTenantAuthABI as any), []);
+  // Adds + edits all go through MTA. Adds use the constrained
+  // `onboardExternalMembers` selector (pinned to Contractor + no role).
+  // Edits use the standard MTA member selectors (`setMemberStatus`,
+  // `setMemberNameSlug`, `rotateWallet`) bundled into a single
+  // `configure(slug, calls[])` tx so multi-field edits are one signature.
+  const mtaActions = useMtaActions(orgSlugFor(slug));
 
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -279,62 +285,60 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
   const [stageCounter, setStageCounter] = useState(0);
   const [stageError, setStageError] = useState<string | null>(null);
 
-  // Single submit-staged-changes tx. Bundles every staged add (`PayeeOnboard`)
-  // and every staged edit (`PayeeUpdate`) into one `configure(slug, ops)` call.
-  // We always batch — no per-row immediate-fire paths anymore.
-  const batchSubmitChanges = useExecuteRawTx(
+  // Bundles every staged edit into one `auth.configure(slug, calls[])` tx —
+  // each entry is fully-encoded calldata for an MTA selector. Per-field
+  // routing:
+  //   - name change   → setMemberNameSlug (MemberManager-only)
+  //   - address rotate → rotateWallet     (SuperAdmin-only or self)
+  //   - status change → setMemberStatus   (MemberManager-only)
+  // If any inner call reverts (e.g., the caller doesn't hold the required
+  // role), the whole tx reverts atomically. Adds use a separate
+  // `onboardExternalMembers` call (PayrollOperator + MemberManager) — they
+  // don't fit the MTA-only configure shape because the input struct uses
+  // ExternalInit, not the same interface.
+  const submitMtaEdits = useExecuteRawTx(
     (
-      _: number,
       orgSlug: string,
-      adds: StagedPayee[],
       edits: Array<{ payee: PayeeModel; edit: StagedEdit }>,
     ) => {
-      if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-      const total = adds.length + edits.length;
-      if (total === 0) throw new Error("No staged changes");
+      if (!mtaAddress) throw new Error("MultiTenantAuth address missing");
+      if (edits.length === 0) throw new Error("No edits");
       const slugBytes = orgSlugFor(orgSlug);
-      // Normalize to canonical EIP-55 checksum so ethers' Interface.encodeFunctionData
-      // doesn't reject addresses the user typed in lower-case or with a wrong-case digit.
-      // toLowerCase() strips whatever they typed; getAddress() reapplies the canonical form.
       const normalizeAddr = (a: string) => ethers.utils.getAddress(a.trim().toLowerCase());
-      const ops = [
-        ...adds.map((entry) =>
-          encodeOrgConfigOp({
-            kind: OrgConfigOpKind.PayeeOnboard,
-            nameSlug: ethers.utils.formatBytes32String(entry.name.trim()),
-            paymentAddress: normalizeAddr(entry.address),
-            params: "0x",
-          }),
-        ),
-        ...edits.map(({ payee, edit }) =>
-          encodeOrgConfigOp({
-            kind: OrgConfigOpKind.PayeeUpdate,
-            payeeId: payee.payeeId,
-            nameSlug: ethers.utils.formatBytes32String(edit.name.trim()),
-            paymentAddress: normalizeAddr(edit.address),
-            params: payee.params, // preserve existing params; the editor doesn't expose them
-            status: statusCodeFromKey(edit.statusKey),
-          }),
-        ),
-      ];
+      const calls: string[] = [];
+      for (const { payee, edit } of edits) {
+        const newName = ethers.utils.formatBytes32String(edit.name.trim());
+        const newAddr = normalizeAddr(edit.address);
+        const newStatus = statusCodeFromKey(edit.statusKey);
+        const memberId = payee.payeeId; // post-merge, payeeId === memberId
+        if (newName !== payee.nameSlug) {
+          calls.push(
+            mtaIface.encodeFunctionData("setMemberNameSlug", [slugBytes, memberId, newName]),
+          );
+        }
+        if (newAddr.toLowerCase() !== payee.paymentAddress.toLowerCase()) {
+          calls.push(
+            mtaIface.encodeFunctionData("rotateWallet", [slugBytes, memberId, newAddr]),
+          );
+        }
+        if (newStatus !== Number(payee.status ?? 0)) {
+          calls.push(
+            mtaIface.encodeFunctionData("setMemberStatus", [
+              slugBytes,
+              [memberId],
+              [newStatus],
+            ]),
+          );
+        }
+      }
+      if (calls.length === 0) throw new Error("Nothing actually changed in the staged edits");
       return {
-        to: payrollManagerAddress,
-        data: iface.encodeFunctionData("configure", [slugBytes, ops]),
+        to: mtaAddress,
+        data: mtaIface.encodeFunctionData("configure", [slugBytes, calls]),
       } as any;
     },
-    (
-      _: number,
-      __: string,
-      adds: StagedPayee[],
-      edits: Array<{ payee: PayeeModel; edit: StagedEdit }>,
-    ) => {
-      const a = adds.length;
-      const e = edits.length;
-      const parts: string[] = [];
-      if (a) parts.push(`${a} add${a === 1 ? "" : "s"}`);
-      if (e) parts.push(`${e} edit${e === 1 ? "" : "s"}`);
-      return `Submitted ${parts.join(" + ")}`;
-    },
+    (_: string, edits: Array<{ payee: PayeeModel; edit: StagedEdit }>) =>
+      `Submitted ${edits.length} edit${edits.length === 1 ? "" : "s"}`,
   );
 
   const enriched = useMemo(
@@ -450,7 +454,20 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
     setOnboarding(true);
     setStageError(null);
     try {
-      await batchSubmitChanges(chainId, slug, staged, editEntries);
+      // Adds: MTA's `onboardExternalMembers` (Contractor + no role pinned).
+      if (staged.length > 0) {
+        await mtaActions.onboardExternalMembers(
+          staged.map((s) => ({
+            wallet: s.address,
+            nameSlug: ethers.utils.formatBytes32String(s.name.trim()),
+          })),
+        );
+      }
+      // Edits: bundled into MTA's configure() dispatcher — one signature for
+      // multi-field changes, atomic on revert.
+      if (editEntries.length > 0) {
+        await submitMtaEdits(slug, editEntries);
+      }
       await onPayeesChanged();
       setStaged([]);
       setStagedEdits({});
@@ -464,14 +481,13 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
     if (!chainId || !slug || rows.length === 0) return;
     setOnboarding(true);
     try {
-      // CSV-paste path goes through the same batched configure call — adds only,
-      // no edits — so it shares the dispatcher with the inline staging flow.
-      const adds: StagedPayee[] = rows.map((r, i) => ({
-        id: `csv-${Date.now()}-${i}`,
-        name: r.name,
-        address: r.address,
-      }));
-      await batchSubmitChanges(chainId, slug, adds, []);
+      // CSV-paste path: same MTA call as the inline staging flow.
+      await mtaActions.onboardExternalMembers(
+        rows.map((r) => ({
+          wallet: r.address,
+          nameSlug: ethers.utils.formatBytes32String(r.name.trim()),
+        })),
+      );
       await onPayeesChanged();
       setBatchOpen(false);
     } finally {

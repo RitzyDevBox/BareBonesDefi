@@ -60,10 +60,15 @@ export function PaymentPage() {
       const info = await fetchOrganizationInfo(readProvider, payrollManagerAddress, slug);
       setOrgInfo(info);
       if (info?.exists) {
+        // chainId is the new source-of-truth arg — payees now come from MTA's
+        // unified member roster (admins, super admins, contractors, all).
+        // The provider + payrollManagerAddress args remain for signature
+        // back-compat but the function ignores them.
         const list = await fetchPayeesByOrganization(
           readProvider,
           payrollManagerAddress,
           info.slug ?? orgSlugFor(slug),
+          chainIdOrDefault,
         );
         setPayees(list);
       } else {
@@ -76,7 +81,7 @@ export function PaymentPage() {
     } finally {
       setLoading(false);
     }
-  }, [slug, readProvider, payrollManagerAddress]);
+  }, [slug, readProvider, payrollManagerAddress, chainIdOrDefault]);
 
   useEffect(() => {
     void refresh();

@@ -393,8 +393,8 @@ export function MembersSection({ slug }: MembersSectionProps) {
     const m = members.find((x) => x.id === id);
     if (!m) return;
     try {
-      // MemberStatus.Suspended = 4
-      await actions.setMemberStatus([m.wallet.address], [4]);
+      // MemberStatus.PaymentPaused = 1 — relationship intact, payroll skips them.
+      await actions.setMemberStatus([m.memberId], [1]);
     } catch (e) {
       notify(ToastType.Error, "Suspend failed", e instanceof Error ? e.message : undefined);
     }
@@ -405,7 +405,7 @@ export function MembersSection({ slug }: MembersSectionProps) {
     if (!m) return;
     try {
       // MemberStatus.Active = 0
-      await actions.setMemberStatus([m.wallet.address], [0]);
+      await actions.setMemberStatus([m.memberId], [0]);
     } catch (e) {
       notify(ToastType.Error, "Reinstate failed", e instanceof Error ? e.message : undefined);
     }
@@ -415,9 +415,9 @@ export function MembersSection({ slug }: MembersSectionProps) {
     const m = members.find((x) => x.id === memberId);
     if (!m) return;
     try {
-      // Single-role-per-member invariant: revokeRoles takes the wallet and
+      // Single-role-per-member invariant: revokeRoles takes the memberId and
       // clears its current role; the contract enforces the match.
-      await actions.revokeRoles([m.wallet.address]);
+      await actions.revokeRoles([m.memberId]);
     } catch (e) {
       notify(ToastType.Error, "Revoke failed", e instanceof Error ? e.message : undefined);
     }
@@ -436,8 +436,19 @@ export function MembersSection({ slug }: MembersSectionProps) {
   async function onUnlockSlug() {
     try { await actions.unlockSlug(); } catch (e) { notify(ToastType.Error, "Unlock failed", e instanceof Error ? e.message : undefined); }
   }
-  async function onTransferSuperAdmin(next: string) {
-    try { await actions.transferSuperAdmin(next); } catch (e) { notify(ToastType.Error, "Transfer failed", e instanceof Error ? e.message : undefined); }
+  async function onTransferSuperAdmin(nextWallet: string) {
+    // The modal submits a wallet address; the contract takes a memberId.
+    // Resolve here so the modal stays a dumb form; recipient must already be
+    // a member of this slug (the contract enforces that too).
+    const recipient = members.find(
+      (m) => m.wallet.address.toLowerCase() === nextWallet.toLowerCase(),
+    );
+    if (!recipient) {
+      notify(ToastType.Error, "Transfer failed", "Recipient must already be a member of this org.");
+      return;
+    }
+    try { await actions.transferSuperAdmin(recipient.memberId); }
+    catch (e) { notify(ToastType.Error, "Transfer failed", e instanceof Error ? e.message : undefined); }
   }
 
   async function onCompleteTakeOwnership(entry: { address: string; name: string }) {

@@ -352,7 +352,11 @@ function rowToMember(row: MemberRow, profile: MemberProfile | undefined, code: s
     : row.wallet.replace(/^0x/, "").slice(0, 2).toUpperCase();
   const deployed = code != null && code !== "0x";
   return {
+    // The subgraph entity id is now the stable memberId (decimal string),
+    // and we use it as the frontend-side React key + as the value passed
+    // back to MTA mutators that expect uint256 memberIds.
     id: row.id,
+    memberId: row.memberId,
     // Leave blank when there's no on-chain or off-chain name. The UI shows
     // the wallet address inline anyway and a placeholder dash for empty
     // fields; we don't synthesize a fake "Wallet · 0x…" name here.
@@ -446,16 +450,16 @@ function accountTypeIdFromInt(n: number | null | undefined): AccountTypeId {
 }
 
 function onboardingStatusFromInt(n: number | null | undefined): OnboardingStatus {
-  // MembersContract.MemberStatus: 0=Active, 1=OnLeave, 2=Terminated, 3=Invited, 4=Suspended.
-  // Frontend's coarser enum collapses OnLeave→Active and Terminated→Departed.
+  // MembersContract.MemberStatus (collapsed):
+  //   0 = Active, 1 = PaymentPaused, 2 = Terminated.
+  // Frontend's coarser enum maps PaymentPaused → Suspended and Terminated →
+  // Departed. The "Invited" UI badge is no longer an on-chain status — it's
+  // derived from "member exists but has no role assigned yet" by the views.
   switch (n) {
-    case 3:
-      return OnboardingStatus.Invited;
-    case 4:
+    case 1:
       return OnboardingStatus.Suspended;
     case 2:
       return OnboardingStatus.Departed;
-    case 1:
     case 0:
     default:
       return OnboardingStatus.Active;

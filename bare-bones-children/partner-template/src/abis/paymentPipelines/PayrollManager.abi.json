@@ -698,86 +698,6 @@
   },
   {
     "type": "function",
-    "name": "getPayee",
-    "inputs": [
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "tuple",
-        "internalType": "struct OnboardingManager.Payee",
-        "components": [
-          {
-            "name": "payeeId",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "organizationSlug",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "nameSlug",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "paymentAddress",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "params",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "status",
-            "type": "uint8",
-            "internalType": "enum OnboardingManager.PayeeStatus"
-          }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getPayeesByOrganizationPaged",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "offset",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "limit",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "result",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getPayrollGross",
     "inputs": [
       {
@@ -1219,6 +1139,19 @@
   },
   {
     "type": "function",
+    "name": "membersView",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IMembersView"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "nameOf",
     "inputs": [
       {
@@ -1235,40 +1168,6 @@
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "onboardPayee",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "nameSlug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "paymentAddress",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "params",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -1342,122 +1241,6 @@
         "name": "",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "payeeByNameSlug",
-    "inputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "payeeByOrgAndAddress",
-    "inputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "payeeExistsInOrganization",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "payees",
-    "inputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "organizationSlug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "nameSlug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "paymentAddress",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "params",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "status",
-        "type": "uint8",
-        "internalType": "enum OnboardingManager.PayeeStatus"
       }
     ],
     "stateMutability": "view"
@@ -1708,6 +1491,19 @@
   },
   {
     "type": "function",
+    "name": "setMembersView",
+    "inputs": [
+      {
+        "name": "newView",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setOrganizationDao",
     "inputs": [
       {
@@ -1852,25 +1648,6 @@
   },
   {
     "type": "function",
-    "name": "totalPayeesInOrganization",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "transferOwnership",
     "inputs": [
       {
@@ -1906,62 +1683,6 @@
       },
       {
         "name": "newOwner",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "updatePayee",
-    "inputs": [
-      {
-        "name": "slug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "nameSlug",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "paymentAddress",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "params",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "status",
-        "type": "uint8",
-        "internalType": "enum OnboardingManager.PayeeStatus"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "updatePaymentAddress",
-    "inputs": [
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "newAddress",
         "type": "address",
         "internalType": "address"
       }
@@ -2205,6 +1926,25 @@
     "inputs": [
       {
         "name": "launcher",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MembersViewSet",
+    "inputs": [
+      {
+        "name": "previous",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "current",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -2563,68 +2303,6 @@
   },
   {
     "type": "event",
-    "name": "PayeeNameSlugUpdated",
-    "inputs": [
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "organizationSlug",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "oldNameSlug",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "newNameSlug",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "PayeeOnboarded",
-    "inputs": [
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "organizationSlug",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "paymentAddress",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "nameSlug",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "PayeePaid",
     "inputs": [
       {
@@ -2675,50 +2353,6 @@
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "PayeeUpdated",
-    "inputs": [
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "organizationSlug",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "PaymentAddressUpdated",
-    "inputs": [
-      {
-        "name": "payeeId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "organizationSlug",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "newAddress",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -2901,11 +2535,6 @@
   },
   {
     "type": "error",
-    "name": "AddressAlreadyInUse",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "DefaultPayBatchCodeReserved",
     "inputs": []
   },
@@ -2931,27 +2560,12 @@
   },
   {
     "type": "error",
-    "name": "InvalidPaging",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "InvalidPayBatchCode",
     "inputs": []
   },
   {
     "type": "error",
     "name": "InvalidPayBatchConfigAction",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InvalidPayee",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InvalidPayeeNameSlug",
     "inputs": []
   },
   {
@@ -2977,6 +2591,16 @@
   {
     "type": "error",
     "name": "InvalidSystemEarningsCodeId",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MembersViewAlreadySet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MembersViewNotSet",
     "inputs": []
   },
   {
@@ -3007,11 +2631,6 @@
   {
     "type": "error",
     "name": "NotOwner",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "NotPayeeSelf",
     "inputs": []
   },
   {
@@ -3052,11 +2671,6 @@
   {
     "type": "error",
     "name": "PayeeEarningNotAssigned",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "PayeeNameSlugAlreadyTaken",
     "inputs": []
   },
   {

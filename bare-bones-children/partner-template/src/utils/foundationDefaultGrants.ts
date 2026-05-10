@@ -113,11 +113,19 @@ const MTA_SELF_MANAGER_GRANTS: Array<{
 
   // MemberManager → member roster only (no role assignment — that's
   // RoleManager's job since it carries the same blast radius as editing roles).
-  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "onboardMembers",        description: "Onboard new members under the slug." },
-  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "setMemberStatus",       description: "Activate / suspend / terminate / mark on-leave." },
-  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "setMemberAccountType",  description: "Change a member's account type (Member / Investor / Contractor)." },
-  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "setMemberNameSlug",     description: "Rename a member (changes their on-chain nameSlug)." },
-  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "removeMembers",         description: "Remove members from the slug." },
+  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "onboardMembers",         description: "Onboard new members under the slug." },
+  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "onboardExternalMembers", description: "Onboard contractors only (no role, locked to Contractor type)." },
+  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "setMemberStatus",        description: "Activate / pause payment / terminate." },
+  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "setMemberAccountType",   description: "Change a member's account type (Member / Investor / Contractor)." },
+  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "setMemberNameSlug",      description: "Rename a member (changes their on-chain nameSlug)." },
+  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "removeMembers",          description: "Remove members from the slug." },
+
+  // PayrollOperator → constrained external-onboarding only. The struct shape
+  // pins accountType=Contractor + roleSlug=0, so no escalation is possible
+  // through this grant. PayrollOperator's other implicit grants are on the
+  // PayrollManager target itself (not MTA) and live in
+  // `_isPayrollOperatorDefaultSig` / the payrollOperatorDefaultSelectors list.
+  { roleSlug: PAYROLL_OPERATOR_ROLE, fnName: "onboardExternalMembers", description: "Onboard contractors for the payroll roster (locked to Contractor type, no role)." },
 
   // PermissionManager → permission lifecycle + target-grant whitelist/blacklist.
   // No longer owns the role↔permission junction — that moved to RoleManager.

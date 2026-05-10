@@ -26,6 +26,7 @@ const MTA_STATE_QUERY = `
     slugConfig(id: $slug) {
       id
       slug
+      superAdminId
       superAdmin
       fallbackAuthorizer
       state
@@ -35,6 +36,7 @@ const MTA_STATE_QUERY = `
     }
     members(first: 1000, where: { slug: $slugBytes, removedAt: null }) {
       id
+      memberId
       wallet
       nameSlug
       accountType
@@ -84,6 +86,10 @@ const MTA_STATE_QUERY = `
 export type SlugConfigRow = {
   id: string;
   slug: string;
+  /** memberId of the current super admin (BigInt → string on the wire). */
+  superAdminId: string | null;
+  /** Snapshot of the super admin's current wallet — refreshed on
+   *  WalletRotated when the rotated member is the super admin. */
   superAdmin: string | null;
   fallbackAuthorizer: string | null;
   state: "Normal" | "Paused" | "Locked";
@@ -94,6 +100,12 @@ export type SlugConfigRow = {
 
 export type MemberRow = {
   id: string;
+  /** Stable global identifier for the member (BigInt → string on the wire).
+   *  Use this — not `wallet` — when calling member-mutating MTA selectors
+   *  (`assignRoles`, `setMemberStatus`, `removeMembers`, `rotateWallet`,
+   *  `setMemberAccountType`, `setMemberNameSlug`, `transferSuperAdmin`). */
+  memberId: string;
+  /** Current wallet — mutable; refreshed on WalletRotated. */
   wallet: string;
   nameSlug: string | null;
   accountType: number | null;

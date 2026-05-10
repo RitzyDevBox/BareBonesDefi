@@ -3,18 +3,20 @@ import { ethers } from "ethers";
 /**
  * Mirror of `IPayrollManager.OrgConfigOpKind` in the payroll contract.
  * Order MUST match the contract enum so the on-chain dispatcher routes correctly.
+ *
+ * Member onboarding / update / name-slug change moved to MTA — call those
+ * selectors directly via `useMtaActions` (`onboardExternalMembers`,
+ * `setMemberStatus`, `setMemberNameSlug`, `rotateWallet`). The dispatcher
+ * here only handles payroll-specific ops now.
  */
 export enum OrgConfigOpKind {
-  PayeeOnboard = 0,
-  PayeeUpdate = 1,
-  PayeeUpdateNameSlug = 2,
-  EarningsCodeRegister = 3,
-  PayBatchCreate = 4,
-  PayBatchConfigure = 5,
-  PayBatchRemovePayee = 6,
-  PayrollCreate = 7,
-  PayrollConfigure = 8,
-  PayrollCancel = 9,
+  EarningsCodeRegister = 0,
+  PayBatchCreate = 1,
+  PayBatchConfigure = 2,
+  PayBatchRemovePayee = 3,
+  PayrollCreate = 4,
+  PayrollConfigure = 5,
+  PayrollCancel = 6,
 }
 
 export type OrgConfigOp = { kind: OrgConfigOpKind; data: string };
@@ -41,25 +43,6 @@ export type PayrollConfigAction = {
 };
 
 export type OrgConfigOpInput =
-  | {
-      kind: OrgConfigOpKind.PayeeOnboard;
-      nameSlug: string; // bytes32
-      paymentAddress: string;
-      params: string; // bytes
-    }
-  | {
-      kind: OrgConfigOpKind.PayeeUpdate;
-      payeeId: ethers.BigNumberish;
-      nameSlug: string;
-      paymentAddress: string;
-      params: string;
-      status: number;
-    }
-  | {
-      kind: OrgConfigOpKind.PayeeUpdateNameSlug;
-      payeeId: ethers.BigNumberish;
-      newNameSlug: string;
-    }
   | {
       kind: OrgConfigOpKind.EarningsCodeRegister;
       name: string; // bytes32
@@ -122,30 +105,6 @@ export function encodeOrgConfigOp(input: OrgConfigOpInput): OrgConfigOp {
   const coder = ethers.utils.defaultAbiCoder;
 
   switch (input.kind) {
-    case OrgConfigOpKind.PayeeOnboard:
-      return {
-        kind: input.kind,
-        data: coder.encode(
-          ["bytes32", "address", "bytes"],
-          [input.nameSlug, input.paymentAddress, input.params]
-        ),
-      };
-
-    case OrgConfigOpKind.PayeeUpdate:
-      return {
-        kind: input.kind,
-        data: coder.encode(
-          ["uint256", "bytes32", "address", "bytes", "uint8"],
-          [input.payeeId, input.nameSlug, input.paymentAddress, input.params, input.status]
-        ),
-      };
-
-    case OrgConfigOpKind.PayeeUpdateNameSlug:
-      return {
-        kind: input.kind,
-        data: coder.encode(["uint256", "bytes32"], [input.payeeId, input.newNameSlug]),
-      };
-
     case OrgConfigOpKind.EarningsCodeRegister:
       return {
         kind: input.kind,

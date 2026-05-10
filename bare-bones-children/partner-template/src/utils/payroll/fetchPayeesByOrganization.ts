@@ -1,35 +1,36 @@
 import { ethers } from "ethers";
-import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 import type { PayeeModel } from "../../models/payments";
+import { fetchMtaState } from "../graph/mtaGraphService";
 
+/// @notice "Payees" is now a view over MTA's unified member roster — every
+/// member is implicitly a payee, regardless of accountType / role. We pull
+/// from the subgraph instead of PayrollManager because the on-chain payee
+/// registry has been merged into MTA: PayrollManager.getPayee(id) still
+/// exists for back-compat but the source of truth for member identity is
+/// MTA. The `provider` + `payrollManagerAddress` args are kept for signature
+/// stability with callers that haven't been migrated yet, but only `chainId`
+/// + `slugBytes` are actually used.
 export async function fetchPayeesByOrganization(
-  provider: ethers.providers.Provider,
-  payrollManagerAddress: string,
-  slugBytes: string
+  _provider: ethers.providers.Provider,
+  _payrollManagerAddress: string,
+  slugBytes: string,
+  chainId?: number,
 ): Promise<PayeeModel[]> {
-  const contract = new ethers.Contract(
-    payrollManagerAddress,
-    PayrollManagerABI as any,
-    provider
-  );
+  if (chainId == null) return [];
 
-  const total = await contract.totalPayeesInOrganization(slugBytes);
-  if (!total || total.isZero()) {
-    return [];
-  }
-
-  const payeeIds = await contract.getPayeesByOrganizationPaged(
-    slugBytes,
-    0,
-    total.toNumber()
-  );
-
-  const payees = await Promise.all(
-    payeeIds.map((id: ethers.BigNumber) => contract.getPayee(id))
-  );
-
-  return payees.map((payee: any) => ({
-    ...payee,
-    payeeId: payee.payeeId,
-  })) as PayeeModel[];
+  const graph = await fetchMtaState(chainId, slugBytes);
+  // Map every member into the existing PayeeModel shape so downstream
+  // components (PayeesView, payroll editors) keep working without changes.
+  // status is mapped from the contract's 3-value MemberStatus
+  // (Active / PaymentPaused / Terminated) onto the legacy PayeeStatus enum.
+  return graph.members
+    .filter((m) => m.memberId !== "0" && m.memberId !== "")
+    .map((m) => ({
+      payeeId: ethers.BigNumber.from(m.memberId),
+      organizationSlug: slugBytes,
+      nameSlug: m.nameSlug ?? "",
+      paymentAddress: m.wallet,
+      params: "0x",
+      status: m.status ?? 0,
+    }));
 }

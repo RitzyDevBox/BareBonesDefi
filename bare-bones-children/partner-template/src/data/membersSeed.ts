@@ -201,7 +201,7 @@ export const ROLES_SEED: Role[] = [
 
 export const MEMBERS_SEED: Member[] = [
   {
-    id: "mbr_alex", name: "Alex Rivera", initials: "AR", avatarHue: 220,
+    id: "mbr_alex", memberId: "mbr_alex", name: "Alex Rivera", initials: "AR", avatarHue: 220,
     email: "alex@quorum.xyz", jurisdiction: "United States · DE",
     accountType: AccountTypeId.Member,
     roles: ["role_director", "role_treasury_signer"],
@@ -212,7 +212,7 @@ export const MEMBERS_SEED: Member[] = [
     dateAdded: "Feb 14, 2026",
   },
   {
-    id: "mbr_priya", name: "Priya Shah", initials: "PS", avatarHue: 320,
+    id: "mbr_priya", memberId: "mbr_priya", name: "Priya Shah", initials: "PS", avatarHue: 320,
     email: "priya@quorum.xyz", jurisdiction: "United Kingdom",
     accountType: AccountTypeId.Member,
     roles: ["role_officer", "role_treasury_signer", "role_voting"],
@@ -223,7 +223,7 @@ export const MEMBERS_SEED: Member[] = [
     dateAdded: "Feb 16, 2026",
   },
   {
-    id: "mbr_chen", name: "Chen Liu", initials: "CL", avatarHue: 145,
+    id: "mbr_chen", memberId: "mbr_chen", name: "Chen Liu", initials: "CL", avatarHue: 145,
     email: "chen@quorum.xyz", jurisdiction: "Singapore",
     accountType: AccountTypeId.Member,
     roles: ["role_manager", "role_voting"],
@@ -234,7 +234,7 @@ export const MEMBERS_SEED: Member[] = [
     dateAdded: "Feb 28, 2026",
   },
   {
-    id: "mbr_maya", name: "Maya Tanaka", initials: "MT", avatarHue: 30,
+    id: "mbr_maya", memberId: "mbr_maya", name: "Maya Tanaka", initials: "MT", avatarHue: 30,
     email: "maya@quorum.xyz", jurisdiction: "Japan",
     accountType: AccountTypeId.Contractor,
     roles: ["role_observer"],
@@ -245,7 +245,7 @@ export const MEMBERS_SEED: Member[] = [
     dateAdded: "Mar 14, 2026",
   },
   {
-    id: "mbr_velta", name: "Velta Capital", initials: "VC", avatarHue: 270,
+    id: "mbr_velta", memberId: "mbr_velta", name: "Velta Capital", initials: "VC", avatarHue: 270,
     email: "ops@velta.capital", jurisdiction: "Cayman Islands",
     accountType: AccountTypeId.Investor,
     roles: ["role_lp"],
@@ -256,7 +256,7 @@ export const MEMBERS_SEED: Member[] = [
     dateAdded: "Mar 21, 2026",
   },
   {
-    id: "mbr_octant", name: "Octant Partners", initials: "OP", avatarHue: 195,
+    id: "mbr_octant", memberId: "mbr_octant", name: "Octant Partners", initials: "OP", avatarHue: 195,
     email: "fund@octant.partners", jurisdiction: "Switzerland",
     accountType: AccountTypeId.Investor,
     roles: ["role_lp", "role_voting"],
@@ -267,7 +267,7 @@ export const MEMBERS_SEED: Member[] = [
     dateAdded: "Apr 02, 2026",
   },
   {
-    id: "mbr_jordan", name: "Jordan Hayes", initials: "JH", avatarHue: 12,
+    id: "mbr_jordan", memberId: "mbr_jordan", name: "Jordan Hayes", initials: "JH", avatarHue: 12,
     email: "jordan@external.dev", jurisdiction: "Canada",
     accountType: AccountTypeId.Contractor,
     roles: ["role_observer"],
@@ -278,7 +278,7 @@ export const MEMBERS_SEED: Member[] = [
     dateAdded: "Apr 22, 2026",
   },
   {
-    id: "mbr_sam", name: "Sam Patel", initials: "SP", avatarHue: 88,
+    id: "mbr_sam", memberId: "mbr_sam", name: "Sam Patel", initials: "SP", avatarHue: 88,
     email: "sam@quorum.xyz", jurisdiction: "Australia",
     accountType: AccountTypeId.Member,
     roles: ["role_voting"],
@@ -289,7 +289,7 @@ export const MEMBERS_SEED: Member[] = [
     dateAdded: "Apr 18, 2026",
   },
   {
-    id: "mbr_dana", name: "Dana Cole", initials: "DC", avatarHue: 350,
+    id: "mbr_dana", memberId: "mbr_dana", name: "Dana Cole", initials: "DC", avatarHue: 350,
     email: "dana@former.xyz", jurisdiction: "United States · NY",
     accountType: AccountTypeId.Member,
     roles: [],
@@ -300,7 +300,7 @@ export const MEMBERS_SEED: Member[] = [
     dateAdded: "Jan 08, 2026",
   },
   {
-    id: "mbr_kai", name: "Kai Nguyen", initials: "KN", avatarHue: 165,
+    id: "mbr_kai", memberId: "mbr_kai", name: "Kai Nguyen", initials: "KN", avatarHue: 165,
     email: "kai@quorum.xyz", jurisdiction: "Vietnam",
     accountType: AccountTypeId.Member,
     roles: ["role_voting"],

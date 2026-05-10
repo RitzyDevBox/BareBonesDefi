@@ -91,7 +91,12 @@ export function AddMemberWizard({ roles, permissions, onClose, onCreate }: AddMe
       .join("")
       .toUpperCase() || "??";
     const member: Member = {
+      // Pre-submit draft — the real memberId is allocated by the contract
+      // on `onboardMembers` and surfaces back via the subgraph. Placeholder
+      // matches `id` so any consumer that reads `memberId` before the tx
+      // is mined sees a value (and the post-tx subgraph refresh replaces it).
       id: `mbr_${Math.random().toString(36).slice(2, 8)}`,
+      memberId: "",
       name: form.name.trim(),
       email: form.email.trim(),
       jurisdiction: form.jurisdiction.trim() || "—",

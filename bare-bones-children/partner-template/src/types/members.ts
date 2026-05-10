@@ -114,7 +114,14 @@ export interface Role {
 }
 
 export interface Member {
+  /** Frontend-side identifier — same as the contract's stable `memberId` so
+   *  React keys, list indexes, and member-mutating call sites can use this
+   *  directly without an extra lookup. */
   id: string;
+  /** Stable global identifier from the contract (decimal string of uint256).
+   *  Pass to `useMtaActions` mutators (`assignRoles`, `setMemberStatus`, etc.)
+   *  — the contract takes `memberId[]`, never `address[]`. */
+  memberId: string;
   name: string;
   initials: string;
   avatarHue: number;
