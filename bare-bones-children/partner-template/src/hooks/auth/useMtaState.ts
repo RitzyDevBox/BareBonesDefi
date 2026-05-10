@@ -43,6 +43,67 @@ import {
 } from "../../utils/api/mtaProfileService";
 import { parsePayeeNameLabel } from "../../utils/payroll/payrollFormatters";
 import { getKnownContracts, listWriteFunctions } from "../../utils/knownContracts";
+import {
+  FoundationDefaultGrant,
+  ManagedContractLabel,
+  getAdminManagedContracts,
+  getFoundationDefaultGrants,
+} from "../../utils/foundationDefaultGrants";
+
+// The 8 contract-level constants in MTA's `_isSystemRole`. Keeping the bytes32
+// hex hardcoded matches the subgraph mapping (`SYSTEM_ROLE_HEXES`) and lets
+// us synthesize Role rows in the UI without any contract / graph round-trip.
+// Descriptions track what the contract enforces:
+//   - SuperAdmin / Admin: short-circuit early-returns in `_isAuthorized`
+//   - Pauser / RoleManager / MemberManager / PermissionManager: implicit
+//     selectors via `_selfManagerAllows` (MTA's own admin surface)
+//   - PayrollOperator: implicit selectors via `_isFoundationDefaultGrant`
+//     (PayrollManager's operator surface)
+//   - TreasuryOperator: declared but reserved — no implicit grants today
+const SYSTEM_ROLES: Array<{ name: string; slug: string; desc: string }> = [
+  {
+    name: "SuperAdmin",
+    slug: "0x537570657241646d696e00000000000000000000000000000000000000000000",
+    desc: "Slug owner. Bypasses every check including pause + lock. Exactly one per slug; rotated via transferSuperAdmin.",
+  },
+  {
+    name: "Admin",
+    slug: "0x41646d696e000000000000000000000000000000000000000000000000000000",
+    desc: "Operational owner. Can call any MTA admin function while the slug is in Normal state; blocked when paused/locked.",
+  },
+  {
+    name: "Pauser",
+    slug: "0x5061757365720000000000000000000000000000000000000000000000000000",
+    desc: "Emergency response. Implicit access to pauseSlug + unpauseSlug. Cannot lock or rotate super admin.",
+  },
+  {
+    name: "RoleManager",
+    slug: "0x526f6c654d616e61676572000000000000000000000000000000000000000000",
+    desc: "Role lifecycle. Implicit access to createRoles / updateRoles / deleteRoles. Cannot manage members or permissions.",
+  },
+  {
+    name: "MemberManager",
+    slug: "0x4d656d6265724d616e6167657200000000000000000000000000000000000000",
+    desc: "Member roster. Implicit access to onboardMembers, setMember*, removeMembers, assignRoles, revokeRoles.",
+  },
+  {
+    name: "PermissionManager",
+    slug: "0x5065726d697373696f6e4d616e61676572000000000000000000000000000000",
+    desc: "Permission lifecycle. Implicit access to create/update/delete permissions, attach/detach roles, target grants, public-sig + fallback authorizer.",
+  },
+  {
+    name: "PayrollOperator",
+    slug: "0x506179726f6c6c4f70657261746f720000000000000000000000000000000000",
+    desc: "Payroll operations. Implicit access to PayrollManager's operator surface (createPayroll, configurePayroll, payee management, earnings codes, etc.).",
+  },
+  {
+    name: "TreasuryOperator",
+    slug: "0x54726561737572794f70657261746f7200000000000000000000000000000000",
+    desc: "Treasury operations. Reserved system role — no implicit grants today; orgs grant explicit permissions to use it.",
+  },
+];
+
+const SYSTEM_ROLE_HEX_SET = new Set(SYSTEM_ROLES.map((r) => r.slug.toLowerCase()));
 
 export interface MtaStateView {
   slugStatus: SlugStatus;
@@ -51,6 +112,15 @@ export interface MtaStateView {
   members: Member[];
   roles: Role[];
   permissions: Permission[];
+  /** Hardcoded MTA-side grants (Tier-3 in `_isAuthorized`, plus
+   *  `_selfManagerAllows` and `_requireCanPause`) that the contract enforces
+   *  for free, no per-org storage. Display-only — surfaced on each affected
+   *  role's detail page. */
+  foundationDefaults: FoundationDefaultGrant[];
+  /** Wholesale-managed contracts for SuperAdmin / Admin (those roles
+   *  short-circuit per-selector checks; they manage every fn on these
+   *  contracts). Rendered as a coarse strip on those role detail pages. */
+  adminManagedContracts: ManagedContractLabel[];
   registeredContracts: Array<{ address: string; name: string; registeredAt: string }>;
   loading: boolean;
   error: string | null;
@@ -63,6 +133,8 @@ const EMPTY_STATE: MtaStateView = {
   members: [],
   roles: [],
   permissions: [],
+  foundationDefaults: [],
+  adminManagedContracts: [],
   registeredContracts: [],
   loading: false,
   error: null,
@@ -134,10 +206,46 @@ export function useMtaState(slug: string): MtaStateView {
           }
         }
 
-        const roles = graph.roles.map((row) => {
-          const profile = roleProfiles[row.roleSlug.toLowerCase()];
-          return rowToRole(row, profile, memberCountByRole[row.roleSlug.toLowerCase()] ?? 0);
+        // Synthesize the 8 system roles unconditionally so they always show
+        // in the UI — the subgraph only emits a synthetic Role row the first
+        // time a system role is *assigned* to someone (handleRoleAssigned in
+        // multi-tenant-auth.ts), so on a fresh slug only SuperAdmin (the
+        // bootstrap creator) would otherwise be visible. Graph rows for any
+        // already-assigned system role override the synthetic defaults.
+        const graphRoleByLowerId: Record<string, typeof graph.roles[number]> = {};
+        for (const row of graph.roles) graphRoleByLowerId[row.roleSlug.toLowerCase()] = row;
+
+        const synthSystemRoles = SYSTEM_ROLES.map((sr) => {
+          const existing = graphRoleByLowerId[sr.slug.toLowerCase()];
+          if (existing) {
+            return rowToRole(
+              existing,
+              roleProfiles[existing.roleSlug.toLowerCase()],
+              memberCountByRole[existing.roleSlug.toLowerCase()] ?? 0,
+            );
+          }
+          return {
+            id: sr.slug,
+            name: sr.name,
+            desc: sr.desc,
+            accountTypes: [],
+            permissions: [],
+            cap: null,
+            isDefault: true,
+            isSystemRole: true,
+            memberCount: memberCountByRole[sr.slug.toLowerCase()] ?? 0,
+          };
         });
+
+        const customRoles = graph.roles
+          .filter((row) => !SYSTEM_ROLE_HEX_SET.has(row.roleSlug.toLowerCase()))
+          .map((row) => rowToRole(
+            row,
+            roleProfiles[row.roleSlug.toLowerCase()],
+            memberCountByRole[row.roleSlug.toLowerCase()] ?? 0,
+          ));
+
+        const roles: Role[] = [...synthSystemRoles, ...customRoles];
 
         // usedByRoles per (target, sig). With reusable permissions a single
         // permId can be attached to many roles via the junction; count the
@@ -193,6 +301,12 @@ export function useMtaState(slug: string): MtaStateView {
             registeredAt: c.registeredAt ? bigSecToIso(c.registeredAt) : "",
           }));
 
+        // Hardcoded foundation defaults + Admin/SuperAdmin wholesale list.
+        // Both read from the known-contracts registry — no chain round-trip.
+        // The contract already enforces these; this is display only.
+        const foundationDefaults = getFoundationDefaultGrants(chainId);
+        const adminManagedContracts = getAdminManagedContracts(chainId);
+
         setState({
           slugStatus: graphStateToFrontend(graph.slugConfig?.state ?? "Normal"),
           superAdmin: graph.slugConfig?.superAdmin ?? EMPTY_STATE.superAdmin,
@@ -200,6 +314,8 @@ export function useMtaState(slug: string): MtaStateView {
           members,
           roles,
           permissions,
+          foundationDefaults,
+          adminManagedContracts,
           registeredContracts,
           loading: false,
           error: null,

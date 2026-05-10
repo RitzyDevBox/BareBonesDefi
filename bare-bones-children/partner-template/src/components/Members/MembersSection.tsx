@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ethers } from "ethers";
 import { MEMBER_ACTIVITY_SEED } from "../../data/membersSeed";
 import {
@@ -19,6 +19,38 @@ import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { getBareBonesConfiguration } from "../../constants/misc";
 import { useMtaState } from "../../hooks/auth/useMtaState";
 import { useMtaActions, OnboardMemberInput, PermissionInput, RoleInput } from "../../hooks/auth/useMtaActions";
+
+/** Tray entry for a permission queued via "+ Stage". `kind: 'new'` rows are
+ *  brand-new permissions (green in the list); `kind: 'edit'` rows are pending
+ *  changes to an existing chain-resident permission (yellow on the row). */
+export type StagedPermission =
+  | { kind: "new"; tempId: string; perm: Permission; intent: SavePermissionIntent }
+  | { kind: "edit"; permId: string; perm: Permission; intent: SavePermissionIntent };
+
+/** Convert a staged Permission display row into the on-chain PermissionInput
+ *  tuple expected by `createPermissions` / `updatePermissions` / the atomic
+ *  `createAndAttachPermissions`. */
+function stagedToInput(s: StagedPermission): PermissionInput {
+  const perm = s.perm;
+  const mode = s.intent.scope === "denyFunction" ? 2 : 1;
+  const sigType = perm.sigRequirement.type === "multisig" ? 1 : 0;
+  const threshold = perm.sigRequirement.type === "multisig" ? perm.sigRequirement.threshold : 0;
+  const outOf = perm.sigRequirement.type === "multisig" ? perm.sigRequirement.of : 0;
+  const validFrom = perm.validity?.start ? Math.floor(new Date(perm.validity.start).getTime() / 1000) : 0;
+  const validUntil = perm.validity?.end ? Math.floor(new Date(perm.validity.end).getTime() / 1000) : 0;
+  return {
+    target: perm.target,
+    sig: perm.selector || "0x00000000",
+    mode,
+    customAuthorizer: "0x0000000000000000000000000000000000000000",
+    validFrom,
+    validUntil,
+    options: "0x",
+    sig_: { sigType, threshold, outOf },
+    rateMaxCalls: perm.rateLimit?.maxCalls ?? 0,
+    rateWindowSeconds: perm.rateLimit?.windowSeconds ?? 0,
+  };
+}
 
 // Reserved system role names — `createRoles` reverts with `IsSystemRole()` if
 // the user tries to use any of these. Mirrors `SYSTEM_ROLE_NAMES` in the
@@ -67,7 +99,7 @@ export function MembersSection({ slug }: MembersSectionProps) {
   const state = useMtaState(slug);
   const actions = useMtaActions(slug);
 
-  const { members, roles, permissions: chainPermissions, registeredContracts, slugStatus, superAdmin, bootstrapped } = state;
+  const { members, roles, permissions, foundationDefaults, adminManagedContracts, registeredContracts, slugStatus, superAdmin, bootstrapped } = state;
 
   const [view, setView] = useState<SubView>(SubView.List);
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
@@ -80,18 +112,13 @@ export function MembersSection({ slug }: MembersSectionProps) {
   const [builderRole, setBuilderRole] = useState<Role | null | undefined>(undefined);
   const [builderPerm, setBuilderPerm] = useState<Permission | null | undefined>(undefined);
 
-  // Local "draft" permissions — created without a role binding. Drafts live
-  // in component state until the user attaches them to a role (via the role
-  // builder or by editing the draft + binding). At that point we call
-  // createPermissions on-chain and the graph picks them up. Drafts are
-  // session-only for now; persisting across reloads needs the off-chain
-  // profile API to gain a "permission templates" endpoint.
-  const [draftPermissions, setDraftPermissions] = useState<Permission[]>([]);
+  // Permission staging tray. New rows show as green entries in the
+  // PermissionsView list; edits show as a yellow overlay on the existing
+  // chain-resident row. `commitStagedPermissions` flushes all of them in
+  // up to 3 batched txs (createPermissions / createAndAttach grouped by
+  // role / updatePermissions).
+  const [stagedPerms, setStagedPerms] = useState<StagedPermission[]>([]);
 
-  // Permissions surface = on-chain ∪ drafts. Drafts get an `id` prefix so the
-  // role builder + permissions view can flag them visually and distinguish
-  // them when materializing.
-  const permissions = useMemo(() => [...draftPermissions, ...chainPermissions], [draftPermissions, chainPermissions]);
 
   const activeMember = activeMemberId
     ? members.find((m) => m.id === activeMemberId) ?? null
@@ -167,44 +194,16 @@ export function MembersSection({ slug }: MembersSectionProps) {
       } else {
         await actions.createRoles([roleSlug], rolesIn);
       }
-      // Materialize any draft permissions the user attached to this role:
-      // for each draft id in `role.permissions`, fire createAndAttach with
-      // the role's slug. Drafts drop out of local state once the subgraph
-      // re-fetch picks up the on-chain rows.
-      const draftsToMaterialize = role.permissions
-        .filter((pid) => pid.startsWith("draft_"))
-        .map((pid) => draftPermissions.find((d) => d.id === pid))
-        .filter((d): d is Permission => !!d);
-      if (draftsToMaterialize.length > 0) {
-        const inputs: PermissionInput[] = draftsToMaterialize.map((d) => ({
-          target: d.target,
-          sig: d.selector || "0x00000000",
-          mode: 1, // Whitelist — drafts default to allow; user can edit later
-          customAuthorizer: "0x0000000000000000000000000000000000000000",
-          validFrom: d.validity?.start ? Math.floor(new Date(d.validity.start).getTime() / 1000) : 0,
-          validUntil: d.validity?.end ? Math.floor(new Date(d.validity.end).getTime() / 1000) : 0,
-          options: "0x",
-          sig_: {
-            sigType: d.sigRequirement.type === "multisig" ? 1 : 0,
-            threshold: d.sigRequirement.type === "multisig" ? d.sigRequirement.threshold : 0,
-            outOf: d.sigRequirement.type === "multisig" ? d.sigRequirement.of : 0,
-          },
-          rateMaxCalls: d.rateLimit?.maxCalls ?? 0,
-          rateWindowSeconds: d.rateLimit?.windowSeconds ?? 0,
-        }));
-        await actions.createAndAttachPermissions(roleSlug, inputs);
-        const matIds = new Set(draftsToMaterialize.map((d) => d.id));
-        setDraftPermissions((prev) => prev.filter((d) => !matIds.has(d.id)));
-      }
-
-      // Existing chain-resident permissions (id format `<slug>-<permId>`)
-      // selected on the role get attached via the junction.
-      const existingPermIds = role.permissions
-        .filter((pid) => !pid.startsWith("draft_"))
+      // Permissions selected on the role get attached via the junction. All
+      // permissions are now chain-resident (id format `<slug>-<permId>`); the
+      // legacy "draft" path was removed when standalone createPermissions
+      // landed. For edits, attach diffing isn't surfaced yet — only the
+      // initial create flow attaches.
+      const permIdsToAttach = role.permissions
         .map((pid) => pid.split("-")[1])
         .filter((p): p is string => !!p);
-      if (existingPermIds.length > 0 && !wasEdit) {
-        await actions.attachPermissionsToRole(roleSlug, existingPermIds);
+      if (permIdsToAttach.length > 0 && !wasEdit) {
+        await actions.attachPermissionsToRole(roleSlug, permIdsToAttach);
       }
     } catch (e) {
       notify(ToastType.Error, "Save role failed", e instanceof Error ? e.message : undefined);
@@ -228,40 +227,20 @@ export function MembersSection({ slug }: MembersSectionProps) {
     const wasEdit = !!builderPerm;
     setBuilderPerm(undefined);
 
-    // No role binding → store as a local draft. Drafts live in component
-    // state and only get submitted on-chain when bound via the role builder
-    // (or by editing the draft + picking a role).
-    if (!intent.roleSlug) {
-      const draftId = wasEdit && builderPerm?.id.startsWith("draft_")
-        ? builderPerm.id
-        : `draft_${Math.random().toString(36).slice(2, 8)}`;
-      const drafted: Permission = { ...perm, id: draftId };
-      setDraftPermissions((prev) => {
-        const without = prev.filter((p) => p.id !== draftId);
-        return [drafted, ...without];
-      });
-      notify(ToastType.Info, "Saved as draft", "Attach via a role builder to materialize on-chain");
-      return;
-    }
-
     try {
-      const roleSlug = intent.roleSlug;
-
-      // If the user is materializing an existing draft, drop it from the
-      // local draft list — the on-chain createPermissions tx + subgraph
-      // re-fetch will replace it with the real (slug-role-target-sig) row.
-      if (builderPerm?.id.startsWith("draft_")) {
-        setDraftPermissions((prev) => prev.filter((p) => p.id !== builderPerm.id));
-      }
-
       // Whole-contract grants take a different code path — they're stored as
       // TargetGrant rows, not Permission rows. The MTA `setTargetGrants`
       // function takes (slug, [{ roleSlug, target, grant: { mode, customAddr } }]).
+      // Whole-contract grants require a role binding (TargetGrants are per-role).
       if (intent.scope === "grantAllowContract" || intent.scope === "grantDenyContract") {
+        if (!intent.roleSlug) {
+          notify(ToastType.Error, "Bind to a role", "Whole-contract grants are per-role; pick one from the dropdown.");
+          return;
+        }
         const mode = intent.scope === "grantAllowContract" ? 0 : 1; // TargetMode: Allow=0, Deny=1
         await actions.setTargetGrants([
           {
-            roleSlug,
+            roleSlug: intent.roleSlug,
             target: perm.target,
             grant: { mode, customAddr: "0x0000000000000000000000000000000000000000" },
           },
@@ -269,9 +248,7 @@ export function MembersSection({ slug }: MembersSectionProps) {
         return;
       }
 
-      // Function-level allow / deny → permissions are slug-scoped + bound to
-      // a role via attach. Use the atomic create+attach so the user gets one
-      // tx instead of two.
+      // Function-level permission spec. Build the PermissionInput tuple.
       const mode = intent.scope === "denyFunction" ? 2 : 1; // PermissionMode: Whitelist=1, Blacklist=2
       const sigType = perm.sigRequirement.type === "multisig" ? 1 : 0;
       const threshold = perm.sigRequirement.type === "multisig" ? perm.sigRequirement.threshold : 0;
@@ -298,21 +275,105 @@ export function MembersSection({ slug }: MembersSectionProps) {
           return;
         }
         await actions.updatePermissions([onChainPermId], [input]);
+      } else if (intent.roleSlug) {
+        // Bound at create time → atomic create+attach (one tx).
+        await actions.createAndAttachPermissions(intent.roleSlug, [input]);
       } else {
-        await actions.createAndAttachPermissions(roleSlug, [input]);
+        // Standalone — slug-scoped permission with no role binding. Shows up
+        // in the Permissions tab and is attachable later via any role builder.
+        await actions.createPermissions([input]);
       }
     } catch (e) {
       notify(ToastType.Error, "Save permission failed", e instanceof Error ? e.message : undefined);
     }
   }
 
-  async function onDeletePerm(id: string) {
-    // Drafts are local-only; just drop them.
-    if (id.startsWith("draft_")) {
-      setDraftPermissions((prev) => prev.filter((d) => d.id !== id));
-      notify(ToastType.Info, "Draft removed");
+  function onStagePerm(perm: Permission, intent: SavePermissionIntent) {
+    setBuilderPerm(undefined);
+    // Whole-contract grants don't fit the createPermissions batch shape, so
+    // stage them as immediate-only for now (they go through onSavePerm).
+    if (intent.scope === "grantAllowContract" || intent.scope === "grantDenyContract") {
+      notify(ToastType.Info, "Whole-contract grants commit immediately", "Use the regular Save button.");
       return;
     }
+    const isExisting = !!builderPerm && permissions.some((p) => p.id === perm.id);
+    if (isExisting) {
+      // Edit on a chain-resident perm — store the pending change. The edit
+      // overlay overwrites any prior staged edit for the same permId.
+      const onChainPermId = perm.id.split("-")[1];
+      if (!onChainPermId) {
+        notify(ToastType.Error, "Cannot stage edit — malformed permission id");
+        return;
+      }
+      setStagedPerms((prev) => [
+        ...prev.filter((s) => !(s.kind === "edit" && s.permId === perm.id)),
+        { kind: "edit", permId: onChainPermId, perm, intent },
+      ]);
+      notify(ToastType.Info, "Edit staged", "Commit the batch from the Permissions tab when you're ready.");
+    } else {
+      const tempId = `staged_${Math.random().toString(36).slice(2, 8)}`;
+      setStagedPerms((prev) => [...prev, { kind: "new", tempId, perm: { ...perm, id: tempId }, intent }]);
+      notify(ToastType.Info, "Permission staged");
+    }
+  }
+
+  function onUnstagePerm(stagedKey: string) {
+    setStagedPerms((prev) => prev.filter((s) =>
+      s.kind === "new" ? s.tempId !== stagedKey : s.permId !== stagedKey,
+    ));
+  }
+
+  async function onCommitStagedPerms() {
+    if (stagedPerms.length === 0) return;
+    const snapshot = stagedPerms;
+
+    // Bucket: edits, standalone-creates, role-bound creates (grouped by role).
+    const edits: StagedPermission[] = [];
+    const standaloneCreates: StagedPermission[] = [];
+    const createsByRole: Record<string, StagedPermission[]> = {};
+    for (const s of snapshot) {
+      if (s.kind === "edit") edits.push(s);
+      else if (!s.intent.roleSlug) standaloneCreates.push(s);
+      else {
+        const r = s.intent.roleSlug;
+        if (!createsByRole[r]) createsByRole[r] = [];
+        createsByRole[r].push(s);
+      }
+    }
+
+    // Track per-bucket success. `useExecuteRawTx` swallows wallet rejections
+    // and returns `undefined` instead of throwing, so we can't rely on a
+    // `try/catch` — we have to inspect the return value and only drop the
+    // tray rows that actually got submitted on chain. User-rejected buckets
+    // stay in the tray for retry.
+    const submittedKeys = new Set<string>();
+
+    if (edits.length > 0) {
+      const ids = edits.map((s) => (s.kind === "edit" ? s.permId : ""));
+      const inputs = edits.map(stagedToInput);
+      const tx = await actions.updatePermissions(ids, inputs);
+      if (tx) edits.forEach((s) => { if (s.kind === "edit") submittedKeys.add(s.permId); });
+    }
+
+    if (standaloneCreates.length > 0) {
+      const tx = await actions.createPermissions(standaloneCreates.map(stagedToInput));
+      if (tx) standaloneCreates.forEach((s) => { if (s.kind === "new") submittedKeys.add(s.tempId); });
+    }
+
+    for (const role of Object.keys(createsByRole)) {
+      const bucket = createsByRole[role];
+      const tx = await actions.createAndAttachPermissions(role, bucket.map(stagedToInput));
+      if (tx) bucket.forEach((s) => { if (s.kind === "new") submittedKeys.add(s.tempId); });
+    }
+
+    if (submittedKeys.size === 0) return;
+    setStagedPerms((prev) => prev.filter((s) => {
+      const key = s.kind === "edit" ? s.permId : s.tempId;
+      return !submittedKeys.has(key);
+    }));
+  }
+
+  async function onDeletePerm(id: string) {
     // Chain-resident permission ids are `<slug>-<permId>`. Cascade-detach is
     // handled in the contract — we just need the permId.
     const parts = id.split("-");
@@ -390,9 +451,12 @@ export function MembersSection({ slug }: MembersSectionProps) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   if (!slug) {
+    // Expected briefly while the parent resolves the DAO's on-chain name —
+    // the slug is keccak256(name), and the name comes from either the
+    // governor `name()` read or the subgraph (whichever lands first).
     return (
       <div className="bb-amw-empty" style={{ padding: 24 }}>
-        Members tab requires an org slug. Open this from a DAO detail page.
+        Resolving organization…
       </div>
     );
   }
@@ -429,6 +493,8 @@ export function MembersSection({ slug }: MembersSectionProps) {
         roles={roles}
         permissions={permissions}
         members={members}
+        foundationDefaults={foundationDefaults}
+        adminManagedContracts={adminManagedContracts}
         onGoMembers={goList}
         onGoPermissions={() => setView(SubView.Permissions)}
         onOpenBuilder={(r) => setBuilderRole(r)}
@@ -441,10 +507,13 @@ export function MembersSection({ slug }: MembersSectionProps) {
         permissions={permissions}
         roles={roles}
         members={members}
+        stagedPerms={stagedPerms}
         onGoMembers={goList}
         onGoRoles={() => setView(SubView.Roles)}
         onOpenBuilder={(p) => setBuilderPerm(p)}
         onDeletePerm={onDeletePerm}
+        onUnstagePerm={onUnstagePerm}
+        onCommitStaged={onCommitStagedPerms}
       />
     );
   } else {
@@ -516,6 +585,7 @@ export function MembersSection({ slug }: MembersSectionProps) {
           allRoles={roles}
           onClose={() => setBuilderPerm(undefined)}
           onSave={onSavePerm}
+          onStage={onStagePerm}
         />
       )}
       {slugSettingsOpen && (

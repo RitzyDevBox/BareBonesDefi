@@ -2,10 +2,21 @@ import { useMemo, useState } from "react";
 import { Member, Permission, Role, SignatureRequirementType } from "../../types/members";
 import { MembersSubNav, SubTab } from "./MembersSubNav";
 import { AccountTypeBadge, MemberAvatar } from "./shared";
+import { FoundationDefaultGrant, ManagedContractLabel } from "../../utils/foundationDefaultGrants";
+
+const SUPER_ADMIN_ROLE_HEX = "0x537570657241646d696e00000000000000000000000000000000000000000000";
+const ADMIN_ROLE_HEX       = "0x41646d696e000000000000000000000000000000000000000000000000000000";
+
 interface RolesViewProps {
   roles: Role[];
   permissions: Permission[];
   members: Member[];
+  /** Hardcoded selector-level grants from MTA (Tier-3, `_selfManagerAllows`,
+   *  `_requireCanPause`). Surfaced on per-selector role detail panels. */
+  foundationDefaults: FoundationDefaultGrant[];
+  /** Wholesale-managed contracts for SuperAdmin / Admin (those roles bypass
+   *  per-selector checks). Surfaced as a coarse strip on those role details. */
+  adminManagedContracts: ManagedContractLabel[];
   onGoMembers: () => void;
   onGoPermissions: () => void;
   /** `null` opens the builder for a new role; an existing role opens it for
@@ -21,10 +32,23 @@ function sigLabel(p: Permission): string {
 }
 
 export function RolesView({
-  roles, permissions, members, onGoMembers, onGoPermissions, onOpenBuilder, onDeleteRole,
+  roles, permissions, members, foundationDefaults, adminManagedContracts,
+  onGoMembers, onGoPermissions, onOpenBuilder, onDeleteRole,
 }: RolesViewProps) {
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Group hardcoded grants by role so the role detail panel can render
+  // the matching set in one shot.
+  const defaultsByRole = useMemo(() => {
+    const out: Record<string, FoundationDefaultGrant[]> = {};
+    for (const g of foundationDefaults) {
+      const k = g.roleSlug.toLowerCase();
+      if (!out[k]) out[k] = [];
+      out[k].push(g);
+    }
+    return out;
+  }, [foundationDefaults]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -167,6 +191,85 @@ export function RolesView({
                   </div>
                 </div>
               </div>
+
+              {(() => {
+                // SuperAdmin / Admin short-circuit per-selector checks — they
+                // manage every fn on every in-scope contract. Surface that as
+                // a coarse strip ("manages: tenant, payroll, …") instead of a
+                // per-selector list.
+                const selLower = sel.id.toLowerCase();
+                const isWholesale = selLower === SUPER_ADMIN_ROLE_HEX || selLower === ADMIN_ROLE_HEX;
+                if (!isWholesale || adminManagedContracts.length === 0) return null;
+                return (
+                  <>
+                    <div className="bb-amw-section-head">
+                      Manages
+                      <span style={{ marginLeft: "auto", fontSize: 10.5, color: "var(--bb-text-mute)", fontFamily: "var(--bb-font-mono)" }}>
+                        every fn · in-scope only
+                      </span>
+                    </div>
+                    <div className="bb-amw-empty" style={{ padding: 10, marginBottom: 8 }}>
+                      {selLower === SUPER_ADMIN_ROLE_HEX
+                        ? "Slug owner — bypasses every selector check including pause + lock. Acts on any contract registered to this slug."
+                        : "Operational owner — bypasses per-selector checks while the slug is in Normal state (blocked when paused or locked)."}
+                    </div>
+                    <div className="bb-amw-perm-list">
+                      {adminManagedContracts.map((c) => (
+                        <div key={c.address} className="bb-amw-perm-row">
+                          <span aria-hidden>🏛</span>
+                          <div>
+                            <div className="bb-amw-perm-name">
+                              {c.name}{" "}
+                              <span style={{
+                                fontSize: 10.5,
+                                color: "var(--bb-text-mute)",
+                                fontFamily: "var(--bb-font-mono)",
+                                marginLeft: 4,
+                              }}>
+                                · {c.kind}
+                              </span>
+                            </div>
+                            <div className="bb-amw-perm-sub">{c.purpose}</div>
+                          </div>
+                          <div className="bb-amw-perm-sigreq">all fns</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
+
+              {(() => {
+                const implicitGrants = defaultsByRole[sel.id.toLowerCase()] ?? [];
+                if (implicitGrants.length === 0) return null;
+                return (
+                  <>
+                    <div className="bb-amw-section-head">
+                      Implicit grants
+                      <span style={{ marginLeft: "auto", fontSize: 10.5, color: "var(--bb-text-mute)", fontFamily: "var(--bb-font-mono)" }}>
+                        hardcoded · always-on
+                      </span>
+                    </div>
+                    <div className="bb-amw-empty" style={{ padding: 10, marginBottom: 8 }}>
+                      Enforced by MultiTenantAuth's Tier-3 default-grant table. Every org gets these for free; per-slug Blacklist permissions can opt out.
+                    </div>
+                    <div className="bb-amw-perm-list">
+                      {implicitGrants.map((g) => (
+                        <div key={g.selector} className="bb-amw-perm-row">
+                          <span aria-hidden>🔒</span>
+                          <div>
+                            <div className="bb-amw-perm-name">{g.fnName}</div>
+                            <div className="bb-amw-perm-sub">
+                              {g.targetName} · <span style={{ fontFamily: "var(--bb-font-mono)" }}>{g.signature}</span>
+                            </div>
+                          </div>
+                          <div className="bb-amw-perm-sigreq">system</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
 
               <div className="bb-amw-section-head">Bundled permissions</div>
               {selPerms.length === 0 ? (

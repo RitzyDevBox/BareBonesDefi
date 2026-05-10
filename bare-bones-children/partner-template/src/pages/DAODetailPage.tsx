@@ -98,12 +98,14 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
     [daoName, governanceOverview?.onchainName]
   );
   // MTA slug is keccak256 of the org name (canonical convention shared with
-  // payroll). Empty when we haven't resolved a name yet — the Members tab
-  // gates itself on that.
-  const orgSlugBytes = useMemo(
-    () => (daoName ? orgSlugFor(daoName) : ""),
-    [daoName],
-  );
+  // payroll). Resolve from whichever name source landed first — the subgraph
+  // `daoName` is async and can lag the on-chain `governor.name()` read by
+  // a few ticks; using both keeps the Members tab from briefly seeing an
+  // empty slug while the subgraph catches up.
+  const orgSlugBytes = useMemo(() => {
+    const name = (daoName || governanceOverview?.onchainName || "").trim();
+    return name ? orgSlugFor(name) : "";
+  }, [daoName, governanceOverview?.onchainName]);
   const canExecuteTimelockActions = Boolean(governanceOverview?.openExecutor || governanceOverview?.connectedIsExecutor);
   const canCancelTimelockActions = Boolean(governanceOverview?.openCanceller || governanceOverview?.connectedIsCanceller);
   const shouldShowDelegatePrompt = Boolean(

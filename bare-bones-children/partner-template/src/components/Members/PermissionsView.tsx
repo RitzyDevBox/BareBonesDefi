@@ -11,12 +11,25 @@ interface PermissionsViewProps {
   permissions: Permission[];
   roles: Role[];
   members: Member[];
+  /** Tray of in-flight stages — created via PermissionBuilder's "+ Stage". */
+  stagedPerms: StagedPermissionLike[];
   onGoMembers: () => void;
   onGoRoles: () => void;
   /** `null` opens the builder for a new permission; an existing permission opens it for edit. */
   onOpenBuilder: (perm: Permission | null) => void;
   onDeletePerm: (id: string) => void;
+  /** Drop a single staged entry from the tray (key is `tempId` for new,
+   *  `permId` for edits). */
+  onUnstagePerm: (key: string) => void;
+  /** Flush all staged entries to chain in batched txs. */
+  onCommitStaged: () => void;
 }
+
+/** Slim copy of `MembersSection.StagedPermission` so this view doesn't have
+ *  to import from the parent and create a circular dep. */
+type StagedPermissionLike =
+  | { kind: "new"; tempId: string; perm: Permission }
+  | { kind: "edit"; permId: string; perm: Permission };
 
 function sigBadge(p: Permission): string {
   return p.sigRequirement.type === SignatureRequirementType.Multisig
@@ -36,22 +49,47 @@ function formatRateLimit(rl: Permission["rateLimit"]): string | null {
 }
 
 export function PermissionsView({
-  permissions, roles, members, onGoMembers, onGoRoles, onOpenBuilder, onDeletePerm,
+  permissions, roles, members, stagedPerms,
+  onGoMembers, onGoRoles, onOpenBuilder, onDeletePerm, onUnstagePerm, onCommitStaged,
 }: PermissionsViewProps) {
   const membersCount = members.length;
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Display merge: chain-resident permissions first, then staged-new entries
+  // appended at the bottom (rendered green). Staged-edits are tracked
+  // separately (overlay yellow on the existing row), keyed by chain permId.
+  const stagedEditByPermId = useMemo(() => {
+    const m: Record<string, Permission> = {};
+    for (const s of stagedPerms) {
+      if (s.kind === "edit") m[s.permId] = s.perm;
+    }
+    return m;
+  }, [stagedPerms]);
+  const stagedNew = useMemo(
+    () => stagedPerms.filter((s): s is Extract<StagedPermissionLike, { kind: "new" }> => s.kind === "new"),
+    [stagedPerms],
+  );
+  const displayed = useMemo(() => [
+    ...permissions,
+    ...stagedNew.map((s) => s.perm),
+  ], [permissions, stagedNew]);
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return permissions;
-    return permissions.filter((p) =>
+    if (!needle) return displayed;
+    return displayed.filter((p) =>
       p.name.toLowerCase().includes(needle)
       || p.targetName.toLowerCase().includes(needle)
       || p.function.toLowerCase().includes(needle));
-  }, [permissions, q]);
+  }, [displayed, q]);
 
-  const sel = permissions.find((p) => p.id === selectedId) ?? null;
+  // Selection draws from the merged display list — chain perms + staged-new —
+  // so the detail pane can render any row the user clicks, not just
+  // chain-resident ones. (System "templates" are gone — those defaults are
+  // now hardcoded MTA-side and surfaced on the Role detail page instead.)
+  const sel = displayed.find((p) => p.id === selectedId) ?? null;
+  const selIsStaged = sel ? sel.id.startsWith("staged_") : false;
   const usedByRolesFor = (pid: string) => roles.filter((r) => r.permissions.includes(pid));
 
   const holdersFor = (pid: string): Array<{ member: Member; viaRoles: string[] }> => {
@@ -88,6 +126,30 @@ export function PermissionsView({
         <button className="bb-btn-primary bb-btn-xs" onClick={() => onOpenBuilder(null)}>+ New permission</button>
       </MembersSubNav>
 
+      {stagedPerms.length > 0 && (
+        <div
+          className="bb-pm-banner"
+          style={{
+            background: "color-mix(in srgb, var(--bb-success) 12%, transparent)",
+            borderColor: "var(--bb-success)",
+          }}
+        >
+          <div className="bb-pm-banner-icon">⏳</div>
+          <div style={{ flex: 1 }}>
+            <div className="bb-pm-banner-title">
+              {stagedPerms.length} permission{stagedPerms.length === 1 ? "" : "s"} staged
+            </div>
+            <div className="bb-pm-banner-desc">
+              New rows show green; pending edits show yellow on the existing row.
+              Commits as ≤3 batched txs (creates / create+attach grouped by role / updates).
+            </div>
+          </div>
+          <button className="bb-btn-primary bb-btn-xs" onClick={onCommitStaged}>
+            ✓ Commit {stagedPerms.length}
+          </button>
+        </div>
+      )}
+
       <div className="bb-pm-banner">
         <div className="bb-pm-banner-icon">⚡</div>
         <div>
@@ -103,39 +165,80 @@ export function PermissionsView({
         <div className="bb-m-roles-list">
           {filtered.map((p) => {
             const used = usedByRolesFor(p.id).length;
+            const isStagedNew = p.id.startsWith("staged_");
+            const pendingEdit = stagedEditByPermId[p.id];
+            // Tinted background for staged states. Green = brand-new staged
+            // row (not yet on chain). Yellow = chain-resident row with a
+            // pending edit in the tray. Plain otherwise.
+            const tint = isStagedNew
+              ? "color-mix(in srgb, var(--bb-success) 14%, transparent)"
+              : pendingEdit
+                ? "color-mix(in srgb, var(--bb-warn) 14%, transparent)"
+                : undefined;
+            const borderTint = isStagedNew
+              ? "var(--bb-success)"
+              : pendingEdit
+                ? "var(--bb-warn)"
+                : undefined;
+            // For staged-edit rows, surface the pending values in the row
+            // body so the user sees what's about to commit.
+            const display = pendingEdit ?? p;
             return (
               <button
                 key={p.id}
                 className={`bb-m-role-item${selectedId === p.id ? " bb-on" : ""}`}
                 onClick={() => setSelectedId(p.id)}
+                style={tint ? { background: tint, borderColor: borderTint } : undefined}
               >
                 <div className="bb-m-role-item-top">
-                  <span className="bb-m-role-item-name">{p.name}</span>
-                  {p.id.startsWith("draft_") ? (
-                    <span className="bb-m-role-custom" style={{ background: "color-mix(in srgb, var(--bb-warn) 18%, transparent)" }}>
-                      draft
+                  <span className="bb-m-role-item-name">{display.name}</span>
+                  {isStagedNew ? (
+                    <span className="bb-m-role-custom" style={{ background: "color-mix(in srgb, var(--bb-success) 22%, transparent)" }}>
+                      staged
+                    </span>
+                  ) : pendingEdit ? (
+                    <span className="bb-m-role-custom" style={{ background: "color-mix(in srgb, var(--bb-warn) 22%, transparent)" }}>
+                      edit pending
                     </span>
                   ) : (
                     <span className="bb-pm-sig-mini">{sigBadge(p)}</span>
                   )}
                 </div>
                 <div className="bb-m-role-item-desc" style={{ fontFamily: "var(--bb-font-mono)", fontSize: 11 }}>
-                  {p.targetName} · {p.function.split("(")[0]}
+                  {display.targetName} · {display.function.split("(")[0]}
                 </div>
                 <div className="bb-m-role-item-meta">
-                  <span>{p.constraints.length} constraint{p.constraints.length === 1 ? "" : "s"}</span>
+                  <span>{display.constraints.length} constraint{display.constraints.length === 1 ? "" : "s"}</span>
                   <span className="bb-dot">·</span>
                   <span>used by {used} role{used === 1 ? "" : "s"}</span>
-                  {p.timeLock && (
+                  {display.timeLock && (
                     <>
                       <span className="bb-dot">·</span>
-                      <span>{p.timeLock} timelock</span>
+                      <span>{display.timeLock} timelock</span>
                     </>
                   )}
-                  {p.rateLimit && (
+                  {display.rateLimit && (
                     <>
                       <span className="bb-dot">·</span>
-                      <span>{formatRateLimit(p.rateLimit)}</span>
+                      <span>{formatRateLimit(display.rateLimit)}</span>
+                    </>
+                  )}
+                  {(isStagedNew || pendingEdit) && (
+                    <>
+                      <span className="bb-dot">·</span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUnstagePerm(isStagedNew ? p.id : p.id);
+                        }}
+                        onKeyDown={(e) => { if (e.key === "Enter") onUnstagePerm(p.id); }}
+                        className="bb-m-link"
+                        style={{ cursor: "pointer" }}
+                      >
+                        unstage
+                      </span>
                     </>
                   )}
                 </div>
@@ -174,14 +277,22 @@ export function PermissionsView({
                   </div>
                 </div>
                 <div className="bb-m-role-detail-actions">
-                  <button className="bb-btn-ghost bb-btn-xs" onClick={() => onOpenBuilder(sel)}>Edit</button>
-                  <button
-                    className="bb-btn-ghost bb-btn-xs"
-                    style={{ color: "var(--bb-error)" }}
-                    onClick={() => onDeletePerm(sel.id)}
-                  >
-                    Delete
-                  </button>
+                  {selIsStaged ? (
+                    <span style={{ fontSize: 11, color: "var(--bb-text-mute)", fontFamily: "var(--bb-font-mono)" }}>
+                      staged · uncommitted
+                    </span>
+                  ) : (
+                    <>
+                      <button className="bb-btn-ghost bb-btn-xs" onClick={() => onOpenBuilder(sel)}>Edit</button>
+                      <button
+                        className="bb-btn-ghost bb-btn-xs"
+                        style={{ color: "var(--bb-error)" }}
+                        onClick={() => onDeletePerm(sel.id)}
+                      >
+                        Delete
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 

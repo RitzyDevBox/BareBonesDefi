@@ -2,6 +2,7 @@ import { ethers } from "ethers";
 import { getBareBonesConfiguration } from "../constants/misc";
 import MultiTenantAuthABI from "../abis/auth/MultiTenantAuth.abi.json";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
+import PayrollTreasuryABI from "../abis/paymentPipelines/PayrollTreasury.abi.json";
 
 export interface KnownContract {
   key: string;
@@ -37,6 +38,7 @@ export function getKnownContracts(chainId: number | null | undefined): KnownCont
   const candidates: KnownContract[] = [
     { key: "mta", name: "Multi-Tenant Authorizer", address: cfg.multiTenantAuthAddress, abi: MultiTenantAuthABI as any[] },
     { key: "payrollManager", name: "Payroll Manager", address: cfg.payrollManagerAddress, abi: PayrollManagerABI as any[] },
+    { key: "payrollTreasury", name: "Payroll Treasury", address: cfg.payrollTreasuryAddress, abi: PayrollTreasuryABI as any[] },
   ];
   const ZERO = "0x0000000000000000000000000000000000000000";
   return candidates.filter((c) => c.address && c.address.toLowerCase() !== ZERO);

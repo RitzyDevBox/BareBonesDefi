@@ -28,7 +28,11 @@ interface PermissionBuilderProps {
   /** All roles in the slug — needed for the "Bind to role" picker. */
   allRoles: Role[];
   onClose: () => void;
+  /** Submit immediately as its own tx (single create / single update). */
   onSave: (perm: Permission, intent: SavePermissionIntent) => void;
+  /** Add to the staging tray for batched commit later. New rows show green
+   *  in the Permissions list, edits show yellow on the existing row. */
+  onStage: (perm: Permission, intent: SavePermissionIntent) => void;
 }
 
 const OP_LABELS: Record<ConstraintOp, string> = {
@@ -147,8 +151,13 @@ function mockSelector(fnSig: string): string {
   return `0x${hex}`;
 }
 
-export function PermissionBuilder({ initialPerm, allRoles, onClose, onSave }: PermissionBuilderProps) {
-  const isEdit = !!initialPerm;
+export function PermissionBuilder({ initialPerm, allRoles, onClose, onSave, onStage }: PermissionBuilderProps) {
+  // System templates open the builder in "create from template" mode — the
+  // form starts with the template's target/sig/etc. but submission creates a
+  // brand-new permission instead of updating the template (templates aren't
+  // chain-resident, can't be updated).
+  const isFromTemplate = !!initialPerm && initialPerm.id.startsWith("system_");
+  const isEdit = !!initialPerm && !isFromTemplate;
   const [form, setForm] = useState<PermForm>(() => formInitial(initialPerm));
   const [showAdvanced, setShowAdvanced] = useState(false);
   const { chainId } = useWalletProvider();
@@ -235,8 +244,7 @@ export function PermissionBuilder({ initialPerm, allRoles, onClose, onSave }: Pe
     return form.function.includes("(") && form.function.trim().endsWith(")");
   }, [form.target, form.function, isContractScope]);
 
-  function submit() {
-    if (!canSave) return;
+  function buildPerm(): Permission {
     const sig: SignatureRequirement = form.sigType === SignatureRequirementType.Multisig
       ? {
           type: SignatureRequirementType.Multisig,
@@ -250,7 +258,7 @@ export function PermissionBuilder({ initialPerm, allRoles, onClose, onSave }: Pe
     const rateLimit = maxCalls > 0 && windowSeconds > 0
       ? { maxCalls, windowSeconds }
       : null;
-    const next: Permission = {
+    return {
       id: isEdit && initialPerm ? initialPerm.id : `perm_${Math.random().toString(36).slice(2, 8)}`,
       name: form.name.trim(),
       target: form.target.trim(),
@@ -264,7 +272,16 @@ export function PermissionBuilder({ initialPerm, allRoles, onClose, onSave }: Pe
       rateLimit,
       usedByRoles: isEdit && initialPerm ? initialPerm.usedByRoles : 0,
     };
-    onSave(next, { scope: form.scope, roleSlug: form.roleSlug });
+  }
+
+  function submit() {
+    if (!canSave) return;
+    onSave(buildPerm(), { scope: form.scope, roleSlug: form.roleSlug });
+  }
+
+  function stage() {
+    if (!canSave) return;
+    onStage(buildPerm(), { scope: form.scope, roleSlug: form.roleSlug });
   }
 
   const hint = !ETH_ADDRESS_RE.test(form.target.trim())
@@ -272,18 +289,26 @@ export function PermissionBuilder({ initialPerm, allRoles, onClose, onSave }: Pe
     : !isContractScope && !canSave
       ? "Pick or enter a function signature"
       : !form.roleSlug
-        ? "Saved as draft — attach to a role from the Roles tab to materialize on-chain"
+        ? "Will create a standalone permission — attachable to roles later from any role builder"
         : isEdit
           ? "On-chain permission will be updated"
           : isContractScope
             ? "Will call setTargetGrants on MTA"
-            : "Will call createPermissions on MTA";
+            : "Will create + attach to the picked role in one tx";
 
   const footer = (
     <>
       <div className="bb-amw-foot-hint">{hint}</div>
       <div className="bb-amw-foot-actions">
         <button className="bb-btn-ghost bb-btn-xs" onClick={onClose}>Cancel</button>
+        <button
+          className="bb-btn-ghost bb-btn-xs"
+          disabled={!canSave}
+          onClick={stage}
+          title="Add to staging tray; commit a batch of permissions in one tx"
+        >
+          + Stage
+        </button>
         <button className="bb-btn-primary bb-btn-xs" disabled={!canSave} onClick={submit}>
           ✓ {isEdit ? "Save changes" : "Create permission"}
         </button>
@@ -324,7 +349,7 @@ export function PermissionBuilder({ initialPerm, allRoles, onClose, onSave }: Pe
               value={form.roleSlug}
               onChange={(e) => set("roleSlug", e.target.value)}
             >
-              <option value="">Save as draft (attach later)</option>
+              <option value="">— No role —</option>
               {/* System roles are excluded — extending Admin / Pauser / etc.
                   with custom permissions would change the meaning of those
                   roles in surprising ways. They're managed at the contract
@@ -335,8 +360,8 @@ export function PermissionBuilder({ initialPerm, allRoles, onClose, onSave }: Pe
             </select>
             <div style={{ fontSize: 11, color: "var(--bb-text-mute)", marginTop: 4 }}>
               {form.roleSlug
-                ? "Will be materialized on-chain via createPermissions(role, …)."
-                : "Saved locally as a draft — pick this permission from a role builder to attach + submit on-chain."}
+                ? "Atomic create + attach (one tx)."
+                : "Permission lives slug-scoped on-chain; attach to one or more roles later."}
             </div>
           </div>
         </div>
