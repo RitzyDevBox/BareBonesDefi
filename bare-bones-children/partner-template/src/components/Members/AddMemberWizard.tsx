@@ -208,7 +208,8 @@ export function AddMemberWizard({ roles, permissions, onClose, onCreate }: AddMe
 const ACCT_GLYPH: Record<AccountTypeId, string> = {
   [AccountTypeId.Member]: "✦",
   [AccountTypeId.Investor]: "$",
-  [AccountTypeId.Contractor]: "⊙",
+  [AccountTypeId.AuthorizedUser]: "⊙",
+  [AccountTypeId.Payee]: "→",
 };
 
 function AccountTypeStep({

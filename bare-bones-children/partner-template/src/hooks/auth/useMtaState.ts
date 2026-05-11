@@ -378,7 +378,7 @@ function rowToMember(row: MemberRow, profile: MemberProfile | undefined, code: s
       contract: "",
       mintedAt: null,
     },
-    onboardingStatus: onboardingStatusFromInt(row.status),
+    onboardingStatus: onboardingStatusFromAxes(row.membershipStatus, row.paymentStatus),
     kyc: profile?.kyc ?? { required: false, status: KycStatus.NotRequired },
     dateAdded: bigSecToIso(row.dateAdded),
   };
@@ -443,35 +443,37 @@ function graphStateToFrontend(s: "Normal" | "Paused" | "Locked"): SlugStatus {
 }
 
 function accountTypeIdFromInt(n: number | null | undefined): AccountTypeId {
-  // MembersContract.AccountType: 0=Member, 1=Investor, 2=Contractor.
+  // MembersContract.AccountType: 0=Member, 1=Investor, 2=AuthorizedUser, 3=Payee.
   if (n === 1) return AccountTypeId.Investor;
-  if (n === 2) return AccountTypeId.Contractor;
+  if (n === 2) return AccountTypeId.AuthorizedUser;
+  if (n === 3) return AccountTypeId.Payee;
   return AccountTypeId.Member;
 }
 
-function onboardingStatusFromInt(n: number | null | undefined): OnboardingStatus {
-  // MembersContract.MemberStatus (collapsed):
-  //   0 = Active, 1 = PaymentPaused, 2 = Terminated.
-  // Frontend's coarser enum maps PaymentPaused → Suspended and Terminated →
-  // Departed. The "Invited" UI badge is no longer an on-chain status — it's
-  // derived from "member exists but has no role assigned yet" by the views.
-  switch (n) {
-    case 1:
-      return OnboardingStatus.Suspended;
-    case 2:
-      return OnboardingStatus.Departed;
-    case 0:
-    default:
-      return OnboardingStatus.Active;
-  }
+function onboardingStatusFromAxes(
+  membership: number | null | undefined,
+  payment: number | null | undefined,
+): OnboardingStatus {
+  // MembersContract has two orthogonal status enums:
+  //   MembershipStatus: 0=Active, 1=Terminated
+  //   PaymentStatus:    0=Active, 1=Deactivated
+  // Frontend collapses both axes back to a single coarse badge:
+  //   Terminated membership   → Departed (overrides payment state)
+  //   Deactivated payment     → Suspended
+  //   else                    → Active
+  if ((membership ?? 0) === 1) return OnboardingStatus.Departed;
+  if ((payment ?? 0) === 1)    return OnboardingStatus.Suspended;
+  return OnboardingStatus.Active;
 }
 
 function appliesToBitmaskToIds(mask: number): AccountTypeId[] {
-  // Bitmask matches AccountType ordering: bit 0=Member, 1=Investor, 2=Contractor.
+  // Bitmask matches AccountType ordering: bit 0=Member, 1=Investor, 2=AuthorizedUser.
+  // Payee has no bit — Payees structurally can't hold any role, so they never
+  // appear in role.appliesTo masks.
   const out: AccountTypeId[] = [];
   if (mask & 1) out.push(AccountTypeId.Member);
   if (mask & 2) out.push(AccountTypeId.Investor);
-  if (mask & 4) out.push(AccountTypeId.Contractor);
+  if (mask & 4) out.push(AccountTypeId.AuthorizedUser);
   return out;
 }
 

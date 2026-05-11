@@ -349,7 +349,7 @@ export function CurrentPayrollPage() {
         return;
       }
 
-      const payeeList = await fetchPayeesByOrganization(provider, payrollManagerAddress, slugBytes);
+      const payeeList = await fetchPayeesByOrganization(provider, payrollManagerAddress, slugBytes, chainId ?? undefined);
       setPayees(payeeList);
 
       const [earningRows, orgMap] = await Promise.all([

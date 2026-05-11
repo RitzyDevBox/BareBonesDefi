@@ -21,16 +21,22 @@ export async function fetchPayeesByOrganization(
   const graph = await fetchMtaState(chainId, slugBytes);
   // Map every member into the existing PayeeModel shape so downstream
   // components (PayeesView, payroll editors) keep working without changes.
-  // status is mapped from the contract's 3-value MemberStatus
-  // (Active / PaymentPaused / Terminated) onto the legacy PayeeStatus enum.
+  // The two status axes (membershipStatus + paymentStatus) collapse back to
+  // the legacy 3-value PayeeStatus the UI already renders:
+  //   2 = Terminated (membership), 1 = Deactivated (payment), 0 = Active
   return graph.members
     .filter((m) => m.memberId !== "0" && m.memberId !== "")
-    .map((m) => ({
-      payeeId: ethers.BigNumber.from(m.memberId),
-      organizationSlug: slugBytes,
-      nameSlug: m.nameSlug ?? "",
-      paymentAddress: m.wallet,
-      params: "0x",
-      status: m.status ?? 0,
-    }));
+    .map((m) => {
+      let collapsed = 0;
+      if ((m.membershipStatus ?? 0) === 1)      collapsed = 2; // Terminated
+      else if ((m.paymentStatus ?? 0) === 1)    collapsed = 1; // Deactivated
+      return {
+        payeeId: ethers.BigNumber.from(m.memberId),
+        organizationSlug: slugBytes,
+        nameSlug: m.nameSlug ?? "",
+        paymentAddress: m.wallet,
+        params: "0x",
+        status: collapsed,
+      };
+    });
 }

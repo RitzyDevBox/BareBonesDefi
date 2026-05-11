@@ -24,7 +24,7 @@ export const ACCOUNT_TYPES: AccountType[] = [
     kycDefault: true,
   },
   {
-    id: AccountTypeId.Contractor,
+    id: AccountTypeId.AuthorizedUser,
     name: "Contractor",
     sub: "Service provider · payee",
     desc: "Receives payroll or per-invoice payments. No equity, no governance rights.",
@@ -179,7 +179,7 @@ export const ROLES_SEED: Role[] = [
     id: "role_observer",
     name: "Observer",
     desc: "Read-only access. Sees proposals and treasury but cannot vote or sign.",
-    accountTypes: [AccountTypeId.Member, AccountTypeId.Investor, AccountTypeId.Contractor],
+    accountTypes: [AccountTypeId.Member, AccountTypeId.Investor, AccountTypeId.AuthorizedUser],
     permissions: [],
     cap: null,
     isDefault: true,
@@ -236,7 +236,7 @@ export const MEMBERS_SEED: Member[] = [
   {
     id: "mbr_maya", memberId: "mbr_maya", name: "Maya Tanaka", initials: "MT", avatarHue: 30,
     email: "maya@quorum.xyz", jurisdiction: "Japan",
-    accountType: AccountTypeId.Contractor,
+    accountType: AccountTypeId.AuthorizedUser,
     roles: ["role_observer"],
     wallet: { address: "0xAbCDeF0123456789aBcDeF0123456789aBcDeF01", kind: WalletKind.SmartAccount, deployed: true },
     sbt: { status: SbtStatus.Active, tokenId: 22, contract: "0xSBT0…anchor", mintedAt: "Mar 14, 2026" },
@@ -269,7 +269,7 @@ export const MEMBERS_SEED: Member[] = [
   {
     id: "mbr_jordan", memberId: "mbr_jordan", name: "Jordan Hayes", initials: "JH", avatarHue: 12,
     email: "jordan@external.dev", jurisdiction: "Canada",
-    accountType: AccountTypeId.Contractor,
+    accountType: AccountTypeId.AuthorizedUser,
     roles: ["role_observer"],
     wallet: { address: "0x12abCdef34567890aBcDeF1234567890ABCdEf12", kind: WalletKind.SmartAccount, deployed: false },
     sbt: { status: SbtStatus.Pending, tokenId: null, contract: "0xSBT0…anchor", mintedAt: null },

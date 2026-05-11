@@ -40,7 +40,8 @@ const MTA_STATE_QUERY = `
       wallet
       nameSlug
       accountType
-      status
+      membershipStatus
+      paymentStatus
       role
       dateAdded
     }
@@ -109,7 +110,8 @@ export type MemberRow = {
   wallet: string;
   nameSlug: string | null;
   accountType: number | null;
-  status: number | null;
+  membershipStatus: number | null;
+  paymentStatus: number | null;
   role: string | null;
   dateAdded: string;
 };

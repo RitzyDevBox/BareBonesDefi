@@ -6,7 +6,8 @@
 export enum AccountTypeId {
   Member = "member",
   Investor = "investor",
-  Contractor = "contractor",
+  AuthorizedUser = "authorizedUser",
+  Payee = "payee",
 }
 
 export enum OnboardingStatus {

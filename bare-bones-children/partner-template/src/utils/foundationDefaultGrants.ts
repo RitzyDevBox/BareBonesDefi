@@ -57,9 +57,6 @@ const PAYROLL_OPERATOR_DEFAULT_SELECTORS: Array<{
   { fnName: "finalizePayrollChunk", description: "Mark a processed payroll chunk as final." },
   { fnName: "createPayBatch",       description: "Create a reusable pay batch template." },
   { fnName: "configurePayBatch",    description: "Edit a pay batch template's payee + earnings config." },
-  { fnName: "onboardPayee",         description: "Onboard a new payee under the org's payroll." },
-  { fnName: "updatePayee",          description: "Edit a payee's display name, address, or rate code." },
-  { fnName: "updatePaymentAddress", description: "Rotate a payee's payment-receiving address." },
   { fnName: "registerEarningsCode", description: "Register a custom earnings code with a rate contract." },
   { fnName: "setEarningsCode",      description: "Toggle an earnings code on/off." },
 ];
@@ -111,21 +108,23 @@ const MTA_SELF_MANAGER_GRANTS: Array<{
   { roleSlug: ROLE_MANAGER_ROLE, fnName: "assignRoles",              description: "Assign a role to one or more members." },
   { roleSlug: ROLE_MANAGER_ROLE, fnName: "revokeRoles",              description: "Revoke a member's current role." },
 
-  // MemberManager → member roster only (no role assignment — that's
-  // RoleManager's job since it carries the same blast radius as editing roles).
-  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "onboardMembers",         description: "Onboard new members under the slug." },
-  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "onboardExternalMembers", description: "Onboard contractors only (no role, locked to Contractor type)." },
-  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "setMemberStatus",        description: "Activate / pause payment / terminate." },
-  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "setMemberAccountType",   description: "Change a member's account type (Member / Investor / Contractor)." },
-  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "setMemberNameSlug",      description: "Rename a member (changes their on-chain nameSlug)." },
-  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "removeMembers",          description: "Remove members from the slug." },
+  // MemberManager → member roster lifecycle. Owns onboarding (any non-Payee
+  // type with optional role), payroll-flow status, KYC promotion / demotion,
+  // name renames, and removal. Role assignment lives on RoleManager.
+  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "onboardMembers",      description: "Onboard new members (Member / Investor / AuthorizedUser) with optional role." },
+  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "onboardPayees",       description: "Onboard Payees (payment-target only, can never hold roles)." },
+  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "setMembershipStatus", description: "Activate / terminate the org relationship." },
+  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "setPaymentStatus",    description: "Toggle whether payroll runs include this member." },
+  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "setMemberAccountType", description: "Change a member's account type (Member / Investor / AuthorizedUser / Payee)." },
+  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "setMemberNameSlug",   description: "Rename a member (changes their on-chain nameSlug)." },
+  { roleSlug: MEMBER_MANAGER_ROLE, fnName: "removeMembers",       description: "Remove members from the slug." },
 
-  // PayrollOperator → constrained external-onboarding only. The struct shape
-  // pins accountType=Contractor + roleSlug=0, so no escalation is possible
-  // through this grant. PayrollOperator's other implicit grants are on the
-  // PayrollManager target itself (not MTA) and live in
-  // `_isPayrollOperatorDefaultSig` / the payrollOperatorDefaultSelectors list.
-  { roleSlug: PAYROLL_OPERATOR_ROLE, fnName: "onboardExternalMembers", description: "Onboard contractors for the payroll roster (locked to Contractor type, no role)." },
+  // PayrollOperator → strict subset of the member surface: Payee onboarding +
+  // payment-status toggling. No role assignment, no account-type changes
+  // (KYC territory), no name changes, no membership-status changes (HR
+  // territory). Payees pinned by the contract to accountType=Payee + no role.
+  { roleSlug: PAYROLL_OPERATOR_ROLE, fnName: "onboardPayees",    description: "Onboard Payees (payment-target only — no role, never role-eligible)." },
+  { roleSlug: PAYROLL_OPERATOR_ROLE, fnName: "setPaymentStatus", description: "Pause / resume payroll for individual members. Does not affect membership." },
 
   // PermissionManager → permission lifecycle + target-grant whitelist/blacklist.
   // No longer owns the role↔permission junction — that moved to RoleManager.

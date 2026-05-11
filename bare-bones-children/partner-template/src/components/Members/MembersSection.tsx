@@ -133,8 +133,17 @@ export function MembersSection({ slug }: MembersSectionProps) {
   async function onCreateMember(member: Member) {
     setAddMemberOpen(false);
     try {
+      // Map UI AccountTypeId → contract enum int.
+      //   Member=0, Investor=1, AuthorizedUser=2, Payee=3
+      // Note: AddMember wizard never produces Payee — those come through
+      // the payees-tab onboardPayees path. We still encode it here for
+      // exhaustiveness; the contract rejects Payee accountType in
+      // onboardMembers so a misuse fails loud.
       const accountType =
-        member.accountType === "investor" ? 1 : member.accountType === "contractor" ? 2 : 0;
+        member.accountType === "investor"       ? 1
+      : member.accountType === "authorizedUser" ? 2
+      : member.accountType === "payee"          ? 3
+      :                                            0;
       // bytes32 of the free-form name (truncated to 31 chars). Full names
       // live in the off-chain profile API; this slug is for on-chain lookups.
       const nameSlug = ethers.utils.formatBytes32String((member.name || "").slice(0, 31));
@@ -393,8 +402,9 @@ export function MembersSection({ slug }: MembersSectionProps) {
     const m = members.find((x) => x.id === id);
     if (!m) return;
     try {
-      // MemberStatus.PaymentPaused = 1 — relationship intact, payroll skips them.
-      await actions.setMemberStatus([m.memberId], [1]);
+      // PaymentStatus.Deactivated = 1 — relationship intact, payroll skips them.
+      // setPaymentStatus is the payroll-axis selector (MemberManager + PayrollOperator).
+      await actions.setPaymentStatus([m.memberId], [1]);
     } catch (e) {
       notify(ToastType.Error, "Suspend failed", e instanceof Error ? e.message : undefined);
     }
@@ -404,8 +414,8 @@ export function MembersSection({ slug }: MembersSectionProps) {
     const m = members.find((x) => x.id === id);
     if (!m) return;
     try {
-      // MemberStatus.Active = 0
-      await actions.setMemberStatus([m.memberId], [0]);
+      // PaymentStatus.Active = 0
+      await actions.setPaymentStatus([m.memberId], [0]);
     } catch (e) {
       notify(ToastType.Error, "Reinstate failed", e instanceof Error ? e.message : undefined);
     }

@@ -25,23 +25,25 @@ import { useWalletProvider } from "../useWalletProvider";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 /** Matches `MembersContract.MemberInit`. Field order matters — the ABI
- *  encoder maps positionally. */
+ *  encoder maps positionally. Rejects accountType = Payee at the contract
+ *  level — those must go through `onboardPayees` instead. */
 export interface OnboardMemberInput {
   wallet: string;
   /** bytes32 packed string. Use `ethers.utils.formatBytes32String(name)`. */
   nameSlug: string;
-  /** AccountType enum: 0=Member, 1=Investor, 2=Contractor. */
+  /** AccountType enum: 0=Member, 1=Investor, 2=AuthorizedUser. (Payee=3 is
+   *  rejected here — use onboardPayees.) */
   accountType: number;
   /** Initial role assignment (bytes32). Pass `ethers.constants.HashZero` for
    *  no role; the contract will skip the assignRole side effect. */
   roleSlug: string;
 }
 
-/** Matches `MembersContract.ExternalInit`. The contract pins
- *  `accountType = Contractor` and `roleSlug = 0` for every member created
- *  through this path — those fields are intentionally absent from the input
- *  so PayrollOperator (the role with implicit access) can't escalate. */
-export interface OnboardExternalMemberInput {
+/** Matches `MembersContract.PayeeInit`. The contract pins
+ *  `accountType = Payee` and never assigns a role for every member created
+ *  through this path. Payees are payment-target-only — structurally cannot
+ *  hold any role (system or custom). */
+export interface OnboardPayeeInput {
   wallet: string;
   /** bytes32 packed string. Use `ethers.utils.formatBytes32String(name)`. */
   nameSlug: string;
@@ -134,11 +136,11 @@ export function useMtaActions(slug: string) {
 
   // ─── Org-contract registry ───────────────────────────────────────────────
   const claimOrgContract = useExecuteRawTx(
-    (target: string) => buildCall("claimOrgContract", [slug, ethers.utils.getAddress(target)]),
+    (target: string) => buildCall("claimOrgContract", [slug, ethers.utils.getAddress(target.toLowerCase())]),
     (target: string) => `Pre-claimed ${target.slice(0, 6)}…${target.slice(-4)}`,
   );
   const registerOrgContract = useExecuteRawTx(
-    (target: string) => buildCall("registerOrgContract", [slug, ethers.utils.getAddress(target)]),
+    (target: string) => buildCall("registerOrgContract", [slug, ethers.utils.getAddress(target.toLowerCase())]),
     (target: string) => `Registered ${target.slice(0, 6)}…${target.slice(-4)} under slug`,
   );
 
@@ -148,7 +150,7 @@ export function useMtaActions(slug: string) {
       buildCall("onboardMembers", [
         slug,
         inits.map((i) => ({
-          wallet: ethers.utils.getAddress(i.wallet),
+          wallet: ethers.utils.getAddress(i.wallet.toLowerCase()),
           nameSlug: i.nameSlug,
           accountType: i.accountType,
           roleSlug: i.roleSlug,
@@ -156,20 +158,21 @@ export function useMtaActions(slug: string) {
       ]),
     (inits: OnboardMemberInput[]) => `Onboarded ${inits.length} member${inits.length === 1 ? "" : "s"}`,
   );
-  /** Add contractors via the constrained-onboarding path. Used by the
-   *  payroll-side "add payee" flow — accountType + role are pinned in the
-   *  contract, so this is safe to expose to PayrollOperator. */
-  const onboardExternalMembers = useExecuteRawTx(
-    (inits: OnboardExternalMemberInput[]) =>
-      buildCall("onboardExternalMembers", [
+  /** Add Payees via the constrained-onboarding path. accountType=Payee +
+   *  no-role are pinned in the contract, so this is safe to expose to
+   *  PayrollOperator. Payees are payment-target-only — they cannot hold
+   *  any role (system or custom). */
+  const onboardPayees = useExecuteRawTx(
+    (inits: OnboardPayeeInput[]) =>
+      buildCall("onboardPayees", [
         slug,
         inits.map((i) => ({
-          wallet: ethers.utils.getAddress(i.wallet),
+          wallet: ethers.utils.getAddress(i.wallet.toLowerCase()),
           nameSlug: i.nameSlug,
         })),
       ]),
-    (inits: OnboardExternalMemberInput[]) =>
-      `Onboarded ${inits.length} contractor${inits.length === 1 ? "" : "s"}`,
+    (inits: OnboardPayeeInput[]) =>
+      `Onboarded ${inits.length} payee${inits.length === 1 ? "" : "s"}`,
   );
   // Member-mutating selectors take memberId[] now (the contract's stable
   // identity), not wallet[]. Callers should resolve wallets to ids via the
@@ -180,10 +183,17 @@ export function useMtaActions(slug: string) {
     (memberIds: Array<number | string>) =>
       `Removed ${memberIds.length} member${memberIds.length === 1 ? "" : "s"}`,
   );
-  const setMemberStatus = useExecuteRawTx(
+  /** Org-relationship axis. MemberManager-only. Statuses: 0=Active, 1=Terminated. */
+  const setMembershipStatus = useExecuteRawTx(
     (memberIds: Array<number | string>, statuses: number[]) =>
-      buildCall("setMemberStatus", [slug, memberIds, statuses]),
-    () => "Member status updated",
+      buildCall("setMembershipStatus", [slug, memberIds, statuses]),
+    () => "Membership status updated",
+  );
+  /** Payroll-flow axis. PayrollOperator + MemberManager. Statuses: 0=Active, 1=Deactivated. */
+  const setPaymentStatus = useExecuteRawTx(
+    (memberIds: Array<number | string>, statuses: number[]) =>
+      buildCall("setPaymentStatus", [slug, memberIds, statuses]),
+    () => "Payment status updated",
   );
   const assignRoles = useExecuteRawTx(
     (memberIds: Array<number | string>, roleSlugs: string[]) =>
@@ -198,7 +208,7 @@ export function useMtaActions(slug: string) {
   );
   const rotateWallet = useExecuteRawTx(
     (memberId: number | string, newWallet: string) =>
-      buildCall("rotateWallet", [slug, memberId, ethers.utils.getAddress(newWallet)]),
+      buildCall("rotateWallet", [slug, memberId, ethers.utils.getAddress(newWallet.toLowerCase())]),
     (memberId: number | string, newWallet: string) =>
       `Rotated member #${memberId} → ${newWallet.slice(0, 6)}…${newWallet.slice(-4)}`,
   );
@@ -260,10 +270,10 @@ export function useMtaActions(slug: string) {
         slug,
         grants.map((g) => ({
           roleSlug: g.roleSlug,
-          target: ethers.utils.getAddress(g.target),
+          target: ethers.utils.getAddress(g.target.toLowerCase()),
           grant: {
             mode: g.grant.mode,
-            customAddr: ethers.utils.getAddress(g.grant.customAddr || ZERO_ADDRESS),
+            customAddr: ethers.utils.getAddress((g.grant.customAddr || ZERO_ADDRESS).toLowerCase()),
           },
         })),
       ]),
@@ -274,7 +284,7 @@ export function useMtaActions(slug: string) {
       buildCall("clearTargetGrants", [
         slug,
         roleSlugs,
-        targets.map((t) => ethers.utils.getAddress(t)),
+        targets.map((t) => ethers.utils.getAddress(t.toLowerCase())),
       ]),
     (roleSlugs: string[]) => `Cleared ${roleSlugs.length} target grant${roleSlugs.length === 1 ? "" : "s"}`,
   );
@@ -288,9 +298,10 @@ export function useMtaActions(slug: string) {
     claimOrgContract,
     registerOrgContract,
     onboardMembers,
-    onboardExternalMembers,
+    onboardPayees,
     removeMembers,
-    setMemberStatus,
+    setMembershipStatus,
+    setPaymentStatus,
     assignRoles,
     revokeRoles,
     rotateWallet,

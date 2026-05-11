@@ -194,7 +194,9 @@ export function PayBatchesView({ slug, isAdmin }: PayBatchesViewProps) {
         return;
       }
       const [payeeList, earningsCatalog, codes] = await Promise.all([
-        fetchPayeesByOrganization(provider, payrollManagerAddress, slugBytes),
+        // chainId is the new source-of-truth arg for the unified roster.
+        // The provider + payrollManagerAddress are kept for sig back-compat.
+        fetchPayeesByOrganization(provider, payrollManagerAddress, slugBytes, chainIdOrDefault),
         fetchOrganizationEarningsCodes(provider, payrollManagerAddress, orgSlug),
         fetchPayBatchCodes(provider, payrollManagerAddress, orgSlug, account ?? undefined),
       ]);

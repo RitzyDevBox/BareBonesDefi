@@ -304,11 +304,9 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
       if (!mtaAddress) throw new Error("MultiTenantAuth address missing");
       if (edits.length === 0) throw new Error("No edits");
       const slugBytes = orgSlugFor(orgSlug);
-      const normalizeAddr = (a: string) => ethers.utils.getAddress(a.trim().toLowerCase());
       const calls: string[] = [];
       for (const { payee, edit } of edits) {
         const newName = ethers.utils.formatBytes32String(edit.name.trim());
-        const newAddr = normalizeAddr(edit.address);
         const newStatus = statusCodeFromKey(edit.statusKey);
         const memberId = payee.payeeId; // post-merge, payeeId === memberId
         if (newName !== payee.nameSlug) {
@@ -316,19 +314,41 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
             mtaIface.encodeFunctionData("setMemberNameSlug", [slugBytes, memberId, newName]),
           );
         }
-        if (newAddr.toLowerCase() !== payee.paymentAddress.toLowerCase()) {
-          calls.push(
-            mtaIface.encodeFunctionData("rotateWallet", [slugBytes, memberId, newAddr]),
-          );
-        }
-        if (newStatus !== Number(payee.status ?? 0)) {
-          calls.push(
-            mtaIface.encodeFunctionData("setMemberStatus", [
-              slugBytes,
-              [memberId],
-              [newStatus],
-            ]),
-          );
+        // Address rotations are NOT bundled here — they're submitted as
+        // direct txs by handleSubmitStaged before this function runs (the
+        // contract rejects rotateWallet via configure to keep
+        // msg.sender attribution honest for self-rotation).
+        // The legacy uint8 status compressed three states (0=Active,
+        // 1=PaymentPaused, 2=Terminated). Now we route them onto the two
+        // contract axes: paymentStatus (Active/Deactivated) for the "On hold"
+        // case, membershipStatus (Active/Terminated) for the Terminated case.
+        const currentStatus = Number(payee.status ?? 0);
+        if (newStatus !== currentStatus) {
+          if (newStatus === 1) {
+            // On hold → set paymentStatus to Deactivated (and restore membership active).
+            calls.push(
+              mtaIface.encodeFunctionData("setPaymentStatus", [slugBytes, [memberId], [1]]),
+            );
+            if (currentStatus === 2) {
+              calls.push(
+                mtaIface.encodeFunctionData("setMembershipStatus", [slugBytes, [memberId], [0]]),
+              );
+            }
+          } else if (newStatus === 2) {
+            calls.push(
+              mtaIface.encodeFunctionData("setMembershipStatus", [slugBytes, [memberId], [1]]),
+            );
+          } else {
+            // Active: restore both axes.
+            calls.push(
+              mtaIface.encodeFunctionData("setPaymentStatus", [slugBytes, [memberId], [0]]),
+            );
+            if (currentStatus === 2) {
+              calls.push(
+                mtaIface.encodeFunctionData("setMembershipStatus", [slugBytes, [memberId], [0]]),
+              );
+            }
+          }
         }
       }
       if (calls.length === 0) throw new Error("Nothing actually changed in the staged edits");
@@ -456,17 +476,35 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
     try {
       // Adds: MTA's `onboardExternalMembers` (Contractor + no role pinned).
       if (staged.length > 0) {
-        await mtaActions.onboardExternalMembers(
+        await mtaActions.onboardPayees(
           staged.map((s) => ({
             wallet: s.address,
             nameSlug: ethers.utils.formatBytes32String(s.name.trim()),
           })),
         );
       }
-      // Edits: bundled into MTA's configure() dispatcher — one signature for
-      // multi-field changes, atomic on revert.
-      if (editEntries.length > 0) {
-        await submitMtaEdits(slug, editEntries);
+      // Address rotations can't be bundled through MTA's configure() — the
+      // contract blocks rotateWallet when msg.sender == address(this) because
+      // the bundled-self-call path mangles caller attribution (a self-rotation
+      // check needs to see the user's actual wallet, not MTA's). So pull
+      // address changes out and submit each as a direct rotateWallet tx
+      // before bundling the rest.
+      const rotations = editEntries.filter(({ payee, edit }) =>
+        edit.address.trim().toLowerCase() !== payee.paymentAddress.toLowerCase(),
+      );
+      for (const { payee, edit } of rotations) {
+        await mtaActions.rotateWallet(payee.payeeId.toString(), edit.address.trim());
+      }
+      // Build the configure bundle from the remaining (name + status) edits.
+      // For rows that ONLY changed address, submitMtaEdits would have nothing
+      // to emit; we drop them by re-deriving the "no address change" subset.
+      const bundleEntries = editEntries.filter(({ payee, edit }) => {
+        const nameChanged   = ethers.utils.formatBytes32String(edit.name.trim()) !== payee.nameSlug;
+        const statusChanged = statusCodeFromKey(edit.statusKey) !== Number(payee.status ?? 0);
+        return (nameChanged || statusChanged);
+      });
+      if (bundleEntries.length > 0) {
+        await submitMtaEdits(slug, bundleEntries);
       }
       await onPayeesChanged();
       setStaged([]);
@@ -482,7 +520,7 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
     setOnboarding(true);
     try {
       // CSV-paste path: same MTA call as the inline staging flow.
-      await mtaActions.onboardExternalMembers(
+      await mtaActions.onboardPayees(
         rows.map((r) => ({
           wallet: r.address,
           nameSlug: ethers.utils.formatBytes32String(r.name.trim()),
