@@ -42,6 +42,23 @@ cd "$PROJECT_DIR"
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
+# Promote the latest deploy-generated env into .env.local. Vite's `.env.local`
+# is the only env file it auto-loads on every mode, so a stale .env.local from
+# an old local-anvil run will bake the WRONG (local or empty) contract
+# addresses into a staging/live bundle. The local-anvil deploy + the staging
+# deploy both write a fresh .env.local.generated; promoting it here makes the
+# gh-pages build self-healing regardless of which deploy ran most recently.
+ENV_GENERATED="${PROJECT_DIR}/.env.local.generated"
+ENV_LIVE="${PROJECT_DIR}/.env.local"
+if [[ -f "$ENV_GENERATED" ]]; then
+  if ! cmp -s "$ENV_GENERATED" "$ENV_LIVE" 2>/dev/null; then
+    printf "→ Promoting .env.local.generated → .env.local (was stale or missing)\n"
+    cp -f "$ENV_GENERATED" "$ENV_LIVE"
+  fi
+else
+  printf "  WARN: %s not found — bundle may have stale VITE_*_ADDRESS values.\n" "$ENV_GENERATED" >&2
+fi
+
 printf "Building app from branch: %s (deployment target: %s)\n" "$CURRENT_BRANCH" "$DEPLOYMENT_TARGET"
 VITE_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" npm run build
 

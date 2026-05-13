@@ -5,6 +5,10 @@ import { MembersModal } from "./MembersModal";
 interface SlugSettingsModalProps {
   status: SlugStatus;
   superAdmin: string;
+  /** When false, the "Transfer to" input + submit button are hidden — only the
+   *  current super admin can transfer the role (the contract enforces this
+   *  too, but hiding the form keeps non-owners from filling out a doomed call). */
+  canTransferSuperAdmin: boolean;
   onClose: () => void;
   onPause: () => void;
   onUnpause: () => void;
@@ -22,7 +26,7 @@ const STATUS_DESC: Record<SlugStatus, string> = {
 };
 
 export function SlugSettingsModal({
-  status, superAdmin,
+  status, superAdmin, canTransferSuperAdmin,
   onClose, onPause, onUnpause, onLock, onUnlock, onTransferSuperAdmin,
 }: SlugSettingsModalProps) {
   const [transferTo, setTransferTo] = useState("");
@@ -140,26 +144,34 @@ export function SlugSettingsModal({
               readOnly
             />
           </div>
-          <div className="bb-amw-field bb-full">
-            <label>Transfer to</label>
-            <input
-              className="bb-amw-input bb-mono"
-              value={transferTo}
-              onChange={(e) => setTransferTo(e.target.value)}
-              placeholder="0x…"
-            />
-            <button
-              className="bb-btn-primary bb-btn-xs"
-              style={{ marginTop: 6 }}
-              disabled={!transferValid}
-              onClick={submitTransfer}
-            >
-              Transfer super admin
-            </button>
-            <div style={{ fontSize: 11, color: "var(--bb-text-mute)", marginTop: 4 }}>
-              Atomic swap — the new address holds super admin role from the next block; the old address loses it.
+          {canTransferSuperAdmin ? (
+            <div className="bb-amw-field bb-full">
+              <label>Transfer to</label>
+              <input
+                className="bb-amw-input bb-mono"
+                value={transferTo}
+                onChange={(e) => setTransferTo(e.target.value)}
+                placeholder="0x…"
+              />
+              <button
+                className="bb-btn-primary bb-btn-xs"
+                style={{ marginTop: 6 }}
+                disabled={!transferValid}
+                onClick={submitTransfer}
+              >
+                Transfer super admin
+              </button>
+              <div style={{ fontSize: 11, color: "var(--bb-text-mute)", marginTop: 4 }}>
+                Atomic swap — the new address holds super admin role from the next block; the old address loses it.
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bb-amw-field bb-full">
+              <div style={{ fontSize: 11, color: "var(--bb-text-mute)" }}>
+                Only the current super admin can transfer this role.
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </MembersModal>

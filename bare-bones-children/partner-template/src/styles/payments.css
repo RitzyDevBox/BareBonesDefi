@@ -1632,6 +1632,29 @@
   font-family: var(--bb-font-mono);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.bb-staged-args {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  white-space: normal;
+}
+.bb-staged-arg {
+  display: inline-flex; align-items: baseline; gap: 2px;
+  font-size: 11.5px;
+  background: var(--bb-bg);
+  border: 1px solid var(--bb-line);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.bb-staged-arg-name {
+  color: var(--bb-text-mute);
+  font-family: var(--bb-font-mono);
+  font-size: 10.5px;
+}
+.bb-staged-arg-val {
+  color: var(--bb-text);
+  font-weight: 500;
+  max-width: 180px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .bb-staged-actions { display: flex; gap: 4px; }
 
 /* =========================================================================
@@ -1948,7 +1971,19 @@
   border-radius: 12px;
   background: var(--bb-bg-elev);
 }
-.bb-m-subnav-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.bb-m-subnav-tabs { display: flex; gap: 4px; flex-wrap: nowrap; min-width: 0; }
+
+@media (max-width: 600px) {
+  /* Keep MEMBERS / ROLES / PERMISSIONS on a single row at mobile widths.
+     Tab text stays full-width via the segmented pills; the count badge is
+     dropped because it eats the horizontal budget on a 375px viewport. */
+  .bb-m-subnav { padding: 6px; gap: 8px; }
+  .bb-m-subnav-tabs { flex: 1 1 100%; justify-content: space-between; gap: 2px; }
+  .bb-m-subtab { flex: 1 1 0; justify-content: center; padding: 7px 6px; font-size: 12.5px; }
+  .bb-m-subtab .bb-count { display: none; }
+  .bb-m-subnav-actions { flex: 1 1 100%; gap: 4px; }
+  .bb-m-subnav-actions .bb-m-search { flex: 1; min-width: 0; }
+}
 .bb-m-subtab {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 8px 12px;
@@ -2690,6 +2725,18 @@
   box-shadow: 0 30px 80px -20px rgba(0,0,0,.6);
   display: flex; flex-direction: column;
 }
+/* When rendered inside <Sheet> the parent already supplies the surface
+   (bottom-anchored, max-height 85vh) — strip the desktop shell's own
+   borders/shadow/radius so it doesn't fight the sheet's rounded top. */
+.bb-m-modal-shell--sheet {
+  max-width: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  max-height: 85vh;
+  overflow-y: auto;
+}
 .bb-m-modal-head {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px;
@@ -3030,6 +3077,136 @@
   .bb-amw-roles { grid-template-columns: 1fr; }
   .bb-rb-acct-row { grid-template-columns: 1fr; }
   .bb-pm-c-edit-row { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Members card list (phone) ─────────────────────────────────────────────
+ * The desktop bb-m-table can't be compressed into 375px legibly. On phone
+ * we render each member as a flex card with a tap-to-expand panel for the
+ * long-tail metadata. Reuses bb-m-chip / bb-m-avatar / status helpers.
+ */
+.bb-m-cards {
+  display: flex; flex-direction: column; gap: 8px;
+  border: 1px solid var(--bb-line);
+  border-radius: 12px;
+  background: var(--bb-bg-elev);
+  padding: 8px;
+}
+.bb-m-card { display: flex; flex-direction: column; }
+.bb-m-card + .bb-m-card { border-top: 1px solid var(--bb-line); padding-top: 8px; }
+.bb-m-card-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 4px 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.bb-m-card-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bb-m-card-name {
+  font-size: 14px; font-weight: 500; color: var(--bb-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bb-m-card-sub {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--bb-text-mute);
+  min-width: 0;
+}
+.bb-m-card-sub code {
+  font-family: var(--bb-font-mono);
+  font-size: 11px;
+  color: var(--bb-text-dim);
+}
+.bb-m-card-caret { color: var(--bb-text-mute); font-size: 13px; }
+.bb-m-card-expanded {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 8px 0 4px;
+  border-top: 1px dashed var(--bb-line);
+  margin-top: 6px;
+}
+.bb-m-card-meta {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+.bb-m-card-date {
+  font-size: 11px; color: var(--bb-text-mute);
+  font-family: var(--bb-font-mono);
+}
+.bb-m-card-email {
+  font-size: 11.5px; color: var(--bb-text-mute);
+  font-family: var(--bb-font-mono);
+  word-break: break-all;
+}
+.bb-m-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── DAO ProposalsList tab bar ─────────────────────────────────────────────
+ * The ACTIVE / HISTORY / CONFIG / MEMBERS strip sits inside a CardContent
+ * with `padding: 0`, so the strip's own padding is what gives it breathing
+ * room. On phone widths the desktop padding (24px each side) plus the
+ * four tabs is wider than 375px → the page horizontally scrolls, which we
+ * don't want. The media query below tightens padding and the tab strip
+ * gets `overflow-x: auto + min-width: 0` so any remaining overflow scrolls
+ * inside the strip instead of pushing the page wider.
+ */
+.bb-pl-tabbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: stretch;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--colors-border);
+}
+.bb-pl-tabbar-tabs {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.bb-pl-tabbar-tabs::-webkit-scrollbar { display: none; }
+.bb-pl-tabbar-search {
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--colors-border);
+  background: var(--colors-background);
+  color: var(--colors-text-main);
+  font-size: 13px;
+  min-width: 180px;
+  outline: none;
+  margin: 8px 0;
+}
+.bb-pl-tab-count {
+  margin-left: 8px;
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--colors-text-label);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--colors-surface);
+}
+/* Short label is hidden on desktop — only the full one shows. */
+.bb-pl-tab-label-short { display: none; }
+.bb-pl-tab-label-full { display: inline; }
+
+@media (max-width: 600px) {
+  .bb-pl-tabbar { padding: 0 8px; gap: 4px; }
+  .bb-pl-tabbar-tabs { gap: 0; }
+  .bb-pl-tab { padding: 10px 8px !important; font-size: 13px !important; }
+  /* Drop the count badge on mobile — count is visible inside the active
+     tab content already, and the badge eats horizontal budget that the
+     four labels need. */
+  .bb-pl-tab-count { display: none; }
+  /* Swap full → short label so "Configuration" becomes "Config". */
+  .bb-pl-tab-label-full { display: none; }
+  .bb-pl-tab-label-short { display: inline; }
+  .bb-pl-tabbar-search {
+    min-width: 0;
+    width: 100%;
+    margin: 4px 0 8px;
+  }
 }
 
 

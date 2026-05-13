@@ -91,7 +91,7 @@ enum SubView {
  * client-side mutation cache — UI state is the subgraph state.
  */
 export function MembersSection({ slug }: MembersSectionProps) {
-  const { chainId } = useWalletProvider();
+  const { chainId, account } = useWalletProvider();
   const mtaAddress = chainId != null
     ? getBareBonesConfiguration(chainId).multiTenantAuthAddress
     : "0x0000000000000000000000000000000000000000";
@@ -100,6 +100,11 @@ export function MembersSection({ slug }: MembersSectionProps) {
   const actions = useMtaActions(slug);
 
   const { members, roles, permissions, foundationDefaults, adminManagedContracts, registeredContracts, slugStatus, superAdmin, bootstrapped } = state;
+
+  // Only the slug owner can transfer super admin (the contract enforces this
+  // too; we hide the UI for everyone else so they don't fill out a form that
+  // can't possibly succeed).
+  const isSuperAdmin = !!account && !!superAdmin && account.toLowerCase() === superAdmin.toLowerCase();
 
   const [view, setView] = useState<SubView>(SubView.List);
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
@@ -613,6 +618,7 @@ export function MembersSection({ slug }: MembersSectionProps) {
         <SlugSettingsModal
           status={slugStatus}
           superAdmin={superAdmin}
+          canTransferSuperAdmin={isSuperAdmin}
           onClose={() => setSlugSettingsOpen(false)}
           onPause={onPauseSlug}
           onUnpause={onUnpauseSlug}

@@ -42,11 +42,23 @@ export interface DaoProposalSummary {
   executeReadyLabel?: string;
 }
 
+export interface ProposalCallArgPreview {
+  /** Parameter name as it appears in the ABI (or "arg{i}" for unnamed). */
+  name: string;
+  /** Short, human-readable rendering of the value — utf-8-decoded bytes32,
+   *  shortened addresses, decimal uints, array lengths, etc. Display only;
+   *  the source-of-truth value is encoded into `calldata`. */
+  display: string;
+}
+
 export interface ProposalCall {
   target: string;
   calldata: string;
   functionSignature: string;
   valueWei: string;
+  /** Decoded arg preview shown in the staged-call row. Omitted for non-ABI
+   *  presets (native transfer etc.) where there's nothing useful to show. */
+  argsPreview?: ProposalCallArgPreview[];
 }
 
 export interface ProposalBuildPayload {

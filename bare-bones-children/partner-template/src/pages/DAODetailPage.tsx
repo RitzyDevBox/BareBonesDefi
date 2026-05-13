@@ -563,6 +563,7 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
             disabled={!governorAddress}
             loading={submittingProposal}
             governorAddress={governorAddress}
+            orgSlug={orgSlugBytes}
             onSubmit={handleSubmitProposal}
           />
         </Modal>
@@ -578,6 +579,7 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
               disabled={!governorAddress || checkingEligibility}
               loading={submittingProposal}
               governorAddress={governorAddress}
+              orgSlug={orgSlugBytes}
               onSubmit={handleSubmitProposal}
             />
           </Stack>

@@ -3,8 +3,6 @@ import { ethers } from "ethers";
 import { Input } from "../BasicComponents";
 import { FormField } from "../FormField/FormField";
 import { AddressInput } from "../Inputs/AddressInput";
-import { Bytes32Input } from "../Inputs/Bytes32Input";
-import { NumberInput } from "../Inputs/NumberInput";
 import { Uint256Input } from "../Inputs/Uint256Input";
 import { Select, SelectOption } from "../Select";
 import { Stack } from "../Primitives";
@@ -19,9 +17,11 @@ import { AddressBookInput } from "../Inputs/AddressBookInput";
 import { useProposalAddressBook, type AddressBookTargetType } from "../../hooks/dao/useProposalAddressBook";
 import { useDiamondFacets } from "../../hooks/diamond/useDiamondFacets";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
-import { DEFAULT_BARE_BONES_CONFIG } from "../../constants/misc";
-import type { ProposalBuildPayload, ProposalCall } from "./types";
+import { DEFAULT_BARE_BONES_CONFIG, getBareBonesConfiguration } from "../../constants/misc";
+import type { ProposalBuildPayload, ProposalCall, ProposalCallArgPreview } from "./types";
 import { NativeTransferForm, TokenTransferForm, WalletDeployForm } from "./ProposalForms";
+import { MtaArgsRenderer } from "./proposalTemplates/MtaTemplate";
+import { GenericArgsRenderer } from "./proposalTemplates/GenericTemplate";
 
 // ============================================================================
 // ABIs & Constants
@@ -266,7 +266,7 @@ function targetTypeForPreset(preset: ProposalActionPreset): AddressBookTargetTyp
 
 function defaultTargetForPreset(
   preset: ProposalActionPreset,
-  params: { governorAddress: string; timelockAddress: string }
+  params: { governorAddress: string; timelockAddress: string; mtaAddress: string }
 ): string {
   if (GOVERNANCE_ROLE_CONFIG[preset]) return params.timelockAddress;
   if (
@@ -279,12 +279,13 @@ function defaultTargetForPreset(
     ].includes(preset)
   )
     return params.governorAddress;
+  if (preset === "auth-mta-function") return params.mtaAddress;
   return "";
 }
 
 function defaultTargetLabelForPreset(
   preset: ProposalActionPreset,
-  params: { governorAddress: string; timelockAddress: string; target: string }
+  params: { governorAddress: string; timelockAddress: string; mtaAddress: string; target: string }
 ): string | null {
   if (!params.target) return null;
   if (GOVERNANCE_ROLE_CONFIG[preset] && params.target.toLowerCase() === params.timelockAddress.toLowerCase()) {
@@ -304,6 +305,14 @@ function defaultTargetLabelForPreset(
     return "Governor";
   }
 
+  if (
+    preset === "auth-mta-function" &&
+    params.mtaAddress &&
+    params.target.toLowerCase() === params.mtaAddress.toLowerCase()
+  ) {
+    return "Multi-Tenant Authorizer";
+  }
+
   return null;
 }
 
@@ -315,44 +324,158 @@ function normalizeAbiCandidate(input: unknown): any[] {
   throw new Error("ABI must be a JSON array or an object with an abi array.");
 }
 
-function parseParam(type: string, value: string) {
-  if (type.endsWith("[]") || type.includes("tuple")) {
-    return JSON.parse(value);
-  }
-
+/**
+ * Normalize an already-decoded JS value for a single scalar Solidity type
+ * before it's handed to ethers' ABI encoder. Tolerates the same loose forms
+ * the top-level form inputs accept (utf-8 bytes32, decimal-string uints,
+ * mixed-case addresses) so nested tuple fields don't break encoding.
+ */
+function normalizeScalar(type: string, value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const v = value.trim();
   if (type === "address") {
-    return ethers.utils.getAddress(value.trim());
+    return v === "" ? v : ethers.utils.getAddress(v);
   }
-
   if (type === "bool") {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === "true" || normalized === "1") return true;
-    if (normalized === "false" || normalized === "0") return false;
-    throw new Error("Boolean value must be 'true' or 'false'.");
+    const n = v.toLowerCase();
+    if (n === "true" || n === "1") return true;
+    if (n === "false" || n === "0") return false;
+    return value;
   }
-
   if (type.startsWith("uint") || type.startsWith("int")) {
-    return ethers.BigNumber.from(value.trim());
+    return v === "" ? v : ethers.BigNumber.from(v);
   }
-
   if (type === "bytes32") {
-    const normalized = value.trim();
-    if (ethers.utils.isHexString(normalized, 32)) return normalized;
-    if (normalized.length <= 32) return ethers.utils.formatBytes32String(normalized);
+    if (ethers.utils.isHexString(v, 32)) return v;
+    if (v.length <= 31) return ethers.utils.formatBytes32String(v);
     throw new Error("bytes32 value too long.");
   }
-
-  if (type.startsWith("bytes") && type !== "bytes") {
-    if (!ethers.utils.isHexString(value.trim())) throw new Error("Bytes value must be hex.");
-    return value.trim();
-  }
-
   if (type === "bytes") {
-    if (ethers.utils.isHexString(value.trim())) return value.trim();
-    return ethers.utils.toUtf8Bytes(value);
+    if (ethers.utils.isHexString(v)) return v;
+    return ethers.utils.toUtf8Bytes(v);
   }
-
+  if (type.startsWith("bytes") && type !== "bytes") {
+    if (!ethers.utils.isHexString(v)) throw new Error("Bytes value must be hex.");
+    return v;
+  }
   return value;
+}
+
+/**
+ * Recursively normalize a JS value against its ABI param fragment. Walks
+ * tuple/tuple[] and array types so nested scalar fields (e.g. a `nameSlug`
+ * bytes32 inside a `MemberInit` struct that the user typed as utf-8) get
+ * the same lossless conversion the top-level form inputs apply. Without
+ * this, ethers' encoder blows up on the first non-hex bytes32.
+ */
+function normalizeRecursive(value: unknown, param: ethers.utils.ParamType): unknown {
+  if (param.type === "tuple" && param.components) {
+    const out: Record<string, unknown> = {};
+    const v = (value as Record<string, unknown>) ?? {};
+    for (let i = 0; i < param.components.length; i++) {
+      const c = param.components[i];
+      const key = c.name || `field_${i}`;
+      out[key] = normalizeRecursive(v[key], c);
+    }
+    return out;
+  }
+  if (param.type === "tuple[]" && param.components) {
+    if (!Array.isArray(value)) return [];
+    const elemParam = ethers.utils.ParamType.from({
+      type: "tuple",
+      components: param.components.map((c) => ({
+        name: c.name,
+        type: c.type,
+        components: c.components,
+        internalType: (c as any).internalType,
+      })),
+    });
+    return value.map((v) => normalizeRecursive(v, elemParam));
+  }
+  if (param.type.endsWith("[]")) {
+    if (!Array.isArray(value)) return [];
+    const elementType = param.type.slice(0, -2);
+    return value.map((v) => normalizeScalar(elementType, v));
+  }
+  return normalizeScalar(param.type, value);
+}
+
+function parseParam(param: ethers.utils.ParamType, value: string) {
+  const type = param.type;
+  if (type === "tuple" || type === "tuple[]" || type.endsWith("[]")) {
+    const parsed = JSON.parse(value || (type === "tuple" ? "{}" : "[]"));
+    return normalizeRecursive(parsed, param);
+  }
+  return normalizeScalar(type, value);
+}
+
+/**
+ * Render a normalized JS value as a short string for the staged-call row.
+ * Tries hard to be human-friendly: bytes32 reads as utf-8 when it round-trips,
+ * addresses are shortened, tuples / tuple[] collapse to a count + first-field
+ * peek. Display only — calldata is the source of truth.
+ */
+function previewValue(value: unknown, param: ethers.utils.ParamType): string {
+  if (value == null) return "—";
+  if (param.type === "tuple[]" && param.components) {
+    const arr = Array.isArray(value) ? value : [];
+    if (arr.length === 0) return "[]";
+    const first = arr[0];
+    const firstField = param.components[0];
+    const peek = firstField ? previewValue(first?.[firstField.name ?? ""], firstField) : "";
+    return `${arr.length}× {${peek}${arr.length > 1 ? ", …" : ""}}`;
+  }
+  if (param.type === "tuple" && param.components) {
+    const peeks = param.components.slice(0, 2).map((c) => {
+      const k = c.name || "";
+      return previewValue((value as any)?.[k], c);
+    });
+    return `{${peeks.join(", ")}${param.components.length > 2 ? ", …" : ""}}`;
+  }
+  if (param.type.endsWith("[]")) {
+    const arr = Array.isArray(value) ? value : [];
+    if (arr.length === 0) return "[]";
+    const elementType = param.type.slice(0, -2);
+    const fakeParam = ethers.utils.ParamType.from(elementType);
+    const peek = previewValue(arr[0], fakeParam);
+    return arr.length === 1 ? `[${peek}]` : `[${peek}, …${arr.length - 1}]`;
+  }
+  if (param.type === "bytes32") {
+    const s = typeof value === "string" ? value : String(value);
+    if (ethers.utils.isHexString(s, 32)) {
+      try {
+        const decoded = ethers.utils.parseBytes32String(s);
+        if (decoded) return decoded;
+      } catch { /* not utf-8, fall through */ }
+      return `${s.slice(0, 6)}…${s.slice(-4)}`;
+    }
+    return s;
+  }
+  if (param.type === "address") {
+    const s = typeof value === "string" ? value : String(value);
+    if (s.length >= 10) return `${s.slice(0, 6)}…${s.slice(-4)}`;
+    return s;
+  }
+  if (param.type === "bool") {
+    return value ? "true" : "false";
+  }
+  if (param.type.startsWith("uint") || param.type.startsWith("int")) {
+    if (ethers.BigNumber.isBigNumber(value)) return value.toString();
+    return String(value);
+  }
+  // bytes, string, fallback
+  const s = typeof value === "string" ? value : JSON.stringify(value);
+  return s.length > 18 ? `${s.slice(0, 12)}…` : s;
+}
+
+function buildArgsPreview(
+  inputs: ReadonlyArray<ethers.utils.ParamType>,
+  argValues: unknown[],
+): ProposalCallArgPreview[] {
+  return inputs.map((input, i) => ({
+    name: input.name || `arg${i}`,
+    display: previewValue(argValues[i], input),
+  }));
 }
 
 function defaultDescriptionForAction(preset: ProposalActionPreset) {
@@ -394,11 +517,18 @@ type Props = {
   disabled?: boolean;
   loading?: boolean;
   governorAddress?: string;
+  /** Current DAO's org slug (bytes32). Auto-fills `slug` params on MTA calls and
+   *  keys the roster lookup that powers the member/permission/custom-role pickers. */
+  orgSlug?: string;
   onSubmit: (payload: ProposalBuildPayload) => Promise<void> | void;
 };
 
-export function ProposalBuilder({ disabled = false, loading = false, governorAddress = "", onSubmit }: Props) {
+export function ProposalBuilder({ disabled = false, loading = false, governorAddress = "", orgSlug = "", onSubmit }: Props) {
   const { chainId, provider } = useWalletProvider();
+  const mtaAddress = useMemo(
+    () => (chainId == null ? "" : getBareBonesConfiguration(chainId).multiTenantAuthAddress),
+    [chainId],
+  );
 
   // Core proposal state
   const [target, setTarget] = useState("");
@@ -506,6 +636,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
     const defaultTarget = defaultTargetForPreset(preset, {
       governorAddress,
       timelockAddress,
+      mtaAddress,
     });
 
     if (defaultTarget) {
@@ -514,6 +645,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
         defaultTargetLabelForPreset(preset, {
           governorAddress,
           timelockAddress,
+          mtaAddress,
           target: defaultTarget,
         })
       );
@@ -527,6 +659,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
     const defaultTarget = defaultTargetForPreset(actionPreset, {
       governorAddress,
       timelockAddress,
+      mtaAddress,
     });
 
     if (!defaultTarget) return;
@@ -537,11 +670,12 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
         defaultTargetLabelForPreset(actionPreset, {
           governorAddress,
           timelockAddress,
+          mtaAddress,
           target: defaultTarget,
         })
       );
     }
-  }, [actionPreset, governorAddress, timelockAddress]);
+  }, [actionPreset, governorAddress, timelockAddress, mtaAddress]);
 
   function handleChangeActionGroup(nextGroup: ActionGroup) {
     setActionGroup(nextGroup);
@@ -832,7 +966,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
 
     const argValues = selectedFunction.inputs.map((input, index) => {
       const key = `${input.name || `arg${index}`}-${index}`;
-      return parseParam(input.type, valuesByParam[key] ?? "");
+      return parseParam(input, valuesByParam[key] ?? "");
     });
 
     const calldata = iface.encodeFunctionData(selectedFunction, argValues);
@@ -842,6 +976,7 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
       calldata,
       functionSignature: selectedFunction.format(),
       valueWei: "0",
+      argsPreview: buildArgsPreview(selectedFunction.inputs, argValues),
     };
   }
 
@@ -851,6 +986,23 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
     try {
       const nextCall = buildCallFromForm();
       setStagedCalls((current) => [...current, nextCall]);
+      // Reset the per-call form so the user sees the staged row instead of
+      // a still-filled-in form. Preserves the chosen preset/function/target
+      // so the next call lives in the same context — they only need to
+      // change the arg values.
+      setValuesByParam({});
+      setGovernanceUintValue("");
+      setGovernanceAddressValue("");
+      setRoleAccountAddress("");
+      setWalletAddressValue("");
+      setWalletNonceValue("");
+      setDiamondFacetAddress("");
+      setDiamondSelector("");
+      setDiamondInitAddress("");
+      setDiamondInitCalldata("");
+      nativeTransferFormRef.current?.reset();
+      tokenTransferFormRef.current?.reset();
+      walletDeployFormRef.current?.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to stage call.");
     }
@@ -926,17 +1078,25 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
             </Select>
           </FormField>
 
-          <FormField label="Action" style={{ marginBottom: 0 }}>
-            <Select
-              value={actionPreset}
-              onChange={(v) => applyPreset(v as ProposalActionPreset)}
-              dataTestId="proposal-action"
-            >
-              {(ACTION_OPTIONS[actionGroup] ?? []).map((option) => (
-                <SelectOption key={option.value} value={option.value} label={option.label} />
-              ))}
-            </Select>
-          </FormField>
+          {/* Groups that only contain a single ABI-driven preset (authorizer,
+              custom) skip the redundant "Action" picker — picking the group
+              auto-applies the preset, and the Function picker below is the
+              actual selection that matters. Mixed groups (smart-wallet) keep
+              the Action picker so users can choose between direct presets and
+              the ABI-driven Calibur Entry function. */}
+          {actionGroup !== "authorizer" && actionGroup !== "custom" ? (
+            <FormField label="Action" style={{ marginBottom: 0 }}>
+              <Select
+                value={actionPreset}
+                onChange={(v) => applyPreset(v as ProposalActionPreset)}
+                dataTestId="proposal-action"
+              >
+                {(ACTION_OPTIONS[actionGroup] ?? []).map((option) => (
+                  <SelectOption key={option.value} value={option.value} label={option.label} />
+                ))}
+              </Select>
+            </FormField>
+          ) : null}
         </div>
 
         {actionPreset === "custom" ? (
@@ -1249,91 +1409,24 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
 
           {(actionPreset === "custom" || actionPreset === "wallet-calibur-entry" || actionPreset === "auth-mta-function") && selectedFunction ? (
             <Stack gap="sm">
-              {selectedFunction ? (
-                <Stack gap="sm">
-                  <Text.Label>Function Inputs</Text.Label>
-                  {selectedFunction.inputs.length === 0 ? (
-                    <Text.Body size="sm" color="muted">
-                      No inputs for this function.
-                    </Text.Body>
-                  ) : (
-                    selectedFunction.inputs.map((input, index) => {
-                      const key = `${input.name || `arg${index}`}-${index}`;
-                      const label = `${input.name || `arg${index}`} (${input.type})`;
-                      const value = valuesByParam[key] ?? "";
-
-                      if (input.type.startsWith("uint") || input.type.startsWith("int")) {
-                        if (input.type.startsWith("uint")) {
-                          return (
-                            <FormField key={key} label={label} style={{ marginBottom: 0 }}>
-                              <Uint256Input
-                                value={value}
-                                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                                  setValuesByParam((current) => ({ ...current, [key]: event.target.value }))
-                                }
-                              />
-                            </FormField>
-                          );
-                        }
-
-                        return (
-                          <FormField key={key} label={label} style={{ marginBottom: 0 }}>
-                            <NumberInput
-                              value={value}
-                              allowDecimal={false}
-                              allowNegative={input.type.startsWith("int")}
-                              onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                                setValuesByParam((current) => ({ ...current, [key]: event.target.value }))
-                              }
-                            />
-                          </FormField>
-                        );
-                      }
-
-                      if (input.type === "bytes32") {
-                        return (
-                          <FormField key={key} label={label} style={{ marginBottom: 0 }}>
-                            <Bytes32Input
-                              value={value}
-                              onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                                setValuesByParam((current) => ({ ...current, [key]: event.target.value }))
-                              }
-                            />
-                          </FormField>
-                        );
-                      }
-
-                      if (input.type === "address") {
-                        return (
-                          <FormField key={key} label={label} style={{ marginBottom: 0 }}>
-                            <AddressInput
-                              value={value}
-                              onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                                setValuesByParam((current) => ({
-                                  ...current,
-                                  [key]: event.target.value,
-                                }))
-                              }
-                            />
-                          </FormField>
-                        );
-                      }
-
-                      return (
-                        <FormField key={key} label={label} style={{ marginBottom: 0 }}>
-                          <Input
-                            value={value}
-                            onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                              setValuesByParam((current) => ({ ...current, [key]: event.target.value }))
-                            }
-                            placeholder={input.type === "bool" ? "true or false" : "Value"}
-                          />
-                        </FormField>
-                      );
-                    })
-                  )}
-                </Stack>
-              ) : null}
+              <Text.Label>Function Inputs</Text.Label>
+              {selectedFunction.inputs.length === 0 ? (
+                <Text.Body size="sm" color="muted">No inputs for this function.</Text.Body>
+              ) : actionPreset === "auth-mta-function" ? (
+                <MtaArgsRenderer
+                  inputs={selectedFunction.inputs}
+                  valuesByParam={valuesByParam}
+                  setValuesByParam={setValuesByParam}
+                  orgSlug={orgSlug}
+                  chainId={chainId}
+                />
+              ) : (
+                <GenericArgsRenderer
+                  inputs={selectedFunction.inputs}
+                  valuesByParam={valuesByParam}
+                  setValuesByParam={setValuesByParam}
+                />
+              )}
             </Stack>
           ) : null}
 
@@ -1390,9 +1483,20 @@ export function ProposalBuilder({ disabled = false, loading = false, governorAdd
                       </>
                     )}
                   </div>
-                  <div className="bb-staged-line-2">
-                    calldata {call.calldata.length > 18 ? `${call.calldata.slice(0, 12)}…${call.calldata.slice(-6)}` : call.calldata}
-                  </div>
+                  {call.argsPreview && call.argsPreview.length > 0 ? (
+                    <div className="bb-staged-line-2 bb-staged-args">
+                      {call.argsPreview.map((a: ProposalCallArgPreview, ai) => (
+                        <span key={`${a.name}-${ai}`} className="bb-staged-arg">
+                          <span className="bb-staged-arg-name">{a.name}=</span>
+                          <span className="bb-staged-arg-val">{a.display}</span>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bb-staged-line-2">
+                      calldata {call.calldata.length > 18 ? `${call.calldata.slice(0, 12)}…${call.calldata.slice(-6)}` : call.calldata}
+                    </div>
+                  )}
                 </div>
                 <div className="bb-staged-actions">
                   <button

@@ -3,8 +3,9 @@ import { ACCOUNT_TYPES } from "../../data/membersSeed";
 import { shortAddress } from "../../utils/formatUtils";
 import { ToastType } from "../Toasts/toast.types";
 import {
-  AccountTypeId, Member, OnboardingStatus, Role,
+  AccountTypeId, Member, Role,
 } from "../../types/members";
+import { useMediaQuery, ScreenSize } from "../../hooks/useMediaQuery";
 import { MembersSubNav, SubTab } from "./MembersSubNav";
 import {
   AccountTypeBadge, MemberAvatar, MemberStatusPill, SbtStatusDot,
@@ -24,14 +25,6 @@ interface MembersListProps {
 }
 
 const ACCT_FILTER_ALL = "all" as const;
-const STATUS_FILTER_ALL = "all" as const;
-const STATUS_BAR: Array<typeof STATUS_FILTER_ALL | OnboardingStatus> = [
-  STATUS_FILTER_ALL,
-  OnboardingStatus.Active,
-  OnboardingStatus.Invited,
-  OnboardingStatus.Suspended,
-  OnboardingStatus.Departed,
-];
 
 export function MembersList({
   members, roles, onOpenMember, onAddMember, onGoRoles, onGoPermissions,
@@ -39,24 +32,14 @@ export function MembersList({
 }: MembersListProps) {
   const [q, setQ] = useState("");
   const [acctFilter, setAcctFilter] = useState<AccountTypeId | typeof ACCT_FILTER_ALL>(ACCT_FILTER_ALL);
-  const [statusFilter, setStatusFilter] = useState<typeof STATUS_FILTER_ALL | OnboardingStatus>(STATUS_FILTER_ALL);
-
-  const counts = useMemo(() => {
-    const out: Record<string, number> = { all: members.length };
-    for (const s of [
-      OnboardingStatus.Active,
-      OnboardingStatus.Invited,
-      OnboardingStatus.Suspended,
-      OnboardingStatus.Departed,
-    ]) out[s] = members.filter((m) => m.onboardingStatus === s).length;
-    return out;
-  }, [members]);
+  const screen = useMediaQuery();
+  const isPhone = screen === ScreenSize.Phone;
+  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return members.filter((m) => {
       if (acctFilter !== ACCT_FILTER_ALL && m.accountType !== acctFilter) return false;
-      if (statusFilter !== STATUS_FILTER_ALL && m.onboardingStatus !== statusFilter) return false;
       if (needle) {
         return (
           m.name.toLowerCase().includes(needle)
@@ -66,7 +49,7 @@ export function MembersList({
       }
       return true;
     });
-  }, [members, acctFilter, statusFilter, q]);
+  }, [members, acctFilter, q]);
 
   const roleNameOf = (id: string) => roles.find((r) => r.id === id)?.name ?? id;
 
@@ -97,19 +80,10 @@ export function MembersList({
       </MembersSubNav>
 
       <div className="bb-m-filterbar">
-        <div className="bb-m-status-seg">
-          {STATUS_BAR.map((k) => (
-            <button
-              key={k}
-              className={`bb-m-status-btn${statusFilter === k ? " bb-on" : ""}`}
-              onClick={() => setStatusFilter(k)}
-            >
-              <span style={{ textTransform: "capitalize" }}>{k}</span>
-              <span className="bb-m-status-count">{counts[k] ?? 0}</span>
-            </button>
-          ))}
-        </div>
-        <div className="bb-m-filter-right">
+        {/* Account-type filter hidden on phone — the search box covers the
+            common discovery case, and the row would otherwise eat horizontal
+            budget the search itself needs at 375px. */}
+        {!isPhone && (
           <select
             className="bb-m-select"
             value={acctFilter}
@@ -120,108 +94,197 @@ export function MembersList({
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
-          <div className="bb-m-search">
-            <span aria-hidden>🔎</span>
-            <input
-              placeholder="Search by name, email, address…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-            {q && <button className="bb-m-search-clear" onClick={() => setQ("")}>clear</button>}
-          </div>
+        )}
+        <div className="bb-m-search" style={{ flex: 1, minWidth: 0 }}>
+          <span aria-hidden>🔎</span>
+          <input
+            placeholder={isPhone ? "Search…" : "Search by name, email, address…"}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          {q && <button className="bb-m-search-clear" onClick={() => setQ("")}>clear</button>}
         </div>
       </div>
 
-      <div className="bb-m-table-wrap">
-        <table className="bb-m-table">
-          <thead>
-            <tr>
-              <th style={{ width: "28%" }}>Member</th>
-              <th>Account</th>
-              <th>Roles</th>
-              <th>Wallet</th>
-              <th>SBT</th>
-              <th>Status</th>
-              <th style={{ textAlign: "right" }}>Added</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((m) => (
-              <tr key={m.id} onClick={() => onOpenMember(m)} className="bb-m-row">
-                <td>
-                  <div className="bb-m-cell-name">
-                    <MemberAvatar member={m} size={30} />
-                    <div>
-                      <div className="bb-m-name">{m.name}</div>
-                      <div className="bb-m-sub">{m.email}</div>
-                    </div>
-                  </div>
-                </td>
-                <td><AccountTypeBadge type={m.accountType} /></td>
-                <td>
-                  {m.roles.length === 0 ? (
-                    <span style={{ color: "var(--bb-text-mute)", fontSize: 12 }}>—</span>
-                  ) : (
-                    <div className="bb-m-role-chips">
-                      {m.roles.slice(0, 2).map((r) => (
-                        <span key={r} className="bb-m-chip">{roleNameOf(r)}</span>
-                      ))}
-                      {m.roles.length > 2 && (
-                        <span className="bb-m-chip bb-m-chip-more">+{m.roles.length - 2}</span>
+      {isPhone ? (
+        // Card list on phone. The 7-column desktop table can't be made
+        // legible at 375px no matter how aggressively the cells are
+        // packed; rendering each member as a flex card lets the layout
+        // breathe and the expand panel handles the long-tail metadata.
+        <div className="bb-m-cards">
+          {filtered.map((m) => {
+            const expanded = expandedMemberId === m.id;
+            const firstRole = m.roles[0];
+            return (
+              <div key={m.id} className="bb-m-card">
+                <button
+                  type="button"
+                  className="bb-m-card-row"
+                  onClick={() => setExpandedMemberId((prev) => (prev === m.id ? null : m.id))}
+                >
+                  <MemberAvatar member={m} size={32} />
+                  <div className="bb-m-card-main">
+                    <div className="bb-m-card-name">{m.name}</div>
+                    <div className="bb-m-card-sub">
+                      <code>{shortAddress(m.wallet.address)}</code>
+                      {m.roles.length > 0 && (
+                        <>
+                          <span aria-hidden>·</span>
+                          <span className="bb-m-chip" style={{ flexShrink: 0 }}>
+                            {firstRole ? roleNameOf(firstRole) : "—"}
+                          </span>
+                          {m.roles.length > 1 && (
+                            <span className="bb-m-chip bb-m-chip-more">+{m.roles.length - 1}</span>
+                          )}
+                        </>
                       )}
                     </div>
-                  )}
-                </td>
-                <td>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ fontSize: 12, color: "var(--bb-text-dim)", fontFamily: "var(--bb-font-mono)" }}>
-                      {shortAddress(m.wallet.address)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void navigator.clipboard?.writeText(m.wallet.address);
-                        notify(ToastType.Success, "Address copied", undefined, 1400);
-                      }}
-                      style={{
-                        background: "transparent",
-                        border: 0,
-                        padding: "0 4px",
-                        cursor: "pointer",
-                        color: "var(--bb-text-mute)",
-                        fontSize: 12,
-                      }}
-                      aria-label="Copy address"
-                    >
-                      ⧉
-                    </button>
-                  </span>
-                  {!m.wallet.deployed && (
-                    <span className="bb-m-warn-tag" title="Wallet not yet deployed">undeployed</span>
-                  )}
-                </td>
-                <td><SbtStatusDot status={m.sbt.status} /></td>
-                <td><MemberStatusPill status={m.onboardingStatus} /></td>
-                <td style={{ textAlign: "right" }}>
-                  <span style={{ fontSize: 12, color: "var(--bb-text-mute)", fontFamily: "var(--bb-font-mono)" }}>
-                    {m.dateAdded}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {filtered.length === 0 && (
-          <div className="bb-m-empty">
-            <h4>No members match.</h4>
-            <div>
-              Try clearing filters, or{" "}
-              <button className="bb-m-link" onClick={onAddMember}>add a member</button>.
+                  </div>
+                  <span className="bb-m-card-caret" aria-hidden>{expanded ? "▾" : "▸"}</span>
+                </button>
+                {expanded && (
+                  <div className="bb-m-card-expanded">
+                    <div className="bb-m-card-meta">
+                      <AccountTypeBadge type={m.accountType} />
+                      <MemberStatusPill status={m.onboardingStatus} />
+                      <SbtStatusDot status={m.sbt.status} />
+                      <span className="bb-m-card-date">added {m.dateAdded}</span>
+                    </div>
+                    {m.email && <div className="bb-m-card-email">{m.email}</div>}
+                    {m.roles.length > 1 && (
+                      <div className="bb-m-role-chips">
+                        {m.roles.map((r) => (
+                          <span key={r} className="bb-m-chip">{roleNameOf(r)}</span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="bb-m-card-actions">
+                      <button
+                        type="button"
+                        className="bb-btn-ghost bb-btn-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void navigator.clipboard?.writeText(m.wallet.address);
+                          notify(ToastType.Success, "Address copied", undefined, 1400);
+                        }}
+                      >
+                        Copy wallet
+                      </button>
+                      <button
+                        type="button"
+                        className="bb-btn-primary bb-btn-xs"
+                        onClick={(e) => { e.stopPropagation(); onOpenMember(m); }}
+                      >
+                        Open details
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {filtered.length === 0 && (
+            <div className="bb-m-empty">
+              <h4>No members match.</h4>
+              <div>
+                Try clearing filters, or{" "}
+                <button className="bb-m-link" onClick={onAddMember}>add a member</button>.
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="bb-m-table-wrap">
+          <table className="bb-m-table">
+            <thead>
+              <tr>
+                <th style={{ width: "28%" }}>Member</th>
+                <th>Wallet</th>
+                <th>Roles</th>
+                <th>Account</th>
+                <th>SBT</th>
+                <th>Status</th>
+                <th style={{ textAlign: "right" }}>Added</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((m) => (
+                <tr key={m.id} onClick={() => onOpenMember(m)} className="bb-m-row">
+                  <td>
+                    <div className="bb-m-cell-name">
+                      <MemberAvatar member={m} size={30} />
+                      <div>
+                        <div className="bb-m-name">{m.name}</div>
+                        <div className="bb-m-sub">{m.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ fontSize: 12, color: "var(--bb-text-dim)", fontFamily: "var(--bb-font-mono)" }}>
+                        {shortAddress(m.wallet.address)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void navigator.clipboard?.writeText(m.wallet.address);
+                          notify(ToastType.Success, "Address copied", undefined, 1400);
+                        }}
+                        style={{
+                          background: "transparent",
+                          border: 0,
+                          padding: "0 4px",
+                          cursor: "pointer",
+                          color: "var(--bb-text-mute)",
+                          fontSize: 12,
+                        }}
+                        aria-label="Copy address"
+                      >
+                        ⧉
+                      </button>
+                    </span>
+                    {!m.wallet.deployed && (
+                      <span className="bb-m-warn-tag" title="Wallet not yet deployed">undeployed</span>
+                    )}
+                  </td>
+                  <td>
+                    {m.roles.length === 0 ? (
+                      <span style={{ color: "var(--bb-text-mute)", fontSize: 12 }}>—</span>
+                    ) : (
+                      <div className="bb-m-role-chips">
+                        {m.roles.slice(0, 2).map((r) => (
+                          <span key={r} className="bb-m-chip">{roleNameOf(r)}</span>
+                        ))}
+                        {m.roles.length > 2 && (
+                          <span className="bb-m-chip bb-m-chip-more">+{m.roles.length - 2}</span>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td><AccountTypeBadge type={m.accountType} /></td>
+                  <td><SbtStatusDot status={m.sbt.status} /></td>
+                  <td><MemberStatusPill status={m.onboardingStatus} /></td>
+                  <td style={{ textAlign: "right" }}>
+                    <span style={{ fontSize: 12, color: "var(--bb-text-mute)", fontFamily: "var(--bb-font-mono)" }}>
+                      {m.dateAdded}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length === 0 && (
+            <div className="bb-m-empty">
+              <h4>No members match.</h4>
+              <div>
+                Try clearing filters, or{" "}
+                <button className="bb-m-link" onClick={onAddMember}>add a member</button>.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

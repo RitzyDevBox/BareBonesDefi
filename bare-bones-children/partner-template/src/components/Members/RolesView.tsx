@@ -71,7 +71,7 @@ export function RolesView({
         onRoles={() => {}}
         onPermissions={onGoPermissions}
       >
-        <div className="bb-m-search" style={{ minWidth: 200 }}>
+        <div className="bb-m-search" style={{ minWidth: 0, flex: 1 }}>
           <span aria-hidden>🔎</span>
           <input
             placeholder="Search roles…"
@@ -79,7 +79,15 @@ export function RolesView({
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-        <button className="bb-btn-primary bb-btn-xs" onClick={() => onOpenBuilder(null)}>+ New role</button>
+        <button
+          className="bb-btn-primary bb-btn-xs"
+          onClick={() => onOpenBuilder(null)}
+          aria-label="New role"
+          title="New role"
+          style={{ flexShrink: 0 }}
+        >
+          +
+        </button>
       </MembersSubNav>
 
       <div className="bb-m-roles-layout">

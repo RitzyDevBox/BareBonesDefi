@@ -115,15 +115,23 @@ export function PermissionsView({
         onRoles={onGoRoles}
         onPermissions={() => {}}
       >
-        <div className="bb-m-search" style={{ minWidth: 220 }}>
+        <div className="bb-m-search" style={{ minWidth: 0, flex: 1 }}>
           <span aria-hidden>🔎</span>
           <input
-            placeholder="Search permissions, contracts, functions…"
+            placeholder="Search permissions…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-        <button className="bb-btn-primary bb-btn-xs" onClick={() => onOpenBuilder(null)}>+ New permission</button>
+        <button
+          className="bb-btn-primary bb-btn-xs"
+          onClick={() => onOpenBuilder(null)}
+          aria-label="New permission"
+          title="New permission"
+          style={{ flexShrink: 0 }}
+        >
+          +
+        </button>
       </MembersSubNav>
 
       {stagedPerms.length > 0 && (

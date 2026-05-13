@@ -8,7 +8,6 @@ import { buildExplorerAddressLink } from "../../utils/explorerLinks";
 import { ActiveProposalPanel } from "./ActiveProposalPanel";
 import type { DaoGovernanceOverview, DaoProposalSummary } from "./types";
 import { MembersSection } from "../Members/MembersSection";
-import { DevFeatureKey, useDevFeature } from "../../hooks/useSettings";
 
 // ─── Config grid ─────────────────────────────────────────────────────────────
 
@@ -157,7 +156,7 @@ function ConfigGrid({
 type TabId = "active" | "history" | "config" | "members";
 
 const TAB_BASE: React.CSSProperties = {
-  padding: "12px 16px",
+  padding: "12px 12px",
   fontSize: 14,
   fontWeight: 500,
   borderBottom: "2px solid transparent",
@@ -169,21 +168,28 @@ const TAB_BASE: React.CSSProperties = {
   cursor: "pointer",
   whiteSpace: "nowrap",
   transition: "color .15s",
+  flexShrink: 0,
 };
 
 function Tab({
   label,
+  labelShort,
   count,
   active,
   onClick,
 }: {
   label: string;
+  /** Mobile-only override. CSS hides `.bb-pl-tab-label-full` and shows
+   *  `.bb-pl-tab-label-short` at narrow widths so "Configuration" can
+   *  collapse to "Config". */
+  labelShort?: string;
   count?: number;
   active: boolean;
   onClick: () => void;
 }) {
   return (
     <button
+      className="bb-pl-tab"
       style={{
         ...TAB_BASE,
         color: active ? "var(--colors-text-main)" : "var(--colors-text-muted)",
@@ -191,21 +197,16 @@ function Tab({
       }}
       onClick={onClick}
     >
-      {label}
+      {labelShort ? (
+        <>
+          <span className="bb-pl-tab-label-full">{label}</span>
+          <span className="bb-pl-tab-label-short">{labelShort}</span>
+        </>
+      ) : (
+        <span>{label}</span>
+      )}
       {count != null && (
-        <span
-          style={{
-            marginLeft: 8,
-            fontFamily: "monospace",
-            fontSize: 11,
-            color: "var(--colors-text-label)",
-            padding: "2px 6px",
-            borderRadius: 4,
-            background: "var(--colors-surface)",
-          }}
-        >
-          {count}
-        </span>
+        <span className="bb-pl-tab-count">{count}</span>
       )}
     </button>
   );
@@ -264,7 +265,6 @@ export function ProposalsList({
 }: Props) {
   const [tab, setTab] = useState<TabId>("active");
   const [search, setSearch] = useState("");
-  const membersEnabled = useDevFeature(DevFeatureKey.Members);
 
   const filterFn = (p: DaoProposalSummary) => {
     if (!search.trim()) return true;
@@ -282,28 +282,21 @@ export function ProposalsList({
   return (
     <Card>
       <CardContent style={{ padding: 0 }}>
-        {/* Tab bar */}
-        <Row
-          justify="between"
-          wrap
-          style={{
-            borderBottom: "1px solid var(--colors-border)",
-            padding: "0 24px",
-            gap: 8,
-            alignItems: "stretch",
-          }}
-        >
-          <Row gap="xs" style={{ overflowX: "auto", scrollbarWidth: "none" as any, alignItems: "stretch" }}>
+        {/* Tab bar. Wrapped in a `bb-pl-tabbar` class so the media query in
+            payments.css can compress padding/font-size/labels on mobile —
+            inline styles can't carry @media. The tab strip itself is a
+            horizontally-scrollable flex row so it never pushes the page
+            wider than the viewport even when the four tabs together would
+            otherwise overflow 375px. */}
+        <div className="bb-pl-tabbar">
+          <div className="bb-pl-tabbar-tabs">
             <Tab label="Active" count={activeProposals.length} active={tab === "active"} onClick={() => setTab("active")} />
             <Tab label="History" count={historicalProposals.length} active={tab === "history"} onClick={() => setTab("history")} />
-            <Tab label="Configuration" active={tab === "config"} onClick={() => setTab("config")} />
-            {/* Members & Roles — gated behind the dev-feature flag (settings).
-                Sits next to Configuration since it's an organization-level
-                surface, not a per-proposal one. */}
-            {membersEnabled && (
-              <Tab label="Members" active={tab === "members"} onClick={() => setTab("members")} />
-            )}
-          </Row>
+            <Tab labelShort="Config" label="Configuration" active={tab === "config"} onClick={() => setTab("config")} />
+            {/* Members & Roles — organization-level surface, sits next to
+                Configuration since it's not a per-proposal view. */}
+            <Tab label="Members" active={tab === "members"} onClick={() => setTab("members")} />
+          </div>
 
           {tab !== "config" && tab !== "members" && (
             <input
@@ -311,20 +304,10 @@ export function ProposalsList({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter proposals…"
-              style={{
-                padding: "6px 12px",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--colors-border)",
-                background: "var(--colors-background)",
-                color: "var(--colors-text-main)",
-                fontSize: 13,
-                minWidth: 180,
-                outline: "none",
-                margin: "8px 0",
-              }}
+              className="bb-pl-tabbar-search"
             />
           )}
-        </Row>
+        </div>
 
         {/* Tab content */}
         <div style={{ padding: "20px 24px" }}>
@@ -380,7 +363,7 @@ export function ProposalsList({
             )
           )}
 
-          {tab === "members" && membersEnabled && <MembersSection slug={slug} />}
+          {tab === "members" && <MembersSection slug={slug} />}
         </div>
       </CardContent>
     </Card>
