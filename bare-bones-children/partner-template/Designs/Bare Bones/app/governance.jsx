@@ -540,23 +540,38 @@ function Governance({ chain, wallet, onConnect, activeDao }) {
 
       <section className="section" style={{ paddingTop: 32 }}>
         <div className="container">
-          <div className="tabs" role="tablist">
-            <button className={`tab${tab === 'active' ? ' active' : ''}`} onClick={() => setTab('active')}>
-              Active<span className="count">{activeCount}</span>
-            </button>
-            <button className={`tab${tab === 'history' ? ' active' : ''}`} onClick={() => setTab('history')}>
-              History<span className="count">{history.length}</span>
-            </button>
-            <button className={`tab${tab === 'members' ? ' active' : ''}`} onClick={() => setTab('members')}>
-              Members<span className="count">{(window.MEMBERS_SEED || []).length}</span>
-            </button>
-            <button className={`tab${tab === 'config' ? ' active' : ''}`} onClick={() => setTab('config')}>
-              Configuration
-            </button>
-            <button className={`tab${tab === 'create' ? ' active' : ''}`} onClick={() => setTab('create')}>
-              New
-            </button>
-          </div>
+          {(() => {
+            const section = (tab === 'members' || tab === 'config') ? tab : 'proposals';
+            return (
+              <>
+                <div className="tabs" role="tablist">
+                  <button className={`tab${section === 'proposals' ? ' active' : ''}`} onClick={() => setTab('active')}>
+                    Proposals<span className="count">{activeCount}</span>
+                  </button>
+                  <button className={`tab${section === 'members' ? ' active' : ''}`} onClick={() => setTab('members')}>
+                    Members &amp; access
+                  </button>
+                  <button className={`tab${section === 'config' ? ' active' : ''}`} onClick={() => setTab('config')}>
+                    Configuration
+                  </button>
+                </div>
+
+                {section === 'proposals' && (
+                  <div className="subtabs" role="tablist">
+                    <button className={`subtab${tab === 'active' ? ' active' : ''}`} onClick={() => setTab('active')}>
+                      Active<span className="count">{activeCount}</span>
+                    </button>
+                    <button className={`subtab${tab === 'history' ? ' active' : ''}`} onClick={() => setTab('history')}>
+                      History<span className="count">{history.length}</span>
+                    </button>
+                    <button className={`subtab${tab === 'create' ? ' active' : ''}`} onClick={() => setTab('create')}>
+                      <I.Plus size={12} stroke={2} /> New proposal
+                    </button>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {tab === 'active' && (
             <div>

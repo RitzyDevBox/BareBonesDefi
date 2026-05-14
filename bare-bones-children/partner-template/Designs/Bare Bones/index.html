@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Quorum — DAO Governance</title>
+<title>Bare Bones — The bare bones of a real DAO</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -327,6 +327,157 @@
     font-size: 12px;
   }
   .addr-list-add:hover { color: var(--text); border-color: var(--line-strong); }
+
+  /* Token-source tiles */
+  .source-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 640px) { .source-tiles { grid-template-columns: 1fr; } }
+  .source-tile {
+    display: grid; grid-template-columns: auto 1fr; gap: 12px;
+    align-items: flex-start;
+    padding: 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    text-align: left;
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .source-tile:hover { border-color: var(--line-strong); }
+  .source-tile.active {
+    border-color: var(--accent);
+    background: color-mix(in oklab, var(--accent) 7%, var(--bg-elev));
+  }
+  .source-tile-radio {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 1.5px solid var(--line-strong);
+    flex-shrink: 0; margin-top: 2px;
+    position: relative;
+  }
+  .source-tile.active .source-tile-radio { border-color: var(--accent); }
+  .source-tile.active .source-tile-radio::after {
+    content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--accent);
+  }
+  .source-tile-k { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .source-tile-name { font-size: 13.5px; font-weight: 500; color: var(--text); }
+  .source-tile-sub { font-size: 11.5px; color: var(--text-mute); line-height: 1.45; }
+
+  /* Section block inside step body */
+  .cd-section {
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: color-mix(in oklab, var(--bg) 35%, var(--bg-elev));
+  }
+  .cd-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .cd-section-head h4 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 15px; font-weight: 500; letter-spacing: -0.005em;
+  }
+  .cd-section-head p { margin: 2px 0 0; font-size: 11.5px; color: var(--text-mute); max-width: 48ch; }
+  .cd-section-divider { height: 1px; background: var(--line); margin: 4px -16px; }
+
+  /* Immutable-flag toggle row */
+  .flag-row {
+    display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center;
+    padding: 10px 0;
+  }
+  .flag-row-k { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .flag-row-name {
+    font-size: 13px; font-weight: 500; color: var(--text);
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .flag-row-sub { font-size: 11.5px; color: var(--text-mute); line-height: 1.45; max-width: 52ch; }
+  .immutable-tag {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--warn) 14%, var(--bg-elev-2));
+    color: var(--warn);
+  }
+  .toggle {
+    --w: 36px;
+    --h: 20px;
+    width: var(--w); height: var(--h);
+    border-radius: 999px;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--line);
+    position: relative;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .toggle::after {
+    content: "";
+    position: absolute;
+    top: 1px; left: 1px;
+    width: calc(var(--h) - 4px); height: calc(var(--h) - 4px);
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: transform .15s, background .15s;
+  }
+  .toggle.on { background: color-mix(in oklab, var(--accent) 35%, var(--bg-elev-2)); border-color: var(--accent); }
+  .toggle.on::after { transform: translateX(calc(var(--w) - var(--h))); background: var(--accent); }
+
+  /* Cap table allocation rows */
+  .alloc-list { display: flex; flex-direction: column; gap: 8px; }
+  .alloc-head {
+    display: grid;
+    grid-template-columns: 1fr 180px 32px;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-mute);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    padding: 0 2px;
+  }
+  .alloc-row {
+    display: grid;
+    grid-template-columns: 1fr 180px 32px;
+    gap: 6px;
+    align-items: stretch;
+  }
+  .alloc-row .input-with-unit { background: var(--bg-elev); }
+  .alloc-row .input { background: var(--bg-elev); }
+  .alloc-total {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 8px 4px 0;
+    font-size: 11.5px;
+    color: var(--text-mute);
+    font-family: var(--font-mono);
+  }
+  .alloc-total b {
+    color: var(--text);
+    font-weight: 500;
+    font-family: var(--font-display);
+    font-size: 14px;
+    letter-spacing: -0.005em;
+  }
+  @media (max-width: 640px) {
+    .alloc-head { grid-template-columns: 1fr 110px 32px; }
+    .alloc-row { grid-template-columns: 1fr 110px 32px; }
+  }
+
+  /* Status note used by paused / minter hints */
+  .cd-note {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    font-size: 12px; color: var(--text-dim);
+    line-height: 1.45;
+  }
+  .cd-note > svg { flex-shrink: 0; color: var(--text-mute); margin-top: 1px; }
+  .cd-note b { color: var(--text); font-weight: 500; }
+  .cd-note.accent { background: color-mix(in oklab, var(--accent) 8%, var(--bg-elev)); border-color: color-mix(in oklab, var(--accent) 25%, var(--line)); }
+  .cd-note.accent > svg { color: var(--accent); }
     padding: 0 10px 0 10px;
     border: 1px solid var(--line);
     background: var(--bg-elev);
@@ -506,6 +657,93 @@
     .step:last-child { border-bottom: 0; }
   }
 
+  /* Single-column hero (no stats column) */
+  .hero-grid.hero-grid-solo { grid-template-columns: 1fr; gap: 0; }
+  .hero-grid.hero-grid-solo > div { max-width: 22ch; }
+  .hero-grid.hero-grid-solo h1 { max-width: 18ch; }
+  .hero-grid.hero-grid-solo > div { max-width: none; }
+  .hero-grid.hero-grid-solo .hero-sub { max-width: 56ch; }
+
+  /* Four-pillar grid on home */
+  .pillars {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--bg-elev);
+  }
+  .pillar {
+    text-align: left;
+    padding: 28px 26px 24px;
+    border-right: 1px solid var(--line);
+    background: transparent;
+    color: var(--text);
+    display: flex; flex-direction: column;
+    gap: 0;
+    cursor: pointer;
+    transition: background .15s;
+    position: relative;
+  }
+  .pillar:last-child { border-right: 0; }
+  .pillar:hover { background: color-mix(in oklab, var(--accent) 5%, var(--bg-elev)); }
+  .pillar:hover .pillar-cta { color: var(--accent); }
+  .pillar:hover .pillar-cta svg { transform: translateX(3px); }
+  .pillar-icon {
+    width: 32px; height: 32px;
+    border-radius: 7px;
+    background: color-mix(in oklab, var(--accent) 14%, var(--bg-elev-2));
+    color: var(--accent);
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 22px;
+  }
+  .pillar-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-mute);
+    letter-spacing: .12em;
+    margin-bottom: 10px;
+  }
+  .pillar-title {
+    font-family: var(--font-display);
+    font-weight: var(--display-weight);
+    font-style: var(--display-italic);
+    font-size: 22px;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    margin-bottom: 10px;
+  }
+  .pillar-body {
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1.5;
+    text-wrap: pretty;
+    margin-bottom: 18px;
+    flex: 1;
+  }
+  .pillar-cta {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    transition: color .15s;
+  }
+  .pillar-cta svg { transition: transform .15s; }
+  @media (max-width: 1040px) {
+    .pillars { grid-template-columns: repeat(2, 1fr); }
+    .pillar:nth-child(1), .pillar:nth-child(2) { border-bottom: 1px solid var(--line); }
+    .pillar:nth-child(2), .pillar:nth-child(4) { border-right: 0; }
+  }
+  @media (max-width: 560px) {
+    .pillars { grid-template-columns: 1fr; }
+    .pillar { border-right: 0; border-bottom: 1px solid var(--line); }
+    .pillar:last-child { border-bottom: 0; }
+  }
+
   /* governance page */
   .gov-hero { padding: 48px 0 32px; border-bottom: 1px solid var(--line); }
   .gov-hero-inner {
@@ -552,6 +790,42 @@
     border-radius: 4px;
     background: var(--bg-elev);
   }
+
+  /* Subtabs — secondary nav inside a primary tab (e.g. Proposals) */
+  .subtabs {
+    display: flex; gap: 4px;
+    margin: -8px 0 24px;
+    padding: 4px;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    width: fit-content;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .subtabs::-webkit-scrollbar { display: none; }
+  .subtab {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 13px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dim);
+    border-radius: 7px;
+    white-space: nowrap;
+    transition: color .15s, background .15s;
+  }
+  .subtab:hover { color: var(--text); }
+  .subtab.active { color: var(--text); background: var(--bg-elev-2); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  .subtab .count {
+    margin-left: 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-mute);
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--bg);
+  }
+  .subtab.active .count { background: var(--bg-elev); color: var(--text-dim); }
 
   /* proposal card */
   .prop {
@@ -4908,6 +5182,7 @@
   <script type="text/babel" src="app/earnings-catalog.jsx"></script>
   <script type="text/babel" src="app/payrolls.jsx"></script>
   <script type="text/babel" src="app/payments.jsx"></script>
+  <script type="text/babel" src="app/entity-formation.jsx"></script>
   <script type="text/babel" src="app/dao-switcher.jsx"></script>
   <script type="text/babel" src="app/main.jsx"></script>
 </body>

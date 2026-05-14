@@ -159,10 +159,11 @@ function App() {
         navMode={tweaks.navMode}
       />
       <main>
-        {route === 'home' && <Landing goGovernance={() => setRoute('governance')} />}
+        {route === 'home' && <Landing go={setRoute} />}
         {route === 'governance' && <Governance chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'wallets' && <WalletsPage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'payments' && <PaymentsPage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
+        {route === 'formation' && <EntityFormation chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'docs' && (
           <section className="section">
             <div className="container">
@@ -177,7 +178,7 @@ function App() {
 
       <footer style={{ borderTop: '1px solid var(--line)', padding: '28px 0', marginTop: 'auto', color: 'var(--text-mute)', fontSize: 13 }}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div><span className="mono">quorum.xyz</span> · An open governance framework.</div>
+          <div><span className="mono">barebones.xyz</span> · The bare bones of a real DAO.</div>
           <div className="mono">© 2026</div>
         </div>
       </footer>

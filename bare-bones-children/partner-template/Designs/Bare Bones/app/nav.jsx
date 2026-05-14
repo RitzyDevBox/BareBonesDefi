@@ -310,6 +310,8 @@ function Nav({
               onClick={() => { setRoute('wallets'); onPick && onPick(); }}>Wallets</button>
       <button className={`nav-link${route === 'payments' ? ' active' : ''}`}
               onClick={() => { setRoute('payments'); onPick && onPick(); }}>Payments</button>
+      <button className={`nav-link${route === 'formation' ? ' active' : ''}`}
+              onClick={() => { setRoute('formation'); onPick && onPick(); }}>Formation</button>
       <button className={`nav-link${route === 'docs' ? ' active' : ''}`}
               onClick={() => { setRoute('docs'); onPick && onPick(); window.toast.info('Docs coming soon', { duration: 2500 }); }}>Docs</button>
     </>
@@ -318,9 +320,9 @@ function Nav({
   return (
     <header className="nav">
       <div className="container nav-inner">
-        <button className="brand" onClick={() => setRoute('home')} aria-label="Quorum home">
+        <button className="brand" onClick={() => setRoute('home')} aria-label="Bare Bones home">
           <span className="brand-mark" />
-          <span>Quorum<em> / gov</em></span>
+          <span>Bare Bones<em> / gov</em></span>
         </button>
 
         {/* Split + Minimal modes keep DAO switcher prominent next to the brand.

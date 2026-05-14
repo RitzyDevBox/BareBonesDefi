@@ -55,21 +55,62 @@ function DaoSwitcher({ daos, active, onSelect, onCreate }) {
 }
 
 // --- Create DAO modal ---
+//
+// v1 launch flow per the GovernanceToken design doc:
+//   LaunchConfig = { name, daoCfg, authCfg, tokenSource }
+//   tokenSource.useFactory = true  → TokenFactory deploys a paused GovernanceToken
+//                                    seeded with initialHolders/initialAmounts,
+//                                    mintable flag immutable in the constructor.
+//                                  bootstrap() then registers token + seeds
+//                                  TOKEN_MINTER_ROLE / TOKEN_PAUSER_ROLE wallets.
+//   tokenSource.useFactory = false → BYO ERC20Votes token. MTA is opaque to it.
+
+const TS_FACTORY = 'factory';
+const TS_BYO = 'byo';
 
 const EMPTY_FORM = () => ({
+  // Org identity (LaunchConfig.name)
   name: '',
-  symbol: '',
-  tokenAddress: '',
+
+  // tokenSource — exactly one path applies
+  tokenSource: TS_FACTORY,
+
+  // Factory path (TokenFactory.TokenConfig)
+  tokenName: '',
+  tokenSymbol: '',
+  mintable: true,
+  // 'single' = mint initial supply to one holder at deploy; 'none' = deploy with 0 supply, admin mints later
+  initialMint: 'single',
+  allocation: { address: '', amount: '' },
+  initialMinters: [''],
+  initialPausers: [''],
+
+  // BYO path
+  byoTokenAddress: '',
+  byoTokenSymbol: '',
+
+  // Governance
   timelockDelayHours: 48,
   votingDelayBlocks: 7200,
   votingPeriodBlocks: 36000,
   quorumNumerator: 4,
   proposalThreshold: 100000,
+
+  // Roles (slug-level)
   cancellers: [''],
   proposers: [''],
 });
 
 const isAddr = (a) => /^0x[0-9a-fA-F]{40}$/.test((a || '').trim());
+const isPosAmount = (v) => {
+  const s = String(v ?? '').replace(/[, _]/g, '').trim();
+  if (!s) return false;
+  const n = Number(s);
+  return Number.isFinite(n) && n > 0;
+};
+const parseAmount = (v) => Number(String(v ?? '').replace(/[, _]/g, ''));
+const formatAmount = (n) => Number(n).toLocaleString('en-US', { maximumFractionDigits: 6 });
+const randAddr = () => '0x' + Array.from({length:40},()=>Math.floor(Math.random()*16).toString(16)).join('');
 
 // Rough block → time estimate (assumes 12s blocks for display). Real deploys would vary per chain.
 const blocksToTime = (blocks) => {
@@ -78,6 +119,76 @@ const blocksToTime = (blocks) => {
   if (secs < 86400) return `~${(secs / 3600).toFixed(1)} hours`;
   return `~${(secs / 86400).toFixed(1)} days`;
 };
+
+function AllocationListField({ values, onChange, symbol }) {
+  const update = (i, key, v) => onChange(values.map((x, j) => j === i ? { ...x, [key]: v } : x));
+  const add = () => onChange([...values, { address: '', amount: '' }]);
+  const remove = (i) => onChange(values.length === 1 ? [{ address: '', amount: '' }] : values.filter((_, j) => j !== i));
+
+  const total = values.reduce((acc, r) => acc + (isPosAmount(r.amount) ? parseAmount(r.amount) : 0), 0);
+  const filledCount = values.filter(r => r.address || r.amount).length;
+
+  return (
+    <div className="alloc-list">
+      <div className="alloc-head">
+        <span>Holder</span>
+        <span>Initial balance</span>
+        <span></span>
+      </div>
+      {values.map((row, i) => (
+        <div key={i} className="alloc-row">
+          <input
+            className="input mono"
+            value={row.address}
+            placeholder="0x… or paste from address book"
+            aria-invalid={row.address && !isAddr(row.address)}
+            onChange={(e) => update(i, 'address', e.target.value)}
+          />
+          <div className="input-with-unit">
+            <input
+              className="input"
+              type="text"
+              inputMode="decimal"
+              value={row.amount}
+              placeholder="0"
+              aria-invalid={row.amount && !isPosAmount(row.amount)}
+              onChange={(e) => update(i, 'amount', e.target.value)}
+            />
+            <span className="input-unit">{symbol || 'tokens'}</span>
+          </div>
+          <button
+            type="button" className="addr-list-del"
+            onClick={() => remove(i)}
+            aria-label="Remove allocation"
+            disabled={values.length === 1 && !row.address && !row.amount}
+          >
+            <I.Close size={12} />
+          </button>
+        </div>
+      ))}
+      <button type="button" className="addr-list-add" onClick={add}>
+        <I.Plus size={12} /> Add holder
+      </button>
+      <div className="alloc-total">
+        <span>{filledCount} {filledCount === 1 ? 'allocation' : 'allocations'}</span>
+        <span>Initial supply <b>{formatAmount(total)} {symbol || ''}</b></span>
+      </div>
+    </div>
+  );
+}
+
+function Toggle({ on, onChange, label }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      className={`toggle${on ? ' on' : ''}`}
+      onClick={() => onChange(!on)}
+    />
+  );
+}
 
 function AddressListField({ label, subtitle, values, onChange, placeholder, allowEmpty }) {
   const update = (i, v) => onChange(values.map((x, j) => j === i ? v : x));
@@ -140,17 +251,44 @@ function CreateDaoModal({ onClose, onCreate, chain }) {
     if (!Number.isNaN(n)) setForm(f => ({ ...f, [k]: n }));
   };
 
-  // validation per step
-  const step1Valid = form.name.trim().length >= 2 && form.symbol.trim().length >= 2 && isAddr(form.tokenAddress);
+  // Resolve the effective symbol for display in downstream fields.
+  const factoryPath = form.tokenSource === TS_FACTORY;
+  const effectiveSymbol = (factoryPath ? form.tokenSymbol : form.byoTokenSymbol).trim().toUpperCase();
+
+  // --- Validation per step ---
   const numValid = (n) => typeof n === 'number' && n > 0;
+
+  // Step 1 — Identity & Token
+  const nameValid = form.name.trim().length >= 2;
+  const allocationValid =
+    form.initialMint === 'none' ||
+    (isAddr(form.allocation.address) && isPosAmount(form.allocation.amount));
+  const factoryValid =
+    form.tokenName.trim().length >= 2 &&
+    form.tokenSymbol.trim().length >= 2 &&
+    allocationValid &&
+    // If no initial mint, mintable must be on AND a minter must be granted (forced in step 3)
+    (form.initialMint !== 'none' || form.mintable);
+  const byoValid =
+    isAddr(form.byoTokenAddress) &&
+    form.byoTokenSymbol.trim().length >= 2;
+  const step1Valid = nameValid && (factoryPath ? factoryValid : byoValid);
+
+  // Step 2 — Governance
   const step2Valid = numValid(form.timelockDelayHours) && numValid(form.votingDelayBlocks) &&
                      numValid(form.votingPeriodBlocks) && numValid(form.quorumNumerator) &&
                      form.quorumNumerator <= 100 && numValid(form.proposalThreshold);
+
+  // Step 3 — Roles
   const cancellersFiltered = form.cancellers.map(s => s.trim()).filter(Boolean);
   const proposersFiltered = form.proposers.map(s => s.trim()).filter(Boolean);
+  const mintersFiltered = form.initialMinters.map(s => s.trim()).filter(Boolean);
+  const pausersFiltered = form.initialPausers.map(s => s.trim()).filter(Boolean);
   const cancellersValid = cancellersFiltered.length > 0 && cancellersFiltered.every(isAddr);
   const proposersValid = proposersFiltered.every(isAddr); // empty OK
-  const step3Valid = cancellersValid && proposersValid;
+  const mintersValid = mintersFiltered.every(isAddr); // empty OK (=> timelock-only)
+  const pausersValid = pausersFiltered.every(isAddr); // empty OK (=> timelock-only)
+  const step3Valid = cancellersValid && proposersValid && mintersValid && pausersValid;
 
   const canContinue = step === 1 ? step1Valid : step === 2 ? step2Valid : step3Valid;
 
@@ -159,17 +297,42 @@ function CreateDaoModal({ onClose, onCreate, chain }) {
       window.toast.error('Fix validation errors', { description: 'Some fields are missing or invalid.' });
       return;
     }
-    window.toast.info('Deploying contracts…', { description: `Governor + Timelock on ${chain.name}`, duration: 2200 });
+
+    const sym = effectiveSymbol;
+    const tokenAddress = factoryPath ? randAddr() : form.byoTokenAddress;
+    const cleanAllocs = (factoryPath && form.initialMint === 'single')
+      ? [{ address: form.allocation.address.trim(), amount: parseAmount(form.allocation.amount) }]
+      : [];
+    const initialSupply = factoryPath ? cleanAllocs.reduce((a, r) => a + r.amount, 0) : null;
+
+    window.toast.info(
+      factoryPath ? 'Deploying contracts…' : 'Deploying governor + binding token…',
+      { description: factoryPath
+          ? `Token (paused) + Governor + Timelock on ${chain.name}`
+          : `Governor + Timelock on ${chain.name}`,
+        duration: 2200 }
+    );
+
     setTimeout(() => {
       const newDao = {
         id: form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || ('dao-' + Date.now()),
         name: form.name,
-        symbol: form.symbol.toUpperCase(),
-        avatar: { bg: `oklch(0.65 0.17 ${Math.floor(Math.random() * 360)})`, glyph: form.symbol.charAt(0).toUpperCase() },
+        symbol: sym,
+        avatar: { bg: `oklch(0.65 0.17 ${Math.floor(Math.random() * 360)})`, glyph: sym.charAt(0).toUpperCase() || form.name.charAt(0).toUpperCase() },
         chainId: chain.chainId,
-        token: { address: form.tokenAddress, decimals: 18, symbol: form.symbol.toUpperCase() },
-        governor: { address: '0x' + Array.from({length:40},()=>Math.floor(Math.random()*16).toString(16)).join('') },
-        timelock: { address: '0x' + Array.from({length:40},()=>Math.floor(Math.random()*16).toString(16)).join('') },
+        token: {
+          address: tokenAddress,
+          decimals: 18,
+          symbol: sym,
+          name: factoryPath ? form.tokenName.trim() : undefined,
+          source: factoryPath ? 'factory' : 'byo',
+          mintable: factoryPath ? form.mintable : undefined,
+          paused: factoryPath ? true : undefined,
+          initialHolders: factoryPath ? cleanAllocs : undefined,
+          initialSupply: factoryPath ? initialSupply : undefined,
+        },
+        governor: { address: randAddr() },
+        timelock: { address: randAddr() },
         votingDelay: blocksToTime(form.votingDelayBlocks),
         votingPeriod: blocksToTime(form.votingPeriodBlocks),
         votingDelayBlocks: form.votingDelayBlocks,
@@ -178,20 +341,27 @@ function CreateDaoModal({ onClose, onCreate, chain }) {
         quorumNumerator: form.quorumNumerator,
         timelockDelay: form.timelockDelayHours + ' hours',
         timelockDelayHours: form.timelockDelayHours,
-        proposalThreshold: form.proposalThreshold.toLocaleString() + ' ' + form.symbol.toUpperCase(),
+        proposalThreshold: form.proposalThreshold.toLocaleString() + ' ' + sym,
         proposalThresholdRaw: form.proposalThreshold,
-        totalSupply: '—',
-        members: 1,
+        totalSupply: factoryPath ? formatAmount(initialSupply) + ' ' + sym : '—',
+        members: factoryPath ? cleanAllocs.length : 1,
         cancellers: cancellersFiltered,
         proposers: proposersFiltered,
+        initialMinters: factoryPath ? mintersFiltered : [],
+        initialPausers: factoryPath ? pausersFiltered : [],
         deployedAt: 'Just now',
       };
       onCreate(newDao);
-      window.toast.success('DAO deployed', {
-        description: `${newDao.name} live on ${chain.name}`,
-        action: 'Open',
-        duration: 5000,
-      });
+      window.toast.success(
+        factoryPath ? 'DAO + token deployed' : 'DAO deployed',
+        {
+          description: factoryPath
+            ? `${newDao.name} live on ${chain.name}. Token is paused — unpause from Token settings to enable transfers.`
+            : `${newDao.name} live on ${chain.name}`,
+          action: 'Open',
+          duration: 6500,
+        }
+      );
       onClose();
     }, 1400);
   };
@@ -209,7 +379,7 @@ function CreateDaoModal({ onClose, onCreate, chain }) {
 
         {/* Steps indicator */}
         <div className="cd-steps">
-          {['Identity', 'Governance', 'Roles'].map((s, i) => (
+          {['Identity & token', 'Governance', 'Roles'].map((s, i) => (
             <React.Fragment key={s}>
               {i > 0 && <div className={`cd-step-line${step > i ? ' done' : ''}`}></div>}
               <button type="button" className={`cd-step${step === i + 1 ? ' active' : ''}${step > i + 1 ? ' done' : ''}`}
@@ -223,20 +393,168 @@ function CreateDaoModal({ onClose, onCreate, chain }) {
 
         <div className="modal-body cd-body">
           {step === 1 && (
-            <div className="field-grid">
-              <Field label="DAO name" full hint="Display name used across Quorum and exported governance UIs.">
-                <input className="input" value={form.name} onChange={set('name')} placeholder="e.g. Meridian Collective" />
-              </Field>
-              <Field label="Token symbol" hint="3-6 letters, uppercased.">
-                <input className="input" value={form.symbol} onChange={set('symbol')} placeholder="MRD" maxLength={6} />
-              </Field>
-              <Field label="Governance token address" hint="ERC-20Votes compatible. Must expose getVotes()/delegate().">
-                <input className="input mono" value={form.tokenAddress} onChange={set('tokenAddress')}
-                       placeholder="0x…" aria-invalid={form.tokenAddress && !isAddr(form.tokenAddress)} />
-                {form.tokenAddress && !isAddr(form.tokenAddress) && (
-                  <div className="field-err">Not a valid 20-byte address.</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {/* Org name */}
+              <div className="field-grid">
+                <Field label="Organization name" full hint="Filed with MultiTenantAuth as your org slug. Used across Bare Bones and exported governance UIs.">
+                  <input className="input" value={form.name} onChange={set('name')} placeholder="e.g. Meridian Collective" />
+                </Field>
+              </div>
+
+              {/* Token source */}
+              <div className="cd-section">
+                <div className="cd-section-head">
+                  <div>
+                    <h4>Governance token</h4>
+                    <p>Bare Bones can deploy a token in the same launch transaction, or bind to an existing ERC20Votes token.</p>
+                  </div>
+                </div>
+                <div className="source-tiles">
+                  <button type="button"
+                          className={`source-tile${factoryPath ? ' active' : ''}`}
+                          onClick={() => setForm(f => ({ ...f, tokenSource: TS_FACTORY }))}>
+                    <span className="source-tile-radio"></span>
+                    <div className="source-tile-k">
+                      <span className="source-tile-name">Deploy a new token</span>
+                      <span className="source-tile-sub">ERC20Votes + Burnable + Pausable. Cap table seeded at deploy. Mintable flag is immutable.</span>
+                    </div>
+                  </button>
+                  <button type="button"
+                          className={`source-tile${!factoryPath ? ' active' : ''}`}
+                          onClick={() => setForm(f => ({ ...f, tokenSource: TS_BYO }))}>
+                    <span className="source-tile-radio"></span>
+                    <div className="source-tile-k">
+                      <span className="source-tile-name">Use an existing token</span>
+                      <span className="source-tile-sub">Bring your own ERC20Votes. Token stays opaque to MultiTenantAuth; you manage minting and pause yourself.</span>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="cd-section-divider"></div>
+
+                {factoryPath ? (
+                  <>
+                    <div className="field-grid">
+                      <Field label="Token name" hint="Long-form name, used on chain and in wallets.">
+                        <input className="input" value={form.tokenName} onChange={set('tokenName')}
+                               placeholder={form.name ? `${form.name} Equity` : 'e.g. Meridian Equity'} />
+                      </Field>
+                      <Field label="Symbol" hint="3-6 letters, uppercased.">
+                        <input className="input" value={form.tokenSymbol}
+                               onChange={(e) => setForm(f => ({ ...f, tokenSymbol: e.target.value.toUpperCase() }))}
+                               placeholder="MRD" maxLength={6} />
+                      </Field>
+                    </div>
+
+                    <div className="flag-row">
+                      <div className="flag-row-k">
+                        <span className="flag-row-name">
+                          Allow post-deploy mints
+                          <span className="immutable-tag">Immutable</span>
+                        </span>
+                        <span className="flag-row-sub">
+                          {form.initialMint === 'none'
+                            ? 'Required for this path — without it, the token has no supply and no way to ever get one. TOKEN_MINTER_ROLE wallets (step 3) handle minting.'
+                            : form.mintable
+                              ? 'Holders of TOKEN_MINTER_ROLE can mint after launch — late cap-table additions, employee grants, etc.'
+                              : 'mint() reverts forever. The initial allocation below becomes the final, capped supply.'}
+                        </span>
+                      </div>
+                      <Toggle
+                        on={form.initialMint === 'none' ? true : form.mintable}
+                        onChange={(v) => form.initialMint === 'none' ? null : setForm(f => ({ ...f, mintable: v }))}
+                        label="Mintable" />
+                    </div>
+
+                    <div className="cd-section-divider"></div>
+
+                    <div className="cd-section-head">
+                      <div>
+                        <h4>Initial supply</h4>
+                        <p>How the token enters the world. You can mint a starter allocation to one holder, or deploy with zero supply and have an admin mint later.</p>
+                      </div>
+                    </div>
+                    <div className="source-tiles">
+                      <button type="button"
+                              className={`source-tile${form.initialMint === 'single' ? ' active' : ''}`}
+                              onClick={() => setForm(f => ({ ...f, initialMint: 'single' }))}>
+                        <span className="source-tile-radio"></span>
+                        <div className="source-tile-k">
+                          <span className="source-tile-name">Mint to a single holder</span>
+                          <span className="source-tile-sub">Initial supply minted in the deploy transaction. Use this for a founder allocation or a treasury seed.</span>
+                        </div>
+                      </button>
+                      <button type="button"
+                              className={`source-tile${form.initialMint === 'none' ? ' active' : ''}`}
+                              onClick={() => setForm(f => ({ ...f, initialMint: 'none', mintable: true }))}>
+                        <span className="source-tile-radio"></span>
+                        <div className="source-tile-k">
+                          <span className="source-tile-name">No initial mint</span>
+                          <span className="source-tile-sub">Deploys with zero supply. An admin holding TOKEN_MINTER_ROLE mints as members are added later.</span>
+                        </div>
+                      </button>
+                    </div>
+
+                    {form.initialMint === 'single' && (
+                      <div className="field-grid" style={{ marginTop: 4 }}>
+                        <Field label="Holder address" full hint="Receives the initial mint at deploy. Usually a founder wallet or a treasury safe.">
+                          <input className="input mono"
+                                 value={form.allocation.address}
+                                 placeholder="0x… or paste from address book"
+                                 aria-invalid={form.allocation.address && !isAddr(form.allocation.address)}
+                                 onChange={(e) => setForm(f => ({ ...f, allocation: { ...f.allocation, address: e.target.value } }))} />
+                        </Field>
+                        <Field label="Initial mint amount" full hint="Whole units. Becomes totalSupply() at deploy.">
+                          <div className="input-with-unit">
+                            <input className="input"
+                                   type="text"
+                                   inputMode="decimal"
+                                   value={form.allocation.amount}
+                                   placeholder="0"
+                                   aria-invalid={form.allocation.amount && !isPosAmount(form.allocation.amount)}
+                                   onChange={(e) => setForm(f => ({ ...f, allocation: { ...f.allocation, amount: e.target.value } }))} />
+                            <span className="input-unit">{form.tokenSymbol.toUpperCase() || 'tokens'}</span>
+                          </div>
+                        </Field>
+                      </div>
+                    )}
+
+                    <div className="cd-note accent">
+                      <I.Info size={14} stroke={1.8} />
+                      <span>
+                        {form.initialMint === 'single' ? (
+                          <><b>Token will deploy paused.</b> The initial mint lands immediately; holder-to-holder transfers are blocked until you unpause from Token settings. Mints and self-burns work regardless of pause state.</>
+                        ) : (
+                          <><b>Zero initial supply.</b> An address with TOKEN_MINTER_ROLE (configured in step 3) controls all minting from here on — typical setup for SBT-style memberships or admin-gated distributions.</>
+                        )}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="field-grid">
+                      <Field label="Existing token address" full hint="ERC20Votes compatible. Must expose getVotes()/delegate().">
+                        <input className="input mono" value={form.byoTokenAddress} onChange={set('byoTokenAddress')}
+                               placeholder="0x…" aria-invalid={form.byoTokenAddress && !isAddr(form.byoTokenAddress)} />
+                        {form.byoTokenAddress && !isAddr(form.byoTokenAddress) && (
+                          <div className="field-err">Not a valid 20-byte address.</div>
+                        )}
+                      </Field>
+                      <Field label="Symbol" full hint="As reported by the token contract — used for display only.">
+                        <input className="input" value={form.byoTokenSymbol}
+                               onChange={(e) => setForm(f => ({ ...f, byoTokenSymbol: e.target.value.toUpperCase() }))}
+                               placeholder="MRD" maxLength={6} />
+                      </Field>
+                    </div>
+                    <div className="cd-note">
+                      <I.Info size={14} stroke={1.8} />
+                      <span>
+                        BYO tokens are opaque to MultiTenantAuth — no automatic minter/pauser role wiring. To route this token through MTA later (e.g. for payroll), transfer ownership and call <span className="mono">registerOrgContract</span> after bootstrap.
+                      </span>
+                    </div>
+                  </>
                 )}
-              </Field>
+              </div>
             </div>
           )}
 
@@ -266,10 +584,10 @@ function CreateDaoModal({ onClose, onCreate, chain }) {
                   <span className="input-unit">blocks</span>
                 </div>
               </Field>
-              <Field label="Proposal threshold" full hint={`Minimum ${form.symbol || 'token'} balance required to submit a proposal.`}>
+              <Field label="Proposal threshold" full hint={`Minimum ${effectiveSymbol || 'token'} balance required to submit a proposal.`}>
                 <div className="input-with-unit">
                   <input className="input" type="number" min="0" value={form.proposalThreshold} onChange={setNum('proposalThreshold')} />
-                  <span className="input-unit">{form.symbol || 'tokens'}</span>
+                  <span className="input-unit">{effectiveSymbol || 'tokens'}</span>
                 </div>
               </Field>
             </div>
@@ -292,7 +610,33 @@ function CreateDaoModal({ onClose, onCreate, chain }) {
                 onChange={(v) => setForm(f => ({ ...f, proposers: v }))}
               />
               {proposersFiltered.length === 0 && (
-                <div className="roles-hint"><I.Clock size={12} stroke={1.8} /> Open proposals — any address holding ≥ {(form.proposalThreshold || 0).toLocaleString()} {form.symbol || 'tokens'} can submit.</div>
+                <div className="roles-hint"><I.Clock size={12} stroke={1.8} /> Open proposals — any address holding ≥ {(form.proposalThreshold || 0).toLocaleString()} {effectiveSymbol || 'tokens'} can submit.</div>
+              )}
+
+              {factoryPath && (
+                <>
+                  <div className="roles-sep"></div>
+                  <AddressListField
+                    label="Initial token minters"
+                    subtitle={form.mintable
+                      ? "Granted TOKEN_MINTER_ROLE. Empty = only the timelock (Super Admin) can mint, via a full DAO proposal."
+                      : "Token is non-mintable, so this role has no effect. Listed only for record-keeping if you want to grant the role anyway."}
+                    values={form.initialMinters}
+                    allowEmpty
+                    onChange={(v) => setForm(f => ({ ...f, initialMinters: v }))}
+                  />
+                  {mintersFiltered.length === 0 && form.mintable && (
+                    <div className="roles-hint"><I.Info size={12} stroke={1.8} /> Timelock-only mints — every late allocation will require a governance proposal.</div>
+                  )}
+                  <div className="roles-sep"></div>
+                  <AddressListField
+                    label="Initial token pausers"
+                    subtitle="Granted TOKEN_PAUSER_ROLE. Pauses holder-to-holder transfers; mints and self-burns still succeed. Empty = timelock-only."
+                    values={form.initialPausers}
+                    allowEmpty
+                    onChange={(v) => setForm(f => ({ ...f, initialPausers: v }))}
+                  />
+                </>
               )}
             </div>
           )}
@@ -300,9 +644,9 @@ function CreateDaoModal({ onClose, onCreate, chain }) {
 
         <div className="modal-foot cd-foot">
           <div className="cd-foot-hint">
-            {step === 1 && 'Step 1 of 3 · Identity'}
+            {step === 1 && (factoryPath ? 'Step 1 of 3 · Organization & new token' : 'Step 1 of 3 · Organization & existing token')}
             {step === 2 && 'Step 2 of 3 · Governance parameters'}
-            {step === 3 && 'Step 3 of 3 · Access control roles'}
+            {step === 3 && 'Step 3 of 3 · Role assignments'}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {step > 1 && (
@@ -321,7 +665,7 @@ function CreateDaoModal({ onClose, onCreate, chain }) {
                       disabled={!canContinue}
                       style={{ opacity: canContinue ? 1 : 0.5, cursor: canContinue ? 'pointer' : 'not-allowed' }}
                       onClick={submit}>
-                Deploy DAO
+                {factoryPath ? 'Deploy DAO + token' : 'Deploy DAO'}
               </button>
             )}
           </div>

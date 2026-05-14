@@ -148,7 +148,7 @@ function SettingsModal({ onClose, theme, setTheme, showTestnets, setShowTestnets
         <div className="settings-row">
           <div>
             <div className="sr-title">Version</div>
-            <div className="sr-sub mono" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>quorum-app · v0.4.2 · commit 8a1f2d3</div>
+            <div className="sr-sub mono" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>barebones · v0.4.2 · commit 8a1f2d3</div>
           </div>
         </div>
       </div>
