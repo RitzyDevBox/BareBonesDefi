@@ -1,102 +1,134 @@
-import { PageContainer } from "../components/PageWrapper/PageContainer";
-import { HexGridFlow } from "../components/Landing/HexGridFlow";
-import { HexPanel } from "../components/Landing/panels/HexPanel";
-import { Text } from "../components/Primitives/Text";
-import { useMediaQuery, ScreenSize } from "../hooks/useMediaQuery";
-import { VerticalFlowItem } from "../components/Landing/types";
+import { Link } from "react-router-dom";
+import { ROUTES } from "../routes";
 
-type LandingTile = {
-    id: string;
-    title: string;
-    body: string;
+/**
+ * Landing page. Mirrors `Designs/Bare Bones/app/landing.jsx` — hero +
+ * bordered 4-pillar grid. The "Formation" pillar from the original
+ * design is intentionally not exposed here yet (the WY DAO LLC flow
+ * is a separate workstream); the four pillars in the live app route
+ * to surfaces that actually exist today.
+ *
+ * Layout: wrapped in `.bb-landing` which counteracts the <main>
+ * `page-padding` (App.tsx) via negative margins so the hero and
+ * pillars stretch to the viewport edges and the page picks up the
+ * design's own background. Each section uses `.bb-container` (the
+ * design's 1200px max-width content shell) for its inner alignment.
+ *
+ * Styling lives in `src/styles/payments.css` under the `bb-hero-*` /
+ * `bb-pillars-*` / `bb-container` / `bb-landing` classes; see
+ * skills/apply-design-styles for the convention.
+ */
+
+type Pillar = {
+  key: string;
+  kicker: string;
+  title: string;
+  body: string;
+  cta: string;
+  to: string;
+  /** Compact glyph for the icon slot — keeps the component dependency-free.
+   *  When the design adds proper SVG icons we'll swap these. */
+  glyph: string;
 };
 
-const LANDING_TILES: LandingTile[] = [
-    {
-        id: "overview",
-        title: "Overview",
-        body: "Mission: build a shared foundation of common tools that helps teams launch and operate micro-startups.",
-    },
-    {
-        id: "core-operations",
-        title: "Core Ops",
-        body: "Payment pipelines: which allow rules to process payments and configure payrolls.",
-    },
-    {
-        id: "security-model",
-        title: "Security",
-        body: "Vaults: rule-based treasury controls to protect funds and create configurable policies that help prevent total fund loss, even if you lose your seed.",
-    },
-    {
-        id: "architecture",
-        title: "Architecture",
-        body: "DAO LLC framework: gives small teams a way to form and manage DAO LLC-style organizations in a decentralized manner.",
-    },
-    {
-        id: "roadmap",
-        title: "Roadmap",
-        body: "Foundation tools: practical modules to manage and assist with common team challenges without requiring massive infrastructure.",
-    },
-    {
-        id: "account-abstraction",
-        title: "4337 Accounts",
-        body: "ERC-4337 support enables programmable smart accounts with owner-authorized controls and modular execution.",
-    },
-    {
-        id: "dao-llc-operations",
-        title: "DAO LLC Ops",
-        body: "Structure teams with transparent governance, treasury controls, and operational workflows designed for DAO LLC-style entities.",
-    },
-    {
-        id: "team-productivity",
-        title: "Team Ops",
-        body: "Built-in tooling helps small teams handle payroll, permissions, payments, and treasury coordination with minimal overhead.",
-    },
-    {
-        id: "micro-startup-scale",
-        title: "Startup Scale",
-        body: "Start lean, stay decentralized, and expand safely with reusable infrastructure instead of rebuilding your stack from scratch.",
-    },
+const PILLARS: Pillar[] = [
+  {
+    key: "create",
+    kicker: "01 — Deploy",
+    title: "Create your DAO",
+    body:
+      "Pick a governance token (or deploy a fresh one), set the rules — voting delay, period, quorum, and timelock — and deploy contracts to the chain you're connected to.",
+    cta: "Open governance",
+    to: ROUTES.DAOS,
+    glyph: "◇",
+  },
+  {
+    key: "organize",
+    kicker: "02 — Organize",
+    title: "Run the org",
+    body:
+      "Member roster, roles, permissions. MultiTenantAuth handles per-slug auth; you onboard members at launch and the rest is just role assignment.",
+    cta: "Open organizations",
+    to: ROUTES.ORGANIZATIONS,
+    glyph: "❖",
+  },
+  {
+    key: "treasury",
+    kicker: "03 — Hold",
+    title: "Manage your treasury",
+    body:
+      "A vault for long-term reserves with rule-based controls. Track balances and route transactions through governance proposals.",
+    cta: "Open vaults",
+    to: ROUTES.VAULTS,
+    glyph: "◆",
+  },
+  {
+    key: "pay",
+    kicker: "04 — Pay",
+    title: "Pay your members",
+    body:
+      "Batch payouts, recurring payrolls, and a member roster with roles and earnings. Every payment is an executed proposal — on-chain, with a receipt.",
+    cta: "Open payments",
+    to: ROUTES.PAYMENTS,
+    glyph: "✦",
+  },
 ];
 
 export function LandingPage() {
-  const screen = useMediaQuery();
-  const isPhone = screen === ScreenSize.Phone;
-
-  const columns = isPhone || screen === ScreenSize.Tablet ? 2 : 3;
-  const hexSize = isPhone || screen === ScreenSize.Tablet ? 128 : 160;
-  const contentScale = 1;
-  const hexSpacing = 1.02;
-  const titleSize = isPhone ? "sm" : undefined;
-
-  const pageStyle = isPhone
-    ? {
-        maxWidth: "none",
-        width: "100%",
-      }
-    : undefined;
-
-  const items: VerticalFlowItem[] = LANDING_TILES.map((tile) => ({
-    id: tile.id,
-    content: (
-      <HexPanel
-        title={<Text.Title align="center" size={titleSize}>{tile.title}</Text.Title>}
-        contentScale={contentScale}
-      >
-        <Text.Body align="center">{tile.body}</Text.Body>
-      </HexPanel>
-    ),
-  }));
-
-
   return (
-        <PageContainer style={pageStyle}>
-      <HexGridFlow
-        items={items}
-        columns={columns}
-        hexSize={hexSize}
-        spacing={hexSpacing}
-      />
-    </PageContainer>
+    <div className="bb-landing">
+      <section className="bb-ld-hero">
+        <div className="bb-container bb-ld-hero-grid">
+          <div>
+            <div className="bb-eyebrow">For collectives that want a real legal home</div>
+            <h1>
+              The bare bones<br />
+              of a <em>real DAO</em>.
+            </h1>
+            <p className="bb-ld-hero-sub">
+              Four things every DAO actually needs — governance contracts, an org
+              roster, a treasury, and a way to pay people. Bare Bones gives you
+              those, in order, and skips everything else.
+            </p>
+            <div className="bb-ld-hero-cta">
+              <Link to={ROUTES.DAOS} className="bb-btn-primary">
+                Create your DAO →
+              </Link>
+              <Link to={ROUTES.VAULTS} className="bb-btn-ghost">
+                Already deployed? Open the treasury
+              </Link>
+            </div>
+          </div>
+          {/* Right-hand column intentionally empty — the design uses it for a
+              future visual; for now the hero-grid keeps the 1.2fr / 1fr ratio
+              so the H1 doesn't sprawl across the full width on wide screens. */}
+          <div />
+        </div>
+      </section>
+
+      <section className="bb-pillars-section">
+        <div className="bb-container">
+          <div className="bb-pillars-head">
+            <h2>
+              Four <em>pillars</em>.
+            </h2>
+            <div className="bb-eyebrow">Everything Bare Bones does</div>
+          </div>
+          <div className="bb-pillars">
+            {PILLARS.map(({ key, kicker, title, body, cta, to, glyph }) => (
+              <Link key={key} to={to} className="bb-pillar">
+                <div className="bb-pillar-icon" aria-hidden>{glyph}</div>
+                <div className="bb-pillar-num">{kicker}</div>
+                <div className="bb-pillar-title">{title}</div>
+                <div className="bb-pillar-body">{body}</div>
+                <div className="bb-pillar-cta">
+                  {cta} →
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

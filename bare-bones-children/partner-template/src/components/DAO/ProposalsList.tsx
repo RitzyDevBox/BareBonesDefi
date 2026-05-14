@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "../BasicComponents";
 import { CopyButton } from "../Button/Actions/CopyButton";
-import { Row, Stack } from "../Primitives";
+import { Stack } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { shortAddress } from "../../utils/formatUtils";
 import { buildExplorerAddressLink } from "../../utils/explorerLinks";
@@ -11,31 +11,15 @@ import { MembersSection } from "../Members/MembersSection";
 
 // ─── Config grid ─────────────────────────────────────────────────────────────
 
+// Config cells use the bb-cfg-* classes defined in payments.css, mirroring
+// `Designs/Bare Bones/index.html` `.cfg-grid` / `.cfg-cell` / `.cfg-k` /
+// `.cfg-v`. Per skills/apply-design-styles, the design rule lives in payments.css
+// and the component just attaches the right className — no inline overrides.
 function CfgCell({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div
-      style={{
-        background: "var(--colors-surface)",
-        padding: "20px 22px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-      }}
-    >
-      <span
-        style={{
-          fontFamily: "monospace",
-          fontSize: 11,
-          color: "var(--colors-text-label)",
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
-        }}
-      >
-        {label}
-      </span>
-      <span style={{ fontWeight: 600, fontSize: 14, letterSpacing: "-0.01em", color: "var(--colors-text-main)", wordBreak: "break-word" }}>
-        {value}
-      </span>
+    <div className="bb-cfg-cell">
+      <span className="bb-cfg-k">{label}</span>
+      <span className="bb-cfg-v">{value}</span>
     </div>
   );
 }
@@ -51,61 +35,21 @@ function AddrCell({
 }) {
   const link = buildExplorerAddressLink(address, blockExplorerBase);
   return (
-    <div
-      style={{
-        background: "var(--colors-surface)",
-        padding: "20px 22px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-      }}
-    >
-      <span
-        style={{
-          fontFamily: "monospace",
-          fontSize: 11,
-          color: "var(--colors-text-label)",
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
-        }}
-      >
-        {label}
-      </span>
-      <Row gap="xs" style={{ alignItems: "center" }}>
+    <div className="bb-cfg-cell">
+      <span className="bb-cfg-k">{label}</span>
+      <span className="bb-cfg-v bb-cfg-v-addr">
         {link ? (
-          <a
-            href={link}
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: "var(--colors-primary)", fontFamily: "monospace", fontSize: 13, fontWeight: 600 }}
-          >
+          <a href={link} target="_blank" rel="noreferrer">
             {shortAddress(address)}
           </a>
         ) : (
-          <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 600, color: "var(--colors-text-main)" }}>
-            {shortAddress(address)}
-          </span>
+          shortAddress(address)
         )}
         <CopyButton value={address} ariaLabel={`Copy ${label.toLowerCase()}`} />
-      </Row>
+      </span>
     </div>
   );
 }
-
-const CFG_GRID: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-  gap: 1,
-  background: "var(--colors-border)",
-  border: "1px solid var(--colors-border)",
-  borderRadius: "var(--radius-lg)",
-  overflow: "hidden",
-};
-
-const ADDR_GRID: React.CSSProperties = {
-  ...CFG_GRID,
-  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-};
 
 function ConfigGrid({
   overview,
@@ -129,7 +73,7 @@ function ConfigGrid({
 
   return (
     <Stack gap="sm">
-      <div style={CFG_GRID}>
+      <div className="bb-cfg-grid">
         <CfgCell label="Voting Delay" value={overview.votingDelay} />
         <CfgCell label="Voting Period" value={overview.votingPeriod} />
         <CfgCell label="Quorum" value={overview.quorumRatio} />
@@ -138,7 +82,7 @@ function ConfigGrid({
         <CfgCell label="Clock Mode" value={overview.clockMode} />
         <CfgCell label="Clock" value={overview.clock} />
       </div>
-      <div style={ADDR_GRID}>
+      <div className="bb-cfg-grid bb-cfg-grid-addr">
         {overview.tokenAddress && (
           <AddrCell label="Governance Token" address={overview.tokenAddress} blockExplorerBase={blockExplorerBase} />
         )}
@@ -153,7 +97,8 @@ function ConfigGrid({
 
 // ─── Tab bar ──────────────────────────────────────────────────────────────────
 
-type TabId = "active" | "history" | "config" | "members";
+type TabId = "proposals" | "config" | "members";
+type ProposalsSubTabId = "active" | "history";
 
 const TAB_BASE: React.CSSProperties = {
   padding: "12px 12px",
@@ -212,6 +157,35 @@ function Tab({
   );
 }
 
+/** Pill-grouped sub-toggle used inside a parent tab (e.g. Active / History
+ *  under Proposals). Styled by `.bb-pl-subtab` in payments.css, mirroring
+ *  Designs/Bare Bones `.subtab`. Distinct from the top-level `Tab` because
+ *  it lives inside a rounded container with a single elevated active pill. */
+function SubTab({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      className={`bb-pl-subtab${active ? " bb-active" : ""}`}
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      {count != null && <span className="bb-pl-tab-count">{count}</span>}
+    </button>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 type Props = {
@@ -263,7 +237,10 @@ export function ProposalsList({
   canExecuteTimelockActions,
   canCancelTimelockActions,
 }: Props) {
-  const [tab, setTab] = useState<TabId>("active");
+  const [tab, setTab] = useState<TabId>("proposals");
+  // Sub-tab under "Proposals". Defaults to Active because that's the
+  // higher-signal view; user-driven view toggle persists for the modal session.
+  const [proposalsSubTab, setProposalsSubTab] = useState<ProposalsSubTabId>("active");
   const [search, setSearch] = useState("");
 
   const filterFn = (p: DaoProposalSummary) => {
@@ -290,15 +267,21 @@ export function ProposalsList({
             otherwise overflow 375px. */}
         <div className="bb-pl-tabbar">
           <div className="bb-pl-tabbar-tabs">
-            <Tab label="Active" count={activeProposals.length} active={tab === "active"} onClick={() => setTab("active")} />
-            <Tab label="History" count={historicalProposals.length} active={tab === "history"} onClick={() => setTab("history")} />
+            {/* Top-level "Proposals" tab shows the active count — the highest-signal
+                number for an org owner. Drill into history via the sub-toggle. */}
+            <Tab
+              label="Proposals"
+              count={activeProposals.length}
+              active={tab === "proposals"}
+              onClick={() => setTab("proposals")}
+            />
             <Tab labelShort="Config" label="Configuration" active={tab === "config"} onClick={() => setTab("config")} />
             {/* Members & Roles — organization-level surface, sits next to
                 Configuration since it's not a per-proposal view. */}
             <Tab label="Members" active={tab === "members"} onClick={() => setTab("members")} />
           </div>
 
-          {tab !== "config" && tab !== "members" && (
+          {tab === "proposals" && (
             <input
               type="text"
               value={search}
@@ -311,46 +294,69 @@ export function ProposalsList({
 
         {/* Tab content */}
         <div style={{ padding: "20px 24px" }}>
-          {tab === "active" && (
-            <ActiveProposalPanel
-              proposals={filteredActive}
-              loading={loading}
-              blockExplorerBase={blockExplorerBase}
-              votePowerByProposalId={votePowerByProposalId}
-              hasVotedByProposalId={hasVotedByProposalId}
-              votingProposalId={votingProposalId}
-              voteTxHashByProposalId={voteTxHashByProposalId}
-              onVote={onVote}
-              onQueue={onQueue}
-              onExecute={onExecute}
-              onCancel={onCancel}
-              canCancelPendingByProposalId={canCancelPendingByProposalId}
-              actingProposalId={actingProposalId}
-              actingProposalAction={actingProposalAction}
-              canExecuteTimelockActions={canExecuteTimelockActions}
-              canCancelTimelockActions={canCancelTimelockActions}
-              emptyText={search ? "No active proposals match your filter." : "No active proposals."}
-              defaultCollapsed={false}
-              showTitle={false}
-              useContainerCard={false}
-            />
-          )}
+          {tab === "proposals" && (
+            <>
+              {/* Sub-toggle under "Proposals" — pill-grouped segmented control
+                  mirroring Designs/Bare Bones `.subtabs` / `.subtab`. Counts
+                  surface here too so users can see at a glance how many history
+                  items there are without switching views first. */}
+              <div className="bb-pl-subtabs" role="tablist" aria-label="Proposals filter">
+                <SubTab
+                  label="Active"
+                  count={activeProposals.length}
+                  active={proposalsSubTab === "active"}
+                  onClick={() => setProposalsSubTab("active")}
+                />
+                <SubTab
+                  label="History"
+                  count={historicalProposals.length}
+                  active={proposalsSubTab === "history"}
+                  onClick={() => setProposalsSubTab("history")}
+                />
+              </div>
 
-          {tab === "history" && (
-            <ActiveProposalPanel
-              proposals={filteredHistorical}
-              loading={loading}
-              blockExplorerBase={blockExplorerBase}
-              emptyText={search ? "No historical proposals match your filter." : "No historical proposals yet."}
-              cardOpacity={0.85}
-              showVotingPowerRow={false}
-              showVoteActions={false}
-              showPostVoteActions={false}
-              showVoteTxLink={false}
-              defaultCollapsed={true}
-              showTitle={false}
-              useContainerCard={false}
-            />
+              {proposalsSubTab === "active" && (
+                <ActiveProposalPanel
+                  proposals={filteredActive}
+                  loading={loading}
+                  blockExplorerBase={blockExplorerBase}
+                  votePowerByProposalId={votePowerByProposalId}
+                  hasVotedByProposalId={hasVotedByProposalId}
+                  votingProposalId={votingProposalId}
+                  voteTxHashByProposalId={voteTxHashByProposalId}
+                  onVote={onVote}
+                  onQueue={onQueue}
+                  onExecute={onExecute}
+                  onCancel={onCancel}
+                  canCancelPendingByProposalId={canCancelPendingByProposalId}
+                  actingProposalId={actingProposalId}
+                  actingProposalAction={actingProposalAction}
+                  canExecuteTimelockActions={canExecuteTimelockActions}
+                  canCancelTimelockActions={canCancelTimelockActions}
+                  emptyText={search ? "No active proposals match your filter." : "No active proposals."}
+                  defaultCollapsed={false}
+                  showTitle={false}
+                  useContainerCard={false}
+                />
+              )}
+
+              {proposalsSubTab === "history" && (
+                <ActiveProposalPanel
+                  proposals={filteredHistorical}
+                  loading={loading}
+                  blockExplorerBase={blockExplorerBase}
+                  emptyText={search ? "No historical proposals match your filter." : "No historical proposals yet."}
+                  cardOpacity={0.85}
+                  showVotingPowerRow={false}
+                  showVoteActions={false}
+                  showPostVoteActions={false}
+                  showVoteTxLink={false}
+                  defaultCollapsed={true}
+                  showTitle={false}
+                  useContainerCard={false}
+                />
+              )}
+            </>
           )}
 
           {tab === "config" && (

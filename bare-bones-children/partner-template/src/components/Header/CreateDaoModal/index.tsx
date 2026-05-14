@@ -13,7 +13,7 @@ import {
   type GovernanceForm,
   type RolesForm,
 } from "./validation";
-import { useDeployDao } from "./useDeployDao";
+import { useDeployDao, AccountType, type TokenSourceInput } from "./useDeployDao";
 
 interface CreateDaoModalProps {
   isOpen: boolean;
@@ -30,13 +30,30 @@ const STEPS: { id: StepId; label: string }[] = [
   { id: 3, label: "Roles" },
 ];
 
-function buildInitialForm(chainId: number | null, account: string | null) {
+function buildInitialForm(chainId: number | null, account: string | null, tokenFactoryAvailable: boolean) {
+  // Factory mode is the new default when the chain has a TokenFactory deployed.
+  // BYO mode pre-fills with the chain's mock token (handy for staging/anvil tests).
+  const byoFallbackToken = chainId ? getMockGovernanceTokenByChain(chainId) : "";
   return {
     identity: {
       orgSlug: "",
     } as IdentityForm,
     governance: {
-      token: chainId ? getMockGovernanceTokenByChain(chainId) : "",
+      tokenSource: tokenFactoryAvailable
+        ? {
+            mode: "factory" as const,
+            factory: {
+              name: "",
+              symbol: "",
+              mintable: true,
+              // Pre-seed one allocation row pointing at the connected wallet so the
+              // founder can drop a number in without thinking about array shape.
+              allocations: [{ holder: account ?? "", amount: "" }],
+              initialMinters: [],
+              initialPausers: [],
+            },
+          }
+        : { mode: "byo" as const, byoToken: byoFallbackToken },
       timelockDelay: "86400",
       votingDelay: "1",
       votingPeriod: "45818",
@@ -51,6 +68,7 @@ function buildInitialForm(chainId: number | null, account: string | null) {
       authSuperAdmin: "",
       authSuperAdminName: "",
       authInitialAdmins: [],
+      additionalMembers: [],
     } as RolesForm,
   };
 }
@@ -58,23 +76,24 @@ function buildInitialForm(chainId: number | null, account: string | null) {
 export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModalProps) {
   const { account, chainId } = useWalletProvider();
   const { setActiveOrgSlug, refreshOwnedOrgs } = useActiveOrganization();
-  const { deploy, getCanonicalDao, isWorking, launcherConfigured, config } = useDeployDao();
+  const { deploy, getCanonicalDao, isWorking, launcherConfigured, tokenFactoryAvailable, config } =
+    useDeployDao();
 
   const initialStep: StepId = lockedOrgSlug ? 2 : 1;
   const [step, setStep] = useState<StepId>(initialStep);
-  const [forms, setForms] = useState(() => buildInitialForm(chainId, account));
+  const [forms, setForms] = useState(() => buildInitialForm(chainId, account, tokenFactoryAvailable));
   const [error, setError] = useState<string | null>(null);
   const [existingDao, setExistingDao] = useState<{ governor: string; timelock: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      const base = buildInitialForm(chainId, account);
+      const base = buildInitialForm(chainId, account, tokenFactoryAvailable);
       setForms(lockedOrgSlug ? { ...base, identity: { ...base.identity, orgSlug: lockedOrgSlug } } : base);
       setStep(lockedOrgSlug ? 2 : 1);
       setError(null);
       setExistingDao(null);
     }
-  }, [isOpen, chainId, account, lockedOrgSlug]);
+  }, [isOpen, chainId, account, lockedOrgSlug, tokenFactoryAvailable]);
 
   // Probe for an already-deployed canonical DAO whenever the org name settles.
   // Debounced via name-trim watcher; if `daoOf` returns a non-zero governor we
@@ -140,9 +159,33 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
     if (rolesErr) return setError(rolesErr);
 
     const orgName = forms.identity.orgSlug.trim();
+
+    // Translate the form-shape token source into the launcher-input shape.
+    // Factory mode drops blank allocation rows; BYO mode passes the address through.
+    const ts = forms.governance.tokenSource;
+    let tokenSourceInput: TokenSourceInput;
+    if (ts.mode === "factory") {
+      const allocations = ts.factory.allocations
+        .map((a) => ({ holder: a.holder.trim(), amount: a.amount.trim() }))
+        .filter((a) => a.holder.length > 0 && a.amount.length > 0);
+      tokenSourceInput = {
+        useFactory: true,
+        factoryConfig: {
+          name: ts.factory.name,
+          symbol: ts.factory.symbol,
+          mintable: ts.factory.mintable,
+          allocations,
+          initialMinters: ts.factory.initialMinters.map((s) => s.trim()).filter(Boolean),
+          initialPausers: ts.factory.initialPausers.map((s) => s.trim()).filter(Boolean),
+        },
+      };
+    } else {
+      tokenSourceInput = { useFactory: false, byoToken: ts.byoToken.trim() };
+    }
+
     const ok = await deploy({
       orgName,
-      token: forms.governance.token,
+      tokenSource: tokenSourceInput,
       timelockDelay: forms.governance.timelockDelay,
       votingDelay: forms.governance.votingDelay,
       votingPeriod: forms.governance.votingPeriod,
@@ -154,6 +197,14 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
       authInitialAdmins: forms.roles.authInitialAdmins
         .map((a) => ({ wallet: a.wallet.trim(), name: a.name.trim() }))
         .filter((a) => a.wallet.length > 0),
+      additionalMembers: forms.roles.additionalMembers
+        .map((m) => ({
+          wallet: m.wallet.trim(),
+          name: m.name.trim(),
+          accountType: m.accountType as AccountType,
+          roleSlugString: m.roleSlugString.trim(),
+        }))
+        .filter((m) => m.wallet.length > 0),
     });
     if (ok) {
       await refreshOwnedOrgs();
@@ -218,7 +269,13 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
 
         <div className="bb-modal-body">
           {step === 1 && <StepIdentity form={forms.identity} onChange={updateIdentity} locked={!!lockedOrgSlug} />}
-          {step === 2 && <StepGovernance form={forms.governance} onChange={updateGovernance} />}
+          {step === 2 && (
+            <StepGovernance
+              form={forms.governance}
+              onChange={updateGovernance}
+              tokenFactoryAvailable={tokenFactoryAvailable}
+            />
+          )}
           {step === 3 && <StepRoles form={forms.roles} onChange={updateRoles} />}
 
           {error && (

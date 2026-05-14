@@ -1,11 +1,18 @@
 import { AddressListField } from "./AddressListField";
 import { AdminListField } from "./AdminListField";
-import type { RolesForm } from "./validation";
+import type { RolesForm, AdditionalMemberForm } from "./validation";
+import { AccountType } from "./useDeployDao";
 
 interface StepRolesProps {
   form: RolesForm;
   onChange: (next: Partial<RolesForm>) => void;
 }
+
+const ACCOUNT_TYPE_OPTIONS: Array<{ value: AccountType; label: string; hint: string }> = [
+  { value: AccountType.Member,         label: "Member",         hint: "Standard org member; role optional." },
+  { value: AccountType.Investor,       label: "Investor",       hint: "Cap-table holder. Role usually empty." },
+  { value: AccountType.AuthorizedUser, label: "Authorized user", hint: "External party (lawyer, consultant, etc.)." },
+];
 
 export function StepRoles({ form, onChange }: StepRolesProps) {
   return (
@@ -60,6 +67,113 @@ export function StepRoles({ form, onChange }: StepRolesProps) {
         values={form.authInitialAdmins}
         onChange={(authInitialAdmins) => onChange({ authInitialAdmins })}
       />
+
+      <AdditionalMembersField
+        values={form.additionalMembers}
+        onChange={(additionalMembers) => onChange({ additionalMembers })}
+      />
+    </div>
+  );
+}
+
+interface AdditionalMembersFieldProps {
+  values: AdditionalMemberForm[];
+  onChange: (next: AdditionalMemberForm[]) => void;
+}
+
+/** Inline editor for the launcher's bulk-roster onboarding. Wallets here must
+ *  NOT overlap with Super Admin / initialAdmins — MTA reverts on duplicate
+ *  members. Empty rows are dropped on submit (handled in CreateDaoModal). */
+function AdditionalMembersField({ values, onChange }: AdditionalMembersFieldProps) {
+  function update(idx: number, patch: Partial<AdditionalMemberForm>) {
+    onChange(values.map((v, i) => (i === idx ? { ...v, ...patch } : v)));
+  }
+  function add() {
+    onChange([
+      ...values,
+      { wallet: "", name: "", accountType: AccountType.Member, roleSlugString: "" },
+    ]);
+  }
+  function remove(idx: number) {
+    onChange(values.filter((_, i) => i !== idx));
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <label style={{ fontSize: 13, fontWeight: 500 }}>
+        Additional members <span className="bb-muted">(optional)</span>
+      </label>
+      <div className="bb-field-hint">
+        Onboard regular Members, Investors, or Authorized Users at launch. Each row
+        is created in the new slug; assign a role slug (e.g.{" "}
+        <span className="bb-mono">TokenMinter</span>,{" "}
+        <span className="bb-mono">TokenPauser</span>) to grant it inline. Wallets here
+        must not also appear in Super Admin or Initial Admins.
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+        {values.map((row, i) => (
+          <div
+            key={i}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.5fr 1fr 1fr 1fr auto",
+              gap: 6,
+            }}
+          >
+            <input
+              className="bb-input bb-mono"
+              type="text"
+              value={row.wallet}
+              placeholder="0x… wallet"
+              onChange={(e) => update(i, { wallet: e.target.value })}
+            />
+            <input
+              className="bb-input"
+              type="text"
+              value={row.name}
+              placeholder="Display name"
+              maxLength={31}
+              onChange={(e) => update(i, { name: e.target.value })}
+            />
+            <select
+              className="bb-input"
+              value={row.accountType}
+              onChange={(e) => update(i, { accountType: Number(e.target.value) as AccountType })}
+            >
+              {ACCOUNT_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <input
+              className="bb-input bb-mono"
+              type="text"
+              value={row.roleSlugString}
+              placeholder="Role (optional)"
+              maxLength={31}
+              onChange={(e) => update(i, { roleSlugString: e.target.value })}
+            />
+            <button
+              type="button"
+              className="bb-icon-btn"
+              onClick={() => remove(i)}
+              aria-label="Remove member row"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          className="bb-btn-ghost bb-small"
+          style={{ alignSelf: "start" }}
+          onClick={add}
+        >
+          + Add member
+        </button>
+      </div>
     </div>
   );
 }

@@ -132,6 +132,21 @@ export interface BareBonesConfiguration {
    */
   orgAndDaoLauncherAddress: string;
   /**
+   * Per-org governance-token factory. Deploys a fresh `GovernanceToken`
+   * (ERC20Votes + Burnable + Pausable, MTA-owned, mintable flag immutable)
+   * via CREATE3 and hands ownership to MTA inside the same tx. The launcher
+   * wires this up automatically when `LaunchConfig.tokenSource.useFactory`
+   * is true — the default for new DAOs. `address(0)` here forces BYO-only.
+   */
+  tokenFactoryAddress: string;
+  /**
+   * SSTORE2-backed template provider that the TokenFactory reads to get
+   * the GovernanceToken creation code on each per-org token deploy.
+   * Generally not called directly by the frontend, but exposed for
+   * subgraph + tooling use cases.
+   */
+  governanceTokenTemplateProviderAddress: string;
+  /**
    * Singleton on-chain authorizer (per chain) that gates privileged calls
    * to PayrollManager and any registered org contract. Slug-scoped: every
    * org shares this contract but acts on its own role/permission set.
@@ -241,6 +256,13 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   // get its own deterministic value when the deploy script lands.
   multiTenantAuthAddress: "0x0000000000000000000000000000000000000000",
 
+  // Governance-token factory + template provider — default zero on mainnets
+  // until the per-chain deploy lands. Local/staging anvils populate these
+  // via VITE_LOCAL_* / VITE_STAGING_* env keys from the deploy harness.
+  // When zero, the DAO deployment flow falls back to BYO-token mode only.
+  tokenFactoryAddress: "0x0000000000000000000000000000000000000000",
+  governanceTokenTemplateProviderAddress: "0x0000000000000000000000000000000000000000",
+
 } as const;
 
 export const DEFAULT_BROWSING_URL = "https://app.aave.com/";
@@ -271,6 +293,8 @@ const LOCAL_BARE_BONES_CONFIG_ENV_KEYS: Record<Exclude<keyof BareBonesConfigurat
   daoFactoryAddress: "VITE_LOCAL_DAO_FACTORY_ADDRESS",
   orgAndDaoLauncherAddress: "VITE_LOCAL_ORG_AND_DAO_LAUNCHER_ADDRESS",
   multiTenantAuthAddress: "VITE_LOCAL_MULTI_TENANT_AUTH_ADDRESS",
+  tokenFactoryAddress: "VITE_LOCAL_TOKEN_FACTORY_ADDRESS",
+  governanceTokenTemplateProviderAddress: "VITE_LOCAL_GOVERNANCE_TOKEN_TEMPLATE_PROVIDER_ADDRESS",
 };
 
 function buildLocalBareBonesOverride(): Partial<BareBonesConfiguration> {
@@ -315,6 +339,8 @@ const STAGING_BARE_BONES_CONFIG_ENV_KEYS: Record<Exclude<keyof BareBonesConfigur
   daoFactoryAddress: "VITE_STAGING_DAO_FACTORY_ADDRESS",
   orgAndDaoLauncherAddress: "VITE_STAGING_ORG_AND_DAO_LAUNCHER_ADDRESS",
   multiTenantAuthAddress: "VITE_STAGING_MULTI_TENANT_AUTH_ADDRESS",
+  tokenFactoryAddress: "VITE_STAGING_TOKEN_FACTORY_ADDRESS",
+  governanceTokenTemplateProviderAddress: "VITE_STAGING_GOVERNANCE_TOKEN_TEMPLATE_PROVIDER_ADDRESS",
 };
 
 function buildStagingBareBonesOverride(): Partial<BareBonesConfiguration> {

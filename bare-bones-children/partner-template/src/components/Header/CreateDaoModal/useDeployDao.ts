@@ -15,13 +15,68 @@ export interface AdminInit {
   name: string;
 }
 
+/** Initial token holder + amount minted at the GovernanceToken constructor.
+ *  `amount` is a base-10 wei string (e.g. "100000000000000000000" for 100e18). */
+export interface TokenAllocationInput {
+  holder: string;
+  amount: string;
+}
+
+/** Maps 1:1 to MembersContract.AccountType. Payee (3) is intentionally
+ *  excluded — Payees come through the dedicated payroll-side onboarding path,
+ *  not the launcher. */
+export enum AccountType {
+  Member = 0,
+  Investor = 1,
+  AuthorizedUser = 2,
+}
+
+/** Member to onboard at launch beyond the bootstrap admins. `name` is packed
+ *  to bytes32 (non-empty required — MTA's `_createMember` rejects bytes32(0)
+ *  for the org roster). `roleSlugString` empty = no role assigned at onboard. */
+export interface MemberInitInput {
+  wallet: string;
+  name: string;
+  accountType: AccountType;
+  /** Pass a system-role display string ("TokenMinter", "TokenPauser", "Admin",
+   *  etc.) and we'll bytes32-pack it; empty = no role. For custom roles, use
+   *  the role's exact bytes32 slug if known. */
+  roleSlugString: string;
+}
+
+/** Factory-deployed token configuration. Used when `tokenSource.useFactory`
+ *  is true (the default for new DAOs). The launcher routes this through
+ *  TokenFactory and hands ownership to MultiTenantAuth in the same tx. */
+export interface FactoryTokenConfig {
+  name: string;
+  symbol: string;
+  mintable: boolean;
+  allocations: TokenAllocationInput[];
+  /** Wallets to receive `TOKEN_MINTER_ROLE` in the new slug. Empty = only
+   *  Super Admin (timelock) can mint via a DAO proposal. */
+  initialMinters: string[];
+  /** Wallets to receive `TOKEN_PAUSER_ROLE`. Empty = only Super Admin
+   *  can pause/unpause. */
+  initialPausers: string[];
+}
+
+/** One of: deploy a fresh GovernanceToken via the factory (default), or
+ *  bring an existing ERC20Votes (BYO). Factory path is preferred — it gives
+ *  MTA-gated mint/pause/transfer-freeze, deterministic CREATE3 address,
+ *  and subgraph auto-indexing. BYO is an escape hatch for orgs migrating
+ *  in or with a pre-existing token. */
+export type TokenSourceInput =
+  | { useFactory: true; factoryConfig: FactoryTokenConfig }
+  | { useFactory: false; byoToken: string };
+
 export interface DaoDeployParams {
   /**
    * Canonical org name. Slug = keccak256(bytes(name)) and the DAO Governor's
    * `name` field is forced to equal this string by the launcher.
    */
   orgName: string;
-  token: string;
+  /** How the governance token is sourced — defaults to factory-deployed. */
+  tokenSource: TokenSourceInput;
   timelockDelay: string;
   votingDelay: string;
   votingPeriod: string;
@@ -42,9 +97,21 @@ export interface DaoDeployParams {
    *  Each entry's `name` is packed into bytes32 for on-chain storage; empty
    *  names fall back to a contract-derived sentinel. */
   authInitialAdmins: AdminInit[];
+  /** Additional members onboarded in the same launch tx (regular Members,
+   *  Investors, AuthorizedUsers, optionally with role assignments). Wallets
+   *  here MUST NOT overlap with initialAdmins / Super Admin — MTA's bootstrap
+   *  reverts on duplicate members. */
+  additionalMembers: MemberInitInput[];
 }
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+/** Pack a display name into bytes32 (≤ 31 chars). Empty → HashZero. */
+function packBytes32Name(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return ethers.constants.HashZero;
+  return ethers.utils.formatBytes32String(trimmed.slice(0, 31));
+}
 
 export function useDeployDao() {
   const { provider, account, chainId } = useWalletProvider();
@@ -58,6 +125,12 @@ export function useDeployDao() {
   const launcherAddress = config?.orgAndDaoLauncherAddress;
   const launcherConfigured =
     Boolean(launcherAddress) && launcherAddress !== ZERO_ADDRESS;
+
+  // Whether the chain has a TokenFactory wired up. Drives the default UI
+  // mode in the deployment form: factory when available, BYO-only otherwise.
+  const tokenFactoryAddress = config?.tokenFactoryAddress;
+  const tokenFactoryAvailable =
+    Boolean(tokenFactoryAddress) && tokenFactoryAddress !== ZERO_ADDRESS;
 
   const [isWorking, setIsWorking] = useState(false);
 
@@ -113,39 +186,101 @@ export function useDeployDao() {
     }
   }
 
-  // Single-tx atomic launch: registers the org AND deploys the canonical DAO,
-  // and writes the official (governor, timelock) into OrganizationManager.daoOf(slug).
-  // Frontend must enforce "only one canonical DAO per slug" by gating this button on
-  // a prior `daoOf(slug)` read; the contract write is also write-once.
+  // Single-tx atomic launch. Builds the full LaunchConfig including:
+  //   - daoCfg (governor params + token; token is address(0) in factory mode)
+  //   - tokenSource (factory-deployed or BYO)
+  //   - authCfg (super admin, admins, additionalMembers)
+  // The contract write is write-once per slug; frontend gates on a prior
+  // `daoOf(slug)` read before exposing this button.
   const launchDaoTx = useExecuteRawTx(
     (_chain: number, params: DaoDeployParams) => {
       if (!launcherAddress || !launcherConfigured) {
         throw new Error("OrgAndDaoLauncher not configured for this chain.");
       }
+      if (params.tokenSource.useFactory && !tokenFactoryAvailable) {
+        throw new Error(
+          "TokenFactory not configured for this chain — switch the form to BYO-token mode.",
+        );
+      }
+
       // Empty super-admin → address(0) → launcher substitutes the freshly
       // deployed timelock as the slug's super-admin (recommended default).
       const superAdmin = params.authSuperAdmin
         ? ethers.utils.getAddress(params.authSuperAdmin)
         : ZERO_ADDRESS;
-      // bytes32(0) for the super-admin name lets the launcher pick the
-      // default — `"Timelock"` when the timelock substitution kicks in,
-      // otherwise the contract's keccak-derived sentinel.
-      const superAdminNameSlug = params.authSuperAdminName.trim()
-        ? ethers.utils.formatBytes32String(params.authSuperAdminName.trim().slice(0, 31))
-        : ethers.constants.HashZero;
+
+      const superAdminNameSlug = packBytes32Name(params.authSuperAdminName);
+
       const initialAdmins = params.authInitialAdmins.map((a) => ({
         wallet: ethers.utils.getAddress(a.wallet),
-        nameSlug: a.name.trim()
-          ? ethers.utils.formatBytes32String(a.name.trim().slice(0, 31))
+        nameSlug: packBytes32Name(a.name),
+      }));
+
+      const additionalMembers = params.additionalMembers.map((m) => ({
+        wallet: ethers.utils.getAddress(m.wallet),
+        // _createMember rejects bytes32(0) for regular members — UI validation
+        // must require a non-empty name; we still defensively pack.
+        nameSlug: packBytes32Name(m.name),
+        accountType: m.accountType,
+        roleSlug: m.roleSlugString.trim()
+          ? packBytes32Name(m.roleSlugString)
           : ethers.constants.HashZero,
       }));
+
+      // Token-side branch — factory mode requires daoCfg.token = address(0)
+      // (the launcher reverts `TokenAddressConflict` otherwise).
+      let daoToken: string;
+      let tokenSourceStruct: {
+        useFactory: boolean;
+        factoryConfig: {
+          name: string;
+          symbol: string;
+          mintable: boolean;
+          initialHolders: string[];
+          initialAmounts: string[];
+        };
+        initialMinters: string[];
+        initialPausers: string[];
+      };
+
+      if (params.tokenSource.useFactory) {
+        const fc = params.tokenSource.factoryConfig;
+        daoToken = ZERO_ADDRESS;
+        tokenSourceStruct = {
+          useFactory: true,
+          factoryConfig: {
+            name: fc.name.trim(),
+            symbol: fc.symbol.trim(),
+            mintable: fc.mintable,
+            initialHolders: fc.allocations.map((a) => ethers.utils.getAddress(a.holder)),
+            initialAmounts: fc.allocations.map((a) => a.amount),
+          },
+          initialMinters: fc.initialMinters.map((a) => ethers.utils.getAddress(a)),
+          initialPausers: fc.initialPausers.map((a) => ethers.utils.getAddress(a)),
+        };
+      } else {
+        daoToken = ethers.utils.getAddress(params.tokenSource.byoToken.trim());
+        tokenSourceStruct = {
+          useFactory: false,
+          factoryConfig: {
+            name: "",
+            symbol: "",
+            mintable: false,
+            initialHolders: [],
+            initialAmounts: [],
+          },
+          initialMinters: [],
+          initialPausers: [],
+        };
+      }
+
       const cfg = {
         name: params.orgName.trim(),
         daoCfg: {
           // The launcher overwrites this with `cfg.name` for safety, but pass
           // it through anyway so the calldata is well-formed.
           name: params.orgName.trim(),
-          token: ethers.utils.getAddress(params.token.trim()),
+          token: daoToken,
           timelockDelay: params.timelockDelay,
           votingDelay: params.votingDelay,
           votingPeriod: params.votingPeriod,
@@ -159,7 +294,9 @@ export function useDeployDao() {
           superAdmin,
           superAdminNameSlug,
           initialAdmins,
+          additionalMembers,
         },
+        tokenSource: tokenSourceStruct,
       };
       return {
         to: launcherAddress,
@@ -188,6 +325,9 @@ export function useDeployDao() {
     slugProbe,
     isWorking,
     launcherConfigured,
+    /** True when the chain has a TokenFactory wired up. Drives the default
+     *  UI mode in the deployment form (factory if true, BYO-only if false). */
+    tokenFactoryAvailable,
     config,
     chainId,
     /** @deprecated unused since the launcher path replaced the operator-approval flow. */

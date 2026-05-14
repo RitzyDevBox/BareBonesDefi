@@ -3191,6 +3191,324 @@
 .bb-pl-tab-label-short { display: none; }
 .bb-pl-tab-label-full { display: inline; }
 
+/* ── Subtabs (Active / History segmented control) ─────────────────────
+ * Mirrors Designs/Bare Bones/index.html `.subtabs` / `.subtab`. Used by
+ * ProposalsList when the user is inside the Proposals parent tab.
+ * Pill-grouped control: rounded outer container with a single elevated
+ * "active" pill inside.
+ */
+.bb-pl-subtabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bb-bg-elev, var(--colors-surface));
+  border: 1px solid var(--bb-line, var(--colors-border));
+  border-radius: 10px;
+  width: fit-content;
+  margin-bottom: 16px;
+}
+.bb-pl-subtab {
+  padding: 7px 13px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--bb-text-dim, var(--colors-text-muted));
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: color .15s, background .15s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.bb-pl-subtab.bb-active {
+  color: var(--bb-text, var(--colors-text-main));
+  background: var(--bb-bg-elev-2, var(--colors-surfaceElevated));
+}
+.bb-pl-subtab .bb-pl-tab-count {
+  margin-left: 0;
+}
+
+/* ── Configuration grid (governance overview) ─────────────────────────
+ * Mirrors Designs/Bare Bones/index.html `.cfg-grid` / `.cfg-cell`.
+ * Fixed 4-col desktop grid with 1px-line separators (created by gap on
+ * a line-colored background). Display-font values (28px) so the
+ * numbers register as the headline metric, mono uppercase keys.
+ */
+.bb-cfg-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--bb-line, var(--colors-border));
+  border: 1px solid var(--bb-line, var(--colors-border));
+  border-radius: 14px;
+  overflow: hidden;
+}
+.bb-cfg-grid-addr {
+  grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 880px) {
+  .bb-cfg-grid,
+  .bb-cfg-grid-addr { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .bb-cfg-grid,
+  .bb-cfg-grid-addr { grid-template-columns: 1fr; }
+}
+.bb-cfg-cell {
+  background: var(--bb-bg-elev, var(--colors-surface));
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.bb-cfg-k {
+  font-family: var(--bb-font-mono, ui-monospace, "JetBrains Mono", Menlo, monospace);
+  font-size: 11px;
+  color: var(--bb-text-mute, var(--colors-text-label));
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.bb-cfg-v {
+  font-size: 28px;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  color: var(--bb-text, var(--colors-text-main));
+  word-break: break-word;
+}
+/* Address variants use mono + smaller font so 0x… strings don't overflow. */
+.bb-cfg-v-addr {
+  font-family: var(--bb-font-mono, ui-monospace, "JetBrains Mono", Menlo, monospace);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.bb-cfg-v-addr a {
+  color: var(--bb-accent, var(--colors-primary));
+}
+
+/* ── Landing page: hero + pillars ─────────────────────────────────────
+ * Mirrors Designs/Bare Bones/index.html `.hero` / `.pillars` /
+ * `.pillar`. Hero is a two-column grid with eyebrow, oversized H1,
+ * subtitle, and a CTA row. Below it, four pillar cards in a single
+ * bordered grid (1px-line separated, no gap), each with an icon, a
+ * mono numeric label, a title, a body, and a mono CTA caption.
+ *
+ * `.bb-container` is the design's `.container` shell — 1200px max-width
+ * centered. Used inside `.bb-hero` and around the pillars grid so content
+ * aligns at the same horizontal axis as the rest of the design.
+ */
+.bb-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+@media (max-width: 640px) {
+  .bb-container { padding: 0 16px; }
+}
+
+/* Landing page wrapper — TRANSPARENT so the AppBackground honeycomb
+ * canvas (z-index: -1, behind everything) shows through. Earlier I gave
+ * this a solid bg color which obscured the animation — that was the
+ * "charcoal card" effect the user was seeing.
+ *
+ * Breakout pattern: rendered inside <main> which carries
+ * `padding: var(--page-padding); paddingTop: var(--spacing-md)` from
+ * App.tsx. Use `margin: calc(50% - 50vw)` (more robust than `left: 50%`
+ * because it doesn't depend on the parent being centered — works as long
+ * as the parent's 50% lands at viewport center, which is true for <main>
+ * since it spans the full viewport width with symmetric padding).
+ * `body { overflow-x: hidden }` (app.css) absorbs slight overshoot.
+ */
+.bb-landing {
+  background: transparent;
+  color: var(--bb-text, var(--colors-text-main));
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  margin-top: calc(var(--spacing-md, 16px) * -1);
+  width: 100vw;
+  min-height: calc(100vh - 60px);
+}
+
+/* NOTE: prefixed `.bb-ld-*` (landing) rather than `.bb-hero-*` because the
+ * payments section has its own `.bb-hero` / `.bb-hero-grid` / `.bb-hero-sub`
+ * rules with a charcoal grid background — those leaked into the landing
+ * hero and read as a "card around the hero text". Keeping the landing
+ * classes isolated under their own prefix prevents future collisions.
+ */
+.bb-ld-hero {
+  padding: 96px 0 72px;
+  border-bottom: 1px solid var(--bb-line, var(--colors-border));
+}
+.bb-ld-hero-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 64px;
+  align-items: end;
+}
+@media (max-width: 880px) {
+  .bb-ld-hero { padding: 56px 0 48px; }
+  .bb-ld-hero-grid { grid-template-columns: 1fr; gap: 32px; }
+}
+.bb-eyebrow {
+  font-family: var(--bb-font-mono, ui-monospace, "JetBrains Mono", Menlo, monospace);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--bb-text-mute, var(--colors-text-label));
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bb-eyebrow::before {
+  content: "";
+  width: 24px;
+  height: 1px;
+  background: var(--bb-text-mute, var(--colors-text-label));
+}
+.bb-ld-hero h1 {
+  font-size: clamp(44px, 7vw, 88px);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  margin: 0 0 24px;
+}
+.bb-ld-hero h1 em {
+  color: var(--bb-accent, var(--colors-primary));
+  font-style: italic;
+}
+.bb-ld-hero-sub {
+  font-size: 17px;
+  color: var(--bb-text-dim, var(--colors-text-muted));
+  max-width: 52ch;
+  margin: 0 0 32px;
+  line-height: 1.5;
+}
+.bb-ld-hero-cta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bb-pillars-section {
+  padding: 80px 0;
+  border-bottom: 1px solid var(--bb-line, var(--colors-border));
+}
+@media (max-width: 880px) {
+  .bb-pillars-section { padding: 56px 0; }
+}
+.bb-pillars-head {
+  margin-bottom: 32px;
+}
+.bb-pillars-head h2 {
+  font-size: clamp(28px, 4vw, 44px);
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+  color: var(--bb-text, var(--colors-text-main));
+}
+.bb-pillars-head h2 em {
+  color: var(--bb-accent, var(--colors-primary));
+  font-style: italic;
+}
+.bb-pillars-head .bb-eyebrow {
+  margin: 0;
+}
+.bb-pillars {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border: 1px solid var(--bb-line, var(--colors-border));
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bb-bg-elev, var(--colors-surface));
+}
+@media (max-width: 1040px) {
+  .bb-pillars { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .bb-pillars { grid-template-columns: 1fr; }
+}
+.bb-pillar {
+  text-align: left;
+  padding: 28px 26px 24px;
+  border-right: 1px solid var(--bb-line, var(--colors-border));
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  cursor: pointer;
+  transition: background .15s;
+  color: inherit;
+  text-decoration: none;
+}
+.bb-pillar:last-child { border-right: none; }
+@media (max-width: 1040px) {
+  .bb-pillar:nth-child(2n) { border-right: none; }
+  .bb-pillar:nth-child(n+3) { border-top: 1px solid var(--bb-line, var(--colors-border)); }
+}
+@media (max-width: 600px) {
+  .bb-pillar { border-right: none; }
+  .bb-pillar:nth-child(n+2) { border-top: 1px solid var(--bb-line, var(--colors-border)); }
+}
+.bb-pillar:hover {
+  background: color-mix(in oklab, var(--bb-accent, var(--colors-primary)) 5%, var(--bb-bg-elev, var(--colors-surface)));
+}
+.bb-pillar:hover .bb-pillar-cta {
+  color: var(--bb-accent, var(--colors-primary));
+}
+.bb-pillar-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  background: color-mix(in oklab, var(--bb-accent, var(--colors-primary)) 14%, var(--bb-bg-elev-2, var(--colors-surfaceElevated)));
+  color: var(--bb-accent, var(--colors-primary));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 22px;
+  font-size: 16px;
+}
+.bb-pillar-num {
+  font-family: var(--bb-font-mono, ui-monospace, "JetBrains Mono", Menlo, monospace);
+  font-size: 11px;
+  color: var(--bb-text-mute, var(--colors-text-label));
+  letter-spacing: 0.12em;
+  margin-bottom: 10px;
+}
+.bb-pillar-title {
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  margin: 0 0 10px;
+  color: var(--bb-text, var(--colors-text-main));
+}
+.bb-pillar-body {
+  color: var(--bb-text-dim, var(--colors-text-muted));
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 18px;
+  flex: 1;
+}
+.bb-pillar-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--bb-text, var(--colors-text-main));
+  font-family: var(--bb-font-mono, ui-monospace, "JetBrains Mono", Menlo, monospace);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: color .15s;
+}
+
 @media (max-width: 600px) {
   .bb-pl-tabbar { padding: 0 8px; gap: 4px; }
   .bb-pl-tabbar-tabs { gap: 0; }

@@ -1,4 +1,5 @@
 import { ethers } from "ethers";
+import { AccountType } from "./useDeployDao";
 
 export function isAddr(value: string): boolean {
   if (!value) return false;
@@ -18,13 +19,48 @@ export interface IdentityForm {
   orgSlug: string;
 }
 
+/** One allocation row in the factory-token form. `amount` is a base-10 wei
+ *  string entered by the user. Empty `holder` rows are dropped on submit. */
+export interface TokenAllocationForm {
+  holder: string;
+  amount: string;
+}
+
+/** Factory-deployed token form state. Defaults set in `buildInitialForm`. */
+export interface FactoryTokenForm {
+  name: string;
+  symbol: string;
+  mintable: boolean;
+  allocations: TokenAllocationForm[];
+  initialMinters: string[];
+  initialPausers: string[];
+}
+
+/** Discriminated union on `mode`. `factory` is the default for chains with
+ *  a TokenFactory deployed; `byo` is the opt-in escape hatch for migrating
+ *  in a pre-existing ERC20Votes. */
+export type TokenSourceForm =
+  | { mode: "factory"; factory: FactoryTokenForm }
+  | { mode: "byo"; byoToken: string };
+
 export interface GovernanceForm {
-  token: string;
+  tokenSource: TokenSourceForm;
   timelockDelay: string;
   votingDelay: string;
   votingPeriod: string;
   proposalThreshold: string;
   quorumNumerator: string;
+}
+
+/** Additional-member row in the roles form. Maps to MembersContract.MemberInit
+ *  after submit. Empty `wallet` rows are dropped on submit. */
+export interface AdditionalMemberForm {
+  wallet: string;
+  name: string;
+  accountType: AccountType;
+  /** Display label for system roles (e.g. "TokenMinter") that we bytes32-pack
+   *  on submit. Empty = no role assigned at onboard. */
+  roleSlugString: string;
 }
 
 export interface RolesForm {
@@ -46,6 +82,9 @@ export interface RolesForm {
    * entry pairs a wallet with a display name (bytes32 on-chain).
    */
   authInitialAdmins: Array<{ wallet: string; name: string }>;
+  /** Members onboarded at launch beyond the admins — regular Members,
+   *  Investors, AuthorizedUsers with optional role assignments. */
+  additionalMembers: AdditionalMemberForm[];
 }
 
 export function validateIdentity(form: IdentityForm): string | null {
@@ -56,8 +95,34 @@ export function validateIdentity(form: IdentityForm): string | null {
 }
 
 export function validateGovernance(form: GovernanceForm): string | null {
-  if (!form.token.trim()) return "Governance token address is required.";
-  if (!isAddr(form.token)) return "Governance token address is invalid.";
+  // Token-side validation depends on which mode is active.
+  if (form.tokenSource.mode === "byo") {
+    if (!form.tokenSource.byoToken.trim()) return "Governance token address is required.";
+    if (!isAddr(form.tokenSource.byoToken)) return "Governance token address is invalid.";
+  } else {
+    const f = form.tokenSource.factory;
+    if (!f.name.trim()) return "Token name is required.";
+    if (f.name.trim().length > 64) return "Token name must be 64 characters or fewer.";
+    if (!f.symbol.trim()) return "Token symbol is required.";
+    if (f.symbol.trim().length > 12) return "Token symbol should be 12 characters or fewer.";
+    // Allocations: at least one non-empty row, all rows valid.
+    const nonEmpty = f.allocations.filter((a) => a.holder.trim() || a.amount.trim());
+    if (nonEmpty.length === 0) {
+      return "At least one initial token allocation is required.";
+    }
+    for (const a of nonEmpty) {
+      if (!isAddr(a.holder)) return `Allocation address "${a.holder}" is invalid.`;
+      if (!isWholeNumber(a.amount)) return `Allocation amount "${a.amount}" must be a whole number (wei).`;
+    }
+    for (const w of f.initialMinters) {
+      const trimmed = w.trim();
+      if (trimmed && !isAddr(trimmed)) return `Minter address "${w}" is invalid.`;
+    }
+    for (const w of f.initialPausers) {
+      const trimmed = w.trim();
+      if (trimmed && !isAddr(trimmed)) return `Pauser address "${w}" is invalid.`;
+    }
+  }
   const fields: Array<[string, string]> = [
     ["Timelock delay", form.timelockDelay],
     ["Voting delay", form.votingDelay],
@@ -90,6 +155,16 @@ export function validateRoles(form: RolesForm): string | null {
     if (!w) continue; // skip empty rows
     if (!isAddr(w)) return `Initial admin address "${w}" is invalid.`;
     if (a.name.length > 31) return `Initial admin name "${a.name}" must fit in 31 bytes.`;
+  }
+  for (const m of form.additionalMembers) {
+    const w = m.wallet.trim();
+    if (!w) continue; // skip empty rows
+    if (!isAddr(w)) return `Member address "${w}" is invalid.`;
+    if (!m.name.trim()) return `Member at "${w}" needs a display name (bytes32 on-chain).`;
+    if (m.name.trim().length > 31) return `Member name "${m.name}" must fit in 31 bytes.`;
+    if (m.roleSlugString.length > 31) {
+      return `Role slug "${m.roleSlugString}" must fit in 31 bytes.`;
+    }
   }
   return null;
 }

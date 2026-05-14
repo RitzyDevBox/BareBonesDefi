@@ -8,6 +8,11 @@
         "internalType": "contract DAOFactory"
       },
       {
+        "name": "tokenFactory_",
+        "type": "address",
+        "internalType": "contract TokenFactory"
+      },
+      {
         "name": "orgManager_",
         "type": "address",
         "internalType": "contract OrganizationManager"
@@ -138,6 +143,87 @@
                     "internalType": "bytes32"
                   }
                 ]
+              },
+              {
+                "name": "additionalMembers",
+                "type": "tuple[]",
+                "internalType": "struct MembersContract.MemberInit[]",
+                "components": [
+                  {
+                    "name": "wallet",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "nameSlug",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "accountType",
+                    "type": "uint8",
+                    "internalType": "enum MembersContract.AccountType"
+                  },
+                  {
+                    "name": "roleSlug",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "tokenSource",
+            "type": "tuple",
+            "internalType": "struct OrgAndDaoLauncher.TokenSource",
+            "components": [
+              {
+                "name": "useFactory",
+                "type": "bool",
+                "internalType": "bool"
+              },
+              {
+                "name": "factoryConfig",
+                "type": "tuple",
+                "internalType": "struct TokenFactory.TokenConfig",
+                "components": [
+                  {
+                    "name": "name",
+                    "type": "string",
+                    "internalType": "string"
+                  },
+                  {
+                    "name": "symbol",
+                    "type": "string",
+                    "internalType": "string"
+                  },
+                  {
+                    "name": "mintable",
+                    "type": "bool",
+                    "internalType": "bool"
+                  },
+                  {
+                    "name": "initialHolders",
+                    "type": "address[]",
+                    "internalType": "address[]"
+                  },
+                  {
+                    "name": "initialAmounts",
+                    "type": "uint256[]",
+                    "internalType": "uint256[]"
+                  }
+                ]
+              },
+              {
+                "name": "initialMinters",
+                "type": "address[]",
+                "internalType": "address[]"
+              },
+              {
+                "name": "initialPausers",
+                "type": "address[]",
+                "internalType": "address[]"
               }
             ]
           }
@@ -255,6 +341,87 @@
                     "internalType": "bytes32"
                   }
                 ]
+              },
+              {
+                "name": "additionalMembers",
+                "type": "tuple[]",
+                "internalType": "struct MembersContract.MemberInit[]",
+                "components": [
+                  {
+                    "name": "wallet",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "nameSlug",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "accountType",
+                    "type": "uint8",
+                    "internalType": "enum MembersContract.AccountType"
+                  },
+                  {
+                    "name": "roleSlug",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "tokenSource",
+            "type": "tuple",
+            "internalType": "struct OrgAndDaoLauncher.TokenSource",
+            "components": [
+              {
+                "name": "useFactory",
+                "type": "bool",
+                "internalType": "bool"
+              },
+              {
+                "name": "factoryConfig",
+                "type": "tuple",
+                "internalType": "struct TokenFactory.TokenConfig",
+                "components": [
+                  {
+                    "name": "name",
+                    "type": "string",
+                    "internalType": "string"
+                  },
+                  {
+                    "name": "symbol",
+                    "type": "string",
+                    "internalType": "string"
+                  },
+                  {
+                    "name": "mintable",
+                    "type": "bool",
+                    "internalType": "bool"
+                  },
+                  {
+                    "name": "initialHolders",
+                    "type": "address[]",
+                    "internalType": "address[]"
+                  },
+                  {
+                    "name": "initialAmounts",
+                    "type": "uint256[]",
+                    "internalType": "uint256[]"
+                  }
+                ]
+              },
+              {
+                "name": "initialMinters",
+                "type": "address[]",
+                "internalType": "address[]"
+              },
+              {
+                "name": "initialPausers",
+                "type": "address[]",
+                "internalType": "address[]"
               }
             ]
           }
@@ -284,6 +451,19 @@
         "name": "",
         "type": "address",
         "internalType": "contract OrganizationManager"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "tokenFactory",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract TokenFactory"
       }
     ],
     "stateMutability": "view"
@@ -333,6 +513,16 @@
   {
     "type": "error",
     "name": "InvalidOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TokenAddressConflict",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TokenFactoryRequired",
     "inputs": []
   }
 ]

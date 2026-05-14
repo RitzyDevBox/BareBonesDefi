@@ -23,7 +23,7 @@ interface DaoDeploymentSummary {
 }
 
 export function DAOsPage() {
-  const { provider, account, chainId } = useWalletProvider();
+  const { provider, account, chainId, connect } = useWalletProvider();
   const { version } = useTxRefresh();
   const { activeOrgSlug, ownedOrgs } = useActiveOrganization();
   const config = useMemo(() => (chainId ? getBareBonesConfiguration(chainId) : null), [chainId]);
@@ -96,8 +96,13 @@ export function DAOsPage() {
             <CardContent>
               <Stack gap="md" style={{ alignItems: "center", textAlign: "center", padding: "var(--spacing-md)" }}>
                 <Text.Body color="muted">
-                  Connect your wallet to see deployed DAOs and create new ones from the organization switcher.
+                  Connect your wallet to see deployed DAOs and create new ones.
                 </Text.Body>
+                <Row gap="sm" justify="center">
+                  <ButtonPrimary fullWidth={false} size="sm" onClick={() => connect()}>
+                    Connect wallet
+                  </ButtonPrimary>
+                </Row>
               </Stack>
             </CardContent>
           </Card>
@@ -106,13 +111,19 @@ export function DAOsPage() {
         {account && !activeOrgSlug && (
           <Card>
             <CardContent>
-              <Stack gap="sm" style={{ alignItems: "center", textAlign: "center", padding: "var(--spacing-md)" }}>
+              <Stack gap="md" style={{ alignItems: "center", textAlign: "center", padding: "var(--spacing-md)" }}>
                 <Text.Title align="center" size="sm">
                   No organization selected
                 </Text.Title>
                 <Text.Body color="muted">
-                  Use the organization switcher in the header to pick or create one.
+                  Pick an existing org from the switcher in the header, or deploy a
+                  new DAO to spin one up.
                 </Text.Body>
+                <Row gap="sm" justify="center">
+                  <ButtonPrimary fullWidth={false} size="sm" onClick={() => setShowDeployModal(true)}>
+                    Deploy a DAO
+                  </ButtonPrimary>
+                </Row>
               </Stack>
             </CardContent>
           </Card>
