@@ -99,7 +99,7 @@ export function MembersSection({ slug }: MembersSectionProps) {
   const state = useMtaState(slug);
   const actions = useMtaActions(slug);
 
-  const { members, roles, permissions, foundationDefaults, adminManagedContracts, registeredContracts, slugStatus, superAdmin, bootstrapped } = state;
+  const { members, roles, permissions, foundationDefaults, adminManagedContracts, slugStatus, superAdmin, bootstrapped } = state;
 
   // Only the slug owner can transfer super admin (the contract enforces this
   // too; we hide the UI for everyone else so they don't fill out a form that
@@ -553,7 +553,6 @@ export function MembersSection({ slug }: MembersSectionProps) {
         onGoPermissions={() => setView(SubView.Permissions)}
         onOpenSlugSettings={() => setSlugSettingsOpen(true)}
         onOpenTakeOwnership={() => setTakeOwnershipOpen(true)}
-        registeredContractsCount={registeredContracts.length}
       />
     );
   }

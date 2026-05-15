@@ -79,7 +79,8 @@ export function MemberDetail({
       <div className="bb-md-bar">
         <button className="bb-btn-ghost bb-btn-xs" onClick={onBack}>← Back to members</button>
         <div className="bb-md-actions">
-          <button className="bb-btn-ghost bb-btn-xs" onClick={() => notifySoon("Edit profile")}>Edit profile</button>
+          {/* "Edit profile" removed — was a placeholder pointing at notifySoon.
+              Re-add when the real edit flow ships. */}
           {member.onboardingStatus === OnboardingStatus.Active && (
             <button className="bb-btn-ghost bb-btn-xs" onClick={onSuspend}>Suspend</button>
           )}

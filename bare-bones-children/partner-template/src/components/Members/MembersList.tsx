@@ -10,7 +10,7 @@ import { MembersSubNav, SubTab } from "./MembersSubNav";
 import {
   AccountTypeBadge, MemberAvatar, MemberStatusPill, SbtStatusDot,
 } from "./shared";
-import { notify, notifySoon } from "./membersToast";
+import { notify } from "./membersToast";
 
 interface MembersListProps {
   members: Member[];
@@ -21,14 +21,13 @@ interface MembersListProps {
   onGoPermissions: () => void;
   onOpenSlugSettings: () => void;
   onOpenTakeOwnership: () => void;
-  registeredContractsCount: number;
 }
 
 const ACCT_FILTER_ALL = "all" as const;
 
 export function MembersList({
   members, roles, onOpenMember, onAddMember, onGoRoles, onGoPermissions,
-  onOpenSlugSettings, onOpenTakeOwnership, registeredContractsCount,
+  onOpenSlugSettings, onOpenTakeOwnership,
 }: MembersListProps) {
   const [q, setQ] = useState("");
   const [acctFilter, setAcctFilter] = useState<AccountTypeId | typeof ACCT_FILTER_ALL>(ACCT_FILTER_ALL);
@@ -63,17 +62,11 @@ export function MembersList({
         onRoles={onGoRoles}
         onPermissions={onGoPermissions}
       >
-        <button className="bb-btn-ghost bb-btn-xs" onClick={() => notifySoon("Bulk import")}>Bulk import</button>
-        <button
-          className="bb-btn-ghost bb-btn-xs"
-          onClick={() =>
-            notify(ToastType.Success, "Members exported", `${members.length} rows · CSV`)
-          }
-        >
-          Export
-        </button>
+        {/* Bulk import + Export removed — the buttons were placeholders that
+            either toasted "coming soon" or fake-exported a CSV. Re-add when
+            the real flows ship. */}
         <button className="bb-btn-ghost bb-btn-xs" onClick={onOpenTakeOwnership}>
-          + Take ownership{registeredContractsCount > 0 && ` (${registeredContractsCount})`}
+          + Take ownership
         </button>
         <button className="bb-btn-ghost bb-btn-xs" onClick={onOpenSlugSettings}>⚙ Slug settings</button>
         <button className="bb-btn-primary bb-btn-xs" onClick={onAddMember}>+ Add member</button>
