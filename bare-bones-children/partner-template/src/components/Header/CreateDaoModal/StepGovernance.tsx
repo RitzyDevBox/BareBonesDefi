@@ -59,24 +59,34 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
         Choose how the governance token is sourced, then configure how proposals move through the governor.
       </p>
 
-      {/* ── Token-source toggle ─────────────────────────────────────────── */}
+      {/* ── Token-source toggle ─────────────────────────────────────────────
+       * Uses the shared `.bb-seg` / `.bb-seg-btn` segmented control pattern
+       * (defined in payments.css, also used by the earnings rule-kind picker).
+       * Two buttons in a bordered flex container; active button picks up the
+       * accent-tinted bg + border. `bb-seg-btn-sub` renders the mono secondary
+       * line below the primary label.
+       */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <label style={{ fontWeight: 600 }}>Governance token</label>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="bb-seg">
           <button
             type="button"
-            className={`bb-btn-pill${isFactory ? " bb-active" : ""}`}
+            className={`bb-seg-btn${isFactory ? " bb-active" : ""}`}
             onClick={() => setMode("factory")}
             disabled={!tokenFactoryAvailable}
           >
-            Deploy new (recommended)
+            <span className="bb-seg-btn-label">Deploy new</span>
+            <span className="bb-seg-btn-sub">
+              {tokenFactoryAvailable ? "RECOMMENDED · MTA-OWNED" : "TOKEN FACTORY NOT DEPLOYED"}
+            </span>
           </button>
           <button
             type="button"
-            className={`bb-btn-pill${!isFactory ? " bb-active" : ""}`}
+            className={`bb-seg-btn${!isFactory ? " bb-active" : ""}`}
             onClick={() => setMode("byo")}
           >
-            Use existing
+            <span className="bb-seg-btn-label">Use existing</span>
+            <span className="bb-seg-btn-sub">BYO ERC20VOTES</span>
           </button>
         </div>
         {!tokenFactoryAvailable && (

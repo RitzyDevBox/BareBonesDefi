@@ -1,10 +1,18 @@
 import { ethers } from "ethers";
 import { AccountType } from "./useDeployDao";
 
+/**
+ * `true` if `value` is a 20-byte hex address, regardless of case.
+ *
+ * We lowercase before calling `ethers.utils.getAddress` so a pasted address
+ * with the wrong EIP-55 letter casing (e.g. an explorer copy that lost its
+ * checksum) doesn't get rejected. User intent on a form field is "is this a
+ * valid address," not "is this EIP-55-correctly-cased."
+ */
 export function isAddr(value: string): boolean {
   if (!value) return false;
   try {
-    ethers.utils.getAddress(value.trim());
+    ethers.utils.getAddress(value.trim().toLowerCase());
     return true;
   } catch {
     return false;

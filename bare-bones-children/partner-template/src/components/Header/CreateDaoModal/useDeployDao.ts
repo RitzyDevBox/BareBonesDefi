@@ -113,6 +113,16 @@ function packBytes32Name(input: string): string {
   return ethers.utils.formatBytes32String(trimmed.slice(0, 31));
 }
 
+/**
+ * Normalize a user-entered address: trim, lowercase, then re-checksum.
+ * The lowercase step strips any wrong-cased letters (e.g. a mixed-case paste
+ * that lost its EIP-55 checksum) so we don't throw `bad address checksum` on
+ * an otherwise-valid 20-byte hex. Throws on completely malformed input.
+ */
+function toChecksumAddress(value: string): string {
+  return ethers.utils.getAddress(value.trim().toLowerCase());
+}
+
 export function useDeployDao() {
   const { provider, account, chainId } = useWalletProvider();
   const { version: txVersion } = useTxRefresh();
@@ -205,19 +215,20 @@ export function useDeployDao() {
 
       // Empty super-admin → address(0) → launcher substitutes the freshly
       // deployed timelock as the slug's super-admin (recommended default).
+      // toChecksumAddress lowercases first so a wrong-cased paste survives.
       const superAdmin = params.authSuperAdmin
-        ? ethers.utils.getAddress(params.authSuperAdmin)
+        ? toChecksumAddress(params.authSuperAdmin)
         : ZERO_ADDRESS;
 
       const superAdminNameSlug = packBytes32Name(params.authSuperAdminName);
 
       const initialAdmins = params.authInitialAdmins.map((a) => ({
-        wallet: ethers.utils.getAddress(a.wallet),
+        wallet: toChecksumAddress(a.wallet),
         nameSlug: packBytes32Name(a.name),
       }));
 
       const additionalMembers = params.additionalMembers.map((m) => ({
-        wallet: ethers.utils.getAddress(m.wallet),
+        wallet: toChecksumAddress(m.wallet),
         // _createMember rejects bytes32(0) for regular members — UI validation
         // must require a non-empty name; we still defensively pack.
         nameSlug: packBytes32Name(m.name),
@@ -252,14 +263,14 @@ export function useDeployDao() {
             name: fc.name.trim(),
             symbol: fc.symbol.trim(),
             mintable: fc.mintable,
-            initialHolders: fc.allocations.map((a) => ethers.utils.getAddress(a.holder)),
+            initialHolders: fc.allocations.map((a) => toChecksumAddress(a.holder)),
             initialAmounts: fc.allocations.map((a) => a.amount),
           },
-          initialMinters: fc.initialMinters.map((a) => ethers.utils.getAddress(a)),
-          initialPausers: fc.initialPausers.map((a) => ethers.utils.getAddress(a)),
+          initialMinters: fc.initialMinters.map((a) => toChecksumAddress(a)),
+          initialPausers: fc.initialPausers.map((a) => toChecksumAddress(a)),
         };
       } else {
-        daoToken = ethers.utils.getAddress(params.tokenSource.byoToken.trim());
+        daoToken = toChecksumAddress(params.tokenSource.byoToken);
         tokenSourceStruct = {
           useFactory: false,
           factoryConfig: {
