@@ -88,23 +88,14 @@ test("create a Set Voting Delay proposal", async ({ page }) => {
   await expect(createProposal).toBeEnabled({ timeout: 30_000 });
   await createProposal.click();
 
-  // 6. ProposalBuilder modal — pick "Governance Management" → "Set Voting Delay".
-  // The Select trigger renders the selected label inside itself, so once an
-  // option is chosen the trigger text and the dropdown text both match. Scope
-  // the option click to the portaled dropdown via its `<id>-options` testid.
-  await page.getByTestId("proposal-action-group").click();
-  await page
-    .getByTestId("proposal-action-group-options")
-    .getByText("Governance Management", { exact: true })
-    .click();
+  // 6. ProposalBuilder wizard — pick "From an address" → Governor entry.
+  // The wizard auto-selects the first preset for the picked kind (governor →
+  // setVotingDelay), so we land on the function step with the form ready.
+  await page.getByTestId("proposal-method-address").click();
+  await page.getByTestId("abk-row-governor").first().click();
 
-  await page.getByTestId("proposal-action").click();
-  await page
-    .getByTestId("proposal-action-options")
-    .getByText("Set Voting Delay", { exact: true })
-    .click();
-
-  // 7. Fill the new value, stage, then submit
+  // 7. Fill the new value, stage, then submit. Description is auto-filled
+  //    from the picked preset (PRESET_META.label) so we don't need to type one.
   await page.getByTestId("proposal-uint-value").fill(newVotingDelay);
   await page.getByTestId("proposal-stage").click();
   await page.getByTestId("proposal-submit").click();

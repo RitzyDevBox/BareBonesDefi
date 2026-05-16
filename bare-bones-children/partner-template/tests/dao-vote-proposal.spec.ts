@@ -74,7 +74,7 @@ test("create proposal and cast a For vote", async ({ page }) => {
     await mine(1);
   }
 
-  // 5. Open Create Proposal → "Governance Management" → "Set Voting Delay".
+  // 5. Open Create Proposal → wizard "From an address" → Governor.
   // The button shows "Checking…" disabled while the dapp polls the
   // governor's canPropose() — that takes a couple of refresh cycles
   // after the delegation tx lands. Default toBeEnabled timeout (5s)
@@ -83,17 +83,10 @@ test("create proposal and cast a For vote", async ({ page }) => {
   await expect(createProposal).toBeEnabled({ timeout: 30_000 });
   await createProposal.click();
 
-  await page.getByTestId("proposal-action-group").click();
-  await page
-    .getByTestId("proposal-action-group-options")
-    .getByText("Governance Management", { exact: true })
-    .click();
-
-  await page.getByTestId("proposal-action").click();
-  await page
-    .getByTestId("proposal-action-options")
-    .getByText("Set Voting Delay", { exact: true })
-    .click();
+  // New wizard: pick "From an address" → Governor (kind=governor auto-selects
+  // setVotingDelay preset, drops us on the function step with the uint form).
+  await page.getByTestId("proposal-method-address").click();
+  await page.getByTestId("abk-row-governor").first().click();
 
   await page.getByTestId("proposal-uint-value").fill(newVotingDelay);
   await page.getByTestId("proposal-stage").click();
