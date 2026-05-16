@@ -358,9 +358,220 @@ function StepNav({ stepId, onJump, hasCall }) {
     </div>
   );
 }
+// ─── Kind → function set (unified lookup) ────────────────────────────
+// Picking an address looks up its kind here to know which functions to expose.
+// 'custom' is reserved for user-supplied ABIs.
+const FUNCTIONS_BY_KIND = {
+  governor: KNOWN_CONTRACTS.find(c => c.kind === 'governor').functions,
+  timelock: KNOWN_CONTRACTS.find(c => c.kind === 'timelock').functions,
+  token:    KNOWN_CONTRACTS.find(c => c.kind === 'token').functions,    // DAO governance token (full)
+  erc20:    STANDARD_ABIS.find(s => s.id === 'erc20').functions,        // generic ERC-20
+  mta:      KNOWN_CONTRACTS.find(c => c.kind === 'mta').functions,
+  deployer: KNOWN_CONTRACTS.find(c => c.kind === 'deployer').functions,
+  wallet:   KNOWN_CONTRACTS.find(c => c.kind === 'wallet').functions,
+  dao:      KNOWN_CONTRACTS.find(c => c.kind === 'governor').functions, // another DAO's governor
+};
 
+const KIND_LABEL = {
+  governor: 'Governor', timelock: 'Timelock', token: 'Gov token',
+  erc20: 'ERC-20', mta: 'Authorizer', deployer: 'Factory',
+  wallet: 'Smart wallet', dao: 'DAO governor',
+};
+
+// Picker sections — order matters in render. `category` matches book.category
+// except 'erc20' which is synthesized from TOKEN_REGISTRY.
+const PICKER_SECTIONS = [
+  { id: 'core',   label: 'Core contracts', icon: 'Code',   sub: 'Governor, Timelock & gov token' },
+  { id: 'erc20',  label: 'ERC-20 tokens',  icon: 'Wallet', sub: 'Transfer, approve & ERC-20 calls' },
+  { id: 'wallet', label: 'Smart wallets',  icon: 'Wallet', sub: 'Treasury & program vaults' },
+  { id: 'dao',    label: 'Other DAOs',     icon: 'Layers', sub: 'Cross-DAO governor calls' },
+  { id: 'custom', label: 'Saved contacts', icon: 'Book',   sub: 'Addresses you saved' },
+];
+
+// ─── Target picker modal — tabbed sections + custom ABI ───────────────
+// Tabs at top: Core, ERC-20 tokens, Smart wallets, Other DAOs, Saved contacts, Custom.
+// Each tab renders its own scrollable list (or form for Custom).
+function TargetPickerModal({
+  book, chain, dao,
+  customAddrDraft, setCustomAddrDraft,
+  customAbiText, setCustomAbiText,
+  customFns, setCustomFns,
+  onPick, onUseCustom, onClose,
+}) {
+  const [filter, setFilter] = React.useState('');
+  // Group book by category once
+  const grouped = React.useMemo(() => {
+    const g = {};
+    for (const b of book) {
+      if (b.category === 'connected') continue;
+      (g[b.category] = g[b.category] || []).push(b);
+    }
+    return g;
+  }, [book]);
+
+  // Build tab list — include sections that have entries, plus erc20 (always shown
+  // since users go looking for it), plus 'customAddr' as the final tab.
+  const tabs = React.useMemo(() => {
+    const result = [];
+    for (const sec of PICKER_SECTIONS) {
+      const items = grouped[sec.id] || [];
+      if (items.length === 0 && sec.id !== 'erc20') continue;
+      // Only show the kind tag on a row when the tab mixes multiple kinds.
+      const kinds = new Set(items.map(i => i.kind));
+      result.push({ ...sec, items, showKindTag: kinds.size > 1 });
+    }
+    result.push({ id: 'customAddr', label: 'Custom', icon: 'Code', sub: 'Bring your own ABI', items: [], showKindTag: false });
+    return result;
+  }, [grouped]);
+
+  const [activeTab, setActiveTab] = React.useState(tabs[0]?.id || 'core');
+  const active = tabs.find(t => t.id === activeTab) || tabs[0];
+
+  const filteredItems = React.useMemo(() => {
+    if (!active || active.id === 'customAddr') return [];
+    const q = filter.trim().toLowerCase();
+    if (!q) return active.items;
+    return active.items.filter(b =>
+      b.name.toLowerCase().includes(q)
+      || (b.sub || '').toLowerCase().includes(q)
+      || b.address.toLowerCase().includes(q)
+    );
+  }, [active, filter]);
+
+  const customValid = /^0x[0-9a-f]{40}$/i.test(customAddrDraft);
+
+  return (
+    <Modal title="Pick a contract" onClose={onClose} width={580}>
+      <div className="tpm-body">
+        {active && active.id !== 'customAddr' && (
+          <div className="tsm-search tpm-search">
+            <I.Search size={13} />
+            <input value={filter} onChange={e => setFilter(e.target.value)}
+                   placeholder={`Search ${active.label.toLowerCase()}…`} autoFocus />
+            {filter && (
+              <button className="icon-btn-sm" aria-label="Clear" onClick={() => setFilter('')}>
+                <I.Close size={11}/>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Tab bar */}
+        <div className="tpm-tabs" role="tablist">
+          {tabs.map(t => {
+            const Icon = I[t.icon] || I.Code;
+            const isOn = t.id === activeTab;
+            return (
+              <button key={t.id} type="button" role="tab" aria-selected={isOn}
+                      className={`tpm-tab${isOn ? ' on' : ''}`}
+                      onClick={() => { setActiveTab(t.id); setFilter(''); }}>
+                <Icon size={12} />
+                <span className="tpm-tab-label">{t.label}</span>
+                {t.id !== 'customAddr' && (
+                  <span className="tpm-tab-count">{t.items.length}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab body */}
+        {active && active.id !== 'customAddr' && (
+          <div className="tpm-pane">
+            <div className="tpm-pane-sub">{active.sub}</div>
+            <div className="tpm-rows">
+              {filteredItems.length === 0 ? (
+                <div className="tpm-sec-empty">
+                  {filter
+                    ? `No matches for "${filter}" in ${active.label.toLowerCase()}.`
+                    : `No ${active.label.toLowerCase()} on ${chain.name}.`}
+                </div>
+              ) : filteredItems.map(b => (
+                <div key={b.id} className="tpm-row" onClick={() => onPick(b)}>
+                  <AddrAvatar address={b.address} name={b.name} size={26} />
+                  <div className="tpm-row-k">
+                    <div className="tpm-row-name">{b.name}</div>
+                    <div className="tpm-row-sub">{b.sub} · <span className="mono">{shortHex(b.address, 6, 4)}</span></div>
+                  </div>
+                  {active.showKindTag && (
+                    <span className="tpm-row-tag mono">{KIND_LABEL[b.kind] || 'contract'}</span>
+                  )}
+                  <div className="tpm-row-acts" onClick={e => e.stopPropagation()}>
+                    <button type="button" className="icon-btn-sm" title="Copy address"
+                            onClick={async () => {
+                              try { await navigator.clipboard.writeText(b.address);
+                                    window.toast.success('Address copied', { description: b.address, duration: 1800 }); }
+                              catch { window.toast.error('Copy failed'); }
+                            }}>
+                      <I.Copy size={11}/>
+                    </button>
+                    <button type="button" className="icon-btn-sm"
+                            title={chain && chain.explorer ? `View on ${chain.explorer}` : 'No explorer'}
+                            onClick={() => {
+                              if (!chain || !chain.explorer) { window.toast.warning('No explorer', { duration: 1500 }); return; }
+                              window.toast.info('Opening explorer', { description: `${chain.explorer}/address/${b.address}`, duration: 2200 });
+                            }}>
+                      <I.Ext size={11}/>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {active && active.id === 'customAddr' && (
+          <div className="tpm-pane">
+            <div className="tpm-pane-sub">Anything not in your book — paste the address and its ABI.</div>
+            <div className="tpm-custom">
+              <div className="field">
+                <label className="pw-kicker">Address</label>
+                <input className="input mono" placeholder="0x…" value={customAddrDraft}
+                       onChange={e => setCustomAddrDraft(e.target.value)} />
+                {customAddrDraft && !customValid && (
+                  <span className="field-err">Must be 0x… followed by 40 hex characters</span>
+                )}
+              </div>
+              <div className="field">
+                <label className="pw-kicker">ABI (JSON)</label>
+                <textarea className="textarea mono" rows={5}
+                          placeholder='[{"type":"function","name":"foo","inputs":[{"name":"x","type":"uint256"}]}]'
+                          value={customAbiText}
+                          onChange={e => {
+                            setCustomAbiText(e.target.value);
+                            setCustomFns(parseAbi(e.target.value));
+                          }} />
+                {customAbiText && customFns.length === 0 && (
+                  <span className="field-err">Could not parse ABI — expected a JSON array of function entries.</span>
+                )}
+                {customFns.length > 0 && (
+                  <span className="field-hint">Found {customFns.length} writable function{customFns.length === 1 ? '' : 's'}.</span>
+                )}
+              </div>
+              <div className="tpm-custom-actions">
+                <button type="button" className="btn-primary btn-sm"
+                        onClick={onUseCustom}
+                        disabled={!customValid || customFns.length === 0}>
+                  Use this address <I.Arrow size={11}/>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="modal-foot tpm-foot">
+        <span className="tsm-foot-meta">
+          <I.Book size={11} /> {book.filter(b => b.category !== 'connected').length} in address book
+        </span>
+        <button className="btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Builder ────────────────────────────────────────────────────────────
 function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
-  // Build a richer book including system contracts (MTA / Deployer).
   const otherDaos = React.useMemo(
     () => (window.DAOS_SEED || []).filter(d => d.id !== dao.id),
     [dao]
@@ -369,14 +580,26 @@ function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
     () => (window.WALLETS_SEED?.[dao.id]?.[chain.chainId] || []),
     [dao, chain]
   );
+
+  // Address book augmented with system contracts + ERC-20 registry tokens.
   const book = React.useMemo(() => {
     const base = buildAddressBook(dao, wallet, otherDaos, ownWallets, []);
     const sys = SYSTEM_CONTRACTS(dao).map(s => ({
       id: 'sys:' + s.address, name: s.name, sub: s.sub,
       address: s.address, category: 'core', kind: s.kind,
     }));
-    return [...base, ...sys];
-  }, [dao, wallet, otherDaos, ownWallets]);
+    const tokens = ((window.TOKEN_REGISTRY || {})[chain.chainId] || [])
+      .filter(t => t.address && t.address !== 'native')
+      .map(t => ({
+        id: 'erc20:' + t.address,
+        name: t.symbol,
+        sub: t.name + ' · ' + (t.decimals ?? 18) + ' decimals',
+        address: t.address,
+        category: 'erc20',
+        kind: 'erc20',
+      }));
+    return [...base, ...sys, ...tokens];
+  }, [dao, wallet, otherDaos, ownWallets, chain]);
 
   const templates = React.useMemo(() => PROPOSAL_TEMPLATES(dao), [dao]);
 
@@ -387,122 +610,131 @@ function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
 
   // Wizard state
   const [step, setStep] = React.useState('method');
-  const [method, setMethod] = React.useState(null);       // 'template' | 'contract' | 'abi'
-  const [contractTypeId, setContractTypeId] = React.useState(null);
-  const [abiKindId, setAbiKindId] = React.useState(null);
+  const [method, setMethod] = React.useState(null);              // 'template' | 'address'
+  const [target, setTarget] = React.useState('');
+  const [targetKind, setTargetKind] = React.useState(null);      // book.kind or 'custom'
+  const [targetMeta, setTargetMeta] = React.useState(null);      // {name, sub, category}
+  const [customAddrDraft, setCustomAddrDraft] = React.useState('');
   const [customAbiText, setCustomAbiText] = React.useState('');
   const [customFns, setCustomFns] = React.useState([]);
-  const [target, setTarget] = React.useState('');
   const [functionSig, setFunctionSig] = React.useState('');
   const [params, setParams] = React.useState({});
   const [value, setValue] = React.useState('0');
+  const [pickerOpen, setPickerOpen] = React.useState(false);
 
   const resetWizard = () => {
     setStep('method'); setMethod(null);
-    setContractTypeId(null); setAbiKindId(null);
-    setCustomAbiText(''); setCustomFns([]);
-    setTarget(''); setFunctionSig(''); setParams({}); setValue('0');
+    setTarget(''); setTargetKind(null); setTargetMeta(null);
+    setCustomAddrDraft(''); setCustomAbiText(''); setCustomFns([]);
+    setFunctionSig(''); setParams({}); setValue('0');
+    setPickerOpen(false);
   };
 
-  // Active "source" config (the contract type or ABI kind picked)
-  const sourceContract = method === 'contract' && contractTypeId
-    ? KNOWN_CONTRACTS.find(c => c.id === contractTypeId) : null;
-  const sourceAbi = method === 'abi' && abiKindId
-    ? STANDARD_ABIS.find(s => s.id === abiKindId) : null;
-
-  // Filtered book for the function step's address pickers
-  const filteredBook = React.useMemo(() => {
-    if (sourceContract) {
-      return book.filter(b => b.kind === sourceContract.kind);
-    }
-    if (sourceAbi?.filterKinds) {
-      return book.filter(b => sourceAbi.filterKinds.includes(b.kind));
-    }
-    return book;
-  }, [book, sourceContract, sourceAbi]);
-
-  // Functions available in current source
+  // Functions available for current target
   const fns = React.useMemo(() => {
-    if (sourceContract) return sourceContract.functions;
-    if (sourceAbi?.custom) return customFns;
-    if (sourceAbi) return sourceAbi.functions;
+    if (targetKind === 'custom') return customFns;
+    if (targetKind && FUNCTIONS_BY_KIND[targetKind]) return FUNCTIONS_BY_KIND[targetKind];
     return [];
-  }, [sourceContract, sourceAbi, customFns]);
+  }, [targetKind, customFns]);
 
   const fn = fns.find(f => f.sig === functionSig);
 
-  // ── Method step actions ─────────────────────────────────────────────
+  // Filtered book for param-level address pickers — still useful for fields like `to` / `spender`.
+  const filteredBook = React.useMemo(() => book.filter(b => b.category !== 'erc20'), [book]);
+
+  // ── Step transitions ────────────────────────────────────────────────
   const pickMethod = (m) => {
     setMethod(m);
     setStep('source');
+    if (m === 'address') setPickerOpen(true);
   };
 
-  // ── Source step actions ─────────────────────────────────────────────
   const applyTemplate = (t) => {
     const filled = t.fill();
     setTitle(filled.title);
     setDescription(filled.description);
-    // Stage all template calls
-    const enriched = (filled.calls || []).map(call => {
-      // try to look up function def across known catalogs to enrich params
+    setCalls([]); // start fresh — template is a shortcut, not an append
+
+    // Signal-only (no calls) → straight to review
+    if (!filled.calls || filled.calls.length === 0) {
+      setTarget(''); setTargetKind(null); setTargetMeta(null);
+      setFunctionSig(''); setParams({}); setValue('0');
+      setStep('review');
+      window.toast.info('Template loaded', { description: t.title, duration: 2200 });
+      return;
+    }
+
+    // Template is really a shortcut to the function step with everything pre-filled.
+    // Take the first call's target/fn/params and route the user there for review/edit.
+    // (All built-in templates have a single call.)
+    const call = filled.calls[0];
+    const bookEntry = book.find(b => b.address.toLowerCase() === (call.target || '').toLowerCase());
+
+    setTarget(call.target);
+    setTargetKind(bookEntry?.kind || 'custom');
+    setTargetMeta({
+      name: bookEntry?.name || call.targetName || 'Custom contract',
+      sub: bookEntry?.sub || 'From template',
+      category: bookEntry?.category || 'custom',
+    });
+    setFunctionSig(call.sig);
+    setParams(call.params || {});
+    setValue('0');
+
+    // If the template target isn't in the book, seed customFns so the function
+    // step has something to render.
+    if (!bookEntry) {
       const allFnDefs = [
         ...KNOWN_CONTRACTS.flatMap(k => k.functions),
         ...STANDARD_ABIS.filter(s => !s.custom).flatMap(s => s.functions),
       ];
-      const fnDef = allFnDefs.find(f => f.sig === call.sig)
-        || { sig: call.sig, label: call.label || call.sig.split('(')[0], params: Object.keys(call.params || {}).map(k => ({ name: k, type: 'uint256' })) };
-      const args = (fnDef.params || []).map(p => (call.params || {})[p.name] ?? '');
-      return {
-        target: call.target, targetName: call.targetName || call.label,
-        signature: call.sig, label: fnDef.label || call.label,
-        args, params: call.params || {}, value: '0', isNative: false,
-        calldata: makeCalldata(call.sig, args.map(a => /^0x/i.test(String(a)) ? a : (Number.isFinite(Number(a)) ? Number(a) : 0))),
-      };
-    });
-    setCalls(enriched);
-    // Clear wizard scratch state but keep step on review
-    setMethod(null); setContractTypeId(null); setAbiKindId(null);
-    setCustomAbiText(''); setCustomFns([]);
-    setTarget(''); setFunctionSig(''); setParams({}); setValue('0');
-    setStep('review');
-    window.toast.info('Template loaded', { description: t.title, duration: 2200 });
+      const fnDef = allFnDefs.find(f => f.sig === call.sig);
+      if (fnDef) setCustomFns([fnDef]);
+    }
+
+    setStep('function');
+    window.toast.info('Template loaded', { description: `${t.title} — review & stage`, duration: 2400 });
   };
 
-  const pickContractType = (id) => {
-    setContractTypeId(id);
-    // Seed target from book if there's exactly one match
-    const ct = KNOWN_CONTRACTS.find(c => c.id === id);
-    const matches = book.filter(b => b.kind === ct.kind);
-    setTarget(matches.length === 1 ? matches[0].address : '');
-    setFunctionSig(ct.functions[0]?.sig || '');
+  const pickAddress = (entry) => {
+    setTarget(entry.address);
+    setTargetKind(entry.kind);
+    setTargetMeta({ name: entry.name, sub: entry.sub, category: entry.category });
+    const f0 = (FUNCTIONS_BY_KIND[entry.kind] || [])[0];
+    setFunctionSig(f0?.sig || '');
     setParams({});
+    setPickerOpen(false);
     setStep('function');
   };
 
-  const pickAbiKind = (id) => {
-    setAbiKindId(id);
-    const ak = STANDARD_ABIS.find(s => s.id === id);
-    setTarget('');
-    setFunctionSig(ak.custom ? '' : (ak.functions[0]?.sig || ''));
-    setParams({});
-    if (ak.custom) {
-      // stay on source step to let user paste ABI
-    } else {
-      setStep('function');
+  const useCustomAddress = () => {
+    if (!/^0x[0-9a-f]{40}$/i.test(customAddrDraft)) {
+      window.toast.error('Invalid address', { description: 'Expected 0x… 40 hex chars.' });
+      return;
     }
+    if (customFns.length === 0) {
+      window.toast.error('Paste a valid ABI first');
+      return;
+    }
+    setTarget(customAddrDraft);
+    setTargetKind('custom');
+    setTargetMeta({ name: 'Custom contract', sub: 'User-supplied ABI', category: 'custom' });
+    setFunctionSig(customFns[0].sig);
+    setParams({});
+    setPickerOpen(false);
+    setStep('function');
   };
 
-  // ── Function step actions ───────────────────────────────────────────
+  // ── Function step ───────────────────────────────────────────────────
   const stageCall = () => {
     if (!fn) { window.toast.error('Pick a function'); return; }
     if (!target) { window.toast.error('Target contract required'); return; }
     const missing = (fn.params || []).find(p => params[p.name] == null || params[p.name] === '');
     if (missing) { window.toast.error('Fill all params', { description: `Missing: ${missing.name}` }); return; }
     const args = (fn.params || []).map(p => params[p.name] ?? '');
-    const targetName = (() => {
+    const targetName = targetMeta?.name || (() => {
       const b = book.find(x => x.address.toLowerCase() === (target || '').toLowerCase());
-      if (b) return b.name;
-      return shortHex(target, 6, 4);
+      return b ? b.name : shortHex(target, 6, 4);
     })();
     const newCall = {
       target,
@@ -515,10 +747,8 @@ function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
     };
     setCalls(c => [...c, newCall]);
     window.toast.success('Call staged', { description: `${newCall.targetName} · ${newCall.label}`, duration: 2200 });
-    // Clear scratch state for the next call but stay on review
-    setMethod(null); setContractTypeId(null); setAbiKindId(null);
-    setCustomAbiText(''); setCustomFns([]);
-    setTarget(''); setFunctionSig(''); setParams({}); setValue('0');
+    // Keep target/fn/params so navigating back to function step shows the staged config.
+    // "Add another call" on review explicitly resets the wizard.
     setStep('review');
   };
 
@@ -556,21 +786,31 @@ function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
 
   // ── Render helpers ──────────────────────────────────────────────────
   const goPrev = () => {
-    if (step === 'source')   { setStep('method'); return; }
+    if (step === 'source')   { setStep('method'); setMethod(null); return; }
     if (step === 'function') { setStep('source'); return; }
-    if (step === 'review')   { resetWizard(); return; } // back to method to add another
+    if (step === 'review')   {
+      // Templates / staged calls → back to function step to tweak
+      if (targetKind) { setStep('function'); return; }
+      resetWizard();
+    }
   };
   const jumpStep = (s) => {
     if (s === 'review' && calls.length === 0) return;
+    if (s === 'function' && !targetKind) return;
     setStep(s);
   };
 
-  const matchedTarget = book.find(b => b.address.toLowerCase() === (target || '').toLowerCase());
+  // Icon for the "selected target" toolbar shown on the function step
+  const targetIcon = (() => {
+    if (targetKind === 'custom') return 'Code';
+    const map = { governor: 'Gear', timelock: 'Clock', token: 'Wallet', erc20: 'Wallet',
+                  mta: 'Layers', deployer: 'Code', wallet: 'Wallet', dao: 'Layers' };
+    return map[targetKind] || 'Code';
+  })();
 
   return (
     <div className="builder">
       <div className="pw-shell">
-        {/* Stepper */}
         <StepNav stepId={step} onJump={jumpStep} hasCall={calls.length > 0} />
 
         {/* ── STEP 1 · Method ────────────────────────────────── */}
@@ -579,38 +819,30 @@ function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
             <div>
               <div className="pw-kicker">Step 1 / 4</div>
               <h3 className="pw-h">How do you want to build this proposal?</h3>
-              <p className="pw-sub">Each method narrows what comes next so you only see relevant contracts and functions.</p>
+              <p className="pw-sub">Start from a ready-made template, or pick the contract you want to call.</p>
             </div>
-            <div className="pw-methods">
+            <div className="pw-methods" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
               <button type="button" className="pw-method" onClick={() => pickMethod('template')}>
                 <div className="pw-method-icon"><I.Sparkle size={18} /></div>
                 <div className="pw-method-k">
                   <div className="pw-method-name">From a template</div>
-                  <div className="pw-method-sub">Pre-built proposals like grants, mints, or governance tweaks. Edit before submitting.</div>
+                  <div className="pw-method-sub">Pre-built proposals — grants, mints, role grants, governance tweaks. Edit before submitting.</div>
                 </div>
                 <span className="pw-method-cta">Choose template <I.Arrow size={11} /></span>
               </button>
-              <button type="button" className="pw-method" onClick={() => pickMethod('contract')}>
-                <div className="pw-method-icon"><I.Code size={17} /></div>
+              <button type="button" className="pw-method" onClick={() => pickMethod('address')}>
+                <div className="pw-method-icon"><I.Book size={17} /></div>
                 <div className="pw-method-k">
-                  <div className="pw-method-name">From a contract</div>
-                  <div className="pw-method-sub">Pick a known contract (Governor, Token, MTA, Deployer…). The address book auto-filters.</div>
+                  <div className="pw-method-name">From an address</div>
+                  <div className="pw-method-sub">Pick from your address book — known contracts auto-detect their interface. Custom addresses bring their own ABI.</div>
                 </div>
-                <span className="pw-method-cta">Pick contract <I.Arrow size={11} /></span>
-              </button>
-              <button type="button" className="pw-method" onClick={() => pickMethod('abi')}>
-                <div className="pw-method-icon"><I.Memo size={17} /></div>
-                <div className="pw-method-k">
-                  <div className="pw-method-name">From an ABI</div>
-                  <div className="pw-method-sub">ERC-20, ERC-721, or paste a custom ABI. Target filters to matching addresses.</div>
-                </div>
-                <span className="pw-method-cta">Use ABI <I.Arrow size={11} /></span>
+                <span className="pw-method-cta">Pick address <I.Arrow size={11} /></span>
               </button>
             </div>
           </div>
         )}
 
-        {/* ── STEP 2 · Source ────────────────────────────────── */}
+        {/* ── STEP 2A · Template ─────────────────────────────── */}
         {step === 'source' && method === 'template' && (
           <div className="builder-section">
             <div>
@@ -641,165 +873,73 @@ function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
           </div>
         )}
 
-        {step === 'source' && method === 'contract' && (
+        {/* ── STEP 2B · Address picker (modal) ─────────────── */}
+        {step === 'source' && method === 'address' && (
           <div className="builder-section">
             <div>
-              <div className="pw-kicker">Step 2 / 4 · Contract</div>
+              <div className="pw-kicker">Step 2 / 4 · Address</div>
               <h3 className="pw-h">Which contract?</h3>
-              <p className="pw-sub">Picking a type filters the address book to known instances of that contract in your DAO.</p>
+              <p className="pw-sub">Pick from your address book or add a custom address.</p>
             </div>
-            <div className="pw-types">
-              {KNOWN_CONTRACTS.map(c => {
-                const Icon = I[c.icon] || I.Code;
-                const count = book.filter(b => b.kind === c.kind).length;
-                return (
-                  <button key={c.id} type="button" className="pw-type" onClick={() => pickContractType(c.id)}>
-                    <div className="pw-type-icon"><Icon size={14} /></div>
-                    <div className="pw-type-k">
-                      <div className="pw-type-name">{c.name}</div>
-                      <div className="pw-type-sub">{c.description}</div>
-                      <div className="pw-type-count"><b>{count}</b> in address book</div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            <button type="button" className="pw-pickbtn" onClick={() => setPickerOpen(true)}>
+              <div className="pw-pickbtn-icon"><I.Book size={16}/></div>
+              <div className="pw-pickbtn-k">
+                <div className="pw-pickbtn-name">Browse address book</div>
+                <div className="pw-pickbtn-sub">Core contracts, ERC-20 tokens, smart wallets, other DAOs & saved contacts</div>
+              </div>
+              <I.Arrow size={12}/>
+            </button>
             <div className="pw-foot">
-              <div className="pw-foot-meta">Don't see one? Switch to <b>ABI</b> for arbitrary addresses.</div>
+              <div className="pw-foot-meta">Pick a known address and we'll auto-load its function list.</div>
               <div className="pw-foot-actions">
                 <button type="button" className="btn-ghost btn-sm" onClick={goPrev}>Back</button>
               </div>
             </div>
-          </div>
-        )}
-
-        {step === 'source' && method === 'abi' && (
-          <div className="builder-section">
-            <div>
-              <div className="pw-kicker">Step 2 / 4 · ABI</div>
-              <h3 className="pw-h">Pick an ABI</h3>
-              <p className="pw-sub">Standard ABIs work with any address that implements them. Custom lets you paste your own.</p>
-            </div>
-            <div className="pw-types">
-              {STANDARD_ABIS.map(s => {
-                const Icon = I[s.icon] || I.Code;
-                return (
-                  <button key={s.id} type="button"
-                    className={`pw-type${abiKindId === s.id ? ' on' : ''}`}
-                    onClick={() => pickAbiKind(s.id)}>
-                    <div className="pw-type-icon"><Icon size={14} /></div>
-                    <div className="pw-type-k">
-                      <div className="pw-type-name">{s.name}</div>
-                      <div className="pw-type-sub">{s.description}</div>
-                      {s.filterKinds && (
-                        <div className="pw-type-count">
-                          <b>{book.filter(b => s.filterKinds.includes(b.kind)).length}</b> matching in book
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {sourceAbi?.custom && (
-              <div className="field full" style={{ marginTop: 4 }}>
-                <label className="pw-kicker" style={{ display: 'block', marginBottom: 6 }}>Paste ABI (JSON)</label>
-                <textarea
-                  className="textarea mono" rows={6}
-                  placeholder='[{"type":"function","name":"foo","inputs":[{"name":"x","type":"uint256"}]}]'
-                  value={customAbiText}
-                  onChange={e => {
-                    const t = e.target.value;
-                    setCustomAbiText(t);
-                    const parsed = parseAbi(t);
-                    setCustomFns(parsed);
-                    if (parsed[0]) setFunctionSig(parsed[0].sig);
-                  }}
-                />
-                {customAbiText && customFns.length === 0 && (
-                  <div className="field-err">Could not parse ABI — expected a JSON array of function entries.</div>
-                )}
-                {customFns.length > 0 && (
-                  <div className="field-hint">
-                    Found {customFns.length} writable function{customFns.length === 1 ? '' : 's'}.
-                  </div>
-                )}
-              </div>
+            {pickerOpen && (
+              <TargetPickerModal
+                book={book} chain={chain} dao={dao}
+                customAddrDraft={customAddrDraft} setCustomAddrDraft={setCustomAddrDraft}
+                customAbiText={customAbiText} setCustomAbiText={setCustomAbiText}
+                customFns={customFns} setCustomFns={setCustomFns}
+                onPick={pickAddress}
+                onUseCustom={useCustomAddress}
+                onClose={() => setPickerOpen(false)}
+              />
             )}
-
-            <div className="pw-foot">
-              <div className="pw-foot-meta">
-                {abiKindId
-                  ? <>Selected <b style={{ color: 'var(--text)' }}>{sourceAbi.name}</b></>
-                  : 'Pick a standard or paste a custom ABI.'}
-              </div>
-              <div className="pw-foot-actions">
-                <button type="button" className="btn-ghost btn-sm" onClick={goPrev}>Back</button>
-                <button type="button" className="btn-primary btn-sm"
-                  disabled={!abiKindId || (sourceAbi?.custom && customFns.length === 0)}
-                  onClick={() => setStep('function')}>
-                  Continue <I.Arrow size={11} />
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
         {/* ── STEP 3 · Function & Params ─────────────────────── */}
-        {step === 'function' && (sourceContract || sourceAbi) && (
+        {step === 'function' && targetKind && (
           <div className="builder-section">
             <div>
-              <div className="pw-kicker">
-                Step 3 / 4 · {sourceContract ? sourceContract.name : (sourceAbi?.name || 'Custom')}
-              </div>
-              <h3 className="pw-h">Pick a function &amp; target</h3>
+              <div className="pw-kicker">Step 3 / 4 · {targetMeta?.name || 'Target'}</div>
+              <h3 className="pw-h">Pick a function</h3>
               <p className="pw-sub">
-                Address book is filtered to {sourceContract ? <b>{sourceContract.name}</b> : (sourceAbi?.filterKinds ? <b>{sourceAbi.name} contracts</b> : 'any address')}.
+                {targetKind === 'custom'
+                  ? <>Functions from your custom ABI.</>
+                  : <>Interface inferred from <b>{KIND_LABEL[targetKind] || 'contract'}</b>.</>}
               </p>
             </div>
 
-            {/* Selected-source toolbar */}
+            {/* Selected-target toolbar */}
             <div className="pw-toolbar">
               <div className="pw-toolbar-icon">
-                {sourceContract
-                  ? (() => { const Ic = I[sourceContract.icon] || I.Code; return <Ic size={13} />; })()
-                  : (() => { const Ic = I[sourceAbi.icon] || I.Memo; return <Ic size={13} />; })()}
+                {(() => { const Ic = I[targetIcon] || I.Code; return <Ic size={13} />; })()}
               </div>
               <div className="pw-toolbar-k">
-                <b>{sourceContract ? sourceContract.name : sourceAbi.name}</b>
-                <span>
-                  {sourceContract
-                    ? `${fns.length} writable function${fns.length === 1 ? '' : 's'} available`
-                    : (sourceAbi?.custom ? `${fns.length} writable function${fns.length === 1 ? '' : 's'} parsed` : `${fns.length} function${fns.length === 1 ? '' : 's'}`)}
-                </span>
+                <b>{targetMeta?.name || 'Target'}</b>
+                <span className="mono">{shortHex(target, 10, 8)} · {KIND_LABEL[targetKind] || 'custom'}</span>
               </div>
-              <button type="button" className="pw-toolbar-edit" onClick={() => setStep('source')}>Change</button>
-            </div>
-
-            {/* Target picker */}
-            <div className="field full">
-              <label className="pw-kicker" style={{ display: 'block', marginBottom: 6 }}>Target contract</label>
-              {sourceAbi?.showTokenPicker ? (
-                <CurrencySelector chain={chain} value={target}
-                  onChange={(t) => setTarget(t.address === 'native' ? '0x0000000000000000000000000000000000000000' : t.address)} />
-              ) : (
-                <AddressInput value={target} onChange={setTarget} book={filteredBook} chain={chain}
-                  placeholder={filteredBook.length > 0
-                    ? `Pick from ${filteredBook.length} matching address${filteredBook.length === 1 ? '' : 'es'}`
-                    : 'No matches — paste 0x… address'} />
-              )}
-              {filteredBook.length === 0 && !sourceAbi?.showTokenPicker && (
-                <div className="field-hint">
-                  No matching entries in the address book — you can still paste a custom address.
-                </div>
-              )}
+              <button type="button" className="pw-toolbar-edit" onClick={() => { setStep('source'); if (method === 'address') setPickerOpen(true); }}>Change</button>
             </div>
 
             {/* Function list */}
             {fns.length > 0 ? (
               <div>
-                <label className="pw-kicker" style={{ display: 'block', marginBottom: 6 }}>Function</label>
+                <label className="pw-kicker" style={{ display: 'block', marginBottom: 6 }}>
+                  {fns.length} writable function{fns.length === 1 ? '' : 's'}
+                </label>
                 <div className="pw-fns">
                   {fns.map(f => (
                     <button key={f.sig} type="button"
@@ -816,8 +956,8 @@ function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
               </div>
             ) : (
               <div className="pw-empty">
-                <b>No functions yet</b>
-                <span>Paste an ABI in the previous step to populate this list.</span>
+                <b>No functions available</b>
+                <span>This address has no known interface. Go back and use a custom ABI.</span>
               </div>
             )}
 
@@ -833,7 +973,7 @@ function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
                       <label>{p.name} <span className="param-type mono">{p.type}</span></label>
                       <ParamInput param={p} value={params[p.name]}
                         onChange={(v) => setParams(prev => ({ ...prev, [p.name]: v }))}
-                        book={filteredBook.length > 0 && p.type === 'address' ? book : book}
+                        book={filteredBook}
                         chain={chain} />
                     </div>
                   ))}
@@ -843,9 +983,7 @@ function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
 
             <div className="pw-foot">
               <div className="pw-foot-meta">
-                {matchedTarget
-                  ? <>Target: <b style={{ color: 'var(--text)' }}>{matchedTarget.name}</b></>
-                  : (target ? <>Target: <span className="mono">{shortHex(target, 8, 6)}</span></> : 'No target set')}
+                {fn ? <>Function: <b style={{ color: 'var(--text)' }}>{fn.label}</b></> : 'Pick a function above'}
               </div>
               <div className="pw-foot-actions">
                 <button type="button" className="btn-ghost btn-sm" onClick={goPrev}>Back</button>
@@ -861,7 +999,6 @@ function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
         {/* ── STEP 4 · Review ────────────────────────────────── */}
         {step === 'review' && (
           <>
-            {/* Proposal metadata */}
             <div className="builder-section">
               <div>
                 <div className="pw-kicker">Step 4 / 4 · Review</div>
@@ -882,7 +1019,6 @@ function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
               </div>
             </div>
 
-            {/* Staged calls */}
             <div className="builder-section" style={{ marginTop: 14 }}>
               <div className="builder-section-head">
                 <h4>Staged calls <span className="muted">({calls.length})</span></h4>
@@ -932,7 +1068,6 @@ function ProposalBuilder({ chain, wallet, dao, onCreate, onCancel }) {
               </div>
             </div>
 
-            {/* Submit */}
             <div className="builder-foot" style={{ marginTop: 14 }}>
               <div className="muted">
                 Submitting from {wallet ? shortAddr(wallet.address) : '(connect wallet)'} · {chain.name} · {dao.name}
