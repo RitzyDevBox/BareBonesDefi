@@ -524,6 +524,7 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
 
       <ProposalsList
         slug={orgSlugBytes}
+        governorAddress={governorAddress}
         activeProposals={activeProposals}
         historicalProposals={historicalProposals}
         loading={loadingProposals}

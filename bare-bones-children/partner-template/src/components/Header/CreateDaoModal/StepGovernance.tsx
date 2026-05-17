@@ -1,5 +1,6 @@
 import { type GovernanceForm, type FactoryTokenForm, blocksToTime } from "./validation";
 import { AddressListField } from "./AddressListField";
+import { TokenUnitsInput } from "../../Inputs/TokenUnitsInput";
 
 interface StepGovernanceProps {
   form: GovernanceForm;
@@ -142,7 +143,7 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
             <div className="bb-field bb-full">
               <label>Initial allocations</label>
               <div className="bb-field-hint">
-                Tokens minted at deploy. Amounts in raw wei (e.g. "100000000000000000000" = 100e18).
+                Tokens minted at deploy, in whole-token units (e.g. "100" = 100 tokens).
                 Token is deployed paused — transfers blocked until the org unpauses.
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
@@ -155,15 +156,11 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
                       placeholder="0x… holder address"
                       onChange={(e) => updateAllocation(i, { holder: e.target.value })}
                     />
-                    <input
+                    <TokenUnitsInput
                       className="bb-input bb-mono"
-                      type="text"
-                      inputMode="numeric"
                       value={row.amount}
-                      placeholder="Amount (wei)"
-                      onChange={(e) =>
-                        updateAllocation(i, { amount: e.target.value.replace(/[^0-9]/g, "") })
-                      }
+                      placeholder="Amount (tokens)"
+                      onChange={(amount) => updateAllocation(i, { amount })}
                     />
                     <button
                       type="button"
@@ -283,14 +280,16 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
         </div>
 
         <div className="bb-field bb-full">
-          <label>Proposal threshold (raw token units)</label>
-          <input
+          <label>Proposal threshold (tokens)</label>
+          <TokenUnitsInput
             className="bb-input bb-mono"
-            type="text"
-            inputMode="numeric"
             value={form.proposalThreshold}
-            onChange={(e) => onChange({ proposalThreshold: e.target.value.replace(/[^0-9]/g, "") })}
+            placeholder="1"
+            onChange={(proposalThreshold) => onChange({ proposalThreshold })}
           />
+          <div className="bb-field-hint">
+            Minimum balance (in whole tokens) a wallet must hold to create a proposal.
+          </div>
         </div>
       </div>
     </div>

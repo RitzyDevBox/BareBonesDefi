@@ -150,13 +150,21 @@ export function useAddressBook({ governorAddress }: UseAddressBookArgs): UseAddr
 
     configAddresses.forEach((cfg) => {
       if (!cfg.address || cfg.address === ethers.constants.AddressZero) return;
+      const kind = configKindFromLabel(cfg.label);
+      // MTA lives alongside governor/timelock/token under Core — it's the
+      // only system contract that's a meaningful proposal target. The rest
+      // (resolvers, kernel initializer, factory, etc.) stay under "config"
+      // so per-field pickers (WalletDeployForm) can still locate them via
+      // kindFilter, but they're hidden from the default view by being in an
+      // empty tab.
+      const isCore = kind === "mta";
       out.push({
-        id: `config:${cfg.address.toLowerCase()}`,
+        id: `${isCore ? "core" : "config"}:${cfg.address.toLowerCase()}`,
         name: cfg.label,
-        sub: "System config",
+        sub: isCore ? "Multi-tenant authorizer" : "System config",
         address: ADDR(cfg.address),
-        category: "config",
-        kind: configKindFromLabel(cfg.label),
+        category: isCore ? "core" : "config",
+        kind,
       });
     });
 

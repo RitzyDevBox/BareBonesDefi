@@ -192,6 +192,10 @@ type Props = {
   /** bytes32 hex slug for the org (`orgSlugFor(daoName)`). Required for
    *  the Members tab to read MTA state. Empty string disables it. */
   slug?: string;
+  /** DAO governor address. Passed through to the Members tab so the
+   *  permission builder can resolve the timelock + governance token from
+   *  the governor on-chain and offer them as known contracts. */
+  governorAddress?: string;
   activeProposals: DaoProposalSummary[];
   historicalProposals: DaoProposalSummary[];
   loading?: boolean;
@@ -216,6 +220,7 @@ type Props = {
 
 export function ProposalsList({
   slug = "",
+  governorAddress = "",
   activeProposals,
   historicalProposals,
   loading = false,
@@ -369,7 +374,7 @@ export function ProposalsList({
             )
           )}
 
-          {tab === "members" && <MembersSection slug={slug} />}
+          {tab === "members" && <MembersSection slug={slug} governorAddress={governorAddress} />}
         </div>
       </CardContent>
     </Card>

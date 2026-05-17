@@ -19,6 +19,7 @@ import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { getBareBonesConfiguration } from "../../constants/misc";
 import { useMtaState } from "../../hooks/auth/useMtaState";
 import { useMtaActions, OnboardMemberInput, PermissionInput, RoleInput } from "../../hooks/auth/useMtaActions";
+import { useProposalAddressBook } from "../../hooks/dao/useProposalAddressBook";
 
 /** Tray entry for a permission queued via "+ Stage". `kind: 'new'` rows are
  *  brand-new permissions (green in the list); `kind: 'edit'` rows are pending
@@ -70,6 +71,10 @@ interface MembersSectionProps {
   /** bytes32 hex slug for the org. Pass `orgSlugFor(daoName)` from the
    *  parent. Empty string disables all on-chain reads + writes. */
   slug: string;
+  /** DAO governor address. Used to resolve the governance token on-chain so
+   *  permission rows targeting it render as "Governance Token · transfer"
+   *  instead of "External · 0x…". Optional. */
+  governorAddress?: string;
 }
 
 enum SubView {
@@ -90,13 +95,16 @@ enum SubView {
  * TxRefresh provider triggers a re-fetch on inclusion. There is no
  * client-side mutation cache — UI state is the subgraph state.
  */
-export function MembersSection({ slug }: MembersSectionProps) {
+export function MembersSection({ slug, governorAddress = "" }: MembersSectionProps) {
   const { chainId, account } = useWalletProvider();
   const mtaAddress = chainId != null
     ? getBareBonesConfiguration(chainId).multiTenantAuthAddress
     : "0x0000000000000000000000000000000000000000";
 
-  const state = useMtaState(slug);
+  // Resolve the governance token from the governor so permission rows
+  // targeting it render with the right contract name + decoded selector.
+  const { tokenAddress } = useProposalAddressBook(governorAddress);
+  const state = useMtaState(slug, tokenAddress);
   const actions = useMtaActions(slug);
 
   const { members, roles, permissions, foundationDefaults, adminManagedContracts, slugStatus, superAdmin, bootstrapped } = state;

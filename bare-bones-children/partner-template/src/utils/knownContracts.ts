@@ -3,12 +3,22 @@ import { getBareBonesConfiguration } from "../constants/misc";
 import MultiTenantAuthABI from "../abis/auth/MultiTenantAuth.abi.json";
 import PayrollManagerABI from "../abis/paymentPipelines/PayrollManager.abi.json";
 import PayrollTreasuryABI from "../abis/paymentPipelines/PayrollTreasury.abi.json";
+import GovernanceTokenABI from "../abis/dao/GovernanceToken.abi.json";
 
 export interface KnownContract {
   key: string;
   name: string;
   address: string;
   abi: any[];
+}
+
+/** Per-DAO contracts that don't live in chain config but are realistic MTA
+ *  permission targets. Only the governance token qualifies — governor and
+ *  timelock aren't manageable from the MTA, so listing them as targets would
+ *  be misleading. Address is resolved on-chain via
+ *  `useProposalAddressBook(governorAddress)`. */
+export interface DaoKnownAddresses {
+  token?: string;
 }
 
 export interface AbiFunctionInput {
@@ -24,15 +34,19 @@ export interface AbiFunction {
   stateMutability: string;
 }
 
-/** Build the list of "known" target contracts at this chain id. Restricted
- *  to the contracts that (a) have a deterministic per-chain address — DAO
- *  governors / timelocks are per-org, not per-chain — and (b) are realistic
- *  targets for org-level permissions today. The DAO Governor is not yet
- *  routed through MTA so listing it as a target would be misleading.
+/** Build the list of "known" target contracts at this chain id. Chain-wide
+ *  singletons (MTA, Payroll) come from the chain config; the governance
+ *  token is per-DAO and is emitted when its address is passed in via `dao`.
+ *  Its ABI is standard so we can hardcode it here and decode the target +
+ *  function name in permission rows instead of falling back to
+ *  "External · 0x…".
  *
  *  Empty / zero-address entries are dropped — those are placeholders before
- *  the chain is actually deployed. */
-export function getKnownContracts(chainId: number | null | undefined): KnownContract[] {
+ *  the chain is actually deployed or before the DAO context has resolved. */
+export function getKnownContracts(
+  chainId: number | null | undefined,
+  dao?: DaoKnownAddresses,
+): KnownContract[] {
   if (chainId == null) return [];
   const cfg = getBareBonesConfiguration(chainId);
   const candidates: KnownContract[] = [
@@ -40,6 +54,9 @@ export function getKnownContracts(chainId: number | null | undefined): KnownCont
     { key: "payrollManager", name: "Payroll Manager", address: cfg.payrollManagerAddress, abi: PayrollManagerABI as any[] },
     { key: "payrollTreasury", name: "Payroll Treasury", address: cfg.payrollTreasuryAddress, abi: PayrollTreasuryABI as any[] },
   ];
+  if (dao?.token) {
+    candidates.push({ key: "token", name: "Governance Token", address: dao.token, abi: GovernanceTokenABI as any[] });
+  }
   const ZERO = "0x0000000000000000000000000000000000000000";
   return candidates.filter((c) => c.address && c.address.toLowerCase() !== ZERO);
 }

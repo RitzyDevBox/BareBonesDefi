@@ -43,7 +43,8 @@ export type AddressCategory =
   | "wallet"
   | "vault"
   | "config"
-  | "saved";
+  | "saved"
+  | "tokens";
 
 export interface AddressBookEntry {
   /** Stable id for React keys — usually `${category}:${address}` plus a discriminator. */

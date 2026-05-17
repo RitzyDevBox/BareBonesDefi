@@ -143,6 +143,24 @@ export function validateGovernance(form: GovernanceForm): string | null {
   }
   const q = Number(form.quorumNumerator);
   if (q < 0 || q > 100) return "Quorum numerator must be between 0 and 100.";
+
+  // Bootstrap sanity: in factory mode, the total initial supply must clear
+  // the proposal threshold — otherwise no holder (alone or via delegation)
+  // could ever meet the threshold, and the DAO would launch unable to
+  // accept proposals. BYO tokens may already have circulating supply we
+  // can't see at form-time, so we skip the check there.
+  if (form.tokenSource.mode === "factory") {
+    const threshold = ethers.BigNumber.from(form.proposalThreshold || "0");
+    if (threshold.gt(0)) {
+      const totalSupply = form.tokenSource.factory.allocations.reduce(
+        (sum, a) => (a.amount && isWholeNumber(a.amount) ? sum.add(a.amount) : sum),
+        ethers.BigNumber.from(0),
+      );
+      if (totalSupply.lt(threshold)) {
+        return "Total initial mint must be at least the proposal threshold — otherwise no one could create a proposal.";
+      }
+    }
+  }
   return null;
 }
 

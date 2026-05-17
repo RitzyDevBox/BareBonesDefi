@@ -23,6 +23,7 @@ import { useDiamondFacets } from "../../hooks/diamond/useDiamondFacets";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { getBareBonesConfiguration } from "../../constants/misc";
 import { shortAddress } from "../../utils/formatUtils";
+import { parsePayeeNameLabel } from "../../utils/payroll/payrollFormatters";
 import type { ProposalBuildPayload, ProposalCall, ProposalCallArgPreview } from "./types";
 import { NativeTransferForm, TokenTransferForm, WalletDeployForm } from "./ProposalForms";
 import { MtaArgsRenderer } from "./proposalTemplates/MtaTemplate";
@@ -101,6 +102,7 @@ const GOVERNANCE_INTERFACE = new ethers.utils.Interface(DAOGovernorABI as any);
 const CALIBUR_INTERFACE = new ethers.utils.Interface(CaliburEntryABI as any);
 const DIAMOND_CUT_INTERFACE = new ethers.utils.Interface(DiamondCutFacetABI as any);
 const TIMELOCK_ROLE_INTERFACE = new ethers.utils.Interface(TIMELOCK_ROLE_ABI_OBJECT as any);
+const MTA_INTERFACE = new ethers.utils.Interface(MultiTenantAuthABI as any);
 
 const PROPOSER_ROLE_ID = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("PROPOSER_ROLE"));
 const CANCELLER_ROLE_ID = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("CANCELLER_ROLE"));
@@ -135,6 +137,7 @@ type ProposalActionPreset =
   | "wallet-calibur-entry"
   | "wallet-deploy"
   | "auth-mta-function"
+  | "auth-execute-mint"
   | "custom";
 
 interface PresetMeta {
@@ -167,6 +170,7 @@ const PRESET_META: Record<ProposalActionPreset, PresetMeta> = {
   "wallet-calibur-entry": { label: "Calibur Entry Function", description: "Invoke any Calibur entry-point function." },
   "wallet-deploy": { label: "Deploy Smart Wallet", description: "Use the factory to deploy a new Diamond wallet." },
   "auth-mta-function": { label: "Authorizer (MTA) Function", description: "Invoke a Multi-Tenant Authorizer function." },
+  "auth-execute-mint": { label: "Execute · Mint Token", description: "Mint via auth.execute → token.mint (owner-gated)." },
   custom: { label: "Custom ABI Function", description: "Paste an ABI and invoke any function." },
 };
 
@@ -208,7 +212,7 @@ const PRESETS_BY_KIND: Record<AddressKind, ProposalActionPreset[]> = {
   ],
   vault: ["custom"],
   factory: ["wallet-deploy"],
-  mta: ["auth-mta-function"],
+  mta: ["auth-execute-mint", "auth-mta-function"],
   "authority-resolver": ["custom"],
   "kernel-initializer": ["custom"],
   config: ["custom"],
@@ -441,13 +445,18 @@ const TEMPLATES: TemplateDef[] = [
     title: "Mint governance tokens",
     description: "Mint new governance tokens to a contributor.",
     icon: "🪙",
-    resolve: ({ tokenAddress }) =>
-      tokenAddress
+    // Routed through MTA's execute() because the token's mint() is onlyOwner
+    // and the owner is the MTA. The MTA gates the inner call on
+    // TOKEN_MINTER_ROLE (seeded at bootstrap) and re-issues as the owner so
+    // Ownable passes. A direct mint() call from the timelock reverts with
+    // OwnableUnauthorizedAccount(timelock).
+    resolve: ({ tokenAddress, mtaAddress }) =>
+      tokenAddress && mtaAddress
         ? {
-            preset: "token-mint",
-            target: tokenAddress,
-            targetKind: "token",
-            targetLabel: "Governance token",
+            preset: "auth-execute-mint",
+            target: mtaAddress,
+            targetKind: "mta",
+            targetLabel: "Multi-Tenant Authorizer",
             description: "Mint governance tokens to a contributor",
           }
         : null,
@@ -708,7 +717,7 @@ export function ProposalBuilder({
       setAbiText(CALIBUR_ABI_TEXT);
       setSelectedFunctionSignature("");
     }
-    if (preset === "auth-mta-function") {
+    if (preset === "auth-mta-function" || preset === "auth-execute-mint") {
       setAbiText(MTA_ABI_TEXT);
       setSelectedFunctionSignature("");
     }
@@ -766,7 +775,11 @@ export function ProposalBuilder({
     setError(null);
     setTarget(resolved.target);
     setTargetMeta({ name: resolved.targetLabel, kind: resolved.targetKind });
-    if (!description.trim()) setDescription(resolved.description);
+    // Always overwrite — switching templates without resetting the
+    // description leaves stale text from the previously-clicked template
+    // (e.g. picking Treasury Transfer then switching to Mint kept the
+    // "Transfer governance tokens…" copy).
+    setDescription(resolved.description);
     applyPreset(resolved.preset);
     setStep("function");
   }
@@ -864,6 +877,31 @@ export function ProposalBuilder({
         ethers.BigNumber.from(governanceUintValue.trim()),
       ]);
       return { target: encodedTarget, calldata, functionSignature: "mint(address,uint256)", valueWei: "0" };
+    }
+
+    if (actionPreset === "auth-execute-mint") {
+      if (!roleAccountAddress.trim()) throw new Error("Mint recipient address is required.");
+      if (!governanceUintValue.trim()) throw new Error("Amount is required.");
+      if (!daoAddresses.token) throw new Error("Governance token address unavailable for this DAO.");
+      if (!orgSlug) throw new Error("Org slug unavailable — required to route through MTA.");
+      // Inner call: token.mint(to, amount). Outer wraps with MTA.execute so
+      // the MTA (the token's owner) re-issues the call and Ownable passes.
+      const innerCalldata = TOKEN_FUNCTIONS_INTERFACE.encodeFunctionData("mint", [
+        ethers.utils.getAddress(roleAccountAddress.trim()),
+        ethers.BigNumber.from(governanceUintValue.trim()),
+      ]);
+      const outerCalldata = MTA_INTERFACE.encodeFunctionData("execute", [
+        orgSlug,
+        ethers.utils.getAddress(daoAddresses.token),
+        innerCalldata,
+        "0x",
+      ]);
+      return {
+        target: encodedTarget,
+        calldata: outerCalldata,
+        functionSignature: "execute(bytes32,address,bytes,bytes)",
+        valueWei: "0",
+      };
     }
 
     if (actionPreset === "token-burn") {
@@ -1322,8 +1360,35 @@ export function ProposalBuilder({
                   </FormField>
                 )}
 
-                {actionPreset === "token-mint" && (
+                {(actionPreset === "token-mint" || actionPreset === "auth-execute-mint") && (
                   <>
+                    {actionPreset === "auth-execute-mint" && (
+                      <>
+                        <div className="bb-field-hint bb-muted" style={{ marginBottom: 8 }}>
+                          Wrapped through MTA · auth.execute(slug, token, mint(...)). Caller must
+                          hold TOKEN_MINTER_ROLE (or be Super Admin) on this org's slug.
+                        </div>
+                        <FormField label="slug · auto" style={{ marginBottom: 0 }}>
+                          <div className="bb-pw-readonly-pill">
+                            <span className="bb-pw-readonly-pill-name">
+                              {parsePayeeNameLabel(orgSlug) || "—"}
+                            </span>
+                            <span className="bb-pw-readonly-pill-sub bb-mono">
+                              {orgSlug ? `${orgSlug.slice(0, 10)}…${orgSlug.slice(-8)}` : "—"}
+                            </span>
+                          </div>
+                        </FormField>
+                        <FormField label="target · auto" style={{ marginBottom: 0 }}>
+                          <div className="bb-pw-readonly-pill">
+                            <AddrAvatar address={daoAddresses.token} name="Governance Token" size={20} />
+                            <span className="bb-pw-readonly-pill-name">Governance Token</span>
+                            <span className="bb-pw-readonly-pill-sub bb-mono">
+                              {daoAddresses.token ? shortAddress(daoAddresses.token) : "—"}
+                            </span>
+                          </div>
+                        </FormField>
+                      </>
+                    )}
                     <FormField label="Mint To" style={{ marginBottom: 0 }}>
                       <AddressInput
                         value={roleAccountAddress}
@@ -1340,6 +1405,13 @@ export function ProposalBuilder({
                         }
                       />
                     </FormField>
+                    {actionPreset === "auth-execute-mint" && (
+                      <div className="bb-field-hint bb-muted" style={{ marginTop: 6 }}>
+                        options = 0x (empty). The MTA forwards this bytes blob to per-permission
+                        custom authorizers; TOKEN_MINTER_ROLE uses the simple whitelist path so
+                        nothing reads it here.
+                      </div>
+                    )}
                   </>
                 )}
 

@@ -3,9 +3,18 @@ import { ethers } from "ethers";
 import { Modal } from "../Modal/Modal";
 import { Sheet } from "../Primitives/Sheet";
 import { Input } from "../BasicComponents";
+import { AddressInput } from "../Inputs/AddressInput";
+import { CopyButton } from "../Button/Actions/CopyButton";
+import { IconButton } from "../Button/IconButton";
+import { NavigateIcon } from "../../assets/icons/NavigationIcon";
 import { AddrAvatar } from "./AddrAvatar";
 import { shortAddress } from "../../utils/formatUtils";
 import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
+import { useWalletProvider } from "../../hooks/useWalletProvider";
+import { useTokenList } from "../TokenSelect/useTokenList";
+import { TokenInfo } from "../TokenSelect/types";
+import { CHAIN_INFO_MAP } from "../../constants/misc";
+import { buildExplorerAddressLink } from "../../utils/explorerLinks";
 import type { ContactsStore } from "./contactsStore";
 import type { AddressBookEntry, AddressCategory, AddressKind } from "./types";
 
@@ -33,15 +42,41 @@ interface TabDef {
 
 const TAB_DEFS: TabDef[] = [
   { id: "connected", label: "You", sub: "Your connected wallet" },
-  { id: "core", label: "Core", sub: "Governor, timelock & gov token" },
+  { id: "core", label: "Core", sub: "Governor, timelock, gov token & authorizer" },
   { id: "wallet", label: "Smart wallets", sub: "Wallets you / the timelock own" },
   { id: "vault", label: "Vaults", sub: "Secure Value Reserve vaults" },
-  { id: "config", label: "System", sub: "Factory, resolvers, authorizers" },
+  { id: "tokens", label: "Tokens", sub: "ERC-20 tokens on this chain" },
+  { id: "config", label: "System", sub: "System internals" },
   { id: "saved", label: "Saved", sub: "Contacts you added" },
   { id: "custom", label: "Custom", sub: "Paste an address" },
 ];
 
 const ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/;
+
+/** "Open in explorer" pair to `CopyButton` — same `IconButton` shape so the
+ *  two sit on the same baseline in row actions. Renders nothing when there's
+ *  no explorer URL to navigate to. */
+function ExplorerIconButton({ href }: { href: string | null }) {
+  if (!href) return null;
+  return (
+    <IconButton
+      size="sm"
+      aria-label="Open in explorer"
+      title="Open in explorer"
+      onClick={(e) => {
+        e.stopPropagation();
+        window.open(href, "_blank", "noopener,noreferrer");
+      }}
+      style={{
+        background: "transparent",
+        border: "none",
+        color: "var(--colors-text-muted)",
+      }}
+    >
+      <NavigateIcon size={14} />
+    </IconButton>
+  );
+}
 
 export function AddressBookModal({
   isOpen,
@@ -61,6 +96,13 @@ export function AddressBookModal({
   // Custom-paste tab: a one-off address the user wants to use without saving.
   const [customAddress, setCustomAddress] = useState("");
 
+  const { chainId } = useWalletProvider();
+  // Tokens tab is lazy — only hit coingecko after the user opens it once.
+  // After that, useTokenList caches per chainId so subsequent opens are free.
+  const [tokensActivated, setTokensActivated] = useState(false);
+  const { tokens, loading: tokensLoading } = useTokenList(tokensActivated ? chainId : null);
+  const explorerBase = chainId != null ? CHAIN_INFO_MAP[chainId]?.blockExplorerUrls?.[0] : undefined;
+
   // Filter entries down to what's allowed (kind/category filters), then group.
   const allowedEntries = useMemo(() => {
     return entries.filter((e) => {
@@ -78,6 +120,7 @@ export function AddressBookModal({
       vault: [],
       config: [],
       saved: [],
+      tokens: [],
     };
     for (const e of allowedEntries) g[e.category].push(e);
     return g;
@@ -91,6 +134,13 @@ export function AddressBookModal({
         result.push({ ...t, count: 0 });
         continue;
       }
+      if (t.id === "tokens") {
+        // Hide on filtered pickers; otherwise always show so the user can
+        // discover the lazy-loaded list (no count until activated).
+        if (categoryFilter || kindFilter) continue;
+        result.push({ ...t, count: tokensActivated ? tokens.length : 0 });
+        continue;
+      }
       const count = grouped[t.id]?.length ?? 0;
       // Always show core (anchor). Drop empty tabs except when no filter is set
       // and the category is structurally meaningful (saved/connected).
@@ -98,13 +148,13 @@ export function AddressBookModal({
       result.push({ ...t, count });
     }
     return result;
-  }, [grouped, categoryFilter]);
+  }, [grouped, categoryFilter, kindFilter, tokensActivated, tokens.length]);
 
   const active = tabs.find((t) => t.id === activeTab) ?? tabs[0];
 
   // Search scoped to the active tab — keeps the filter localized to what's visible.
   const visibleRows = useMemo(() => {
-    if (!active || active.id === "custom") return [];
+    if (!active || active.id === "custom" || active.id === "tokens") return [];
     const items = grouped[active.id as AddressCategory] ?? [];
     const q = filter.trim().toLowerCase();
     if (!q) return items;
@@ -116,6 +166,18 @@ export function AddressBookModal({
     );
   }, [active, filter, grouped]);
 
+  const tokenRows = useMemo(() => {
+    if (active?.id !== "tokens") return [] as TokenInfo[];
+    const q = filter.trim().toLowerCase();
+    if (!q) return tokens;
+    return tokens.filter(
+      (t) =>
+        t.symbol.toLowerCase().includes(q) ||
+        t.name.toLowerCase().includes(q) ||
+        t.address.toLowerCase().includes(q)
+    );
+  }, [active, filter, tokens]);
+
   const draftAddressValid = ADDRESS_REGEX.test(draft.address.trim());
   const draftAddressIsKnown =
     draftAddressValid &&
@@ -125,6 +187,19 @@ export function AddressBookModal({
 
   function handlePick(entry: AddressBookEntry) {
     onSelect(entry);
+    onClose();
+  }
+
+  function handlePickToken(t: TokenInfo) {
+    const checksummed = ethers.utils.getAddress(t.address);
+    onSelect({
+      id: `tokens:${checksummed.toLowerCase()}`,
+      name: t.symbol,
+      sub: t.name,
+      address: checksummed,
+      category: "tokens",
+      kind: "erc20",
+    });
     onClose();
   }
 
@@ -209,6 +284,7 @@ export function AddressBookModal({
                 setActiveTab(t.id);
                 setFilter("");
                 setAdding(false);
+                if (t.id === "tokens") setTokensActivated(true);
               }}
               data-testid={`abk-tab-${t.id}`}
             >
@@ -221,7 +297,7 @@ export function AddressBookModal({
         </div>
 
         {/* Rows pane */}
-        {active && active.id !== "custom" && (
+        {active && active.id !== "custom" && active.id !== "tokens" && (
           <div className="bb-tpm-pane">
             <div className="bb-tpm-pane-sub">{active.sub}</div>
             <div className="bb-tpm-rows">
@@ -257,6 +333,10 @@ export function AddressBookModal({
                     </div>
                     <span className="bb-tpm-row-tag">{b.kind}</span>
                     <span className="bb-tpm-row-acts" onClick={(e) => e.stopPropagation()}>
+                      <CopyButton value={b.address} ariaLabel="Copy address" />
+                      {explorerBase && (
+                        <ExplorerIconButton href={buildExplorerAddressLink(b.address, explorerBase)} />
+                      )}
                       {b.removable && (
                         <button
                           type="button"
@@ -350,6 +430,63 @@ export function AddressBookModal({
           </div>
         )}
 
+        {/* Tokens pane — lazy-loaded ERC-20s from the curated coingecko list
+            (same source as TokenSelect). Selection wraps as an AddressBookEntry
+            with kind "erc20" so downstream consumers stay uniform. */}
+        {active && active.id === "tokens" && (
+          <div className="bb-tpm-pane">
+            <div className="bb-tpm-pane-sub">{active.sub}</div>
+            <div className="bb-tpm-rows">
+              {tokensLoading ? (
+                <div className="bb-tpm-empty">
+                  <div className="bb-tpm-empty-title">Loading tokens…</div>
+                </div>
+              ) : tokenRows.length === 0 ? (
+                <div className="bb-tpm-empty">
+                  <div className="bb-tpm-empty-title">
+                    {filter ? "No matches" : "No tokens available for this chain"}
+                  </div>
+                </div>
+              ) : (
+                tokenRows.map((t) => (
+                  <button
+                    key={t.address}
+                    type="button"
+                    className="bb-tpm-row"
+                    onClick={() => handlePickToken(t)}
+                    data-testid={`abk-row-token`}
+                  >
+                    {t.logoURI ? (
+                      <img
+                        src={t.logoURI}
+                        alt=""
+                        width={28}
+                        height={28}
+                        style={{ borderRadius: "50%", background: "var(--colors-border)" }}
+                      />
+                    ) : (
+                      <AddrAvatar address={t.address} name={t.symbol} size={28} />
+                    )}
+                    <div className="bb-tpm-row-k">
+                      <span className="bb-tpm-row-name">{t.symbol}</span>
+                      <span className="bb-tpm-row-sub">
+                        {t.name} · <span className="bb-mono">{shortAddress(t.address)}</span>
+                      </span>
+                    </div>
+                    <span className="bb-tpm-row-tag">erc20</span>
+                    <span className="bb-tpm-row-acts" onClick={(e) => e.stopPropagation()}>
+                      <CopyButton value={t.address} ariaLabel="Copy token address" />
+                      {explorerBase && (
+                        <ExplorerIconButton href={buildExplorerAddressLink(t.address, explorerBase)} />
+                      )}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Custom-paste pane */}
         {active && active.id === "custom" && (
           <div className="bb-tpm-pane">
@@ -359,9 +496,8 @@ export function AddressBookModal({
             <div className="bb-tpm-custom">
               <div className="bb-field bb-full">
                 <label>Address</label>
-                <Input
+                <AddressInput
                   className="bb-input bb-mono"
-                  placeholder="0x…"
                   value={customAddress}
                   onChange={(e) => setCustomAddress(e.target.value)}
                 />

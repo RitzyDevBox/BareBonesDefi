@@ -140,12 +140,19 @@ const EMPTY_STATE: MtaStateView = {
   error: null,
 };
 
-export function useMtaState(slug: string): MtaStateView {
+export function useMtaState(slug: string, governanceTokenAddress?: string): MtaStateView {
   const { provider, chainId } = useWalletProvider();
   const { version } = useTxRefresh();
   const [state, setState] = useState<MtaStateView>(EMPTY_STATE);
 
-  const knownContracts = useMemo(() => getKnownContracts(chainId), [chainId]);
+  // Per-DAO governance token folded into the chain-wide known list so the
+  // permission rows resolve to "Governance Token · transfer" etc. instead of
+  // "External · 0x…". Governor/timelock are deliberately omitted — they're
+  // not MTA-manageable, so they can't be permission targets.
+  const knownContracts = useMemo(
+    () => getKnownContracts(chainId, { token: governanceTokenAddress || undefined }),
+    [chainId, governanceTokenAddress],
+  );
 
   // Build a `(target -> { name, fnsBySig: Record<sig, name> })` index once
   // per chain, used to derive permission display names.
