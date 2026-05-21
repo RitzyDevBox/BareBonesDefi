@@ -1,6 +1,14 @@
+import fs from "node:fs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
+
+const tlsKey = process.env.LOCAL_TLS_KEY;
+const tlsCert = process.env.LOCAL_TLS_CERT;
+const httpsConfig =
+  tlsKey && tlsCert
+    ? { key: fs.readFileSync(tlsKey), cert: fs.readFileSync(tlsCert) }
+    : undefined;
 
 export default defineConfig(({ command }) => ({
   plugins: [
@@ -17,6 +25,7 @@ export default defineConfig(({ command }) => ({
 
   server: {
     cors: command === "serve",
+    ...(httpsConfig ? { https: httpsConfig } : {}),
   },
 
   build: {

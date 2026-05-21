@@ -12,6 +12,7 @@ import { buildExplorerAddressLink } from "../../utils/explorerLinks";
 import { faucetAnvil } from "../../utils/faucetUtils";
 import { toastStore } from "../Toasts/toast.store";
 import { ToastBehavior, ToastPosition, ToastType } from "../Toasts/toast.types";
+import { useApiAuth } from "../../hooks/useApiAuth";
 
 interface WalletAccountSheetProps {
   open: boolean;
@@ -52,8 +53,11 @@ export function WalletAccountSheet({
 
   const [subPicker, setSubPicker] = useState<SubPicker>("none");
   const [faucetBusy, setFaucetBusy] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailDraft, setEmailDraft] = useState("");
 
   const { activeOrgSlug, setActiveOrgSlug, ownedOrgs, loadingOwnedOrgs } = useActiveOrganization();
+  const { user, isSignedIn, loading: apiAuthLoading, signIn, signOut, setEmail } = useApiAuth();
 
   const allChains = Object.values(CHAIN_INFO_MAP);
   const visibleChains = showTestnets ? allChains : allChains.filter((c) => !c.testnet);
@@ -255,10 +259,153 @@ export function WalletAccountSheet({
     <span style={{ color: "var(--bb-text-mute)" }}>No organization</span>
   );
 
+  // Identity row — three states (see `identityRow` below):
+  //   - not signed in: tap to start SIWE
+  //   - signed in, display: shows email (or "Click to add email"); tap → edit
+  //   - signed in, editing: inline input + Save / Cancel
+  function startEditingEmail() {
+    setEmailDraft(user?.email ?? "");
+    setEditingEmail(true);
+  }
+
+  function cancelEditingEmail() {
+    setEditingEmail(false);
+    setEmailDraft("");
+  }
+
+  async function saveEmail() {
+    const trimmed = emailDraft.trim();
+    try {
+      await setEmail(trimmed === "" ? null : trimmed);
+      setEditingEmail(false);
+      setEmailDraft("");
+    } catch {
+      toastStore.show({
+        id: `email-err-${Date.now()}`,
+        title: "Couldn't save email",
+        message: "Check the address format and try again.",
+        type: ToastType.Error,
+        behavior: ToastBehavior.AutoClose,
+        durationMs: 5000,
+        position: ToastPosition.Top,
+      });
+    }
+  }
+
+  // Sub-styles for the inline-edit variant of the identity row. Built to
+  // visually match `summaryRow` so the row looks like the existing Network /
+  // Organization rows when not editing, and stays the same shape when it is.
+  const identityEditRowStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    width: "100%",
+    padding: "10px 12px",
+    border: "1px solid var(--bb-line)",
+    borderRadius: 10,
+    background: "var(--bb-bg-elev-2)",
+  };
+
+  const emailInputStyle: React.CSSProperties = {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "6px 8px",
+    fontSize: 14,
+    color: "var(--bb-text)",
+    background: "var(--bb-bg)",
+    border: "1px solid var(--bb-line)",
+    borderRadius: 6,
+    fontFamily: "inherit",
+    outline: "none",
+  };
+
+  const identityRow: React.ReactNode = (() => {
+    if (!isSignedIn) {
+      return summaryRow(
+        "Account",
+        <span style={{ color: "var(--bb-text-mute)" }}>
+          {apiAuthLoading ? "Signing in…" : "Sign in with wallet"}
+        </span>,
+        () => signIn(),
+        apiAuthLoading,
+      );
+    }
+    if (editingEmail) {
+      return (
+        <div style={identityEditRowStyle}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 }}>
+            <span
+              className="bb-mono"
+              style={{
+                fontSize: 10,
+                color: "var(--bb-text-mute)",
+                textTransform: "uppercase",
+                letterSpacing: ".12em",
+              }}
+            >
+              Email
+            </span>
+            <input
+              type="email"
+              autoFocus
+              value={emailDraft}
+              placeholder="you@example.com"
+              onChange={(e) => setEmailDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void saveEmail();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelEditingEmail();
+                }
+              }}
+              disabled={apiAuthLoading}
+              style={emailInputStyle}
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+            <button
+              type="button"
+              className="bb-btn-ghost"
+              onClick={() => void saveEmail()}
+              disabled={apiAuthLoading}
+              style={{ padding: "4px 10px", fontSize: 12 }}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              className="bb-btn-ghost"
+              onClick={cancelEditingEmail}
+              disabled={apiAuthLoading}
+              style={{ padding: "4px 10px", fontSize: 12 }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return summaryRow(
+      "Email",
+      user?.email ? (
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {user.email}
+        </span>
+      ) : (
+        <span style={{ color: "var(--bb-text-mute)" }}>Click to add email</span>
+      ),
+      startEditingEmail,
+      apiAuthLoading,
+    );
+  })();
+
   const mainBody = (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {heroSection}
 
+      {identityRow}
       {summaryRow("Network", networkValue, () => setSubPicker("chain"))}
       {summaryRow("Organization", orgValue, () => setSubPicker("organization"))}
 
@@ -305,6 +452,10 @@ export function WalletAccountSheet({
           type="button"
           className="bb-btn-ghost"
           onClick={async () => {
+            // Sign out of the API session at the same time as disconnecting
+            // the wallet. The JWT is bound to this wallet anyway, so leaving
+            // it in storage would just be stale.
+            signOut();
             await onDisconnect();
             closeAll();
           }}

@@ -9,6 +9,7 @@ import { AppThemeProvider } from "./themes/AppThemeProvider";
 import "./app.css";
 import { WalletProvider } from "./hooks/providers/WalletContext";
 import { WalletConnectProvider } from "./components/WalletConnect/WalletConnectProvider";
+import { ApiAuthProvider } from "./hooks/providers/ApiAuthContext";
 import { Buffer } from "buffer";
 import { TxRefreshProvider } from "./providers/TxRefreshProvider";
 
@@ -19,13 +20,15 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <TxRefreshProvider>
       <WalletProvider>
-        <WalletConnectProvider>
-          <ThemeModeProvider>
-            <AppThemeProvider>
-              <RouterProvider router={router} />
-            </AppThemeProvider>
-          </ThemeModeProvider>
-        </WalletConnectProvider>
+        <ApiAuthProvider>
+          <WalletConnectProvider>
+            <ThemeModeProvider>
+              <AppThemeProvider>
+                <RouterProvider router={router} />
+              </AppThemeProvider>
+            </ThemeModeProvider>
+          </WalletConnectProvider>
+        </ApiAuthProvider>
       </WalletProvider>
     </TxRefreshProvider>
   </React.StrictMode>
