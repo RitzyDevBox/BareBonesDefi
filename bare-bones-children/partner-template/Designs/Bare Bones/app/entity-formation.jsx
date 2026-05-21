@@ -4,11 +4,30 @@
 const EF_STEPS = [
   { id: 'eligibility', label: 'Eligibility',         sub: 'On-chain prerequisites' },
   { id: 'basics',      label: 'Entity basics',       sub: 'Name + management' },
+  { id: 'organizer',   label: 'Organizer & contact', sub: 'Principal office + filer' },
   { id: 'contract',    label: 'Smart contract',      sub: 'Canonical identifier' },
   { id: 'agent',       label: 'Registered agent',    sub: 'In-state address' },
   { id: 'agreement',   label: 'Operating agreement', sub: 'On + off-chain rules' },
   { id: 'notice',      label: 'Member notice',       sub: 'Statutory disclosure' },
   { id: 'review',      label: 'Review & file',       sub: 'Submit to Wyoming' },
+];
+
+// Country dial codes for the phone-number picker. Curated short list — covers
+// the 12 jurisdictions most likely to host a DAO LLC organizer. ISO-3166-1
+// alpha-2 paired with E.164 country code.
+const EF_DIAL_CODES = [
+  { iso: 'US', code: '+1',   flag: '🇺🇸', name: 'United States' },
+  { iso: 'CA', code: '+1',   flag: '🇨🇦', name: 'Canada' },
+  { iso: 'GB', code: '+44',  flag: '🇬🇧', name: 'United Kingdom' },
+  { iso: 'DE', code: '+49',  flag: '🇩🇪', name: 'Germany' },
+  { iso: 'FR', code: '+33',  flag: '🇫🇷', name: 'France' },
+  { iso: 'CH', code: '+41',  flag: '🇨🇭', name: 'Switzerland' },
+  { iso: 'SG', code: '+65',  flag: '🇸🇬', name: 'Singapore' },
+  { iso: 'AE', code: '+971', flag: '🇦🇪', name: 'UAE' },
+  { iso: 'AU', code: '+61',  flag: '🇦🇺', name: 'Australia' },
+  { iso: 'JP', code: '+81',  flag: '🇯🇵', name: 'Japan' },
+  { iso: 'BR', code: '+55',  flag: '🇧🇷', name: 'Brazil' },
+  { iso: 'PT', code: '+351', flag: '🇵🇹', name: 'Portugal' },
 ];
 
 const EF_AGENTS = [
@@ -430,6 +449,163 @@ function useEntityFormationStyles() {
         padding: 10px 12px;
         border-radius: 8px;
       }
+
+      /* --- Organizer step: 2 contact forms side-by-side --- */
+      .ef-forms {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 980px) { .ef-forms { grid-template-columns: 1fr; } }
+      .ef-form {
+        display: flex; flex-direction: column;
+        background: var(--bg-elev-2);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .ef-form-head {
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+        padding: 16px 18px 14px;
+        border-bottom: 1px solid var(--line);
+        background: var(--bg-elev);
+      }
+      .ef-form-head-k { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+      .ef-form-kicker {
+        font-family: var(--font-mono); font-size: 10.5px;
+        color: var(--text-mute); text-transform: uppercase; letter-spacing: .12em;
+      }
+      .ef-form-title {
+        font-family: var(--font-display);
+        font-size: 16px; font-weight: 500; letter-spacing: -0.005em;
+        color: var(--text);
+      }
+      .ef-form-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+
+      .ef-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .ef-row-3 { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 10px; }
+      @media (max-width: 520px) {
+        .ef-row-2, .ef-row-3 { grid-template-columns: 1fr; }
+      }
+
+      /* Phone input — dial-code dropdown + number */
+      .ef-phone {
+        display: grid;
+        grid-template-columns: 112px 1fr;
+        gap: 0;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+        transition: border-color .15s;
+      }
+      .ef-phone:focus-within { border-color: var(--accent); }
+      .ef-phone-dial {
+        position: relative;
+        display: flex; align-items: center; gap: 6px;
+        padding: 0 10px;
+        height: 40px;
+        background: var(--bg-elev);
+        border-right: 1px solid var(--line);
+        cursor: pointer;
+        font-size: 13px;
+        color: var(--text);
+      }
+      .ef-phone-dial-wrap { position: relative; }
+      .ef-phone-dial-wrap > .ef-phone-dial { width: 100%; height: 100%; }
+      .ef-phone-dial-flag { font-size: 15px; line-height: 1; }
+      .ef-phone-dial-code { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-dim); }
+      .ef-phone-dial-caret { margin-left: auto; color: var(--text-mute); }
+      .ef-phone-dial-pop {
+        position: absolute; top: calc(100% + 4px); left: 0;
+        min-width: 220px; max-height: 260px; overflow-y: auto;
+        background: var(--bg-elev);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px -12px rgba(0,0,0,.5);
+        z-index: 10;
+        padding: 4px;
+      }
+      .ef-phone-dial-item {
+        display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center;
+        padding: 7px 10px; border-radius: 6px;
+        cursor: pointer;
+        color: var(--text);
+        font-size: 13px;
+        text-align: left;
+        background: transparent;
+        width: 100%;
+      }
+      .ef-phone-dial-item:hover { background: var(--bg-elev-2); }
+      .ef-phone-dial-item.on { background: color-mix(in oklab, var(--accent) 10%, var(--bg-elev-2)); }
+      .ef-phone-dial-item-name { font-size: 12.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ef-phone-dial-item-code { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-mute); }
+      .ef-phone-num {
+        height: 40px; border: 0; background: transparent;
+        padding: 0 12px;
+        font-family: var(--font-mono); font-size: 13.5px;
+        color: var(--text);
+      }
+      .ef-phone-num:focus { outline: none; }
+
+      /* Same-as helper row */
+      .ef-sameas {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 18px;
+        background: var(--bg-elev);
+        border-bottom: 1px solid var(--line);
+        font-size: 12.5px;
+        color: var(--text-dim);
+      }
+      .ef-sameas-toggle {
+        --w: 32px;
+        --h: 18px;
+        width: var(--w); height: var(--h);
+        border-radius: 999px;
+        background: var(--bg-elev-2);
+        border: 1px solid var(--line);
+        position: relative;
+        cursor: pointer;
+        transition: background .15s, border-color .15s;
+        flex-shrink: 0;
+      }
+      .ef-sameas-toggle::after {
+        content: '';
+        position: absolute; top: 1px; left: 1px;
+        width: calc(var(--h) - 4px); height: calc(var(--h) - 4px);
+        border-radius: 50%;
+        background: var(--text-dim);
+        transition: transform .15s, background .15s;
+      }
+      .ef-sameas-toggle.on { background: color-mix(in oklab, var(--accent) 35%, var(--bg-elev-2)); border-color: var(--accent); }
+      .ef-sameas-toggle.on::after { transform: translateX(calc(var(--w) - var(--h))); background: var(--accent); }
+
+      /* Role select */
+      .ef-select {
+        height: 40px;
+        padding: 0 30px 0 12px;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        font-size: 14px;
+        color: var(--text);
+        appearance: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M3 4.5 6 7.5 9 4.5' fill='none' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+      }
+      .ef-select:focus { outline: none; border-color: var(--accent); }
+
+      /* Compact statutory hint pill */
+      .ef-stat-pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 3px 9px; border-radius: 999px;
+        font-family: var(--font-mono); font-size: 10.5px;
+        text-transform: uppercase; letter-spacing: .08em;
+        background: var(--bg-elev-2);
+        border: 1px solid var(--line);
+        color: var(--text-mute);
+      }
     `;
     document.head.appendChild(s);
   }, []);
@@ -458,6 +634,40 @@ function EntityFormation({ chain, wallet, onConnect, activeDao }) {
   const [name, setName] = React.useState(`${activeDao?.name || 'Acme'} DAO LLC`);
   const [mgmt, setMgmt] = React.useState('member');
   const [contractAddr, setContractAddr] = React.useState(activeDao?.governor?.address || '0x7B4f29ae8E1d2F90c4f8B3A6E0D3B25a91A5D921');
+
+  // Organizer / contact state
+  // - org:        principal office (the LLC itself)
+  // - mailingSame: when false, separate mailing/legal address fields show
+  // - mailing:    populated only when mailingSame === false
+  // - filer:      the human submitting the filing on behalf of the org
+  // - filerSame:  reuses org's email/phone for the filer
+  const [org, setOrg] = React.useState({
+    street1: '',
+    street2: '',
+    city: '',
+    region: '',
+    postal: '',
+    country: 'US',
+    email: '',
+    phoneDial: '+1',
+    phoneIso: 'US',
+    phoneNum: '',
+  });
+  const [mailingSame, setMailingSame] = React.useState(true);
+  const [mailing, setMailing] = React.useState({
+    street1: '', street2: '', city: '', region: '', postal: '', country: 'US',
+  });
+  const [filer, setFiler] = React.useState({
+    first: '',
+    last: '',
+    role: 'member',
+    email: '',
+    phoneDial: '+1',
+    phoneIso: 'US',
+    phoneNum: '',
+  });
+  const [filerSame, setFilerSame] = React.useState(false);
+
   const [agentMode, setAgentMode] = React.useState('service');
   const [agentId, setAgentId] = React.useState('cloudpeak');
   const [agentCustom, setAgentCustom] = React.useState({ name: '', street: '', city: 'Cheyenne', zip: '82001' });
@@ -524,11 +734,12 @@ function EntityFormation({ chain, wallet, onConnect, activeDao }) {
           <div>
             {step === 'eligibility' && <Ef_Eligibility activeDao={activeDao} wallet={wallet} onNext={nextStep} />}
             {step === 'basics'      && <Ef_Basics name={name} setName={setName} mgmt={mgmt} setMgmt={setMgmt} onPrev={prevStep} onNext={nextStep} />}
+            {step === 'organizer'   && <Ef_Organizer org={org} setOrg={setOrg} mailingSame={mailingSame} setMailingSame={setMailingSame} mailing={mailing} setMailing={setMailing} filer={filer} setFiler={setFiler} filerSame={filerSame} setFilerSame={setFilerSame} onPrev={prevStep} onNext={nextStep} />}
             {step === 'contract'    && <Ef_Contract activeDao={activeDao} chain={chain} contractAddr={contractAddr} setContractAddr={setContractAddr} onPrev={prevStep} onNext={nextStep} />}
             {step === 'agent'       && <Ef_Agent agentMode={agentMode} setAgentMode={setAgentMode} agentId={agentId} setAgentId={setAgentId} agentCustom={agentCustom} setAgentCustom={setAgentCustom} onPrev={prevStep} onNext={nextStep} />}
             {step === 'agreement'   && <Ef_Agreement activeDao={activeDao} src={agreementSrc} setSrc={setAgreementSrc} storage={agreementStorage} setStorage={setAgreementStorage} onPrev={prevStep} onNext={nextStep} />}
             {step === 'notice'      && <Ef_Notice activeDao={activeDao} notice={notice} setNotice={setNotice} onPrev={prevStep} onNext={nextStep} />}
-            {step === 'review'      && <Ef_Review name={name} mgmt={mgmt} contractAddr={contractAddr} chain={chain} agent={agent} agentMode={agentMode} agreementStorage={agreementStorage} filed={filed} setFiled={setFiled} onPrev={prevStep} onEdit={goStep} />}
+            {step === 'review'      && <Ef_Review name={name} mgmt={mgmt} contractAddr={contractAddr} chain={chain} agent={agent} agentMode={agentMode} agreementStorage={agreementStorage} org={org} mailing={mailing} mailingSame={mailingSame} filer={filer} filerSame={filerSame} filed={filed} setFiled={setFiled} onPrev={prevStep} onEdit={goStep} />}
           </div>
         </div>
       </section>
@@ -621,7 +832,7 @@ function Ef_Eligibility({ activeDao, wallet, onNext }) {
   ];
   return (
     <div className="ef-card">
-      <StepCardHead step={0} total={6} title="Eligibility check" lede="Confirm your on-chain org has everything Wyoming needs to recognize it as a DAO LLC." />
+      <StepCardHead step={0} total={7} title="Eligibility check" lede="Confirm your on-chain org has everything Wyoming needs to recognize it as a DAO LLC." />
       <div className="ef-card-body">
         <div className="ef-section">
           <div className="ef-section-head">On-chain prerequisites · {checks.filter(c => c.ok).length} of {checks.length} passing</div>
@@ -655,7 +866,7 @@ function Ef_Basics({ name, setName, mgmt, setMgmt, onPrev, onNext }) {
   const valid = efHasDesignator(name);
   return (
     <div className="ef-card">
-      <StepCardHead step={1} total={6} title="Entity basics" lede="The legal name on file with Wyoming, and how the LLC declares itself managed." />
+      <StepCardHead step={1} total={7} title="Entity basics" lede="The legal name on file with Wyoming, and how the LLC declares itself managed." />
       <div className="ef-card-body">
         <div className="ef-section">
           <div className="ef-section-head">Legal name</div>
@@ -692,6 +903,308 @@ function Ef_Basics({ name, setName, mgmt, setMgmt, onPrev, onNext }) {
   );
 }
 
+// ---------------------------------------------------------
+// Organizer / Contact step
+// ---------------------------------------------------------
+// Two contact forms on one card:
+//   1. Principal office — the LLC's own address + business email/phone (with
+//      an optional separate mailing/legal address)
+//   2. Organizer / filer — the human submitting the filing, with a
+//      "same as principal office contact" helper to skip re-typing
+// Phone fields use a curated dial-code dropdown (US default; 11 other common
+// jurisdictions). Validation: any required field is just a presence check;
+// emails get a basic shape check.
+
+function EfPhoneInput({ value, onChange, placeholder }) {
+  // value: { phoneDial, phoneIso, phoneNum }
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+  const current = EF_DIAL_CODES.find(d => d.iso === value.phoneIso) || EF_DIAL_CODES[0];
+  return (
+    <div className="ef-phone" ref={ref}>
+      <div className="ef-phone-dial-wrap">
+        <button type="button" className="ef-phone-dial" onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open}>
+          <span className="ef-phone-dial-flag">{current.flag}</span>
+          <span className="ef-phone-dial-code">{current.code}</span>
+          <svg className="ef-phone-dial-caret" width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M3 4.5 6 7.5 9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        {open && (
+          <div className="ef-phone-dial-pop" role="listbox">
+            {EF_DIAL_CODES.map(d => (
+              <button
+                key={d.iso}
+                type="button"
+                role="option"
+                aria-selected={d.iso === current.iso}
+                className={`ef-phone-dial-item ${d.iso === current.iso ? 'on' : ''}`}
+                onClick={() => { onChange({ ...value, phoneDial: d.code, phoneIso: d.iso }); setOpen(false); }}
+              >
+                <span style={{ fontSize: 15, lineHeight: 1 }}>{d.flag}</span>
+                <span className="ef-phone-dial-item-name">{d.name}</span>
+                <span className="ef-phone-dial-item-code">{d.code}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <input
+        className="ef-phone-num"
+        inputMode="tel"
+        placeholder={placeholder || '555 123 4567'}
+        value={value.phoneNum}
+        onChange={e => onChange({ ...value, phoneNum: e.target.value })}
+      />
+    </div>
+  );
+}
+
+function Ef_Organizer({ org, setOrg, mailingSame, setMailingSame, mailing, setMailing, filer, setFiler, filerSame, setFilerSame, onPrev, onNext }) {
+  const validEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s || '');
+  const orgOk = org.street1 && org.city && org.region && org.postal && validEmail(org.email) && org.phoneNum.length >= 6;
+  const mailingOk = mailingSame || (mailing.street1 && mailing.city && mailing.region && mailing.postal);
+  const filerOk = filerSame
+    ? (filer.first && filer.last)
+    : (filer.first && filer.last && validEmail(filer.email) && filer.phoneNum.length >= 6);
+  const allOk = orgOk && mailingOk && filerOk;
+
+  const updateOrg = (patch) => setOrg({ ...org, ...patch });
+  const updateMailing = (patch) => setMailing({ ...mailing, ...patch });
+  const updateFiler = (patch) => setFiler({ ...filer, ...patch });
+
+  // Mirror org email/phone into filer when "same as" is on, so the review
+  // page renders a populated row instead of an empty placeholder.
+  React.useEffect(() => {
+    if (filerSame) {
+      setFiler(f => ({
+        ...f,
+        email: org.email,
+        phoneDial: org.phoneDial,
+        phoneIso: org.phoneIso,
+        phoneNum: org.phoneNum,
+      }));
+    }
+  }, [filerSame, org.email, org.phoneDial, org.phoneIso, org.phoneNum]);
+
+  return (
+    <div className="ef-card">
+      <StepCardHead
+        step={2}
+        total={7}
+        title="Organizer & contact"
+        lede="Wyoming requires the LLC's principal office and the person filing on its behalf. Both go on the public record; only the organizer signs."
+      />
+      <div className="ef-card-body">
+        <div className="ef-forms">
+
+          {/* -------- Form 1: Principal office -------- */}
+          <section className="ef-form">
+            <div className="ef-form-head">
+              <div className="ef-form-head-k">
+                <div className="ef-form-kicker">Form 1 of 2</div>
+                <div className="ef-form-title">Principal office</div>
+              </div>
+              <span className="ef-stat-pill">W.S. 17-29-201(a)(iii)</span>
+            </div>
+            <div className="ef-form-body">
+              <div className="field full">
+                <label>Street address</label>
+                <input className="input" placeholder="118 W 23rd St" value={org.street1} onChange={e => updateOrg({ street1: e.target.value })} />
+              </div>
+              <div className="field full">
+                <label>Suite / unit (optional)</label>
+                <input className="input" placeholder="Floor 4" value={org.street2} onChange={e => updateOrg({ street2: e.target.value })} />
+              </div>
+              <div className="ef-row-3">
+                <div className="field">
+                  <label>City</label>
+                  <input className="input" placeholder="Cheyenne" value={org.city} onChange={e => updateOrg({ city: e.target.value })} />
+                </div>
+                <div className="field">
+                  <label>State / region</label>
+                  <input className="input" placeholder="WY" value={org.region} onChange={e => updateOrg({ region: e.target.value })} />
+                </div>
+                <div className="field">
+                  <label>Postal</label>
+                  <input className="input mono" placeholder="82001" value={org.postal} onChange={e => updateOrg({ postal: e.target.value })} />
+                </div>
+              </div>
+              <div className="field full">
+                <label>Country</label>
+                <select className="ef-select" value={org.country} onChange={e => updateOrg({ country: e.target.value })}>
+                  <option value="US">United States</option>
+                  <option value="CA">Canada</option>
+                  <option value="GB">United Kingdom</option>
+                  <option value="DE">Germany</option>
+                  <option value="CH">Switzerland</option>
+                  <option value="SG">Singapore</option>
+                  <option value="AE">United Arab Emirates</option>
+                  <option value="other">Other…</option>
+                </select>
+                <div className="field-hint">Principal office may be outside Wyoming. Registered agent must be in-state (next step).</div>
+              </div>
+
+              <div className="field full">
+                <label>Business email</label>
+                <input
+                  className="input"
+                  type="email"
+                  placeholder="filings@your-dao.xyz"
+                  value={org.email}
+                  onChange={e => updateOrg({ email: e.target.value })}
+                  aria-invalid={org.email && !validEmail(org.email)}
+                />
+                <div className="field-hint">Statutory notices from Wyoming SOS land here.</div>
+              </div>
+
+              <div className="field full">
+                <label>Business phone</label>
+                <EfPhoneInput value={org} onChange={updateOrg} placeholder="555 123 4567" />
+              </div>
+            </div>
+          </section>
+
+          {/* -------- Form 2: Organizer / filer -------- */}
+          <section className="ef-form">
+            <div className="ef-form-head">
+              <div className="ef-form-head-k">
+                <div className="ef-form-kicker">Form 2 of 2</div>
+                <div className="ef-form-title">Organizer (filer)</div>
+              </div>
+              <span className="ef-stat-pill">Signs Articles</span>
+            </div>
+
+            <div className="ef-sameas">
+              <button
+                type="button"
+                className={`ef-sameas-toggle ${filerSame ? 'on' : ''}`}
+                onClick={() => setFilerSame(!filerSame)}
+                aria-pressed={filerSame}
+              ></button>
+              <span>Use principal office email & phone for the organizer</span>
+            </div>
+
+            <div className="ef-form-body">
+              <div className="ef-row-2">
+                <div className="field">
+                  <label>First name</label>
+                  <input className="input" placeholder="Jane" value={filer.first} onChange={e => updateFiler({ first: e.target.value })} />
+                </div>
+                <div className="field">
+                  <label>Last name</label>
+                  <input className="input" placeholder="Eberhardt" value={filer.last} onChange={e => updateFiler({ last: e.target.value })} />
+                </div>
+              </div>
+              <div className="field full">
+                <label>Capacity / role</label>
+                <select className="ef-select" value={filer.role} onChange={e => updateFiler({ role: e.target.value })}>
+                  <option value="member">Member</option>
+                  <option value="manager">Manager</option>
+                  <option value="attorney">Attorney</option>
+                  <option value="agent">Formation agent</option>
+                  <option value="other">Other authorized person</option>
+                </select>
+              </div>
+              <div className="field full">
+                <label>Email</label>
+                <input
+                  className="input"
+                  type="email"
+                  placeholder="jane@your-dao.xyz"
+                  value={filer.email}
+                  onChange={e => updateFiler({ email: e.target.value })}
+                  disabled={filerSame}
+                  aria-invalid={filer.email && !validEmail(filer.email)}
+                  style={filerSame ? { opacity: .55 } : null}
+                />
+              </div>
+              <div className="field full">
+                <label>Phone</label>
+                {filerSame ? (
+                  <div className="ef-pre" style={{ height: 40, display: 'flex', alignItems: 'center' }}>
+                    {filer.phoneDial} {filer.phoneNum || <span style={{ marginLeft: 4 }}>(uses business phone)</span>}
+                  </div>
+                ) : (
+                  <EfPhoneInput value={filer} onChange={updateFiler} placeholder="555 123 4567" />
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* -------- Mailing / legal address (collapsible) -------- */}
+        <div className="ef-section" style={{ marginTop: 22 }}>
+          <div className="ef-sameas" style={{ borderRadius: 10, border: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
+            <button
+              type="button"
+              className={`ef-sameas-toggle ${mailingSame ? 'on' : ''}`}
+              onClick={() => setMailingSame(!mailingSame)}
+              aria-pressed={mailingSame}
+            ></button>
+            <span>
+              {mailingSame
+                ? 'Mailing / legal address is the same as principal office'
+                : 'Use a separate mailing / legal address'}
+            </span>
+          </div>
+
+          {!mailingSame && (
+            <div className="ef-form" style={{ marginTop: 12 }}>
+              <div className="ef-form-head">
+                <div className="ef-form-head-k">
+                  <div className="ef-form-kicker">Legal correspondence</div>
+                  <div className="ef-form-title">Mailing address</div>
+                </div>
+                <span className="ef-stat-pill">P.O. boxes allowed</span>
+              </div>
+              <div className="ef-form-body">
+                <div className="field full">
+                  <label>Street address</label>
+                  <input className="input" placeholder="P.O. Box 4421" value={mailing.street1} onChange={e => updateMailing({ street1: e.target.value })} />
+                </div>
+                <div className="ef-row-3">
+                  <div className="field">
+                    <label>City</label>
+                    <input className="input" value={mailing.city} onChange={e => updateMailing({ city: e.target.value })} />
+                  </div>
+                  <div className="field">
+                    <label>State / region</label>
+                    <input className="input" value={mailing.region} onChange={e => updateMailing({ region: e.target.value })} />
+                  </div>
+                  <div className="field">
+                    <label>Postal</label>
+                    <input className="input mono" value={mailing.postal} onChange={e => updateMailing({ postal: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <StepCardFoot
+        onPrev={onPrev}
+        onNext={onNext}
+        nextDisabled={!allOk}
+        hint={
+          allOk
+            ? 'Both forms complete'
+            : !orgOk
+              ? 'Complete the principal office form'
+              : !mailingOk
+                ? 'Complete the mailing address'
+                : 'Complete the organizer form'
+        }
+      />
+    </div>
+  );
+}
+
 function Ef_Contract({ activeDao, chain, contractAddr, setContractAddr, onPrev, onNext }) {
   const valid = /^0x[a-fA-F0-9]{40}$/.test(contractAddr);
   const supporting = [
@@ -701,7 +1214,7 @@ function Ef_Contract({ activeDao, chain, contractAddr, setContractAddr, onPrev, 
   ];
   return (
     <div className="ef-card">
-      <StepCardHead step={2} total={6} title="Smart contract bind" lede="Declare the on-chain identifier Wyoming will treat as the canonical DAO contract. Filed once; changes require an amendment." />
+      <StepCardHead step={3} total={7} title="Smart contract bind" lede="Declare the on-chain identifier Wyoming will treat as the canonical DAO contract. Filed once; changes require an amendment." />
       <div className="ef-card-body">
         <div className="ef-section">
           <div className="ef-section-head">Canonical identifier</div>
@@ -741,7 +1254,7 @@ function Ef_Contract({ activeDao, chain, contractAddr, setContractAddr, onPrev, 
 function Ef_Agent({ agentMode, setAgentMode, agentId, setAgentId, agentCustom, setAgentCustom, onPrev, onNext }) {
   return (
     <div className="ef-card">
-      <StepCardHead step={3} total={6} title="Registered agent" lede="Wyoming requires an in-state recipient for legal mail. Most filers use a service; the cheapest is $49/yr." />
+      <StepCardHead step={4} total={7} title="Registered agent" lede="Wyoming requires an in-state recipient for legal mail. Most filers use a service; the cheapest is $49/yr." />
       <div className="ef-card-body">
         <div className="ef-section">
           <div className="ef-section-head">Source</div>
@@ -809,7 +1322,7 @@ function Ef_Agreement({ activeDao, src, setSrc, storage, setStorage, onPrev, onN
   ];
   return (
     <div className="ef-card">
-      <StepCardHead step={4} total={6} title="Operating agreement" lede="W.S. 17-31-104 lets smart contracts substitute for parts of the agreement, but a written companion is still expected for dissolution, taxes, and dispute venue." />
+      <StepCardHead step={5} total={7} title="Operating agreement" lede="W.S. 17-31-104 lets smart contracts substitute for parts of the agreement, but a written companion is still expected for dissolution, taxes, and dispute venue." />
       <div className="ef-card-body">
         <div className="ef-section">
           <div className="ef-section-head">Source</div>
@@ -883,7 +1396,7 @@ function Ef_Agreement({ activeDao, src, setSrc, storage, setStorage, onPrev, onN
 function Ef_Notice({ activeDao, notice, setNotice, onPrev, onNext }) {
   return (
     <div className="ef-card">
-      <StepCardHead step={5} total={6} title="Member notice" lede="Wyoming statute § 17-31-114 requires DAO LLCs disclose risks members face that wouldn't apply to a traditional LLC." />
+      <StepCardHead step={6} total={7} title="Member notice" lede="Wyoming statute § 17-31-114 requires DAO LLCs disclose risks members face that wouldn't apply to a traditional LLC." />
       <div className="ef-card-body">
         <div className="ef-notice">
           <div className="ef-notice-h">Notice of Risks — Decentralized Autonomous Organization</div>
@@ -907,7 +1420,7 @@ function Ef_Notice({ activeDao, notice, setNotice, onPrev, onNext }) {
   );
 }
 
-function Ef_Review({ name, mgmt, contractAddr, chain, agent, agentMode, agreementStorage, filed, setFiled, onPrev, onEdit }) {
+function Ef_Review({ name, mgmt, contractAddr, chain, agent, agentMode, agreementStorage, org, mailing, mailingSame, filer, filerSame, filed, setFiled, onPrev, onEdit }) {
   const file = () => {
     setFiled(true);
     window.toast.success('Filing submitted', { description: 'Articles sent to Wyoming SOS. Filing ID arrives in 1–2 days.', duration: 5000 });
@@ -964,6 +1477,10 @@ function Ef_Review({ name, mgmt, contractAddr, chain, agent, agentMode, agreemen
   const summary = [
     { k: 'Name',                v: name,                                                                                                       edit: 'basics' },
     { k: 'Management',          v: mgmt === 'member' ? 'Member-managed' : 'Algorithmically managed',                                            edit: 'basics' },
+    { k: 'Principal office',    v: org.street1 ? `${org.street1}, ${org.city} ${org.region} ${org.postal}` : '— Not set',                       edit: 'organizer' },
+    { k: 'Mailing address',     v: mailingSame ? 'Same as principal office' : (mailing.street1 ? `${mailing.street1}, ${mailing.city} ${mailing.region} ${mailing.postal}` : '— Not set'), edit: 'organizer' },
+    { k: 'Business contact',    v: org.email ? `${org.email} · ${org.phoneDial} ${org.phoneNum}` : '— Not set',                                  edit: 'organizer' },
+    { k: 'Organizer',           v: (filer.first || filer.last) ? `${filer.first} ${filer.last}${filer.role ? ' · ' + filer.role : ''}` : '— Not set', edit: 'organizer' },
     { k: 'Contract',            v: shortAddr(contractAddr),                                                                                     edit: 'contract', mono: true },
     { k: 'Chain',               v: `${chain?.name || 'Polygon'} · ${chain?.chainId || 137}`,                                                    edit: 'contract' },
     { k: 'Registered agent',    v: agentMode === 'service' ? agent?.name : 'Custom (own)',                                                      edit: 'agent' },
@@ -976,7 +1493,7 @@ function Ef_Review({ name, mgmt, contractAddr, chain, agent, agentMode, agreemen
 
   return (
     <div className="ef-card">
-      <StepCardHead step={6} total={6} title="Review and file" lede="A final look at the rendered Articles, side-by-side with the summary and cost." />
+      <StepCardHead step={7} total={7} title="Review and file" lede="A final look at the rendered Articles, side-by-side with the summary and cost." />
       <div className="ef-card-body">
         <div className="ef-review">
           <div className="ef-doc">
@@ -988,23 +1505,40 @@ function Ef_Review({ name, mgmt, contractAddr, chain, agent, agentMode, agreemen
               <div>The name of the entity is <span className="ef-doc-fill">{name}</span>.</div>
             </div>
             <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article II — Management</div>
+              <div className="ef-doc-art-h">Article II — Principal Office</div>
+              <div>
+                The principal office is{' '}
+                <span className="ef-doc-fill">{org.street1 || '[street]'}{org.street2 ? `, ${org.street2}` : ''}, {org.city || '[city]'} {org.region || '[state]'} {org.postal || '[zip]'}</span>.
+                {' '}Contact: <span className="ef-doc-fill">{org.email || '[email]'}</span>,{' '}
+                <span className="ef-doc-fill mono">{org.phoneDial} {org.phoneNum || '[phone]'}</span>.
+              </div>
+            </div>
+            <div className="ef-doc-art">
+              <div className="ef-doc-art-h">Article III — Organizer</div>
+              <div>
+                The organizer of this entity is{' '}
+                <span className="ef-doc-fill">{filer.first || '[first]'} {filer.last || '[last]'}</span>
+                {filer.role ? <>, acting as <span className="ef-doc-fill">{filer.role}</span></> : null}.
+              </div>
+            </div>
+            <div className="ef-doc-art">
+              <div className="ef-doc-art-h">Article IV — Management</div>
               <div>This DAO shall be <span className="ef-doc-fill">{mgmt === 'member' ? 'member-managed' : 'algorithmically managed'}</span>.</div>
             </div>
             <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article III — Smart Contract Identifier</div>
+              <div className="ef-doc-art-h">Article V — Smart Contract Identifier</div>
               <div>The publicly available identifier is <span className="ef-doc-fill mono">{shortAddr(contractAddr, 8, 8)}</span>, deployed on <span className="ef-doc-fill">{chain?.name || 'Polygon'}</span> (chain id <span className="mono">{chain?.chainId || '137'}</span>).</div>
             </div>
             <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article IV — Registered Agent</div>
+              <div className="ef-doc-art-h">Article VI — Registered Agent</div>
               <div><span className="ef-doc-fill">{agentMode === 'service' ? agent.name : 'Self-listed agent'}</span></div>
             </div>
             <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article V — Notice to Members</div>
+              <div className="ef-doc-art-h">Article VII — Notice to Members</div>
               <div>Members are on notice of the risks specified in W.S. 17-31-114.</div>
             </div>
             <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article VI — Operating Agreement</div>
+              <div className="ef-doc-art-h">Article VIII — Operating Agreement</div>
               <div>Referenced at <span className="ef-doc-fill mono">ipfs://QmZ4kP…87qR</span>. Smart contracts may enhance per W.S. 17-31-104.</div>
             </div>
 

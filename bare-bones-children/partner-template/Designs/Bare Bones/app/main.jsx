@@ -25,6 +25,7 @@ function App() {
   const [walletOpen, setWalletOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [createDaoOpen, setCreateDaoOpen] = React.useState(false);
+  const [connectOpen, setConnectOpen] = React.useState(false);
 
   const [daos, setDaos] = React.useState(DAOS_SEED);
   const [activeDaoId, setActiveDaoId] = React.useState(DAOS_SEED[0].id);
@@ -111,20 +112,19 @@ function App() {
     document.body.classList.toggle('mobile-preview', !!tweaks.mobilePreview);
   }, [tweaks.mobilePreview]);
 
-  // --- wallet ---
-  const connect = () => {
-    window.toast.info('Requesting wallet…', { duration: 1500 });
-    setTimeout(() => {
-      setWallet(MOCK_WALLET);
-      window.toast.success('Wallet connected', {
-        description: `${shortAddr(MOCK_WALLET.address)} on ${chain.name}`,
-        action: 'View wallet',
-        onAction: () => setWalletOpen(true),
-        duration: 4500,
-      });
-    }, 700);
+  // --- wallet (SIWE) ---
+  const connect = () => { setConnectOpen(true); };
+  const onConnected = (walletWithSiwe) => {
+    setWallet(walletWithSiwe);
+    setConnectOpen(false);
+    window.toast.success('Signed in', {
+      description: `${shortAddr(walletWithSiwe.address)} · session via SIWE · ${chain.name}`,
+      action: 'View wallet',
+      onAction: () => setWalletOpen(true),
+      duration: 4500,
+    });
   };
-  const disconnect = () => { setWallet(null); window.toast.warning('Wallet disconnected', { duration: 3000 }); };
+  const disconnect = () => { setWallet(null); window.toast.warning('Signed out — session revoked', { duration: 3000 }); };
 
   // --- governance intro toast ---
   const didIntro = React.useRef(false);
@@ -200,6 +200,14 @@ function App() {
           onClose={() => setCreateDaoOpen(false)}
           onCreate={addDao}
           chain={chain}
+        />
+      )}
+      {connectOpen && (
+        <ConnectModal
+          chain={chain}
+          activeDao={activeDao}
+          onClose={() => setConnectOpen(false)}
+          onConnected={onConnected}
         />
       )}
 
