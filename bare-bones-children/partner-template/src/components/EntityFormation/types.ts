@@ -25,6 +25,7 @@ export interface FormationStep {
 export type StepId =
   | "eligibility"
   | "basics"
+  | "organizer"
   | "contract"
   | "agent"
   | "agreement"
@@ -34,7 +35,7 @@ export type StepId =
 export type ManagementType = "member" | "algo";
 export type AgentMode = "service" | "own";
 export type AgreementSource = "generate" | "upload";
-export type AgreementStorage = "off" | "ipfs" | "chain";
+export type AgreementStorage = "off" | "arweave" | "chain";
 
 export interface AgentCustom {
   name: string;
@@ -51,9 +52,70 @@ export interface FormationAgent {
   badge: string | null;
 }
 
+// ----- Organizer step -----
+
+export interface OrganizerOrg {
+  street1: string;
+  street2: string;
+  city: string;
+  region: string;
+  postal: string;
+  country: string;
+  email: string;
+  phoneDial: string;
+  phoneIso: string;
+  phoneNum: string;
+}
+
+export interface OrganizerMailing {
+  street1: string;
+  street2: string;
+  city: string;
+  region: string;
+  postal: string;
+  country: string;
+}
+
+export type FilerRole = "member" | "manager" | "attorney" | "agent" | "other";
+
+export interface OrganizerFiler {
+  first: string;
+  last: string;
+  role: FilerRole;
+  email: string;
+  phoneDial: string;
+  phoneIso: string;
+  phoneNum: string;
+}
+
+export interface DialCode {
+  iso: string;
+  code: string;
+  flag: string;
+  name: string;
+}
+
+// Curated list — the dozen jurisdictions a DAO LLC organizer is most likely
+// to live in. Easy to extend; not exhaustive.
+export const EF_DIAL_CODES: DialCode[] = [
+  { iso: "US", code: "+1", flag: "🇺🇸", name: "United States" },
+  { iso: "CA", code: "+1", flag: "🇨🇦", name: "Canada" },
+  { iso: "GB", code: "+44", flag: "🇬🇧", name: "United Kingdom" },
+  { iso: "DE", code: "+49", flag: "🇩🇪", name: "Germany" },
+  { iso: "FR", code: "+33", flag: "🇫🇷", name: "France" },
+  { iso: "CH", code: "+41", flag: "🇨🇭", name: "Switzerland" },
+  { iso: "SG", code: "+65", flag: "🇸🇬", name: "Singapore" },
+  { iso: "AE", code: "+971", flag: "🇦🇪", name: "UAE" },
+  { iso: "AU", code: "+61", flag: "🇦🇺", name: "Australia" },
+  { iso: "JP", code: "+81", flag: "🇯🇵", name: "Japan" },
+  { iso: "BR", code: "+55", flag: "🇧🇷", name: "Brazil" },
+  { iso: "PT", code: "+351", flag: "🇵🇹", name: "Portugal" },
+];
+
 export const EF_STEPS: FormationStep[] = [
   { id: "eligibility", label: "Eligibility", sub: "On-chain prerequisites" },
   { id: "basics", label: "Entity basics", sub: "Name + management" },
+  { id: "organizer", label: "Organizer & contact", sub: "Principal office + filer" },
   { id: "contract", label: "Smart contract", sub: "Canonical identifier" },
   { id: "agent", label: "Registered agent", sub: "In-state address" },
   { id: "agreement", label: "Operating agreement", sub: "On + off-chain rules" },
@@ -61,39 +123,46 @@ export const EF_STEPS: FormationStep[] = [
   { id: "review", label: "Review & file", sub: "Submit to Wyoming" },
 ];
 
-export const EF_AGENTS: FormationAgent[] = [
-  {
-    id: "cloudpeak",
-    name: "Cloud Peak Law Group",
-    price: 49,
-    coverage: "Mail forwarding · scan-to-email",
-    badge: "recommended",
-  },
-  {
-    id: "northwest",
-    name: "Northwest Registered Agent",
-    price: 125,
-    coverage: "Mail forwarding · privacy address",
-    badge: null,
-  },
-  {
-    id: "wytrust",
-    name: "Wyoming Trust & LLC",
-    price: 59,
-    coverage: "Mail forwarding only",
-    badge: null,
-  },
-  {
-    id: "rai",
-    name: "Registered Agents Inc.",
-    price: 200,
-    coverage: "Mail forwarding + privacy address service",
-    badge: null,
-  },
-];
-
 export const STUB_GOVERNOR_ADDRESS = "0x7B4f29ae8E1d2F90c4f8B3A6E0D3B25a91A5D921";
 
 export function efHasDesignator(s: string): boolean {
   return /\b(DAO LLC|DAO|LAO)\b/i.test(s || "");
+}
+
+export function makeEmptyOrg(): OrganizerOrg {
+  return {
+    street1: "",
+    street2: "",
+    city: "",
+    region: "",
+    postal: "",
+    country: "US",
+    email: "",
+    phoneDial: "+1",
+    phoneIso: "US",
+    phoneNum: "",
+  };
+}
+
+export function makeEmptyMailing(): OrganizerMailing {
+  return {
+    street1: "",
+    street2: "",
+    city: "",
+    region: "",
+    postal: "",
+    country: "US",
+  };
+}
+
+export function makeEmptyFiler(): OrganizerFiler {
+  return {
+    first: "",
+    last: "",
+    role: "member",
+    email: "",
+    phoneDial: "+1",
+    phoneIso: "US",
+    phoneNum: "",
+  };
 }

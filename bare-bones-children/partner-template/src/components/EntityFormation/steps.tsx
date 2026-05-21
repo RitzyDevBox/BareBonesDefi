@@ -1,17 +1,22 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { shortAddress } from "../../utils/formatUtils";
+import { REGISTERED_AGENTS } from "./agents.config";
 import { CheckIcon } from "./CheckIcon";
+import { PhoneInput } from "./PhoneInput";
 import {
   AgentCustom,
   AgentMode,
   AgreementSource,
   AgreementStorage,
-  EF_AGENTS,
+  FilerRole,
   FormationAgent,
   FormationChain,
   FormationDao,
   FormationWallet,
   ManagementType,
+  OrganizerFiler,
+  OrganizerMailing,
+  OrganizerOrg,
   StepId,
   STUB_GOVERNOR_ADDRESS,
   efHasDesignator,
@@ -90,9 +95,6 @@ interface EligibilityProps {
 }
 
 export function StepEligibility({ activeDao, wallet, onNext }: EligibilityProps) {
-  // Stub checks — design assumes "all passing". Replaced by real reads once
-  // the backend wires up. The fail icon class is preserved so a future
-  // failing check renders correctly without further CSS.
   const govAddress = activeDao?.governor?.address || STUB_GOVERNOR_ADDRESS;
   const checks = [
     {
@@ -118,7 +120,7 @@ export function StepEligibility({ activeDao, wallet, onNext }: EligibilityProps)
     <div className="ef-card">
       <StepCardHead
         step={0}
-        total={6}
+        total={7}
         title="Eligibility check"
         lede="Confirm your on-chain org has everything Wyoming needs to recognize it as a DAO LLC."
       />
@@ -180,7 +182,7 @@ export function StepBasics({ name, setName, mgmt, setMgmt, onPrev, onNext }: Bas
     <div className="ef-card">
       <StepCardHead
         step={1}
-        total={6}
+        total={7}
         title="Entity basics"
         lede="The legal name on file with Wyoming, and how the LLC declares itself managed."
       />
@@ -249,7 +251,375 @@ export function StepBasics({ name, setName, mgmt, setMgmt, onPrev, onNext }: Bas
   );
 }
 
-// ---------- step 2: Contract ----------
+// ---------- step 2: Organizer ----------
+// Two contact forms on one card:
+//   1. Principal office — the LLC's own address + business email/phone
+//      (with an optional separate mailing/legal address)
+//   2. Organizer / filer — the human submitting the filing, with a
+//      "same as principal office contact" helper to skip re-typing
+// Phone fields use a curated dial-code dropdown. Validation is
+// presence-only for required fields; emails get a shape check.
+
+const validEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s || "");
+
+interface OrganizerProps {
+  org: OrganizerOrg;
+  setOrg: (v: OrganizerOrg) => void;
+  mailingSame: boolean;
+  setMailingSame: (v: boolean) => void;
+  mailing: OrganizerMailing;
+  setMailing: (v: OrganizerMailing) => void;
+  filer: OrganizerFiler;
+  setFiler: React.Dispatch<React.SetStateAction<OrganizerFiler>>;
+  filerSame: boolean;
+  setFilerSame: (v: boolean) => void;
+  onPrev: () => void;
+  onNext: () => void;
+}
+
+export function StepOrganizer({
+  org,
+  setOrg,
+  mailingSame,
+  setMailingSame,
+  mailing,
+  setMailing,
+  filer,
+  setFiler,
+  filerSame,
+  setFilerSame,
+  onPrev,
+  onNext,
+}: OrganizerProps) {
+  const orgOk =
+    !!org.street1 &&
+    !!org.city &&
+    !!org.region &&
+    !!org.postal &&
+    validEmail(org.email) &&
+    org.phoneNum.length >= 6;
+  const mailingOk =
+    mailingSame || (!!mailing.street1 && !!mailing.city && !!mailing.region && !!mailing.postal);
+  const filerOk = filerSame
+    ? !!filer.first && !!filer.last
+    : !!filer.first && !!filer.last && validEmail(filer.email) && filer.phoneNum.length >= 6;
+  const allOk = orgOk && mailingOk && filerOk;
+
+  // Mirror org email/phone into filer when "same as" is on, so review renders
+  // populated rows instead of empty placeholders.
+  useEffect(() => {
+    if (!filerSame) return;
+    setFiler((f) => ({
+      ...f,
+      email: org.email,
+      phoneDial: org.phoneDial,
+      phoneIso: org.phoneIso,
+      phoneNum: org.phoneNum,
+    }));
+  }, [filerSame, org.email, org.phoneDial, org.phoneIso, org.phoneNum, setFiler]);
+
+  return (
+    <div className="ef-card">
+      <StepCardHead
+        step={2}
+        total={7}
+        title="Organizer & contact"
+        lede="Wyoming requires the LLC's principal office and the person filing on its behalf. Both go on the public record; only the organizer signs."
+      />
+      <div className="ef-card-body">
+        <div className="ef-forms">
+          {/* -------- Form 1: Principal office -------- */}
+          <section className="ef-form">
+            <div className="ef-form-head">
+              <div className="ef-form-head-k">
+                <div className="ef-form-kicker">Form 1 of 2</div>
+                <div className="ef-form-title">Principal office</div>
+              </div>
+              <span className="ef-stat-pill">W.S. 17-29-201(a)(iii)</span>
+            </div>
+            <div className="ef-form-body">
+              <div className="field full">
+                <label>Street address</label>
+                <input
+                  className="input"
+                  placeholder="118 W 23rd St"
+                  value={org.street1}
+                  onChange={(e) => setOrg({ ...org, street1: e.target.value })}
+                />
+              </div>
+              <div className="field full">
+                <label>Suite / unit (optional)</label>
+                <input
+                  className="input"
+                  placeholder="Floor 4"
+                  value={org.street2}
+                  onChange={(e) => setOrg({ ...org, street2: e.target.value })}
+                />
+              </div>
+              <div className="ef-row-3">
+                <div className="field">
+                  <label>City</label>
+                  <input
+                    className="input"
+                    placeholder="Cheyenne"
+                    value={org.city}
+                    onChange={(e) => setOrg({ ...org, city: e.target.value })}
+                  />
+                </div>
+                <div className="field">
+                  <label>State</label>
+                  <input
+                    className="input"
+                    placeholder="WY"
+                    value={org.region}
+                    onChange={(e) => setOrg({ ...org, region: e.target.value })}
+                  />
+                </div>
+                <div className="field">
+                  <label>Postal</label>
+                  <input
+                    className="input mono"
+                    placeholder="82001"
+                    value={org.postal}
+                    onChange={(e) => setOrg({ ...org, postal: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="field full">
+                <label>Country</label>
+                <select
+                  className="ef-select"
+                  value={org.country}
+                  onChange={(e) => setOrg({ ...org, country: e.target.value })}
+                >
+                  <option value="US">United States</option>
+                  <option value="CA">Canada</option>
+                  <option value="GB">United Kingdom</option>
+                  <option value="DE">Germany</option>
+                  <option value="CH">Switzerland</option>
+                  <option value="SG">Singapore</option>
+                  <option value="AE">United Arab Emirates</option>
+                  <option value="other">Other…</option>
+                </select>
+                <div className="field-hint">
+                  Principal office may be outside Wyoming. Registered agent must be in-state
+                  (next step).
+                </div>
+              </div>
+              <div className="field full">
+                <label>Business email</label>
+                <input
+                  className="input"
+                  type="email"
+                  placeholder="filings@your-dao.xyz"
+                  value={org.email}
+                  onChange={(e) => setOrg({ ...org, email: e.target.value })}
+                  aria-invalid={!!org.email && !validEmail(org.email)}
+                />
+                <div className="field-hint">Statutory notices from Wyoming SOS land here.</div>
+              </div>
+              <div className="field full">
+                <label>Business phone</label>
+                <PhoneInput
+                  value={{ phoneDial: org.phoneDial, phoneIso: org.phoneIso, phoneNum: org.phoneNum }}
+                  onChange={(v) => setOrg({ ...org, ...v })}
+                  placeholder="555 123 4567"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* -------- Form 2: Organizer / filer -------- */}
+          <section className="ef-form">
+            <div className="ef-form-head">
+              <div className="ef-form-head-k">
+                <div className="ef-form-kicker">Form 2 of 2</div>
+                <div className="ef-form-title">Organizer (filer)</div>
+              </div>
+              <span className="ef-stat-pill">Signs Articles</span>
+            </div>
+
+            <div className="ef-sameas">
+              <button
+                type="button"
+                className={`ef-sameas-toggle ${filerSame ? "on" : ""}`}
+                onClick={() => setFilerSame(!filerSame)}
+                aria-pressed={filerSame}
+              />
+              <span>Use principal office email & phone for the organizer</span>
+            </div>
+
+            <div className="ef-form-body">
+              <div className="ef-row-2">
+                <div className="field">
+                  <label>First name</label>
+                  <input
+                    className="input"
+                    placeholder="Jane"
+                    value={filer.first}
+                    onChange={(e) => setFiler((f) => ({ ...f, first: e.target.value }))}
+                  />
+                </div>
+                <div className="field">
+                  <label>Last name</label>
+                  <input
+                    className="input"
+                    placeholder="Eberhardt"
+                    value={filer.last}
+                    onChange={(e) => setFiler((f) => ({ ...f, last: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="field full">
+                <label>Capacity / role</label>
+                <select
+                  className="ef-select"
+                  value={filer.role}
+                  onChange={(e) =>
+                    setFiler((f) => ({ ...f, role: e.target.value as FilerRole }))
+                  }
+                >
+                  <option value="member">Member</option>
+                  <option value="manager">Manager</option>
+                  <option value="attorney">Attorney</option>
+                  <option value="agent">Formation agent</option>
+                  <option value="other">Other authorized person</option>
+                </select>
+              </div>
+              <div className="field full">
+                <label>Email</label>
+                <input
+                  className="input"
+                  type="email"
+                  placeholder="jane@your-dao.xyz"
+                  value={filer.email}
+                  onChange={(e) => setFiler((f) => ({ ...f, email: e.target.value }))}
+                  disabled={filerSame}
+                  aria-invalid={!!filer.email && !validEmail(filer.email)}
+                  style={filerSame ? { opacity: 0.55 } : undefined}
+                />
+              </div>
+              <div className="field full">
+                <label>Phone</label>
+                {filerSame ? (
+                  <div
+                    className="ef-pre"
+                    style={{ height: 40, display: "flex", alignItems: "center" }}
+                  >
+                    {filer.phoneDial}{" "}
+                    {filer.phoneNum || (
+                      <span style={{ marginLeft: 4 }}>(uses business phone)</span>
+                    )}
+                  </div>
+                ) : (
+                  <PhoneInput
+                    value={{
+                      phoneDial: filer.phoneDial,
+                      phoneIso: filer.phoneIso,
+                      phoneNum: filer.phoneNum,
+                    }}
+                    onChange={(v) => setFiler((f) => ({ ...f, ...v }))}
+                    placeholder="555 123 4567"
+                  />
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* -------- Mailing / legal address (collapsible) -------- */}
+        <div className="ef-section" style={{ marginTop: 22 }}>
+          <div
+            className="ef-sameas"
+            style={{
+              borderRadius: 10,
+              border: "1px solid var(--line)",
+              borderBottom: "1px solid var(--line)",
+            }}
+          >
+            <button
+              type="button"
+              className={`ef-sameas-toggle ${mailingSame ? "on" : ""}`}
+              onClick={() => setMailingSame(!mailingSame)}
+              aria-pressed={mailingSame}
+            />
+            <span>
+              {mailingSame
+                ? "Mailing / legal address is the same as principal office"
+                : "Use a separate mailing / legal address"}
+            </span>
+          </div>
+
+          {!mailingSame && (
+            <div className="ef-form" style={{ marginTop: 12 }}>
+              <div className="ef-form-head">
+                <div className="ef-form-head-k">
+                  <div className="ef-form-kicker">Legal correspondence</div>
+                  <div className="ef-form-title">Mailing address</div>
+                </div>
+                <span className="ef-stat-pill">P.O. boxes allowed</span>
+              </div>
+              <div className="ef-form-body">
+                <div className="field full">
+                  <label>Street address</label>
+                  <input
+                    className="input"
+                    placeholder="P.O. Box 4421"
+                    value={mailing.street1}
+                    onChange={(e) => setMailing({ ...mailing, street1: e.target.value })}
+                  />
+                </div>
+                <div className="ef-row-3">
+                  <div className="field">
+                    <label>City</label>
+                    <input
+                      className="input"
+                      value={mailing.city}
+                      onChange={(e) => setMailing({ ...mailing, city: e.target.value })}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>State</label>
+                    <input
+                      className="input"
+                      value={mailing.region}
+                      onChange={(e) => setMailing({ ...mailing, region: e.target.value })}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Postal</label>
+                    <input
+                      className="input mono"
+                      value={mailing.postal}
+                      onChange={(e) => setMailing({ ...mailing, postal: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <StepCardFoot
+        onPrev={onPrev}
+        onNext={onNext}
+        nextDisabled={!allOk}
+        hint={
+          allOk
+            ? "Both forms complete"
+            : !orgOk
+              ? "Complete the principal office form"
+              : !mailingOk
+                ? "Complete the mailing address"
+                : "Complete the organizer form"
+        }
+      />
+    </div>
+  );
+}
+
+// ---------- step 3: Contract ----------
 
 interface ContractProps {
   activeDao?: FormationDao;
@@ -287,8 +657,8 @@ export function StepContract({
   return (
     <div className="ef-card">
       <StepCardHead
-        step={2}
-        total={6}
+        step={3}
+        total={7}
         title="Smart contract bind"
         lede="Declare the on-chain identifier Wyoming will treat as the canonical DAO contract. Filed once; changes require an amendment."
       />
@@ -342,7 +712,7 @@ export function StepContract({
   );
 }
 
-// ---------- step 3: Agent ----------
+// ---------- step 4: Agent ----------
 
 interface AgentProps {
   agentMode: AgentMode;
@@ -368,8 +738,8 @@ export function StepAgent({
   return (
     <div className="ef-card">
       <StepCardHead
-        step={3}
-        total={6}
+        step={4}
+        total={7}
         title="Registered agent"
         lede="Wyoming requires an in-state recipient for legal mail. Most filers use a service; the cheapest is $49/yr."
       />
@@ -407,7 +777,7 @@ export function StepAgent({
           <div className="ef-section">
             <div className="ef-section-head">Pick a partner</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {EF_AGENTS.map((a) => (
+              {REGISTERED_AGENTS.map((a) => (
                 <button
                   key={a.id}
                   type="button"
@@ -489,7 +859,7 @@ export function StepAgent({
   );
 }
 
-// ---------- step 4: Agreement ----------
+// ---------- step 5: Agreement ----------
 
 interface AgreementProps {
   src: AgreementSource;
@@ -517,8 +887,8 @@ export function StepAgreement({
   return (
     <div className="ef-card">
       <StepCardHead
-        step={4}
-        total={6}
+        step={5}
+        total={7}
         title="Operating agreement"
         lede="W.S. 17-31-104 lets smart contracts substitute for parts of the agreement, but a written companion is still expected for dissolution, taxes, and dispute venue."
       />
@@ -549,7 +919,7 @@ export function StepAgreement({
                 <span className="ef-tile-t">Upload my own</span>
               </div>
               <div className="ef-tile-s">
-                PDF, DOC or DOCX up to 10 MB. Optional IPFS hash.
+                PDF, DOC or DOCX up to 10 MB. Optional Arweave URL.
               </div>
             </button>
           </div>
@@ -579,11 +949,15 @@ export function StepAgreement({
               <div className="ef-tiles cols-3">
                 {[
                   { id: "off" as const, t: "Off-chain only", s: "PDF download" },
-                  { id: "ipfs" as const, t: "IPFS + subgraph", s: "Public, permanent, indexable" },
+                  {
+                    id: "arweave" as const,
+                    t: "Arweave",
+                    s: "Public, permanent, indexable",
+                  },
                   {
                     id: "chain" as const,
-                    t: "IPFS + on-chain",
-                    s: "Hash written via setOperatingAgreement()",
+                    t: "Arweave + on-chain hash",
+                    s: "Hash committed to the DAO contract (planned)",
                   },
                 ].map((opt) => (
                   <button
@@ -631,8 +1005,8 @@ export function StepAgreement({
               </div>
             </div>
             <div className="field full" style={{ marginTop: 14 }}>
-              <label>IPFS / HTTPS URI (optional)</label>
-              <input className="input mono" placeholder="ipfs://QmXY… or https://…" />
+              <label>Arweave / HTTPS URI (optional)</label>
+              <input className="input mono" placeholder="ar://… or https://…" />
             </div>
           </div>
         )}
@@ -642,7 +1016,7 @@ export function StepAgreement({
   );
 }
 
-// ---------- step 5: Notice ----------
+// ---------- step 6: Notice ----------
 
 interface NoticeProps {
   activeDao?: FormationDao;
@@ -657,8 +1031,8 @@ export function StepNotice({ activeDao, notice, setNotice, onPrev, onNext }: Not
   return (
     <div className="ef-card">
       <StepCardHead
-        step={5}
-        total={6}
+        step={6}
+        total={7}
         title="Member notice"
         lede="Wyoming statute § 17-31-114 requires DAO LLCs disclose risks members face that wouldn't apply to a traditional LLC."
       />
@@ -722,7 +1096,7 @@ export function StepNotice({ activeDao, notice, setNotice, onPrev, onNext }: Not
   );
 }
 
-// ---------- step 6: Review & file ----------
+// ---------- step 7: Review & file ----------
 
 interface ReviewProps {
   name: string;
@@ -732,6 +1106,10 @@ interface ReviewProps {
   agent: FormationAgent | undefined;
   agentMode: AgentMode;
   agreementStorage: AgreementStorage;
+  org: OrganizerOrg;
+  mailing: OrganizerMailing;
+  mailingSame: boolean;
+  filer: OrganizerFiler;
   filed: boolean;
   setFiled: (v: boolean) => void;
   onPrev: () => void;
@@ -747,6 +1125,10 @@ export function StepReview({
   agent,
   agentMode,
   agreementStorage,
+  org,
+  mailing,
+  mailingSame,
+  filer,
   filed,
   setFiled,
   onPrev,
@@ -864,12 +1246,43 @@ export function StepReview({
     );
   }
 
+  const fullName = `${filer.first} ${filer.last}`.trim();
   const summary: { k: string; v: string; edit: StepId; mono?: boolean }[] = [
     { k: "Name", v: name, edit: "basics" },
     {
       k: "Management",
       v: mgmt === "member" ? "Member-managed" : "Algorithmically managed",
       edit: "basics",
+    },
+    {
+      k: "Principal office",
+      v: org.street1
+        ? `${org.street1}, ${org.city} ${org.region} ${org.postal}`
+        : "— Not set",
+      edit: "organizer",
+    },
+    {
+      k: "Mailing address",
+      v: mailingSame
+        ? "Same as principal office"
+        : mailing.street1
+          ? `${mailing.street1}, ${mailing.city} ${mailing.region} ${mailing.postal}`
+          : "— Not set",
+      edit: "organizer",
+    },
+    {
+      k: "Business contact",
+      v: org.email
+        ? `${org.email} · ${org.phoneDial} ${org.phoneNum}`
+        : "— Not set",
+      edit: "organizer",
+    },
+    {
+      k: "Organizer",
+      v: fullName
+        ? `${fullName}${filer.role ? " · " + filer.role : ""}`
+        : "— Not set",
+      edit: "organizer",
     },
     { k: "Contract", v: shortAddress(contractAddr), edit: "contract", mono: true },
     {
@@ -887,9 +1300,9 @@ export function StepReview({
       v:
         agreementStorage === "off"
           ? "PDF only"
-          : agreementStorage === "ipfs"
-            ? "IPFS + subgraph"
-            : "IPFS + on-chain",
+          : agreementStorage === "arweave"
+            ? "Arweave"
+            : "Arweave + on-chain hash",
       edit: "agreement",
     },
   ];
@@ -898,11 +1311,17 @@ export function StepReview({
   const agentFee = agentMode === "service" ? (agent?.price ?? 0) : 0;
   const total = stateFee + agentFee;
 
+  // Article VIII (Operating Agreement) is statutorily optional — only render
+  // it when the user picked a storage option that produces a public artifact
+  // worth referencing on the public Articles.
+  const showOaArticle = agreementStorage !== "off";
+  const oaUri = "ar://placeholder-tx-id";
+
   return (
     <div className="ef-card">
       <StepCardHead
-        step={6}
-        total={6}
+        step={7}
+        total={7}
         title="Review and file"
         lede="A final look at the rendered Articles, side-by-side with the summary and cost."
       />
@@ -921,7 +1340,38 @@ export function StepReview({
               </div>
             </div>
             <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article II — Management</div>
+              <div className="ef-doc-art-h">Article II — Principal Office</div>
+              <div>
+                The principal office is{" "}
+                <span className="ef-doc-fill">
+                  {org.street1 || "[street]"}
+                  {org.street2 ? `, ${org.street2}` : ""}, {org.city || "[city]"}{" "}
+                  {org.region || "[state]"} {org.postal || "[zip]"}
+                </span>
+                . Contact: <span className="ef-doc-fill">{org.email || "[email]"}</span>,{" "}
+                <span className="ef-doc-fill mono">
+                  {org.phoneDial} {org.phoneNum || "[phone]"}
+                </span>
+                .
+              </div>
+            </div>
+            <div className="ef-doc-art">
+              <div className="ef-doc-art-h">Article III — Organizer</div>
+              <div>
+                The organizer of this entity is{" "}
+                <span className="ef-doc-fill">
+                  {filer.first || "[first]"} {filer.last || "[last]"}
+                </span>
+                {filer.role ? (
+                  <>
+                    , acting as <span className="ef-doc-fill">{filer.role}</span>
+                  </>
+                ) : null}
+                .
+              </div>
+            </div>
+            <div className="ef-doc-art">
+              <div className="ef-doc-art-h">Article IV — Management</div>
               <div>
                 This DAO shall be{" "}
                 <span className="ef-doc-fill">
@@ -931,7 +1381,7 @@ export function StepReview({
               </div>
             </div>
             <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article III — Smart Contract Identifier</div>
+              <div className="ef-doc-art-h">Article V — Smart Contract Identifier</div>
               <div>
                 The publicly available identifier is{" "}
                 <span className="ef-doc-fill mono">{shortAddress(contractAddr, 8)}</span>
@@ -941,7 +1391,7 @@ export function StepReview({
               </div>
             </div>
             <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article IV — Registered Agent</div>
+              <div className="ef-doc-art-h">Article VI — Registered Agent</div>
               <div>
                 <span className="ef-doc-fill">
                   {agentMode === "service" ? agent?.name || "—" : "Self-listed agent"}
@@ -949,17 +1399,18 @@ export function StepReview({
               </div>
             </div>
             <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article V — Notice to Members</div>
+              <div className="ef-doc-art-h">Article VII — Notice to Members</div>
               <div>Members are on notice of the risks specified in W.S. 17-31-114.</div>
             </div>
-            <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article VI — Operating Agreement</div>
-              <div>
-                Referenced at{" "}
-                <span className="ef-doc-fill mono">ipfs://QmZ4kP…87qR</span>. Smart
-                contracts may enhance per W.S. 17-31-104.
+            {showOaArticle && (
+              <div className="ef-doc-art">
+                <div className="ef-doc-art-h">Article VIII — Operating Agreement</div>
+                <div>
+                  Referenced at <span className="ef-doc-fill mono">{oaUri}</span>. Smart
+                  contracts may enhance per W.S. 17-31-104.
+                </div>
               </div>
-            </div>
+            )}
 
             <div
               style={{

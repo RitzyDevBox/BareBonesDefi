@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toastStore } from "../Toasts/toast.store";
 import {
@@ -6,6 +6,7 @@ import {
   ToastPosition,
   ToastType,
 } from "../Toasts/toast.types";
+import { REGISTERED_AGENTS } from "./agents.config";
 import { CheckIcon } from "./CheckIcon";
 import {
   StepAgent,
@@ -14,6 +15,7 @@ import {
   StepContract,
   StepEligibility,
   StepNotice,
+  StepOrganizer,
   StepReview,
 } from "./steps";
 import {
@@ -21,14 +23,19 @@ import {
   AgentMode,
   AgreementSource,
   AgreementStorage,
-  EF_AGENTS,
   EF_STEPS,
   FormationChain,
   FormationDao,
   FormationWallet,
   ManagementType,
+  OrganizerFiler,
+  OrganizerMailing,
+  OrganizerOrg,
   StepId,
   STUB_GOVERNOR_ADDRESS,
+  makeEmptyFiler,
+  makeEmptyMailing,
+  makeEmptyOrg,
 } from "./types";
 import "./entity-formation.css";
 
@@ -80,6 +87,11 @@ export function EntityFormation({
   const [name, setName] = useState(defaultName);
   const [mgmt, setMgmt] = useState<ManagementType>("member");
   const [contractAddr, setContractAddr] = useState(defaultContract);
+  const [org, setOrg] = useState<OrganizerOrg>(makeEmptyOrg);
+  const [mailingSame, setMailingSame] = useState(true);
+  const [mailing, setMailing] = useState<OrganizerMailing>(makeEmptyMailing);
+  const [filer, setFiler] = useState<OrganizerFiler>(makeEmptyFiler);
+  const [filerSame, setFilerSame] = useState(false);
   const [agentMode, setAgentMode] = useState<AgentMode>("service");
   const [agentId, setAgentId] = useState("cloudpeak");
   const [agentCustom, setAgentCustom] = useState<AgentCustom>({
@@ -89,11 +101,25 @@ export function EntityFormation({
     zip: "82001",
   });
   const [agreementSrc, setAgreementSrc] = useState<AgreementSource>("generate");
-  const [agreementStorage, setAgreementStorage] = useState<AgreementStorage>("ipfs");
+  const [agreementStorage, setAgreementStorage] = useState<AgreementStorage>("arweave");
   const [notice, setNotice] = useState(false);
   const [filed, setFiled] = useState(false);
 
-  const agent = EF_AGENTS.find((a) => a.id === agentId);
+  // Pre-fill from activeDao when it arrives async AND the user hasn't typed
+  // anything yet (state still matches the pre-load defaults). Avoids the
+  // wipe-on-late-load footgun.
+  useEffect(() => {
+    if (activeDao?.name && name === "Acme DAO LLC") {
+      setName(`${activeDao.name} DAO LLC`);
+    }
+  }, [activeDao?.name, name]);
+  useEffect(() => {
+    if (activeDao?.governor?.address && contractAddr === STUB_GOVERNOR_ADDRESS) {
+      setContractAddr(activeDao.governor.address);
+    }
+  }, [activeDao?.governor?.address, contractAddr]);
+
+  const agent = REGISTERED_AGENTS.find((a) => a.id === agentId);
   const progress = Math.round((stepIdx / (EF_STEPS.length - 1)) * 100);
 
   const file = () => {
@@ -216,6 +242,22 @@ export function EntityFormation({
                 onNext={nextStep}
               />
             )}
+            {step === "organizer" && (
+              <StepOrganizer
+                org={org}
+                setOrg={setOrg}
+                mailingSame={mailingSame}
+                setMailingSame={setMailingSame}
+                mailing={mailing}
+                setMailing={setMailing}
+                filer={filer}
+                setFiler={setFiler}
+                filerSame={filerSame}
+                setFilerSame={setFilerSame}
+                onPrev={prevStep}
+                onNext={nextStep}
+              />
+            )}
             {step === "contract" && (
               <StepContract
                 activeDao={activeDao}
@@ -266,6 +308,10 @@ export function EntityFormation({
                 agent={agent}
                 agentMode={agentMode}
                 agreementStorage={agreementStorage}
+                org={org}
+                mailing={mailing}
+                mailingSame={mailingSame}
+                filer={filer}
                 filed={filed}
                 setFiled={setFiled}
                 onPrev={prevStep}
