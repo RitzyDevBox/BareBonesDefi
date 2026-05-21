@@ -13,6 +13,7 @@ import { VaultPage } from "./pages/VaultPage";
 import { VaultWalletPage } from "./pages/VaultWalletPage";
 import { PaymentPage } from "./pages/PaymentPage";
 import { CurrentPayrollPage } from "./pages/CurrentPayrollPage.tsx";
+import { EntityFormationPage } from "./pages/EntityFormationPage";
 import { FEATURE_FLAGS } from "./constants/featureFlags";
 
 const devOnlyRoutes = import.meta.env.DEV
@@ -24,6 +25,10 @@ const organizationRoutes = FEATURE_FLAGS.organizations
       { path: `${ROUTES.ORGANIZATIONS}`, element: <OrganizationPage /> },
       { path: `${ROUTES.ORGANIZATIONS}/:organizationId`, element: <OrganizationDetailPage /> },
     ]
+  : [];
+
+const entityFormationRoutes = FEATURE_FLAGS.entityFormation
+  ? [{ path: `${ROUTES.ENTITIES_FORMATION}`, element: <EntityFormationPage /> }]
   : [];
 
 export const router = createHashRouter([
@@ -40,6 +45,7 @@ export const router = createHashRouter([
       { path: `${ROUTES.PAYMENTS_ORG_ROUTE}`, element: <PaymentPage /> },
       { path: `${ROUTES.PAYROLL_DETAIL_ROUTE}`, element: <CurrentPayrollPage /> },
       ...organizationRoutes,
+      ...entityFormationRoutes,
       { path: `${ROUTES.VAULTS}`, element: <VaultPage /> },
       { path: `${ROUTES.VAULT_DETAIL_ROUTE}`, element: <VaultWalletPage /> },
       ...devOnlyRoutes,

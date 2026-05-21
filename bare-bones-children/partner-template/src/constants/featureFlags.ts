@@ -2,6 +2,7 @@ import { DEPLOYMENT_TARGET, DeploymentTarget } from "../config/deployment";
 
 export const FEATURE_FLAGS = {
   organizations: false,
+  entityFormation: true,
   // Staging hosts the same Anvil chain as local dev (just on a remote box),
   // so include it for both targets. Production excludes it.
   localAnvilChain: DEPLOYMENT_TARGET !== DeploymentTarget.Live,

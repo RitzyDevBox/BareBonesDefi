@@ -3,6 +3,7 @@ import { ROUTES } from "../../routes";
 import { FEATURE_FLAGS } from "../../constants/featureFlags";
 
 const ORGANIZATION_ID = "organization";
+const ENTITY_FORMATION_ID = "entity-formation";
 
 export interface NavItem {
   id: string;
@@ -16,12 +17,14 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { id: "browser", label: "Browser", path: ROUTES.DAPP_BROWSER },
   { id: "daos", label: "DAOs", path: ROUTES.DAOS },
   { id: ORGANIZATION_ID, label: "Organizations", path: ROUTES.ORGANIZATIONS },
+  { id: ENTITY_FORMATION_ID, label: "Formation", path: ROUTES.ENTITIES_FORMATION },
   { id: "Payments", label: "Payments", path: ROUTES.PAYMENTS },
   { id: "vaults", label: "Vaults", path: ROUTES.VAULTS },
 ];
 
 const VISIBLE: NavItem[] = ALL_NAV_ITEMS.filter((item) => {
   if (item.id === ORGANIZATION_ID) return FEATURE_FLAGS.organizations;
+  if (item.id === ENTITY_FORMATION_ID) return FEATURE_FLAGS.entityFormation;
   return true;
 });
 

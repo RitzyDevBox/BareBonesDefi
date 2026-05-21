@@ -5,6 +5,7 @@ const DAOS_SUB_ROUTE = 'daos'
 const WALLETS_SUB_ROUTE = 'wallets'
 const PAYMENTS_SUB_ROUTE = 'payments'
 const PAYROLL_SUB_ROUTE = 'payroll'
+const ENTITIES_SUB_ROUTE = 'entities'
 
 export const ROUTES = {
   ROOT: "/",
@@ -16,6 +17,7 @@ export const ROUTES = {
   PAYMENTS_ORG_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId`,
   PAYROLL_DETAIL_ROUTE: `/${PAYMENTS_SUB_ROUTE}/:organizationId/${PAYROLL_SUB_ROUTE}/:payrollId`,
   ORGANIZATIONS: `/${ORGANIZATION_SUB_ROUTE}`,
+  ENTITIES_FORMATION: `/${ENTITIES_SUB_ROUTE}/formation`,
   VAULTS: `/${VAULTS_SUB_ROUTE}`,
   VAULT_DETAIL_ROUTE: `/${WALLETS_SUB_ROUTE}/:walletAddress/${VAULTS_SUB_ROUTE}/:vaultAddress`,
 
