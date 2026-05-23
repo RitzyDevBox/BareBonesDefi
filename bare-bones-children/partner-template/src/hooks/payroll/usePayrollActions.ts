@@ -187,24 +187,25 @@ export function usePayrollActions(slugBytes: string) {
     (payrollId: ethers.BigNumberish) => `Cancelled payroll #${payrollId.toString()}`,
   );
 
+  // `processPayrollChunk` / `finalizePayrollChunk` take (slug, payrollId, limit)
+  // — the contract walks its own cursor between calls. `limit` caps how many
+  // payees this call advances.
   const processPayrollChunk = useExecuteRawTx(
-    (payrollId: ethers.BigNumberish, fromIndex: ethers.BigNumberish, toIndex: ethers.BigNumberish) =>
+    (payrollId: ethers.BigNumberish, limit: ethers.BigNumberish) =>
       buildExecute("processPayrollChunk", [
         slugBytes,
         ethers.BigNumber.from(payrollId),
-        ethers.BigNumber.from(fromIndex),
-        ethers.BigNumber.from(toIndex),
+        ethers.BigNumber.from(limit),
       ]),
     () => "Processed payroll chunk",
   );
 
   const finalizePayrollChunk = useExecuteRawTx(
-    (payrollId: ethers.BigNumberish, fromIndex: ethers.BigNumberish, toIndex: ethers.BigNumberish) =>
+    (payrollId: ethers.BigNumberish, limit: ethers.BigNumberish) =>
       buildExecute("finalizePayrollChunk", [
         slugBytes,
         ethers.BigNumber.from(payrollId),
-        ethers.BigNumber.from(fromIndex),
-        ethers.BigNumber.from(toIndex),
+        ethers.BigNumber.from(limit),
       ]),
     () => "Finalized payroll chunk",
   );

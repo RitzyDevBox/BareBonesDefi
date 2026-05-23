@@ -115,6 +115,72 @@ export function systemRoleSlugSet(names: readonly SystemRoleName[]): Set<string>
   return new Set(names.map((n) => SYSTEM_ROLE_SLUG[n]));
 }
 
+// ─── Pre-built gate bundles ──────────────────────────────────────────────────
+//
+// Named role-sets covering the common authorize-this-action checks. Each one
+// maps to a specific selector surface in MTA — extending a bundle here is the
+// only place a UI gate has to track. Resolved once at module load.
+//
+// Keep these in lockstep with the contract — the role lists below mirror what
+// MTA's `_isAuthorized` accepts (or short-circuits) for each selector group.
+
+/** Bypass on PayrollManager's operator surface (createPayBatch /
+ *  configurePayBatch / createPayroll / configurePayroll / cancelPayroll /
+ *  processPayrollChunk / finalizePayrollChunk / registerEarningsCode /
+ *  setEarningsCode). SuperAdmin + Admin via `_isAuthorized` short-circuits,
+ *  PayrollOperator via `_isFoundationDefaultGrant`. */
+export const PAYROLL_ADMIN_ROLE_SLUGS: ReadonlySet<string> = systemRoleSlugSet([
+  "SuperAdmin",
+  "Admin",
+  "PayrollOperator",
+]);
+
+/** Bypass on MTA's member-roster surface (onboardMembers / setMember* /
+ *  removeMembers / assignRoles / revokeRoles). MemberManager via
+ *  `_selfManagerAllows`. */
+export const MEMBER_MANAGER_ROLE_SLUGS: ReadonlySet<string> = systemRoleSlugSet([
+  "SuperAdmin",
+  "Admin",
+  "MemberManager",
+]);
+
+/** Bypass on MTA's role lifecycle surface (createRoles / updateRoles /
+ *  deleteRoles / attachPermissionsToRole / detachPermissionsFromRole /
+ *  assignRoles / revokeRoles). RoleManager via `_selfManagerAllows`. */
+export const ROLE_MANAGER_ROLE_SLUGS: ReadonlySet<string> = systemRoleSlugSet([
+  "SuperAdmin",
+  "Admin",
+  "RoleManager",
+]);
+
+/** Bypass on MTA's permission lifecycle surface (createPermissions /
+ *  updatePermissions / deletePermissions / setTargetGrants / setPublicSig /
+ *  fallbackAuthorizer rotation). PermissionManager via `_selfManagerAllows`. */
+export const PERMISSION_MANAGER_ROLE_SLUGS: ReadonlySet<string> = systemRoleSlugSet([
+  "SuperAdmin",
+  "Admin",
+  "PermissionManager",
+]);
+
+/** Bypass on PayrollTreasury's operator surface (deposit / withdraw / pay).
+ *  TreasuryOperator via `_isFoundationDefaultGrant`. Note: today the
+ *  PayrollTreasury contract doesn't actually route through MTA for these
+ *  selectors, so this bundle is aspirational — consult the contract before
+ *  relying on it. */
+export const TREASURY_ADMIN_ROLE_SLUGS: ReadonlySet<string> = systemRoleSlugSet([
+  "SuperAdmin",
+  "Admin",
+  "TreasuryOperator",
+]);
+
+/** Pause / unpause the slug. Pauser via `_requireCanPause`; Admin doesn't
+ *  cover this because Admin's bypass disappears when the slug isn't Normal,
+ *  and the Pauser role is meant to remain effective during a pause. */
+export const PAUSE_ROLE_SLUGS: ReadonlySet<string> = systemRoleSlugSet([
+  "SuperAdmin",
+  "Pauser",
+]);
+
 /** Encode a free-form role name as a bytes32 slug. Matches MTA's bootstrap
  *  convention (`bytes32("Admin")` etc.) — utf8-packed into the high bytes,
  *  zero-padded. Names longer than 31 bytes can't round-trip through bytes32

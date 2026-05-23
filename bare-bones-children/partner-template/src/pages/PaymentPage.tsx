@@ -9,17 +9,7 @@ import { useReadProvider } from "../hooks/useReadProvider";
 import { useMtaState } from "../hooks/auth/useMtaState";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { useActiveOrganization } from "../providers/ActiveOrganizationProvider";
-import { systemRoleSlugSet } from "../constants/mtaRoles";
-
-// Roles that bypass MTA's per-selector check on PayrollManager's operator
-// surface (SuperAdmin/Admin via `_isAuthorized` short-circuits, PayrollOperator
-// via `_isFoundationDefaultGrant`). Module-scope so the slug encoding is
-// resolved once.
-const PAYROLL_ADMIN_ROLE_SLUGS = systemRoleSlugSet([
-  "SuperAdmin",
-  "Admin",
-  "PayrollOperator",
-]);
+import { PAYROLL_ADMIN_ROLE_SLUGS } from "../constants/mtaRoles";
 import { DEFAULT_CHAIN_ID, getBareBonesConfiguration } from "../constants/misc";
 import { fetchOrganizationInfo } from "../hooks/payroll/useOrganizationRegistry";
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";

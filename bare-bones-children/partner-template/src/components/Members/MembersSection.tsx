@@ -1,15 +1,6 @@
 import { useMemo, useState } from "react";
 import { ethers } from "ethers";
-import { systemRoleSlugSet } from "../../constants/mtaRoles";
-
-// Roles whose holder can manage the member roster (onboard, assign roles,
-// status, etc.). Mirrors MTA's `_isAuthorized` accepts on the relevant
-// selectors. Module-scope so the slug encoding is resolved once.
-const MEMBER_MANAGER_ROLE_SLUGS = systemRoleSlugSet([
-  "SuperAdmin",
-  "Admin",
-  "MemberManager",
-]);
+import { MEMBER_MANAGER_ROLE_SLUGS } from "../../constants/mtaRoles";
 import { MEMBER_ACTIVITY_SEED } from "../../data/membersSeed";
 import {
   Member, Permission, Role, SlugStatus,

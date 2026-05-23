@@ -9,8 +9,9 @@ import { SplitActionDropdown } from "../components/Button/SplitActionDropdown";
 import { ERC20Mintable } from "../components/ERC20Mintable/ERC20Mintable";
 import { PayrollTreasuryFund } from "../components/PayrollTreasuryFund/PayrollTreasuryFund";
 import { useWalletProvider } from "../hooks/useWalletProvider";
-import { useExecuteRawTx } from "../hooks/useExecuteRawTx";
+import { useMtaState } from "../hooks/auth/useMtaState";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
+import { PAYROLL_ADMIN_ROLE_SLUGS } from "../constants/mtaRoles";
 import { ScreenSize, useMediaQuery } from "../hooks/useMediaQuery";
 import { getBareBonesConfiguration } from "../constants/misc";
 import { PayeeStatus, PayrollStatus, payeeStatusLabel, payrollStatusLabel } from "../constants/payroll";
@@ -19,6 +20,7 @@ import PayrollTreasuryABI from "../abis/paymentPipelines/PayrollTreasury.abi.jso
 import { Table } from "../components/Table";
 import type { OrganizationModel, PayeeModel } from "../models/payments";
 import { useProcessCurrentPayroll } from "../hooks/payroll/useProcessCurrentPayroll";
+import { usePayrollActions } from "../hooks/payroll/usePayrollActions";
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";
 import {
   fetchOrganizationEarningsCodes,
@@ -72,7 +74,12 @@ export function CurrentPayrollPage() {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isCancellingPayroll, setIsCancellingPayroll] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isAdmin, setIsAdmin] = useState<boolean>(Boolean((location.state as { isAdmin?: boolean } | null)?.isAdmin));
+  // Optimistic seed from the nav state when arriving from PaymentPage.
+  // Once `orgInfo` + `mtaState.members` populate, `isAdmin` below derives
+  // the real value from on-chain ownership OR an MTA role assignment.
+  const navInitialIsAdmin = Boolean(
+    (location.state as { isAdmin?: boolean } | null)?.isAdmin,
+  );
   const [isProcessingPayroll, setIsProcessingPayroll] = useState(false);
   const [payrollStatus, setPayrollStatus] = useState<number | null>(null);
   const [finalizedGrosses, setFinalizedGrosses] = useState<PayrollGrossView[]>([]);
@@ -92,7 +99,7 @@ export function CurrentPayrollPage() {
     isApplying: false,
   });
 
-  const { processCurrentPayroll } = useProcessCurrentPayroll();
+  const { processCurrentPayroll } = useProcessCurrentPayroll(slug);
 
   const requestedPayrollId = useMemo(() => {
     const raw = (payrollId ?? "").trim();
@@ -108,10 +115,6 @@ export function CurrentPayrollPage() {
   }, [chainId]);
 
   const payrollManagerAddress = config?.payrollManagerAddress;
-  const payrollInterface = useMemo(
-    () => new ethers.utils.Interface(PayrollManagerABI as any),
-    []
-  );
 
   const payrollRunByPayeeId = useMemo(
     () =>
@@ -264,54 +267,28 @@ export function CurrentPayrollPage() {
     setFinalizedGrosses([]);
   }, []);
 
-  const buildConfigurePayrollTx = useCallback(
-    (
-      _: number,
-      orgSlug: string,
-      payrollId: number,
-      actions: PayrollConfigActionPayload[]
-    ) => {
-      if (!payrollManagerAddress) {
-        throw new Error("Payroll manager address missing");
-      }
+  // MTA state for this slug so the admin gate covers PayrollOperator / Admin /
+  // SuperAdmin role holders, not just the legacy org-owner fast path. See the
+  // matching gate in [PaymentPage](./PaymentPage.tsx).
+  const slugBytes = useMemo(() => (slug ? orgSlugFor(slug) : ""), [slug]);
+  // All operator-surface writes route through MTA.execute via this hook.
+  // Direct calls to PayrollManager only authorize the slug owner via the
+  // stateless PayrollSlugAuthorityResolver — PayrollOperator role holders
+  // get NotAuthorized() unless the call goes MTA → PayrollManager.
+  const payrollActions = usePayrollActions(slugBytes);
+  const mtaState = useMtaState(slugBytes);
 
-      const slugBytes = orgSlugFor(orgSlug);
-      return {
-        to: payrollManagerAddress,
-        data: payrollInterface.encodeFunctionData("configurePayroll", [slugBytes, payrollId, actions]),
-      } as any;
-    },
-    [payrollManagerAddress, payrollInterface]
-  );
-
-  const configurePayroll = useExecuteRawTx(
-    buildConfigurePayrollTx,
-    (_: number, orgSlug: string, payrollId: number, actions: PayrollConfigActionPayload[]) =>
-      `Configured payroll ${payrollId} for ${orgSlug} (${actions.length} staged changes)`
-  );
-
-  const cancelPayroll = useExecuteRawTx(
-    (_: number, orgSlug: string, payrollId: number) => {
-      if (!payrollManagerAddress) {
-        throw new Error("Payroll manager address missing");
-      }
-
-      const slugBytes = orgSlugFor(orgSlug);
-      return {
-        to: payrollManagerAddress,
-        data: payrollInterface.encodeFunctionData("cancelPayroll", [slugBytes, payrollId]),
-      } as any;
-    },
-    (_: number, orgSlug: string, payrollId: number) =>
-      `Cancelled payroll ${payrollId} for ${orgSlug}`
-  );
-
-  useEffect(() => {
-    const navIsAdmin = (location.state as { isAdmin?: boolean } | null)?.isAdmin;
-    if (typeof navIsAdmin === "boolean") {
-      setIsAdmin(navIsAdmin);
+  const isAdmin = useMemo(() => {
+    if (!account) return navInitialIsAdmin;
+    if (orgInfo?.exists && orgInfo.owner.toLowerCase() === account.toLowerCase()) {
+      return true;
     }
-  }, [location.state]);
+    const me = mtaState.members.find(
+      (m) => m.wallet.address.toLowerCase() === account.toLowerCase(),
+    );
+    if (me && me.roles.some((r) => PAYROLL_ADMIN_ROLE_SLUGS.has(r))) return true;
+    return navInitialIsAdmin && !orgInfo;
+  }, [account, orgInfo, mtaState.members, navInitialIsAdmin]);
 
   useEffect(() => {
     if (!slug) return;
@@ -323,7 +300,6 @@ export function CurrentPayrollPage() {
 
     setLoading(true);
     setOrgInfo(null);
-    setIsAdmin(false);
     setPayees([]);
     resetPayrollState();
     try {
@@ -333,15 +309,13 @@ export function CurrentPayrollPage() {
         provider
       );
 
-      const slugBytes = orgSlugFor(orgSlug);
-      const org = await contract.organizations(slugBytes);
+      const orgSlugBytes = orgSlugFor(orgSlug);
+      const org = await contract.organizations(orgSlugBytes);
 
       setOrgInfo({
         owner: org.owner,
         exists: org.exists,
       });
-
-      setIsAdmin(org.exists && org.owner.toLowerCase() === account?.toLowerCase());
 
       if (!org.exists) {
         setPayees([]);
@@ -441,7 +415,7 @@ export function CurrentPayrollPage() {
     setProcessFlowError(null);
     try {
       const chunkLimit = Math.max(1, payees.length * 2);
-      await processCurrentPayroll(slug, currentPayrollId, 1, chunkLimit);
+      await processCurrentPayroll(currentPayrollId, 1, chunkLimit);
       await fetchOrgInfo(slug);
     } catch (err: any) {
       const message =
@@ -462,7 +436,7 @@ export function CurrentPayrollPage() {
 
     setIsCancellingPayroll(true);
     try {
-      const tx = await cancelPayroll(chainId, slug, currentPayrollId);
+      const tx = await payrollActions.cancelPayroll(currentPayrollId);
       if (tx !== undefined) {
         await fetchOrgInfo(slug);
       }
@@ -798,7 +772,16 @@ export function CurrentPayrollPage() {
                     config={config}
                     onSave={async (actions) => {
                       if (!chainId || !slug || currentPayrollId == null) return false;
-                      const tx = await configurePayroll(chainId, slug, currentPayrollId, actions);
+                      const tx = await payrollActions.configurePayroll(
+                        currentPayrollId,
+                        actions.map((a) => ({
+                          action: a.action as 0 | 1,
+                          payeeId: a.payeeId,
+                          earningsCodeIds: a.earningsCodeIds,
+                          rates: a.rates,
+                          runData: a.runData,
+                        })),
+                      );
                       return tx !== undefined;
                     }}
                     onAfterApply={async () => {
