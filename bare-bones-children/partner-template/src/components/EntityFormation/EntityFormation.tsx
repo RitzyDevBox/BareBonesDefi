@@ -45,10 +45,19 @@ interface EntityFormationProps {
   activeDao?: FormationDao;
   chain?: FormationChain;
   wallet?: FormationWallet;
-  /** Active org slug from the navbar (useActiveOrganization). When present
-   *  the wizard operates on a per-DAO entity shared across all admins of
-   *  that org; when absent it falls back to per-user DAO-decoupled mode. */
+  /** Active org slug from the navbar (useActiveOrganization). Filing is
+   *  always org-scoped — the wizard refuses to render without one. */
   orgSlug?: string | null;
+  /** Resolution state of payrollManager.daoOf(orgSlug):
+   *    idle      — no org selected yet, not fetched
+   *    resolving — RPC call in flight
+   *    missing   — call returned 0x0 / threw — org has no Governor
+   *    resolved  — Governor address available on activeDao.governor.address
+   *  Used to distinguish "still loading the DAO context" from "this org
+   *  doesn't have a DAO, deploy one first" — both used to collapse into a
+   *  silent stuck-loader.
+   */
+  governorStatus?: "idle" | "resolving" | "missing" | "resolved";
   onConnectWallet?: () => void;
 }
 
@@ -82,6 +91,7 @@ export function EntityFormation({
   chain,
   wallet,
   orgSlug,
+  governorStatus = "idle",
   onConnectWallet,
 }: EntityFormationProps) {
   const { isSignedIn, signIn, loading: authLoading, error: authError } =
@@ -434,8 +444,8 @@ export function EntityFormation({
           lede={
             <>
               Filing signs a record on behalf of{" "}
-              {activeDao?.name || "this entity"}. Connect a wallet with
-              WY_FILING_ROLE or Super Admin.
+              {activeDao?.name || "this entity"}. Connect the wallet you want
+              to file with.
             </>
           }
           action={
@@ -486,6 +496,53 @@ export function EntityFormation({
               )}
             </>
           }
+        />
+      </div>
+    );
+  }
+
+  // Filing is always org-scoped. Without an active org from the navbar we
+  // can't deterministically locate (or mint) the formation row, and we
+  // certainly can't bake in a Governor address.
+  if (!orgSlug) {
+    return (
+      <div className="entity-formation-root">
+        <Hero activeDao={activeDao} chain={chain} progress={0} stepIdx={0} />
+        <ShellNotice
+          kicker="Organization required"
+          title="Pick an organization to file for"
+          lede="Wyoming filing is tied to a specific on-chain DAO. Select the organization from the navbar, then return here."
+        />
+      </div>
+    );
+  }
+
+  // Org is selected but the Governor lookup is still in flight. Surfaced
+  // explicitly so the user doesn't see a silent "Fetching your draft…"
+  // while no API request is actually being made yet.
+  if (governorStatus === "idle" || governorStatus === "resolving") {
+    return (
+      <div className="entity-formation-root">
+        <Hero activeDao={activeDao} chain={chain} progress={0} stepIdx={0} />
+        <ShellNotice
+          kicker="Loading"
+          title="Resolving your DAO…"
+          lede="Looking up the Governor for this organization."
+        />
+      </div>
+    );
+  }
+
+  // Org has no Governor registered (or the RPC lookup failed). The wizard
+  // can't proceed — direct the user to deploy a DAO first.
+  if (governorStatus === "missing") {
+    return (
+      <div className="entity-formation-root">
+        <Hero activeDao={activeDao} chain={chain} progress={0} stepIdx={0} />
+        <ShellNotice
+          kicker="No DAO detected"
+          title="This organization doesn't have a Governor yet"
+          lede="Filing requires a deployed DAO Governor + Timelock. Deploy a DAO for this organization, then return here."
         />
       </div>
     );
@@ -625,8 +682,6 @@ export function EntityFormation({
                 activeDao={activeDao}
                 chain={chain}
                 contractAddr={contractAddr}
-                setContractAddr={setContractAddr}
-                locked={!!draft.detail?.orgSlug}
                 onPrev={prevStep}
                 onNext={handleContractNext}
               />
@@ -649,6 +704,7 @@ export function EntityFormation({
                 setSrc={setAgreementSrc}
                 storage={agreementStorage}
                 setStorage={setAgreementStorage}
+                governance={activeDao?.governance}
                 onUpload={handleAgreementUpload}
                 uploadedDocName={
                   draft.documents.find((d) => d.type === "OPERATING_AGREEMENT")?.uri

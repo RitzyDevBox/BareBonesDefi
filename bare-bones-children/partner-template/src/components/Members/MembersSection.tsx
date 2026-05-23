@@ -1,5 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ethers } from "ethers";
+import { systemRoleSlugSet } from "../../constants/mtaRoles";
+
+// Roles whose holder can manage the member roster (onboard, assign roles,
+// status, etc.). Mirrors MTA's `_isAuthorized` accepts on the relevant
+// selectors. Module-scope so the slug encoding is resolved once.
+const MEMBER_MANAGER_ROLE_SLUGS = systemRoleSlugSet([
+  "SuperAdmin",
+  "Admin",
+  "MemberManager",
+]);
 import { MEMBER_ACTIVITY_SEED } from "../../data/membersSeed";
 import {
   Member, Permission, Role, SlugStatus,
@@ -113,6 +123,38 @@ export function MembersSection({ slug, governorAddress = "" }: MembersSectionPro
   // too; we hide the UI for everyone else so they don't fill out a form that
   // can't possibly succeed).
   const isSuperAdmin = !!account && !!superAdmin && account.toLowerCase() === superAdmin.toLowerCase();
+
+  // Member-management gate for write actions on the Members tab (Add member,
+  // assign roles, etc.). Mirrors what MTA's `_isAuthorized` accepts on the
+  // onboardMembers/assignRoles selectors:
+  //   - SuperAdmin: bypasses every check unconditionally.
+  //   - Admin: bypasses per-selector checks while the slug is in Normal state.
+  //   - MemberManager: implicit access to the member-roster surface
+  //     (onboardMembers, setMember*, removeMembers, assignRoles, revokeRoles)
+  //     via MTA's `_selfManagerAllows`.
+  // Custom roles with explicit target grants would also be allowed by the
+  // contract, but we don't enumerate those for the UI button gate — those
+  // users can still go through specific affordances that surface the grants.
+  // Paused/Locked slug states tighten this further; the contract will revert
+  // and the slug banner already warns the user, so we don't double-gate here.
+  const myMember = useMemo(() => {
+    if (!account) return null;
+    return (
+      members.find(
+        (m) => m.wallet.address.toLowerCase() === account.toLowerCase(),
+      ) ?? null
+    );
+  }, [members, account]);
+  // `member.roles` from useMtaState is the on-chain bytes32 role slug, NOT
+  // the decoded name. MEMBER_MANAGER_ROLE_SLUGS is the pre-encoded set from
+  // [constants/mtaRoles.ts](../../constants/mtaRoles.ts).
+  const canManageMembers = useMemo(() => {
+    if (isSuperAdmin) return true;
+    if (!myMember) return false;
+    return myMember.roles.some((slug: string) =>
+      MEMBER_MANAGER_ROLE_SLUGS.has(slug),
+    );
+  }, [isSuperAdmin, myMember]);
 
   const [view, setView] = useState<SubView>(SubView.List);
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
@@ -446,6 +488,18 @@ export function MembersSection({ slug, governorAddress = "" }: MembersSectionPro
     }
   }
 
+  async function onAssignRoleToMember(memberId: string, roleSlug: string) {
+    const m = members.find((x) => x.id === memberId);
+    if (!m) return;
+    try {
+      // Role.id IS the bytes32 roleSlug — both system and custom roles use
+      // their on-chain slug as the React id. Pass through unchanged.
+      await actions.assignRoles([m.memberId], [roleSlug]);
+    } catch (e) {
+      notify(ToastType.Error, "Assign failed", e instanceof Error ? e.message : undefined);
+    }
+  }
+
   async function onPauseSlug() {
     try { await actions.pauseSlug(); } catch (e) { notify(ToastType.Error, "Pause failed", e instanceof Error ? e.message : undefined); }
   }
@@ -515,10 +569,12 @@ export function MembersSection({ slug, governorAddress = "" }: MembersSectionPro
         roles={roles}
         permissions={permissions}
         activity={MEMBER_ACTIVITY_SEED[activeMember.id] ?? []}
+        canManageMembers={canManageMembers}
         onBack={goList}
         onSuspend={() => onSuspendMember(activeMember.id)}
         onReinstate={() => onReinstateMember(activeMember.id)}
         onRemoveRole={(roleId) => onRemoveRoleFromMember(activeMember.id, roleId)}
+        onAssignRole={(roleSlug) => onAssignRoleToMember(activeMember.id, roleSlug)}
       />
     );
   } else if (view === SubView.Roles) {
@@ -555,6 +611,7 @@ export function MembersSection({ slug, governorAddress = "" }: MembersSectionPro
       <MembersList
         members={members}
         roles={roles}
+        canManageMembers={canManageMembers}
         onOpenMember={openMember}
         onAddMember={() => setAddMemberOpen(true)}
         onGoRoles={() => setView(SubView.Roles)}

@@ -112,10 +112,10 @@ export function StepEligibility({ activeDao, wallet, onNext }: EligibilityProps)
       ok: !!tokenAddress,
     },
     {
-      label: "You hold WY_FILING_ROLE",
+      label: "Wallet connected",
       detail: wallet
-        ? `Connected as ${shortAddress(wallet.address)} — Super Admin`
-        : "Connect a wallet with WY_FILING_ROLE to file",
+        ? `Connected as ${shortAddress(wallet.address)}`
+        : "Connect a wallet to file",
       ok: !!wallet,
     },
   ];
@@ -631,12 +631,6 @@ interface ContractProps {
   activeDao?: FormationDao;
   chain?: FormationChain;
   contractAddr: string;
-  setContractAddr: (v: string) => void;
-  /** True when the entity is org-scoped — the governor + chain were locked
-   *  at creation from the navbar's org context. Renders the input read-only
-   *  since editing it mid-wizard would corrupt the (orgSlug, chainId)
-   *  scoping invariant on the server. */
-  locked?: boolean;
   onPrev: () => void;
   onNext: () => void;
 }
@@ -645,8 +639,6 @@ export function StepContract({
   activeDao,
   chain,
   contractAddr,
-  setContractAddr,
-  locked,
   onPrev,
   onNext,
 }: ContractProps) {
@@ -668,24 +660,26 @@ export function StepContract({
         step={3}
         total={7}
         title="Smart contract bind"
-        lede="Declare the on-chain identifier Wyoming will treat as the canonical DAO contract. Filed once; changes require an amendment."
+        lede="The on-chain identifier Wyoming will treat as the canonical DAO contract. Sourced from your organization's Governor; switch orgs from the navbar to file a different entity."
       />
       <div className="ef-card-body">
         <div className="ef-section">
           <div className="ef-section-head">Canonical identifier</div>
-          <div className="field full">
-            <label>DAO contract address</label>
-            <input
-              className="input mono"
-              value={contractAddr}
-              onChange={(e) => setContractAddr(e.target.value)}
-              readOnly={locked}
-              aria-readonly={locked}
-            />
-            <div className="field-hint">
-              {locked
-                ? "Locked to this organization's Governor — change orgs from the navbar to file a different entity."
-                : "Auto-filled from your Governor at launch"}
+          <div className="ef-summary">
+            <div className="ef-summary-row">
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 500 }}>
+                  DAO contract (Governor)
+                </div>
+                {activeDao?.governor?.name && (
+                  <div className="ef-mute mono" style={{ fontSize: 11.5 }}>
+                    {activeDao.governor.name}
+                  </div>
+                )}
+              </div>
+              <div className="mono ef-dim" style={{ fontSize: 12 }}>
+                {contractAddr ? shortAddress(contractAddr) : "Not detected"}
+              </div>
             </div>
           </div>
           <div style={{ marginTop: 10 }}>
@@ -880,6 +874,10 @@ interface AgreementProps {
   setSrc: (v: AgreementSource) => void;
   storage: AgreementStorage;
   setStorage: (v: AgreementStorage) => void;
+  /** Live on-chain governance parameters used to describe the voting +
+   *  delay config in the generated agreement. Undefined while the read is
+   *  still in flight; falls back to "—" placeholders. */
+  governance?: FormationDao["governance"];
   /** Invoked when the user picks a file in the Upload tile. */
   onUpload?: (file: File) => void | Promise<void>;
   /** When set, shows that a doc is on file (path/uri) so the user knows
@@ -894,16 +892,27 @@ export function StepAgreement({
   setSrc,
   storage,
   setStorage,
+  governance,
   onUpload,
   uploadedDocName,
   onPrev,
   onNext,
 }: AgreementProps) {
+  const votingDelay = governance?.votingDelay || "—";
+  const votingPeriod = governance?.votingPeriod || "—";
+  const quorum = governance?.quorumRatio || "—";
+  const timelockDelay = governance?.timelockMinDelay || "—";
   const filled = [
-    { k: "Voting procedures", v: "votingDelay 1d · votingPeriod 5d" },
-    { k: "Quorum threshold", v: "4% of token supply" },
+    {
+      k: "Voting procedures",
+      v: `votingDelay ${votingDelay} · votingPeriod ${votingPeriod}`,
+    },
+    { k: "Quorum threshold", v: `${quorum} of token supply` },
     { k: "Amendment procedure", v: "Governor proposal flow" },
-    { k: "Smart contract upgrade", v: "Timelock-gated proposal" },
+    {
+      k: "Smart contract upgrade",
+      v: `Timelock-gated proposal · minDelay ${timelockDelay}`,
+    },
   ];
   return (
     <div className="ef-card">

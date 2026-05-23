@@ -32,9 +32,18 @@ interface ActiveOrganizationContextValue {
   activeOrgSlug: string | null;
   setActiveOrgSlug: (slug: string | null) => void;
   activeOrgInfo: OrganizationModel | null;
-  ownedOrgs: string[];
-  loadingOwnedOrgs: boolean;
-  refreshOwnedOrgs: () => Promise<void>;
+  /** Every org this wallet has access to — union of on-chain ownership
+   *  (`PayrollManager.getOrganizationsByOwner`, fast path for fresh deploys
+   *  the subgraph hasn't indexed yet) and MTA membership (graph). Order is
+   *  stable: owned first, then any member-only orgs not already in owned. */
+  accessibleOrgs: string[];
+  /** True while either source is in flight. Consumers should treat this as
+   *  "the list is still being assembled" — render the skeleton, not "empty". */
+  loadingOrgs: boolean;
+  /** Force-refresh both sources. Used after a successful create-DAO so the
+   *  navbar selector picks up the new org without waiting for the periodic
+   *  txRefresh tick. */
+  refreshOrgs: () => Promise<void>;
   isOnOrgRoute: boolean;
 }
 
@@ -136,7 +145,11 @@ export function ActiveOrganizationProvider({ children }: { children: React.React
   // anything.
   const [graceTick, setGraceTick] = useState(0);
 
-  const { organizations, loading: loadingOwnedOrgs, reload } = useOwnedOrganizations({
+  const {
+    organizations: ownedOrgs,
+    loading: loadingOwnedOrgs,
+    reload: reloadOwned,
+  } = useOwnedOrganizations({
     provider: provider || undefined,
     payrollManagerAddress: config?.payrollManagerAddress,
     owner: account,
@@ -147,13 +160,33 @@ export function ActiveOrganizationProvider({ children }: { children: React.React
   // so plain members (non-deployers) also count as having access. Resolves
   // bytes32 slug hashes back to org names via PayrollManager.nameOf so we
   // can compare against `activeOrgSlug` (which is the human-readable name).
-  const { organizations: memberOrgs, loading: loadingMemberOrgs } = useMemberOrganizations({
+  const {
+    organizations: memberOrgs,
+    loading: loadingMemberOrgs,
+    reload: reloadMember,
+  } = useMemberOrganizations({
     provider: provider || undefined,
     payrollManagerAddress: config?.payrollManagerAddress,
     chainId,
     account,
     refreshKey: `${txVersion}-${graceTick}`,
   });
+
+  // Union for the navbar selector. Owned first (fast path — RPC, no
+  // subgraph dependency), then member-only orgs the user joined but didn't
+  // deploy. Deduped against the owned set.
+  const accessibleOrgs = useMemo(() => {
+    const seen = new Set(ownedOrgs);
+    const out = [...ownedOrgs];
+    for (const slug of memberOrgs) {
+      if (!seen.has(slug)) {
+        seen.add(slug);
+        out.push(slug);
+      }
+    }
+    return out;
+  }, [ownedOrgs, memberOrgs]);
+  const loadingOrgs = loadingOwnedOrgs || loadingMemberOrgs;
 
   // Drop a stale activeOrgSlug if the user has no access via ownership or
   // membership. Common causes: chain reset (anvil restore, staging refresh,
@@ -171,26 +204,14 @@ export function ActiveOrganizationProvider({ children }: { children: React.React
   //      wiping; the `graceTick` effect below drives the re-poll.
   useEffect(() => {
     if (!provider || !account || chainId == null) return;
-    if (loadingOwnedOrgs || loadingMemberOrgs) return;
+    if (loadingOrgs) return;
     if (!activeOrgSlug) return;
-    const hasAccess =
-      organizations.includes(activeOrgSlug) || memberOrgs.includes(activeOrgSlug);
-    if (hasAccess) return;
+    if (accessibleOrgs.includes(activeOrgSlug)) return;
     const elapsed = selectedAt > 0 ? Date.now() - selectedAt : Infinity;
     if (elapsed < SELECTION_GRACE_MS) return; // grace tick handles re-polling
     setActiveOrgSlugState(null);
     setSelectedAt(0);
-  }, [
-    provider,
-    account,
-    chainId,
-    loadingOwnedOrgs,
-    loadingMemberOrgs,
-    organizations,
-    memberOrgs,
-    activeOrgSlug,
-    selectedAt,
-  ]);
+  }, [provider, account, chainId, loadingOrgs, accessibleOrgs, activeOrgSlug, selectedAt]);
 
   // Grace re-poll: while inside the selection grace window AND the slug
   // isn't yet visible in either access check, bump `graceTick` on a timer
@@ -200,21 +221,10 @@ export function ActiveOrganizationProvider({ children }: { children: React.React
     if (!activeOrgSlug || !provider || !account || chainId == null) return;
     const elapsed = selectedAt > 0 ? Date.now() - selectedAt : Infinity;
     if (elapsed >= SELECTION_GRACE_MS) return;
-    const hasAccess =
-      organizations.includes(activeOrgSlug) || memberOrgs.includes(activeOrgSlug);
-    if (hasAccess) return;
+    if (accessibleOrgs.includes(activeOrgSlug)) return;
     const id = window.setTimeout(() => setGraceTick((t) => t + 1), GRACE_RECHECK_MS);
     return () => window.clearTimeout(id);
-  }, [
-    activeOrgSlug,
-    selectedAt,
-    provider,
-    account,
-    chainId,
-    organizations,
-    memberOrgs,
-    graceTick,
-  ]);
+  }, [activeOrgSlug, selectedAt, provider, account, chainId, accessibleOrgs, graceTick]);
 
   const [activeOrgInfo, setActiveOrgInfo] = useState<OrganizationModel | null>(null);
 
@@ -236,27 +246,27 @@ export function ActiveOrganizationProvider({ children }: { children: React.React
     };
   }, [provider, config?.payrollManagerAddress, activeOrgSlug, txVersion]);
 
-  const refreshOwnedOrgs = useCallback(async () => {
-    await reload();
-  }, [reload]);
+  const refreshOrgs = useCallback(async () => {
+    await Promise.all([reloadOwned(), reloadMember()]);
+  }, [reloadOwned, reloadMember]);
 
   const value = useMemo<ActiveOrganizationContextValue>(
     () => ({
       activeOrgSlug,
       setActiveOrgSlug,
       activeOrgInfo,
-      ownedOrgs: organizations,
-      loadingOwnedOrgs,
-      refreshOwnedOrgs,
+      accessibleOrgs,
+      loadingOrgs,
+      refreshOrgs,
       isOnOrgRoute,
     }),
     [
       activeOrgSlug,
       setActiveOrgSlug,
       activeOrgInfo,
-      organizations,
-      loadingOwnedOrgs,
-      refreshOwnedOrgs,
+      accessibleOrgs,
+      loadingOrgs,
+      refreshOrgs,
       isOnOrgRoute,
     ],
   );

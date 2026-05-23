@@ -75,7 +75,7 @@ function buildInitialForm(chainId: number | null, account: string | null, tokenF
 
 export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModalProps) {
   const { account, chainId } = useWalletProvider();
-  const { setActiveOrgSlug, refreshOwnedOrgs } = useActiveOrganization();
+  const { setActiveOrgSlug, refreshOrgs } = useActiveOrganization();
   const { deploy, getCanonicalDao, isWorking, launcherConfigured, tokenFactoryAvailable, config } =
     useDeployDao();
 
@@ -207,7 +207,7 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
         .filter((m) => m.wallet.length > 0),
     });
     if (ok) {
-      await refreshOwnedOrgs();
+      await refreshOrgs();
       setActiveOrgSlug(orgName);
       onClose();
     }

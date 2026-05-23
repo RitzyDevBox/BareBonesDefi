@@ -21,10 +21,20 @@ interface MemberDetailProps {
   roles: Role[];
   permissions: Permission[];
   activity: ActivityEntry[];
+  /** Whether the connected wallet may assign or revoke roles on this slug
+   *  (SuperAdmin / Admin / MemberManager). When false, the assign + remove
+   *  affordances are hidden so the user doesn't submit txs that will revert
+   *  with NotAuthorized(). */
+  canManageMembers: boolean;
   onBack: () => void;
   onSuspend: () => void;
   onReinstate: () => void;
   onRemoveRole: (roleId: string) => void;
+  /** Wire the role picker through to the parent so it can call
+   *  `actions.assignRoles([memberId], [roleSlug])`. `roleId` is the bytes32
+   *  slug (matches `Role.id`); the parent resolves the memberId from
+   *  `activeMember`. */
+  onAssignRole: (roleId: string) => Promise<void>;
 }
 
 interface EffectivePerm extends Permission {
@@ -60,7 +70,8 @@ const KYC_COLOR: Record<KycStatus, string> = {
 };
 
 export function MemberDetail({
-  member, roles, permissions, activity, onBack, onSuspend, onReinstate, onRemoveRole,
+  member, roles, permissions, activity, canManageMembers,
+  onBack, onSuspend, onReinstate, onRemoveRole, onAssignRole,
 }: MemberDetailProps) {
   const [tab, setTab] = useState<DetailTab>(DetailTab.Overview);
 
@@ -178,7 +189,14 @@ export function MemberDetail({
         />
       )}
       {tab === DetailTab.Roles && (
-        <RolesTab memberRoles={memberRoles} effective={effective} onRemoveRole={onRemoveRole} />
+        <RolesTab
+          memberRoles={memberRoles}
+          allRoles={roles}
+          effective={effective}
+          canManage={canManageMembers}
+          onRemoveRole={onRemoveRole}
+          onAssignRole={onAssignRole}
+        />
       )}
       {tab === DetailTab.Wallet && <WalletTab member={member} />}
       {tab === DetailTab.Sbt && <SbtTab member={member} />}
@@ -313,10 +331,41 @@ function Overview({
 }
 
 function RolesTab({
-  memberRoles, effective, onRemoveRole,
+  memberRoles, allRoles, effective, canManage, onRemoveRole, onAssignRole,
 }: {
-  memberRoles: Role[]; effective: EffectivePerm[]; onRemoveRole: (roleId: string) => void;
+  memberRoles: Role[];
+  allRoles: Role[];
+  effective: EffectivePerm[];
+  canManage: boolean;
+  onRemoveRole: (roleId: string) => void;
+  onAssignRole: (roleId: string) => Promise<void>;
 }) {
+  // Inline picker state. Toggling "+ Assign roles" reveals a select with the
+  // roles this member doesn't already hold. Submitting calls onAssignRole
+  // (which dispatches MTA `assignRoles`) and the parent re-renders once the
+  // subgraph + TxRefresh roll forward.
+  const [picking, setPicking] = useState(false);
+  const [pickedRoleId, setPickedRoleId] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+  const assignableRoles = useMemo(() => {
+    const has = new Set(memberRoles.map((r) => r.id));
+    return allRoles.filter((r) => !has.has(r.id));
+  }, [allRoles, memberRoles]);
+
+  async function submitAssign() {
+    if (!pickedRoleId) return;
+    setSubmitting(true);
+    try {
+      await onAssignRole(pickedRoleId);
+      setPicking(false);
+      setPickedRoleId("");
+    } catch {
+      // toast emitted by useExecuteRawTx / parent handler
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="bb-md-section">
       <div className="bb-md-section-head">
@@ -328,8 +377,48 @@ function RolesTab({
             Removing a role here would trigger an on-chain revocation transaction.
           </p>
         </div>
-        <button className="bb-btn-primary bb-btn-xs" onClick={() => notifySoon("Assign roles")}>+ Assign roles</button>
+        {canManage && !picking && assignableRoles.length > 0 && (
+          <button className="bb-btn-primary bb-btn-xs" onClick={() => setPicking(true)}>
+            + Assign roles
+          </button>
+        )}
       </div>
+
+      {canManage && picking && (
+        <div
+          className="bb-md-role-detail-card"
+          style={{ display: "flex", alignItems: "center", gap: 8, padding: 12 }}
+        >
+          <select
+            className="bb-m-select"
+            value={pickedRoleId}
+            onChange={(e) => setPickedRoleId(e.target.value)}
+            disabled={submitting}
+            style={{ flex: 1 }}
+          >
+            <option value="">Pick a role…</option>
+            {assignableRoles.map((r) => (
+              <option key={r.id} value={r.id} title={r.desc}>
+                {r.name}{r.isDefault ? " (default)" : ""}
+              </option>
+            ))}
+          </select>
+          <button
+            className="bb-btn-primary bb-btn-xs"
+            onClick={submitAssign}
+            disabled={submitting || !pickedRoleId}
+          >
+            {submitting ? "Submitting…" : "Assign"}
+          </button>
+          <button
+            className="bb-btn-ghost bb-btn-xs"
+            onClick={() => { setPicking(false); setPickedRoleId(""); }}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {memberRoles.length === 0 ? (
         <div className="bb-amw-empty">No roles assigned. Member is a participant of record only — no on-chain authority.</div>
@@ -347,13 +436,15 @@ function RolesTab({
                   </div>
                   <div className="bb-md-role-detail-desc">{r.desc}</div>
                 </div>
-                <button
-                  className="bb-btn-ghost bb-btn-xs"
-                  style={{ color: "var(--bb-error)" }}
-                  onClick={() => onRemoveRole(r.id)}
-                >
-                  Remove
-                </button>
+                {canManage && (
+                  <button
+                    className="bb-btn-ghost bb-btn-xs"
+                    style={{ color: "var(--bb-error)" }}
+                    onClick={() => onRemoveRole(r.id)}
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
               <div className="bb-md-role-perm-tags">
                 {r.permissions.length === 0

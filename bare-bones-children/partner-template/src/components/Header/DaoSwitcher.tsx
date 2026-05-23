@@ -9,7 +9,7 @@ interface DaoSwitcherProps {
 }
 
 export function DaoSwitcher({ onCreate, compact = false }: DaoSwitcherProps) {
-  const { activeOrgSlug, setActiveOrgSlug, ownedOrgs, loadingOwnedOrgs } = useActiveOrganization();
+  const { activeOrgSlug, setActiveOrgSlug, accessibleOrgs, loadingOrgs } = useActiveOrganization();
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   useClickOutside(wrapperRef, () => setOpen(false), open);
@@ -35,16 +35,16 @@ export function DaoSwitcher({ onCreate, compact = false }: DaoSwitcherProps) {
         <div className={`bb-dao-menu${compact ? " bb-dao-menu-compact" : ""}`} role="menu">
           <div className="bb-menu-section">
             <span>Your organizations</span>
-            <span>{loadingOwnedOrgs ? "…" : ownedOrgs.length}</span>
+            <span>{loadingOrgs ? "…" : accessibleOrgs.length}</span>
           </div>
 
-          {!loadingOwnedOrgs && ownedOrgs.length === 0 && (
+          {!loadingOrgs && accessibleOrgs.length === 0 && (
             <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--bb-text-mute)" }}>
               No organizations yet. Create one to get started.
             </div>
           )}
 
-          {ownedOrgs.map((slug) => {
+          {accessibleOrgs.map((slug) => {
             const checked = slug === activeOrgSlug;
             return (
               <button

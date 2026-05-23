@@ -15,6 +15,10 @@ import { notify } from "./membersToast";
 interface MembersListProps {
   members: Member[];
   roles: Role[];
+  /** False for roleless members / wallets without SuperAdmin/Admin/MemberManager.
+   *  Hides the "+ Add member" header button and the empty-state shortcut
+   *  links — both would revert with NotAuthorized() on submit. */
+  canManageMembers: boolean;
   onOpenMember: (m: Member) => void;
   onAddMember: () => void;
   onGoRoles: () => void;
@@ -26,7 +30,7 @@ interface MembersListProps {
 const ACCT_FILTER_ALL = "all" as const;
 
 export function MembersList({
-  members, roles, onOpenMember, onAddMember, onGoRoles, onGoPermissions,
+  members, roles, canManageMembers, onOpenMember, onAddMember, onGoRoles, onGoPermissions,
   onOpenSlugSettings, onOpenTakeOwnership,
 }: MembersListProps) {
   const [q, setQ] = useState("");
@@ -69,7 +73,9 @@ export function MembersList({
           + Take ownership
         </button>
         <button className="bb-btn-ghost bb-btn-xs" onClick={onOpenSlugSettings}>⚙ Slug settings</button>
-        <button className="bb-btn-primary bb-btn-xs" onClick={onAddMember}>+ Add member</button>
+        {canManageMembers && (
+          <button className="bb-btn-primary bb-btn-xs" onClick={onAddMember}>+ Add member</button>
+        )}
       </MembersSubNav>
 
       <div className="bb-m-filterbar">
@@ -180,8 +186,13 @@ export function MembersList({
             <div className="bb-m-empty">
               <h4>No members match.</h4>
               <div>
-                Try clearing filters, or{" "}
-                <button className="bb-m-link" onClick={onAddMember}>add a member</button>.
+                Try clearing filters
+                {canManageMembers && (
+                  <>
+                    , or <button className="bb-m-link" onClick={onAddMember}>add a member</button>
+                  </>
+                )}
+                .
               </div>
             </div>
           )}
@@ -271,8 +282,13 @@ export function MembersList({
             <div className="bb-m-empty">
               <h4>No members match.</h4>
               <div>
-                Try clearing filters, or{" "}
-                <button className="bb-m-link" onClick={onAddMember}>add a member</button>.
+                Try clearing filters
+                {canManageMembers && (
+                  <>
+                    , or <button className="bb-m-link" onClick={onAddMember}>add a member</button>
+                  </>
+                )}
+                .
               </div>
             </div>
           )}

@@ -9,6 +9,7 @@ import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useActiveOrganization } from "../providers/ActiveOrganizationProvider";
 import { CHAIN_INFO_MAP, getBareBonesConfiguration } from "../constants/misc";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
+import { orgSlugFor } from "../utils/payroll/orgSlug";
 
 export function EntityFormationPage() {
   const { provider, account, chainId, connect } = useWalletProvider();
@@ -27,13 +28,22 @@ export function EntityFormationPage() {
   }, [chainId]);
 
   // Step 1: resolve the active org's Governor address via payrollManager.daoOf.
-  const [governorAddress, setGovernorAddress] = useState<string | null>(null);
+  // Tracks four states so the wizard can distinguish "no org" / "still
+  // resolving" / "org has no DAO" / "resolved" instead of all collapsing to
+  // governorAddress=null (which previously stuck the loader forever).
+  type GovernorResolution =
+    | { status: "idle" }
+    | { status: "resolving" }
+    | { status: "missing" }
+    | { status: "resolved"; address: string };
+  const [governor, setGovernor] = useState<GovernorResolution>({ status: "idle" });
   useEffect(() => {
     let cancelled = false;
     if (!provider || !payrollManagerAddress || !activeOrgSlug) {
-      setGovernorAddress(null);
+      setGovernor({ status: "idle" });
       return;
     }
+    setGovernor({ status: "resolving" });
     const contract = new ethers.Contract(
       payrollManagerAddress,
       PayrollManagerABI as ethers.ContractInterface,
@@ -41,21 +51,27 @@ export function EntityFormationPage() {
     );
     (async () => {
       try {
-        const [governor]: [string, string] = await contract.daoOf(activeOrgSlug);
+        // daoOf takes the bytes32-packed slug, not the raw string. Passing
+        // the raw string makes ethers right-pad/coerce to a bytes32 that
+        // doesn't match what the launcher wrote, so the lookup returns 0x0
+        // for every org and the wizard's "no Governor" state is bogus.
+        const slugBytes32 = orgSlugFor(activeOrgSlug);
+        const [address]: [string, string] = await contract.daoOf(slugBytes32);
         if (cancelled) return;
-        if (!governor || governor === ethers.constants.AddressZero) {
-          setGovernorAddress(null);
+        if (!address || address === ethers.constants.AddressZero) {
+          setGovernor({ status: "missing" });
           return;
         }
-        setGovernorAddress(ethers.utils.getAddress(governor));
+        setGovernor({ status: "resolved", address: ethers.utils.getAddress(address) });
       } catch {
-        if (!cancelled) setGovernorAddress(null);
+        if (!cancelled) setGovernor({ status: "missing" });
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [provider, payrollManagerAddress, activeOrgSlug, txVersion]);
+  const governorAddress = governor.status === "resolved" ? governor.address : null;
 
   // Step 2: governance overview gives token + timelock addresses + voting params.
   const { governanceOverview } = useDaoGovernanceOverview({
@@ -118,6 +134,14 @@ export function EntityFormationPage() {
         ? { address: governanceOverview.timelockAddress }
         : undefined,
       token: tokenAddress ? { address: tokenAddress } : undefined,
+      governance: governanceOverview
+        ? {
+            votingDelay: governanceOverview.votingDelay,
+            votingPeriod: governanceOverview.votingPeriod,
+            quorumRatio: governanceOverview.quorumRatio,
+            timelockMinDelay: governanceOverview.minDelay,
+          }
+        : undefined,
     };
   }, [activeOrgSlug, governorAddress, governanceOverview, tokenAddress, tokenInfo]);
 
@@ -127,6 +151,7 @@ export function EntityFormationPage() {
       chain={chain}
       wallet={account ? { address: account } : undefined}
       orgSlug={activeOrgSlug}
+      governorStatus={governor.status}
       onConnectWallet={() => {
         void connect();
       }}

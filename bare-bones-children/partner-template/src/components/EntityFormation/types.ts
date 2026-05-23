@@ -5,6 +5,16 @@ export interface FormationDao {
   governor?: { name?: string; address?: string };
   timelock?: { address?: string };
   token?: { address?: string };
+  /** On-chain governance parameters read off the Governor + Timelock. Used
+   *  in the Operating Agreement step to describe the actual voting + delay
+   *  config that goes into the filing — defaults to placeholders only when
+   *  the chain read hasn't landed yet. */
+  governance?: {
+    votingDelay?: string;
+    votingPeriod?: string;
+    quorumRatio?: string;
+    timelockMinDelay?: string;
+  };
 }
 
 export interface FormationChain {

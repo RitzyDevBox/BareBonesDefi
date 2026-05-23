@@ -18,52 +18,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
 import { fetchMtaState } from "../../utils/graph/mtaGraphService";
+import {
+  SYSTEM_ROLES,
+  nameFromRoleSlug,
+  roleSlugFromName,
+} from "../../constants/mtaRoles";
 
-// ── System role table ───────────────────────────────────────────────────────
-//
-// Mirrors MultiTenantAuth's hardcoded role constants. Each entry is the
-// human-readable name + the bytes32 slug the contract uses. bytes32 of
-// the role name (via formatBytes32String — packs ASCII into the high
-// bytes) is the canonical convention shared across contracts + subgraph.
-
-export interface SystemRole {
-  name: string;
-  slug: string;
-  description: string;
-}
-
-export const SYSTEM_ROLES: SystemRole[] = [
-  { name: "SuperAdmin",        slug: "0x537570657241646d696e00000000000000000000000000000000000000000000", description: "Slug owner. Bypasses every check. Exactly one per org." },
-  { name: "Admin",             slug: "0x41646d696e000000000000000000000000000000000000000000000000000000", description: "Operational owner — full admin surface while slug is Normal." },
-  { name: "Pauser",            slug: "0x5061757365720000000000000000000000000000000000000000000000000000", description: "Emergency pause/unpause. Can't lock or rotate super admin." },
-  { name: "RoleManager",       slug: "0x526f6c654d616e61676572000000000000000000000000000000000000000000", description: "Create / update / delete roles. Attach permissions. Assign / revoke." },
-  { name: "MemberManager",     slug: "0x4d656d6265724d616e6167657200000000000000000000000000000000000000", description: "Roster lifecycle: onboard, status, type, name, remove." },
-  { name: "PermissionManager", slug: "0x5065726d697373696f6e4d616e61676572000000000000000000000000000000", description: "Permission lifecycle + target grants + public sigs + fallback authorizer." },
-  { name: "PayrollOperator",   slug: "0x506179726f6c6c4f70657261746f720000000000000000000000000000000000", description: "Payroll surface: onboardPayees + setPaymentStatus + PayrollManager ops." },
-  { name: "TreasuryOperator",  slug: "0x54726561737572794f70657261746f7200000000000000000000000000000000", description: "Treasury surface: deposit / withdraw / pay." },
-];
-
-/** Encode a free-form role name as a bytes32 slug. Matches the convention
- *  used by MTA's bootstrap path (`bytes32("Admin")` etc.) — utf8-packed into
- *  the high bytes, zero-padded. Names longer than 31 bytes can't round-trip
- *  through bytes32 and would throw; we trim defensively. */
-export function roleSlugFromName(name: string): string {
-  const trimmed = name.trim().slice(0, 31);
-  if (!trimmed) return ethers.constants.HashZero;
-  return ethers.utils.formatBytes32String(trimmed);
-}
-
-/** Decode a bytes32 slug back to its packed name. Returns "" for HashZero
- *  or unprintable garbage. Used to label the "type" the user just selected
- *  in the UI when they paste a raw bytes32 hex. */
-export function nameFromRoleSlug(slug: string): string {
-  try {
-    if (!slug || slug === ethers.constants.HashZero) return "";
-    return ethers.utils.parseBytes32String(slug);
-  } catch {
-    return "";
-  }
-}
+// Re-export for external consumers (e.g. proposalTemplates/MtaTemplate) that
+// still import these from MtaArgPickers. Canonical definitions live in
+// [constants/mtaRoles.ts](../../constants/mtaRoles.ts).
+export { SYSTEM_ROLES, nameFromRoleSlug, roleSlugFromName };
+export type { SystemRole } from "../../constants/mtaRoles";
 
 // ── Org roster hook ─────────────────────────────────────────────────────────
 //

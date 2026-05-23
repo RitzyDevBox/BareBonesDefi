@@ -50,60 +50,7 @@ import {
   getFoundationDefaultGrants,
 } from "../../utils/foundationDefaultGrants";
 
-// The 8 contract-level constants in MTA's `_isSystemRole`. Keeping the bytes32
-// hex hardcoded matches the subgraph mapping (`SYSTEM_ROLE_HEXES`) and lets
-// us synthesize Role rows in the UI without any contract / graph round-trip.
-// Descriptions track what the contract enforces:
-//   - SuperAdmin / Admin: short-circuit early-returns in `_isAuthorized`
-//   - Pauser / RoleManager / MemberManager / PermissionManager: implicit
-//     selectors via `_selfManagerAllows` (MTA's own admin surface)
-//   - PayrollOperator: implicit selectors via `_isFoundationDefaultGrant`
-//     (PayrollManager's operator surface)
-//   - TreasuryOperator: declared but reserved — no implicit grants today
-const SYSTEM_ROLES: Array<{ name: string; slug: string; desc: string }> = [
-  {
-    name: "SuperAdmin",
-    slug: "0x537570657241646d696e00000000000000000000000000000000000000000000",
-    desc: "Slug owner. Bypasses every check including pause + lock. Exactly one per slug; rotated via transferSuperAdmin.",
-  },
-  {
-    name: "Admin",
-    slug: "0x41646d696e000000000000000000000000000000000000000000000000000000",
-    desc: "Operational owner. Can call any MTA admin function while the slug is in Normal state; blocked when paused/locked.",
-  },
-  {
-    name: "Pauser",
-    slug: "0x5061757365720000000000000000000000000000000000000000000000000000",
-    desc: "Emergency response. Implicit access to pauseSlug + unpauseSlug. Cannot lock or rotate super admin.",
-  },
-  {
-    name: "RoleManager",
-    slug: "0x526f6c654d616e61676572000000000000000000000000000000000000000000",
-    desc: "Role lifecycle. Implicit access to createRoles / updateRoles / deleteRoles. Cannot manage members or permissions.",
-  },
-  {
-    name: "MemberManager",
-    slug: "0x4d656d6265724d616e6167657200000000000000000000000000000000000000",
-    desc: "Member roster. Implicit access to onboardMembers, setMember*, removeMembers, assignRoles, revokeRoles.",
-  },
-  {
-    name: "PermissionManager",
-    slug: "0x5065726d697373696f6e4d616e61676572000000000000000000000000000000",
-    desc: "Permission lifecycle. Implicit access to create/update/delete permissions, attach/detach roles, target grants, public-sig + fallback authorizer.",
-  },
-  {
-    name: "PayrollOperator",
-    slug: "0x506179726f6c6c4f70657261746f720000000000000000000000000000000000",
-    desc: "Payroll operations. Implicit access to PayrollManager's operator surface (createPayroll, configurePayroll, payee management, earnings codes, etc.).",
-  },
-  {
-    name: "TreasuryOperator",
-    slug: "0x54726561737572794f70657261746f7200000000000000000000000000000000",
-    desc: "Treasury operations. Reserved system role — no implicit grants today; orgs grant explicit permissions to use it.",
-  },
-];
-
-const SYSTEM_ROLE_HEX_SET = new Set(SYSTEM_ROLES.map((r) => r.slug.toLowerCase()));
+import { SYSTEM_ROLES, SYSTEM_ROLE_SLUG_SET } from "../../constants/mtaRoles";
 
 export interface MtaStateView {
   slugStatus: SlugStatus;
@@ -234,7 +181,7 @@ export function useMtaState(slug: string, governanceTokenAddress?: string): MtaS
           return {
             id: sr.slug,
             name: sr.name,
-            desc: sr.desc,
+            desc: sr.description,
             accountTypes: [],
             permissions: [],
             cap: null,
@@ -245,7 +192,7 @@ export function useMtaState(slug: string, governanceTokenAddress?: string): MtaS
         });
 
         const customRoles = graph.roles
-          .filter((row) => !SYSTEM_ROLE_HEX_SET.has(row.roleSlug.toLowerCase()))
+          .filter((row) => !SYSTEM_ROLE_SLUG_SET.has(row.roleSlug.toLowerCase()))
           .map((row) => rowToRole(
             row,
             roleProfiles[row.roleSlug.toLowerCase()],

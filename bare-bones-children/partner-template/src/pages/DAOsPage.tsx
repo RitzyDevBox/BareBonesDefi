@@ -25,7 +25,7 @@ interface DaoDeploymentSummary {
 export function DAOsPage() {
   const { provider, account, chainId, connect } = useWalletProvider();
   const { version } = useTxRefresh();
-  const { activeOrgSlug, ownedOrgs } = useActiveOrganization();
+  const { activeOrgSlug, accessibleOrgs } = useActiveOrganization();
   const config = useMemo(() => (chainId ? getBareBonesConfiguration(chainId) : null), [chainId]);
   const payrollManagerAddress = config?.payrollManagerAddress;
 
@@ -40,14 +40,14 @@ export function DAOsPage() {
   // org that already had one (and the on-chain write would then revert).
   useEffect(() => {
     let cancelled = false;
-    if (!provider || !payrollManagerAddress || ownedOrgs.length === 0) {
+    if (!provider || !payrollManagerAddress || accessibleOrgs.length === 0) {
       setDeploymentsByOrg({});
       return;
     }
     setLoading(true);
     const contract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
     Promise.all(
-      ownedOrgs.map(async (name) => {
+      accessibleOrgs.map(async (name) => {
         try {
           const slug = orgSlugFor(name);
           const [governor]: [string, string] = await contract.daoOf(slug);
@@ -76,7 +76,7 @@ export function DAOsPage() {
     return () => {
       cancelled = true;
     };
-  }, [provider, payrollManagerAddress, ownedOrgs, version]);
+  }, [provider, payrollManagerAddress, accessibleOrgs, version]);
 
   const activeDeployment = useMemo(() => {
     const slug = activeOrgSlug?.trim().toLowerCase();
@@ -170,7 +170,7 @@ export function DAOsPage() {
           lockedOrgSlug={activeOrgSlug ?? undefined}
         />
 
-        {account && ownedOrgs.length > 1 && (
+        {account && accessibleOrgs.length > 0 && (
           <Card>
             <CardContent>
               <Stack gap="sm">
@@ -178,7 +178,7 @@ export function DAOsPage() {
                   Your organizations
                 </Text.Title>
                 <Stack gap="xs">
-                  {ownedOrgs.map((slug) => {
+                  {accessibleOrgs.map((slug) => {
                     const summary = deploymentsByOrg[slug.toLowerCase()];
                     return (
                       <Row

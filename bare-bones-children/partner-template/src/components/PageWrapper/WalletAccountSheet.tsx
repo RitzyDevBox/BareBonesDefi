@@ -56,7 +56,7 @@ export function WalletAccountSheet({
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
 
-  const { activeOrgSlug, setActiveOrgSlug, ownedOrgs, loadingOwnedOrgs } = useActiveOrganization();
+  const { activeOrgSlug, setActiveOrgSlug, accessibleOrgs, loadingOrgs } = useActiveOrganization();
   const { user, isSignedIn, loading: apiAuthLoading, signIn, signOut, setEmail } = useApiAuth();
 
   const allChains = Object.values(CHAIN_INFO_MAP);
@@ -545,12 +545,12 @@ export function WalletAccountSheet({
 
   const orgPickerBody = (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {!loadingOwnedOrgs && ownedOrgs.length === 0 && (
+      {!loadingOrgs && accessibleOrgs.length === 0 && (
         <div className="bb-stg-child-empty" style={{ margin: 0 }}>
           <span>No organizations yet — create one to get started.</span>
         </div>
       )}
-      {ownedOrgs.map((slug) => {
+      {accessibleOrgs.map((slug) => {
         const checked = slug === activeOrgSlug;
         return (
           <button

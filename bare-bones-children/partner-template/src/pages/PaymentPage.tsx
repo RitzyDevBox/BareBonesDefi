@@ -6,8 +6,20 @@ import { Stack } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useReadProvider } from "../hooks/useReadProvider";
+import { useMtaState } from "../hooks/auth/useMtaState";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { useActiveOrganization } from "../providers/ActiveOrganizationProvider";
+import { systemRoleSlugSet } from "../constants/mtaRoles";
+
+// Roles that bypass MTA's per-selector check on PayrollManager's operator
+// surface (SuperAdmin/Admin via `_isAuthorized` short-circuits, PayrollOperator
+// via `_isFoundationDefaultGrant`). Module-scope so the slug encoding is
+// resolved once.
+const PAYROLL_ADMIN_ROLE_SLUGS = systemRoleSlugSet([
+  "SuperAdmin",
+  "Admin",
+  "PayrollOperator",
+]);
 import { DEFAULT_CHAIN_ID, getBareBonesConfiguration } from "../constants/misc";
 import { fetchOrganizationInfo } from "../hooks/payroll/useOrganizationRegistry";
 import { fetchPayeesByOrganization } from "../utils/payroll/fetchPayeesByOrganization";
@@ -87,10 +99,40 @@ export function PaymentPage() {
     void refresh();
   }, [refresh, version]);
 
+  // Pull the MTA state for this org so we can authorize the connected wallet
+  // by its actual role assignments, not just by org ownership. The hook
+  // returns empty defaults when the slug isn't bootstrapped, so it's safe to
+  // call unconditionally — though it short-circuits when slug is "".
+  const mtaState = useMtaState(slug);
+
+  // Admin scope here = anyone the on-chain authorizer will let pass for
+  // PayrollManager's operator surface:
+  //   - PayrollManager-registered owner (legacy fast path; the deployer is
+  //     normally also bootstrapped as SuperAdmin so this is usually a
+  //     subset of the MTA check, but kept to avoid relying on the subgraph
+  //     for the most common case).
+  //   - SuperAdmin → bypasses every check (also covers pause/lock state).
+  //   - Admin → bypasses per-selector checks while the slug is Normal.
+  //   - PayrollOperator → has implicit grants on PayrollManager's operator
+  //     surface (createPayroll, configurePayroll, payee management, etc.)
+  //     via MTA's `_isFoundationDefaultGrant`.
+  // Custom roles with explicit target grants to PayrollManager are not
+  // covered here — they get the per-action checks the contract enforces
+  // anyway, and the UI doesn't show them as "admin".
+  // `member.roles` from useMtaState is the on-chain bytes32 role slug, not
+  // the decoded name. PAYROLL_ADMIN_ROLE_SLUGS is the pre-encoded set from
+  // [constants/mtaRoles.ts](../constants/mtaRoles.ts).
   const isAdmin = useMemo(() => {
-    if (!orgInfo?.exists || !account) return false;
-    return orgInfo.owner.toLowerCase() === account.toLowerCase();
-  }, [orgInfo, account]);
+    if (!account) return false;
+    if (orgInfo?.exists && orgInfo.owner.toLowerCase() === account.toLowerCase()) {
+      return true;
+    }
+    const me = mtaState.members.find(
+      (m) => m.wallet.address.toLowerCase() === account.toLowerCase(),
+    );
+    if (!me) return false;
+    return me.roles.some((slug) => PAYROLL_ADMIN_ROLE_SLUGS.has(slug));
+  }, [orgInfo, account, mtaState.members]);
 
   function setTab(next: PayrollNavTab) {
     const nextParams = new URLSearchParams(searchParams);
