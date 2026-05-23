@@ -53,9 +53,15 @@ export interface ApiEntityCompletion {
 
 // PII-scrubbed entity view. Used by list endpoints (`GET /entities`) where
 // returning PII per-row would be wasteful and a leak through the wire log.
+//
+// orgSlug ties the entity to an on-chain organization (the navbar's
+// activeOrgSlug). When set, the entity is shared across all admins of that
+// org and any signed-in user can read/write. When null the entity is
+// DAO-decoupled — only the original owner can access it.
 export interface ApiEntitySummary {
   id: string;
   ownerUserId: string;
+  orgSlug: string | null;
   status: ApiEntityStatus;
   jurisdiction: string;
   legalName: string;
@@ -93,6 +99,12 @@ export interface ApiEntityFull extends ApiEntitySummary {
   filerFirstName: string | null;
   filerLastName: string | null;
   filerRoleClaim: string | null;
+  // filerEmail/Phone* ARE returned (not stripped like PII fields on the
+  // summary) — the wizard needs them on hydration so the next organizer
+  // save doesn't silently null them when the user clicks Next.
+  filerEmail: string | null;
+  filerPhoneE164: string | null;
+  filerPhoneCountry: string | null;
   filerSameAsBusinessContact: boolean;
   agentMode: "SERVICE" | "OWN" | null;
   agentServiceKey: string | null;
@@ -102,7 +114,18 @@ export interface ApiEntityFull extends ApiEntitySummary {
   agentCustomZip: string | null;
   agreementSource: "GENERATE" | "UPLOAD" | null;
   agreementStorage: "OFF" | "ARWEAVE" | "ONCHAIN" | null;
+  agreementUri: string | null;
   addresses: ApiEntityAddress[];
+}
+
+// Body for POST /entities (find-or-create). When orgSlug is provided the
+// lookup is org-scoped: find by (orgSlug, chainId) across all statuses,
+// else create with these values locked at creation. When omitted, falls
+// back to per-user single-DRAFT semantics.
+export interface ApiFindOrCreateInput {
+  orgSlug?: string | null;
+  chainId?: number | null;
+  daoAddress?: string | null;
 }
 
 // ---------- Step payloads ----------

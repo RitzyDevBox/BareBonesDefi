@@ -126,6 +126,7 @@ export function EntityFormationPage() {
       activeDao={activeDao}
       chain={chain}
       wallet={account ? { address: account } : undefined}
+      orgSlug={activeOrgSlug}
       onConnectWallet={() => {
         void connect();
       }}

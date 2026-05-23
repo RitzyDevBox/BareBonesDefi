@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type {
   ApiAgentInput,
@@ -37,12 +37,32 @@ export interface FormationDraftState {
   uploadDocument: (file: File, type: ApiDocumentType) => Promise<ApiDocument>;
 }
 
-// Owns the user's single formation DRAFT. On mount: find-or-create the
-// draft + load its documents. Step saves POST partial bundles; the response
-// is a PII-scrubbed summary, which we merge over the existing detail so
-// completion flags + public fields stay fresh without overwriting the PII
-// the user just typed in.
-export function useFormationDraft(): FormationDraftState {
+export interface FormationDraftInput {
+  /** Active org slug from the navbar (useActiveOrganization). Present →
+   *  org-scoped formation shared across all admins of the DAO. Absent →
+   *  per-user DAO-decoupled formation. */
+  orgSlug?: string | null;
+  /** Chain id the org lives on. Required when orgSlug is set so the
+   *  (orgSlug, chainId) lookup key is well-defined. */
+  chainId?: number | null;
+  /** Governor address resolved from the org (payrollManager.daoOf). Locked
+   *  into the entity at creation time; ignored if the entity already exists.
+   *  When orgSlug is set we wait for this to resolve before firing
+   *  find-or-create so a brand-new entity doesn't get persisted with
+   *  daoAddress=null. */
+  daoAddress?: string | null;
+}
+
+// Owns the active formation entity for the current org context (or the
+// user's single DRAFT when no org is set). On mount / org change:
+// find-or-create + load documents. Step saves POST partial bundles; the
+// response is a PII-scrubbed summary merged over the existing detail so
+// completion flags + public fields stay fresh without overwriting PII
+// the user just typed.
+export function useFormationDraft(
+  input: FormationDraftInput = {},
+): FormationDraftState {
+  const { orgSlug, chainId, daoAddress } = input;
   const { isSignedIn } = useApiAuthContext();
   const [detail, setDetail] = useState<ApiEntityFull | null>(null);
   const [documents, setDocuments] = useState<ApiDocument[]>([]);
@@ -50,42 +70,71 @@ export function useFormationDraft(): FormationDraftState {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // React 18 StrictMode runs effects twice in dev. Without this guard the
-  // initial findOrCreate fires twice — visible as duplicate POST /entities
-  // in the network tab. Reset when the auth state actually changes.
-  const initRef = useRef(false);
+  // "Load key" controls when we re-fire findOrCreate. Changes when the
+  // auth state flips OR when the org context the wizard is operating in
+  // changes (user switches DAO via the navbar). For org-scoped loads we
+  // also wait for daoAddress — without it a freshly-minted entity would
+  // be persisted with daoAddress=null, requiring a follow-up update.
+  // Returns null while we're not ready to load (signed out / waiting for
+  // org context to resolve).
+  const loadKey = useMemo(() => {
+    if (!isSignedIn) return null;
+    if (orgSlug) {
+      if (chainId == null || !daoAddress) return null;
+      return `org:${orgSlug}:${chainId}`;
+    }
+    return "decoupled";
+  }, [isSignedIn, orgSlug, chainId, daoAddress]);
+
+  // Per-key load guard. Tracks the loadKey we're currently fetching for.
+  // Three guarantees:
+  //   1. StrictMode double-mount in dev — second run sees the same key
+  //      already in progress and early-returns.
+  //   2. Org-switch staleness — if loadKey changes mid-fetch, the in-flight
+  //      response is dropped via the ref-mismatch check inside the async.
+  //   3. setLoading(false) only runs for the still-current key, so a
+  //      cancelled fetch doesn't accidentally clear loading state owned by
+  //      a newer fetch.
+  const loadingForKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isSignedIn) {
-      initRef.current = false;
-      setLoading(false);
+    if (loadKey == null) {
+      loadingForKeyRef.current = null;
+      setLoading(!!orgSlug && (chainId == null || !daoAddress));
       setDetail(null);
       setDocuments([]);
       return;
     }
-    if (initRef.current) return;
-    initRef.current = true;
+    if (loadingForKeyRef.current === loadKey) return;
+    loadingForKeyRef.current = loadKey;
 
-    // No AbortController / cancellation here — the ref guard above ensures
-    // only one fetch ever flies between sign-in events. Adding a cleanup
-    // that flipped a `cancelled` flag would race the StrictMode double-mount
-    // and leave `loading` stuck at true (first run's setLoading(false)
-    // gated by cancelled=true, second run early-returns).
     setLoading(true);
     setError(null);
+    // Clear stale data so the wizard renders the loading state, not the
+    // previously-loaded org's content.
+    setDetail(null);
+    setDocuments([]);
+
     (async () => {
       try {
-        const draft = await api.entities.findOrCreate();
+        const draft = await api.entities.findOrCreate({
+          orgSlug: orgSlug ?? null,
+          chainId: chainId ?? null,
+          daoAddress: daoAddress ?? null,
+        });
+        if (loadingForKeyRef.current !== loadKey) return;
         setDetail(draft);
         const docs = await api.documents.list(draft.id);
+        if (loadingForKeyRef.current !== loadKey) return;
         setDocuments(docs);
       } catch (err) {
+        if (loadingForKeyRef.current !== loadKey) return;
         setError(err instanceof ApiError ? err.code : "draft_load_failed");
       } finally {
-        setLoading(false);
+        if (loadingForKeyRef.current === loadKey) setLoading(false);
       }
     })();
-  }, [isSignedIn]);
+  }, [loadKey, orgSlug, chainId, daoAddress]);
 
   // Merge the summary returned by a step POST onto the existing detail —
   // keep the locally-known PII the user just sent (server doesn't echo it

@@ -632,6 +632,11 @@ interface ContractProps {
   chain?: FormationChain;
   contractAddr: string;
   setContractAddr: (v: string) => void;
+  /** True when the entity is org-scoped — the governor + chain were locked
+   *  at creation from the navbar's org context. Renders the input read-only
+   *  since editing it mid-wizard would corrupt the (orgSlug, chainId)
+   *  scoping invariant on the server. */
+  locked?: boolean;
   onPrev: () => void;
   onNext: () => void;
 }
@@ -641,6 +646,7 @@ export function StepContract({
   chain,
   contractAddr,
   setContractAddr,
+  locked,
   onPrev,
   onNext,
 }: ContractProps) {
@@ -673,8 +679,14 @@ export function StepContract({
               className="input mono"
               value={contractAddr}
               onChange={(e) => setContractAddr(e.target.value)}
+              readOnly={locked}
+              aria-readonly={locked}
             />
-            <div className="field-hint">Auto-filled from your Governor at launch</div>
+            <div className="field-hint">
+              {locked
+                ? "Locked to this organization's Governor — change orgs from the navbar to file a different entity."
+                : "Auto-filled from your Governor at launch"}
+            </div>
           </div>
           <div style={{ marginTop: 10 }}>
             <span className="ef-addr-chip">

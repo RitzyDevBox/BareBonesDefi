@@ -45,6 +45,10 @@ interface EntityFormationProps {
   activeDao?: FormationDao;
   chain?: FormationChain;
   wallet?: FormationWallet;
+  /** Active org slug from the navbar (useActiveOrganization). When present
+   *  the wizard operates on a per-DAO entity shared across all admins of
+   *  that org; when absent it falls back to per-user DAO-decoupled mode. */
+  orgSlug?: string | null;
   onConnectWallet?: () => void;
 }
 
@@ -77,11 +81,21 @@ export function EntityFormation({
   activeDao,
   chain,
   wallet,
+  orgSlug,
   onConnectWallet,
 }: EntityFormationProps) {
   const { isSignedIn, signIn, loading: authLoading, error: authError } =
     useApiAuthContext();
-  const draft = useFormationDraft();
+  // Pass the navbar's org context + the resolved governor address through to
+  // the draft hook. When orgSlug is set, the hook scopes find-or-create by
+  // (orgSlug, chainId) and re-fetches on org switches. When the user
+  // navigates between DAOs in the navbar, the wizard reloads against the
+  // right entity instead of editing the previous DAO's draft.
+  const draft = useFormationDraft({
+    orgSlug,
+    chainId: chain?.chainId,
+    daoAddress: activeDao?.governor?.address,
+  });
 
   const [params, setParams] = useSearchParams();
   const stepParam = params.get("step");
@@ -612,6 +626,7 @@ export function EntityFormation({
                 chain={chain}
                 contractAddr={contractAddr}
                 setContractAddr={setContractAddr}
+                locked={!!draft.detail?.orgSlug}
                 onPrev={prevStep}
                 onNext={handleContractNext}
               />

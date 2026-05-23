@@ -8,6 +8,7 @@ import {
   ApiEntityFull,
   ApiEntitySummary,
   ApiError,
+  ApiFindOrCreateInput,
   ApiNonceResponse,
   ApiOrganizerInput,
   ApiUser,
@@ -115,13 +116,21 @@ export const api = {
       }),
   },
   entities: {
-    // Find-or-create the user's single DRAFT. No legalName needed — when a
-    // fresh draft has to be minted, the server stamps a placeholder the
-    // user edits on the Basics step.
-    findOrCreate: () =>
+    // Find-or-create. Two paths depending on whether the caller supplies an
+    // orgSlug from the navbar context:
+    //   Org-scoped — looks up by (orgSlug, chainId) across all statuses;
+    //     returns the existing entity (any status) or mints a new one with
+    //     the supplied values baked in. Wizard renders read-only when the
+    //     returned status != DRAFT (already-filed entities).
+    //   DAO-decoupled (no orgSlug) — returns the user's open DRAFT or
+    //     mints a fresh one.
+    // daoAddress is the governor for the org, resolved upstream by the page
+    // (payrollManager.daoOf). Locked at creation; Contract step renders
+    // read-only for org-scoped entities.
+    findOrCreate: (input: ApiFindOrCreateInput = {}) =>
       request<ApiEntityFull>("/entities", {
         method: "POST",
-        body: JSON.stringify({ jurisdiction: "wy" }),
+        body: JSON.stringify({ jurisdiction: "wy", ...input }),
       }),
     get: (entityId: string) => request<ApiEntityFull>(`/entities/${entityId}`),
     basics: (entityId: string, data: ApiBasicsInput) =>
