@@ -17,10 +17,10 @@
   --text-dim: var(--colors-text-muted);
   --text-mute: var(--colors-text-label);
   --error: var(--colors-error);
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --font-display: "Instrument Serif", Georgia, serif;
-  --display-italic: italic;
-  --display-weight: 400;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-display: inherit;
+  --display-italic: normal;
+  --display-weight: 600;
 
   color: var(--text);
 }

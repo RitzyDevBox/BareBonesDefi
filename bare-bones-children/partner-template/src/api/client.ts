@@ -1,6 +1,15 @@
 import {
+  ApiAgentInput,
+  ApiAgreementInput,
+  ApiBasicsInput,
+  ApiContractInput,
+  ApiDocument,
+  ApiDocumentType,
+  ApiEntityFull,
+  ApiEntitySummary,
   ApiError,
   ApiNonceResponse,
+  ApiOrganizerInput,
   ApiUser,
   ApiVerifyResponse,
 } from "./types";
@@ -42,9 +51,15 @@ export function setJwt(jwt: string | null) {
 }
 
 async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
+  // Default to JSON unless the caller already set a Content-Type. Raw
+  // uploads pass their own mime (e.g. application/pdf) and a Buffer/Blob
+  // body — we MUST NOT override that with application/json.
+  const callerHeaders = (opts.headers as Record<string, string>) ?? {};
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...((opts.headers as Record<string, string>) ?? {}),
+    ...(callerHeaders["Content-Type"] || callerHeaders["content-type"]
+      ? {}
+      : { "Content-Type": "application/json" }),
+    ...callerHeaders,
   };
   const jwt = getJwt();
   if (jwt) headers.Authorization = `Bearer ${jwt}`;
@@ -53,13 +68,17 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     let code = `http_${res.status}`;
+    let details: Record<string, unknown> | undefined;
     try {
       const body = await res.json();
       if (body?.error) code = body.error;
+      // Pass through any extra structured fields so callers can read
+      // e.g. `missing: string[]` on the submit 409.
+      if (body && typeof body === "object") details = body;
     } catch {
       // body wasn't JSON — keep the http_<status> code
     }
-    throw new ApiError(res.status, code);
+    throw new ApiError(res.status, code, details);
   }
 
   if (res.status === 204) return undefined as T;
@@ -93,6 +112,73 @@ export const api = {
       request<ApiUser>("/profile", {
         method: "POST",
         body: JSON.stringify(data),
+      }),
+  },
+  entities: {
+    // Find-or-create the user's single DRAFT. No legalName needed — when a
+    // fresh draft has to be minted, the server stamps a placeholder the
+    // user edits on the Basics step.
+    findOrCreate: () =>
+      request<ApiEntityFull>("/entities", {
+        method: "POST",
+        body: JSON.stringify({ jurisdiction: "wy" }),
+      }),
+    get: (entityId: string) => request<ApiEntityFull>(`/entities/${entityId}`),
+    basics: (entityId: string, data: ApiBasicsInput) =>
+      request<ApiEntitySummary>(`/entities/${entityId}/basics`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    organizer: (entityId: string, data: ApiOrganizerInput) =>
+      request<ApiEntitySummary>(`/entities/${entityId}/organizer`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    contract: (entityId: string, data: ApiContractInput) =>
+      request<ApiEntitySummary>(`/entities/${entityId}/contract`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    agent: (entityId: string, data: ApiAgentInput) =>
+      request<ApiEntitySummary>(`/entities/${entityId}/agent`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    agreement: (entityId: string, data: ApiAgreementInput) =>
+      request<ApiEntitySummary>(`/entities/${entityId}/agreement`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    notice: (entityId: string) =>
+      request<ApiEntitySummary>(`/entities/${entityId}/notice`, {
+        method: "POST",
+        body: JSON.stringify({ ack: true }),
+      }),
+    submit: (entityId: string) =>
+      request<ApiEntitySummary>(`/entities/${entityId}/submit`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+  },
+  documents: {
+    list: (entityId: string) =>
+      request<ApiDocument[]>(`/entities/${entityId}/documents`),
+    // Single-file raw upload — no multipart. file.type goes in
+    // Content-Type, doc type in the query string.
+    upload: (entityId: string, file: File, type: ApiDocumentType) =>
+      request<ApiDocument>(
+        `/entities/${entityId}/documents?type=${encodeURIComponent(type)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        },
+      ),
+    rawUrl: (entityId: string, docId: string) =>
+      `${API_URL}/entities/${entityId}/documents/${docId}/raw`,
+    delete: (entityId: string, docId: string) =>
+      request<void>(`/entities/${entityId}/documents/${docId}`, {
+        method: "DELETE",
       }),
   },
 };

@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { DialCode, EF_DIAL_CODES } from "./types";
-
 export interface PhoneValue {
   phoneDial: string;
   phoneIso: string;
+  /** Just the national digits, no formatting. e.g. "5551234567" */
   phoneNum: string;
 }
 
@@ -13,79 +11,51 @@ interface PhoneInputProps {
   placeholder?: string;
 }
 
+const US_DIAL = "+1";
+const US_ISO = "US";
+const NANP_MAX_DIGITS = 10;
+
+// US-only for v1. Wyoming DAO LLC filers are predominantly US-based — even
+// foreign filers usually list a US contact line. International callers
+// (separate dial-code dropdown, per-country digit caps) would be a meaningful
+// chunk of complexity; defer until a real user needs it.
+//
+// Display: (555) 123-4567 as the user types.
+// Input:   stripped to digits, capped at NANP_MAX_DIGITS.
+// Storage: phoneNum holds just the 10 digits; the +1 prefix is added at
+//          submit-time by the wizard's phoneToE164 helper.
+function formatNanp(digits: string): string {
+  const d = digits.slice(0, NANP_MAX_DIGITS);
+  if (d.length === 0) return "";
+  if (d.length <= 3) return `(${d}`;
+  if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
+  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+}
+
 export function PhoneInput({ value, onChange, placeholder }: PhoneInputProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const current: DialCode =
-    EF_DIAL_CODES.find((d) => d.iso === value.phoneIso) ?? EF_DIAL_CODES[0];
-
+  const display = formatNanp(value.phoneNum);
   return (
-    <div className="ef-phone" ref={ref}>
-      <div className="ef-phone-dial-wrap">
-        <button
-          type="button"
-          className="ef-phone-dial"
-          onClick={() => setOpen((o) => !o)}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-        >
-          <span className="ef-phone-dial-flag">{current.flag}</span>
-          <span className="ef-phone-dial-code">{current.code}</span>
-          <svg
-            className="ef-phone-dial-caret"
-            width="10"
-            height="10"
-            viewBox="0 0 12 12"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M3 4.5 6 7.5 9 4.5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-        {open && (
-          <div className="ef-phone-dial-pop" role="listbox">
-            {EF_DIAL_CODES.map((d) => (
-              <button
-                key={d.iso}
-                type="button"
-                role="option"
-                aria-selected={d.iso === current.iso}
-                className={`ef-phone-dial-item ${d.iso === current.iso ? "on" : ""}`}
-                onClick={() => {
-                  onChange({ ...value, phoneDial: d.code, phoneIso: d.iso });
-                  setOpen(false);
-                }}
-              >
-                <span style={{ fontSize: 15, lineHeight: 1 }}>{d.flag}</span>
-                <span className="ef-phone-dial-item-name">{d.name}</span>
-                <span className="ef-phone-dial-item-code">{d.code}</span>
-              </button>
-            ))}
-          </div>
-        )}
+    <div className="ef-phone">
+      <div className="ef-phone-dial" aria-hidden="true" style={{ cursor: "default" }}>
+        <span className="ef-phone-dial-flag">🇺🇸</span>
+        <span className="ef-phone-dial-code">{US_DIAL}</span>
       </div>
       <input
         className="ef-phone-num"
         inputMode="tel"
-        placeholder={placeholder ?? "555 123 4567"}
-        value={value.phoneNum}
-        onChange={(e) => onChange({ ...value, phoneNum: e.target.value })}
+        autoComplete="tel-national"
+        placeholder={placeholder ?? "(555) 123-4567"}
+        value={display}
+        onChange={(e) => {
+          // Strip everything that isn't a digit; cap at 10. Anything the
+          // user types gets normalized before we store it.
+          const digits = e.target.value.replace(/\D+/g, "").slice(0, NANP_MAX_DIGITS);
+          onChange({
+            phoneDial: US_DIAL,
+            phoneIso: US_ISO,
+            phoneNum: digits,
+          });
+        }}
       />
     </div>
   );

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useApiAuthContext } from "../../hooks/providers/ApiAuthContext";
 import { toastStore } from "../Toasts/toast.store";
 import {
   ToastBehavior,
@@ -23,6 +24,7 @@ import {
   AgentMode,
   AgreementSource,
   AgreementStorage,
+  EF_DIAL_CODES,
   EF_STEPS,
   FormationChain,
   FormationDao,
@@ -37,12 +39,10 @@ import {
   makeEmptyMailing,
   makeEmptyOrg,
 } from "./types";
+import { useFormationDraft } from "./useFormationDraft";
 import "./entity-formation.css";
 
 interface EntityFormationProps {
-  /** Optional. When present, the wizard pre-fills name + addresses from this
-   *  DAO. The flow remains usable when absent — entity formation isn't
-   *  required to be DAO-scoped. */
   activeDao?: FormationDao;
   chain?: FormationChain;
   wallet?: FormationWallet;
@@ -53,12 +53,37 @@ function isStepId(s: string | null): s is StepId {
   return !!s && EF_STEPS.some((step) => step.id === s);
 }
 
+// Backend's `incomplete_draft` returns field-level missing names. Map each
+// to the step that collects it, so the wizard can jump the user to the
+// first incomplete step on a submit failure.
+const MISSING_TO_STEP: Record<string, StepId> = {
+  legalName: "basics",
+  managementType: "basics",
+  daoAddress: "contract",
+  chainId: "contract",
+  businessEmail: "organizer",
+  filerFirstName: "organizer",
+  filerLastName: "organizer",
+  filerRoleClaim: "organizer",
+  principalOffice: "organizer",
+  agentMode: "agent",
+  agentServiceKey: "agent",
+  agentCustom: "agent",
+  agreementSource: "agreement",
+  agreementStorage: "agreement",
+  noticeAckedAt: "notice",
+};
+
 export function EntityFormation({
   activeDao,
   chain,
   wallet,
   onConnectWallet,
 }: EntityFormationProps) {
+  const { isSignedIn, signIn, loading: authLoading, error: authError } =
+    useApiAuthContext();
+  const draft = useFormationDraft();
+
   const [params, setParams] = useSearchParams();
   const stepParam = params.get("step");
   const step: StepId = isStepId(stepParam) ? stepParam : "eligibility";
@@ -84,6 +109,9 @@ export function EntityFormation({
     [activeDao?.governor?.address],
   );
 
+  // Local form state. Hydrated once from the server detail when it lands
+  // (see hydration effect below); after that the user owns it. PII lives
+  // here in React state only — never written to localStorage.
   const [name, setName] = useState(defaultName);
   const [mgmt, setMgmt] = useState<ManagementType>("member");
   const [contractAddr, setContractAddr] = useState(defaultContract);
@@ -101,13 +129,12 @@ export function EntityFormation({
     zip: "82001",
   });
   const [agreementSrc, setAgreementSrc] = useState<AgreementSource>("generate");
-  const [agreementStorage, setAgreementStorage] = useState<AgreementStorage>("arweave");
+  const [agreementStorage, setAgreementStorage] =
+    useState<AgreementStorage>("arweave");
   const [notice, setNotice] = useState(false);
-  const [filed, setFiled] = useState(false);
 
-  // Pre-fill from activeDao when it arrives async AND the user hasn't typed
-  // anything yet (state still matches the pre-load defaults). Avoids the
-  // wipe-on-late-load footgun.
+  // Pre-fill from activeDao when it arrives async, but only if local state
+  // is still at its pre-load stub (don't wipe user input).
   useEffect(() => {
     if (activeDao?.name && name === "Acme DAO LLC") {
       setName(`${activeDao.name} DAO LLC`);
@@ -119,63 +146,357 @@ export function EntityFormation({
     }
   }, [activeDao?.governor?.address, contractAddr]);
 
-  const agent = REGISTERED_AGENTS.find((a) => a.id === agentId);
+  // Hydrate the form once from the server's detail (after refresh, after
+  // sign-in). Guarded by a per-draft id ref so we don't overwrite local
+  // edits on every detail re-render. PII stays in React state only.
+  const hydratedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    const d = draft.detail;
+    if (!d || hydratedForRef.current === d.id) return;
+    hydratedForRef.current = d.id;
+
+    if (d.legalName) setName(d.legalName);
+    if (d.managementType) setMgmt(d.managementType === "MEMBER" ? "member" : "algo");
+    if (d.daoAddress) setContractAddr(d.daoAddress);
+
+    // Phone split: stored as E.164 (+15551234567) + ISO country (US). Look
+    // up the dial code from EF_DIAL_CODES and strip it off the front.
+    const splitPhone = (e164: string | null, country: string | null) => {
+      if (!e164 || !country) return null;
+      const match = EF_DIAL_CODES.find((c) => c.iso === country);
+      if (!match) return null;
+      const num = e164.startsWith(match.code) ? e164.slice(match.code.length) : e164;
+      return { phoneDial: match.code, phoneIso: match.iso, phoneNum: num };
+    };
+    const principal = d.addresses.find((a) => a.type === "PRINCIPAL_OFFICE");
+    const mailingAddr = d.addresses.find((a) => a.type === "MAILING");
+    const bizPhone = splitPhone(d.businessPhoneE164, d.businessPhoneCountry);
+    if (principal || d.businessEmail || bizPhone) {
+      setOrg((prev) => ({
+        ...prev,
+        street1: principal?.street1 ?? prev.street1,
+        street2: principal?.street2 ?? prev.street2,
+        city: principal?.city ?? prev.city,
+        region: principal?.state ?? prev.region,
+        postal: principal?.postalCode ?? prev.postal,
+        country: principal?.country ?? prev.country,
+        email: d.businessEmail ?? prev.email,
+        phoneDial: bizPhone?.phoneDial ?? prev.phoneDial,
+        phoneIso: bizPhone?.phoneIso ?? prev.phoneIso,
+        phoneNum: bizPhone?.phoneNum ?? prev.phoneNum,
+      }));
+    }
+    if (mailingAddr) {
+      setMailingSame(false);
+      setMailing({
+        street1: mailingAddr.street1,
+        street2: mailingAddr.street2 ?? "",
+        city: mailingAddr.city,
+        region: mailingAddr.state,
+        postal: mailingAddr.postalCode,
+        country: mailingAddr.country,
+      });
+    }
+    if (d.filerFirstName || d.filerLastName) {
+      setFiler((prev) => ({
+        ...prev,
+        first: d.filerFirstName ?? prev.first,
+        last: d.filerLastName ?? prev.last,
+        role: (d.filerRoleClaim as OrganizerFiler["role"]) ?? prev.role,
+      }));
+    }
+    setFilerSame(d.filerSameAsBusinessContact);
+    if (d.agentMode === "SERVICE" && d.agentServiceKey) {
+      setAgentMode("service");
+      setAgentId(d.agentServiceKey);
+    } else if (d.agentMode === "OWN") {
+      setAgentMode("own");
+      setAgentCustom({
+        name: d.agentCustomName ?? "",
+        street: d.agentCustomStreet ?? "",
+        city: d.agentCustomCity ?? "",
+        zip: d.agentCustomZip ?? "",
+      });
+    }
+    if (d.agreementSource) {
+      setAgreementSrc(d.agreementSource === "GENERATE" ? "generate" : "upload");
+    }
+    if (d.agreementStorage) {
+      setAgreementStorage(
+        d.agreementStorage === "OFF"
+          ? "off"
+          : d.agreementStorage === "ARWEAVE"
+            ? "arweave"
+            : "chain",
+      );
+    }
+    if (d.completedSteps.notice) setNotice(true);
+  }, [draft.detail]);
+
+  const filed = draft.detail?.status && draft.detail.status !== "DRAFT";
   const progress = Math.round((stepIdx / (EF_STEPS.length - 1)) * 100);
 
-  const file = () => {
-    setFiled(true);
+  const agent = REGISTERED_AGENTS.find((a) => a.id === agentId);
+
+  // ----- step-save handlers (wrap onNext with server save) -----
+
+  const phoneToE164 = (dial: string, num: string) =>
+    num ? `${dial}${num.replace(/\D+/g, "")}` : "";
+
+  const handleBasicsNext = async () => {
+    try {
+      await draft.saveBasics({
+        legalName: name,
+        managementType: mgmt === "member" ? "MEMBER" : "ALGORITHMIC",
+      });
+      nextStep();
+    } catch {
+      /* error already in draft.error; stay on step */
+    }
+  };
+
+  const handleOrganizerNext = async () => {
+    try {
+      const businessPhone = phoneToE164(org.phoneDial, org.phoneNum);
+      const filerPhone = filerSame
+        ? businessPhone
+        : phoneToE164(filer.phoneDial, filer.phoneNum);
+      await draft.saveOrganizer({
+        businessEmail: org.email || null,
+        businessPhoneE164: businessPhone || null,
+        businessPhoneCountry: org.phoneIso || null,
+        filer: {
+          firstName: filer.first,
+          lastName: filer.last,
+          roleClaim: filer.role,
+          email: (filerSame ? org.email : filer.email) || null,
+          phoneE164: filerPhone || null,
+          phoneCountry: (filerSame ? org.phoneIso : filer.phoneIso) || null,
+        },
+        filerSameAsBusinessContact: filerSame,
+        principalOffice: {
+          street1: org.street1,
+          street2: org.street2 || null,
+          city: org.city,
+          state: org.region,
+          postalCode: org.postal,
+          country: org.country,
+        },
+        mailing: mailingSame
+          ? null
+          : {
+              street1: mailing.street1,
+              street2: mailing.street2 || null,
+              city: mailing.city,
+              state: mailing.region,
+              postalCode: mailing.postal,
+              country: mailing.country,
+            },
+      });
+      nextStep();
+    } catch {
+      /* stay */
+    }
+  };
+
+  const handleContractNext = async () => {
+    try {
+      await draft.saveContract({
+        daoAddress: contractAddr || null,
+        chainId: chain?.chainId ?? null,
+      });
+      nextStep();
+    } catch {
+      /* stay */
+    }
+  };
+
+  const handleAgentNext = async () => {
+    try {
+      const payload =
+        agentMode === "service"
+          ? { agentMode: "SERVICE" as const, agentServiceKey: agentId }
+          : {
+              agentMode: "OWN" as const,
+              agentCustomName: agentCustom.name,
+              agentCustomStreet: agentCustom.street,
+              agentCustomCity: agentCustom.city,
+              agentCustomZip: agentCustom.zip,
+            };
+      await draft.saveAgent(payload);
+      nextStep();
+    } catch {
+      /* stay */
+    }
+  };
+
+  const handleAgreementNext = async () => {
+    try {
+      await draft.saveAgreement({
+        agreementSource: agreementSrc === "generate" ? "GENERATE" : "UPLOAD",
+        agreementStorage:
+          agreementStorage === "off"
+            ? "OFF"
+            : agreementStorage === "arweave"
+              ? "ARWEAVE"
+              : "ONCHAIN",
+      });
+      nextStep();
+    } catch {
+      /* stay */
+    }
+  };
+
+  const handleNoticeNext = async () => {
+    try {
+      await draft.ackNotice();
+      nextStep();
+    } catch {
+      /* stay */
+    }
+  };
+
+  // Wraps the Agreement-step file picker. Uploads immediately as
+  // OPERATING_AGREEMENT — bytes go to the server right away (no local
+  // caching of PII-adjacent material) and the resulting doc joins the
+  // entity's document list.
+  const handleAgreementUpload = async (file: File) => {
+    try {
+      const doc = await draft.uploadDocument(file, "OPERATING_AGREEMENT");
+      toastStore.show({
+        id: `doc-uploaded-${doc.id}`,
+        title: "Document uploaded",
+        message: `${file.name} (${Math.round(doc.sizeBytes / 1024)} KB)`,
+        type: ToastType.Success,
+        behavior: ToastBehavior.AutoClose,
+        durationMs: 4000,
+        position: ToastPosition.Top,
+      });
+    } catch {
+      /* error captured by hook; surfaced inline */
+    }
+  };
+
+  const handleFile = async () => {
+    const outcome = await draft.submit();
+    if (outcome.ok) {
+      toastStore.show({
+        id: `formation-filed-${Date.now()}`,
+        title: "Filing submitted",
+        message: "Articles sent to Wyoming SOS. Filing ID arrives in 1–2 days.",
+        type: ToastType.Success,
+        behavior: ToastBehavior.AutoClose,
+        durationMs: 5000,
+        position: ToastPosition.Top,
+      });
+      return;
+    }
+    // Jump to first incomplete step.
+    const firstMissing = outcome.missing[0];
+    const target = firstMissing ? MISSING_TO_STEP[firstMissing] : null;
+    if (target) goStep(target);
     toastStore.show({
-      id: `formation-filed-${Date.now()}`,
-      title: "Filing submitted",
-      message: "Articles sent to Wyoming SOS. Filing ID arrives in 1–2 days.",
-      type: ToastType.Success,
+      id: `incomplete-${Date.now()}`,
+      title: "Some steps are incomplete",
+      message: `Missing: ${outcome.missing.join(", ")}`,
+      type: ToastType.Warn,
       behavior: ToastBehavior.AutoClose,
-      durationMs: 5000,
+      durationMs: 6000,
       position: ToastPosition.Top,
     });
   };
 
+  // ----- render gates -----
+
   if (!wallet) {
     return (
       <div className="entity-formation-root">
-        <Hero
-          activeDao={activeDao}
-          chain={chain}
-          progress={0}
-          stepIdx={0}
+        <Hero activeDao={activeDao} chain={chain} progress={0} stepIdx={0} />
+        <ShellNotice
+          kicker="Wallet required"
+          title="Connect a wallet to file"
+          lede={
+            <>
+              Filing signs a record on behalf of{" "}
+              {activeDao?.name || "this entity"}. Connect a wallet with
+              WY_FILING_ROLE or Super Admin.
+            </>
+          }
+          action={
+            onConnectWallet ? (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={onConnectWallet}
+              >
+                Connect wallet
+              </button>
+            ) : null
+          }
         />
-        <section className="container">
-          <div style={{ padding: "40px 0 80px" }}>
-            <div className="ef-card">
-              <div className="ef-card-head">
-                <div>
-                  <div className="ef-card-kicker">Wallet required</div>
-                  <h3 className="ef-card-title">Connect a wallet to file</h3>
-                  <p className="ef-card-lede">
-                    Filing signs a record on behalf of{" "}
-                    {activeDao?.name || "this entity"}. Connect a wallet with
-                    WY_FILING_ROLE or Super Admin.
-                  </p>
-                </div>
-              </div>
-              <div className="ef-card-body">
-                {onConnectWallet ? (
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={onConnectWallet}
-                  >
-                    Connect wallet
-                  </button>
-                ) : (
-                  <div className="ef-pre">
-                    Connect a wallet from the header to begin.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <div className="entity-formation-root">
+        <Hero activeDao={activeDao} chain={chain} progress={0} stepIdx={0} />
+        <ShellNotice
+          kicker="Sign in required"
+          title="Sign in with your wallet to save"
+          lede={
+            <>
+              Drafts are stored server-side under your wallet identity. Sign a
+              one-time SIWE message so the API can persist your formation
+              progress.
+            </>
+          }
+          action={
+            <>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => void signIn()}
+                disabled={authLoading}
+              >
+                {authLoading ? "Signing…" : "Sign in with Ethereum"}
+              </button>
+              {authError && (
+                <div
+                  className="field-err"
+                  style={{ marginTop: 10 }}
+                >{`Sign-in failed: ${authError}`}</div>
+              )}
+            </>
+          }
+        />
+      </div>
+    );
+  }
+
+  if (draft.loading) {
+    return (
+      <div className="entity-formation-root">
+        <Hero activeDao={activeDao} chain={chain} progress={0} stepIdx={0} />
+        <ShellNotice
+          kicker="Loading"
+          title="Fetching your draft…"
+          lede="One moment."
+        />
+      </div>
+    );
+  }
+
+  if (draft.error && !draft.detail) {
+    return (
+      <div className="entity-formation-root">
+        <Hero activeDao={activeDao} chain={chain} progress={0} stepIdx={0} />
+        <ShellNotice
+          kicker="Error"
+          title="Could not load your draft"
+          lede={`Server returned: ${draft.error}. Refresh the page to retry.`}
+        />
       </div>
     );
   }
@@ -187,7 +508,7 @@ export function EntityFormation({
         chain={chain}
         progress={progress}
         stepIdx={stepIdx}
-        filed={filed}
+        filed={!!filed}
         entityName={name}
       />
 
@@ -197,9 +518,21 @@ export function EntityFormation({
             <div className="ef-stepnav-head">Filing progress</div>
             <div className="ef-stepnav-list">
               {EF_STEPS.map((s, i) => {
-                const done = i < stepIdx && !filed;
+                const completion = draft.detail?.completedSteps;
+                const doneBackend =
+                  s.id !== "eligibility" &&
+                  s.id !== "review" &&
+                  completion?.[s.id as keyof typeof completion];
                 const active = i === stepIdx && !filed;
-                const cls = filed ? "done" : active ? "active" : done ? "done" : "";
+                const cls = filed
+                  ? "done"
+                  : active
+                    ? "active"
+                    : doneBackend
+                      ? "done"
+                      : i < stepIdx
+                        ? "done"
+                        : "";
                 return (
                   <button
                     key={s.id}
@@ -208,7 +541,7 @@ export function EntityFormation({
                     onClick={() => goStep(s.id)}
                   >
                     <span className="ef-step-dot">
-                      {filed || done ? (
+                      {filed || doneBackend ? (
                         <CheckIcon size={11} stroke={2.5} />
                       ) : (
                         String(i).padStart(2, "0")
@@ -222,6 +555,19 @@ export function EntityFormation({
                 );
               })}
             </div>
+            {draft.saving && (
+              <div
+                className="crumb"
+                style={{ marginTop: 14, color: "var(--accent)" }}
+              >
+                Saving…
+              </div>
+            )}
+            {draft.error && (
+              <div className="field-err" style={{ marginTop: 10 }}>
+                {`Save failed: ${draft.error}`}
+              </div>
+            )}
           </nav>
 
           <div>
@@ -239,7 +585,7 @@ export function EntityFormation({
                 mgmt={mgmt}
                 setMgmt={setMgmt}
                 onPrev={prevStep}
-                onNext={nextStep}
+                onNext={handleBasicsNext}
               />
             )}
             {step === "organizer" && (
@@ -255,7 +601,7 @@ export function EntityFormation({
                 filerSame={filerSame}
                 setFilerSame={setFilerSame}
                 onPrev={prevStep}
-                onNext={nextStep}
+                onNext={handleOrganizerNext}
               />
             )}
             {step === "contract" && (
@@ -265,7 +611,7 @@ export function EntityFormation({
                 contractAddr={contractAddr}
                 setContractAddr={setContractAddr}
                 onPrev={prevStep}
-                onNext={nextStep}
+                onNext={handleContractNext}
               />
             )}
             {step === "agent" && (
@@ -277,7 +623,7 @@ export function EntityFormation({
                 agentCustom={agentCustom}
                 setAgentCustom={setAgentCustom}
                 onPrev={prevStep}
-                onNext={nextStep}
+                onNext={handleAgentNext}
               />
             )}
             {step === "agreement" && (
@@ -286,8 +632,12 @@ export function EntityFormation({
                 setSrc={setAgreementSrc}
                 storage={agreementStorage}
                 setStorage={setAgreementStorage}
+                onUpload={handleAgreementUpload}
+                uploadedDocName={
+                  draft.documents.find((d) => d.type === "OPERATING_AGREEMENT")?.uri
+                }
                 onPrev={prevStep}
-                onNext={nextStep}
+                onNext={handleAgreementNext}
               />
             )}
             {step === "notice" && (
@@ -296,7 +646,7 @@ export function EntityFormation({
                 notice={notice}
                 setNotice={setNotice}
                 onPrev={prevStep}
-                onNext={nextStep}
+                onNext={handleNoticeNext}
               />
             )}
             {step === "review" && (
@@ -312,17 +662,45 @@ export function EntityFormation({
                 mailing={mailing}
                 mailingSame={mailingSame}
                 filer={filer}
-                filed={filed}
-                setFiled={setFiled}
+                filed={!!filed}
+                setFiled={() => {
+                  /* server is the source of truth — no local toggle */
+                }}
                 onPrev={prevStep}
                 onEdit={goStep}
-                onFile={file}
+                onFile={handleFile}
               />
             )}
           </div>
         </div>
       </section>
     </div>
+  );
+}
+
+interface ShellNoticeProps {
+  kicker: string;
+  title: string;
+  lede: React.ReactNode;
+  action?: React.ReactNode;
+}
+
+function ShellNotice({ kicker, title, lede, action }: ShellNoticeProps) {
+  return (
+    <section className="container">
+      <div style={{ padding: "40px 0 80px" }}>
+        <div className="ef-card">
+          <div className="ef-card-head">
+            <div>
+              <div className="ef-card-kicker">{kicker}</div>
+              <h3 className="ef-card-title">{title}</h3>
+              <p className="ef-card-lede">{lede}</p>
+            </div>
+          </div>
+          {action && <div className="ef-card-body">{action}</div>}
+        </div>
+      </div>
+    </section>
   );
 }
 

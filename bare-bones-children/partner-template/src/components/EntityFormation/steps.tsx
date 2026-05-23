@@ -291,18 +291,20 @@ export function StepOrganizer({
   onPrev,
   onNext,
 }: OrganizerProps) {
+  // US phones are 10 digits (NANP). The PhoneInput strips formatting +
+  // caps length, so we just check digit count here.
   const orgOk =
     !!org.street1 &&
     !!org.city &&
     !!org.region &&
     !!org.postal &&
     validEmail(org.email) &&
-    org.phoneNum.length >= 6;
+    org.phoneNum.length === 10;
   const mailingOk =
     mailingSame || (!!mailing.street1 && !!mailing.city && !!mailing.region && !!mailing.postal);
   const filerOk = filerSame
     ? !!filer.first && !!filer.last
-    : !!filer.first && !!filer.last && validEmail(filer.email) && filer.phoneNum.length >= 6;
+    : !!filer.first && !!filer.last && validEmail(filer.email) && filer.phoneNum.length === 10;
   const allOk = orgOk && mailingOk && filerOk;
 
   // Mirror org email/phone into filer when "same as" is on, so review renders
@@ -866,6 +868,11 @@ interface AgreementProps {
   setSrc: (v: AgreementSource) => void;
   storage: AgreementStorage;
   setStorage: (v: AgreementStorage) => void;
+  /** Invoked when the user picks a file in the Upload tile. */
+  onUpload?: (file: File) => void | Promise<void>;
+  /** When set, shows that a doc is on file (path/uri) so the user knows
+   *  the upload succeeded across page refreshes. */
+  uploadedDocName?: string;
   onPrev: () => void;
   onNext: () => void;
 }
@@ -875,6 +882,8 @@ export function StepAgreement({
   setSrc,
   storage,
   setStorage,
+  onUpload,
+  uploadedDocName,
   onPrev,
   onNext,
 }: AgreementProps) {
@@ -984,18 +993,34 @@ export function StepAgreement({
         {src === "upload" && (
           <div className="ef-section">
             <div className="ef-section-head">Upload</div>
-            <div
+            <label
               style={{
+                display: "block",
                 border: "1px dashed var(--line-strong)",
                 borderRadius: 10,
                 padding: 40,
                 textAlign: "center",
                 background: "var(--bg-elev-2)",
                 color: "var(--text-dim)",
+                cursor: onUpload ? "pointer" : "not-allowed",
               }}
             >
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f && onUpload) void onUpload(f);
+                  // Reset so picking the same file again re-triggers onChange.
+                  e.target.value = "";
+                }}
+                disabled={!onUpload}
+              />
               <div style={{ fontSize: 14, marginBottom: 4 }}>
-                Drop a file or click to choose
+                {uploadedDocName
+                  ? "File on record — pick another to replace"
+                  : "Click to choose a file"}
               </div>
               <div
                 className="mono"
@@ -1003,7 +1028,13 @@ export function StepAgreement({
               >
                 PDF · DOC · DOCX · 10 MB max
               </div>
-            </div>
+            </label>
+            {uploadedDocName && (
+              <div
+                className="ef-pre"
+                style={{ marginTop: 10 }}
+              >{`Uploaded: ${uploadedDocName}`}</div>
+            )}
             <div className="field full" style={{ marginTop: 14 }}>
               <label>Arweave / HTTPS URI (optional)</label>
               <input className="input mono" placeholder="ar://… or https://…" />
