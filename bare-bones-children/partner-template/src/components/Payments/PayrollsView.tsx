@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { useNavigate } from "react-router-dom";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useReadProvider } from "../../hooks/useReadProvider";
-import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
+import { usePayrollActions } from "../../hooks/payroll/usePayrollActions";
 import { useTxRefresh } from "../../providers/TxRefreshProvider";
 import { DEFAULT_CHAIN_ID, getBareBonesConfiguration } from "../../constants/misc";
 import {
@@ -238,22 +238,10 @@ export function PayrollsView({ slug, isAdmin }: PayrollsViewProps) {
   const chainIdOrDefault = chainId ?? DEFAULT_CHAIN_ID;
   const config = useMemo(() => getBareBonesConfiguration(chainIdOrDefault), [chainIdOrDefault]);
   const payrollManagerAddress = config?.payrollManagerAddress;
-  const iface = useMemo(() => new ethers.utils.Interface(PayrollManagerABI as any), []);
-
-  const createPayrollTx = useExecuteRawTx(
-    (_: number, orgSlug: string, startTime: number, endTime: number, payBatchCode: string | null) => {
-      if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-      const slugBytes = orgSlugFor(orgSlug);
-      const data = payBatchCode
-        ? iface.encodeFunctionData("createPayroll", [slugBytes, payBatchCode, startTime, endTime])
-        : iface.encodeFunctionData("createPayroll", [slugBytes, ethers.constants.HashZero, startTime, endTime]);
-      return { to: payrollManagerAddress, data } as any;
-    },
-    (_: number, orgSlug: string, startTime: number, endTime: number, payBatchCode: string | null) =>
-      payBatchCode
-        ? `Created payroll for ${orgSlug} using ${parseBatchCodeLabel(payBatchCode)} [${startTime}-${endTime}]`
-        : `Created empty payroll for ${orgSlug} [${startTime}-${endTime}]`,
-  );
+  // Routed via MTA.execute so PayrollOperator + Admin + SuperAdmin all work,
+  // not just the org owner. See [usePayrollActions](../../hooks/payroll/usePayrollActions.ts).
+  const slugBytes = useMemo(() => (slug ? orgSlugFor(slug) : ""), [slug]);
+  const payrollActions = usePayrollActions(slugBytes);
 
   useEffect(() => {
     let cancelled = false;
@@ -357,7 +345,11 @@ export function PayrollsView({ slug, isAdmin }: PayrollsViewProps) {
 
     setCreatingPayroll(true);
     try {
-      await createPayrollTx(chainId, slug.trim(), startTime, endTime, payBatchCode);
+      await payrollActions.createPayroll(
+        payBatchCode ?? ethers.constants.HashZero,
+        startTime,
+        endTime,
+      );
     } catch (err: any) {
       const message =
         err?.reason || err?.errorName || err?.error?.message || err?.message || "Failed to start payroll.";

@@ -10,7 +10,7 @@ import type { TableRowData } from "../Table";
 import { useToastStore } from "../Toasts/useToastStore";
 import { ToastType, ToastBehavior, ToastPosition } from "../Toasts/toast.types";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
-import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
+import { usePayrollActions } from "../../hooks/payroll/usePayrollActions";
 import { getBareBonesConfiguration } from "../../constants/misc";
 import { DEFAULT_PAY_BATCH_CODE } from "../../constants/payroll";
 import { shortAddress } from "../../utils/formatUtils";
@@ -68,8 +68,6 @@ export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = fals
   const isHoursThreshold = ruleType === PayrollRuleType.HoursThreshold;
   const isWalletConnected = Boolean(chainId && provider);
   const canEditPayroll = canEdit && isWalletConnected;
-
-  const payrollManagerInterface = useMemo(() => new ethers.utils.Interface(PayrollManagerABI as any), []);
 
   React.useEffect(() => {
     const loadPayrollState = async () => {
@@ -153,97 +151,15 @@ export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = fals
     loadPayrollState();
   }, [chainId, provider, payrollManagerAddress, slug, payeeId, config?.hoursRuleAddress, config?.oneTimePaymentAddress]);
 
-  const buildConfigurePayrollTx = React.useCallback(
-    async (_chainId: number, slugInput: string, payeeIdInput: number) => {
-      if (!payrollManagerAddress) {
-        throw new Error("Payroll manager address is not configured");
-      }
-
-      const slugBytes = orgSlugFor(slugInput);
-      const parsedRate = ethers.utils.parseEther(rate || "0");
-
-      const earningsRule =
-        ruleType === PayrollRuleType.HoursThreshold
-          ? config?.hoursRuleAddress
-          : ruleType === PayrollRuleType.FlatAmount
-          ? config?.oneTimePaymentAddress
-          : config?.commissionRuleAddress;
-
-      if (!earningsRule) {
-        throw new Error("Earnings rule contract address missing");
-      }
-
-      let encodedConfig = "0x";
-      if (ruleType === PayrollRuleType.HoursThreshold) {
-        const start = Number(hoursStart) || 0;
-        const end = enableCustomHours ? ethers.BigNumber.from(hoursEnd) : ethers.constants.MaxUint256;
-        encodedConfig = ethers.utils.defaultAbiCoder.encode(
-          ["uint256", "uint256"],
-          [start, end]
-        );
-      } else if (ruleType === PayrollRuleType.FlatAmount) {
-        encodedConfig = "0x";
-      }
-
-      const readContract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
-      let cursor = 0;
-      let selectedEarningsCodeId: ethers.BigNumberish | null = null;
-      while (selectedEarningsCodeId === null) {
-        const page = await readContract.getOrganizationEarningsCodes(slugBytes, cursor, 100);
-        const rows: any[] = page?.rows ?? page?.[0] ?? [];
-        const hasMore = Boolean(page?.hasMore ?? page?.[1]);
-
-        const match = rows.find(
-          (row) =>
-            Boolean(row.isActive) &&
-            String(row.rule || "").toLowerCase() === String(earningsRule).toLowerCase()
-        );
-
-        if (match) {
-          selectedEarningsCodeId = match.earningsCodeId;
-          break;
-        }
-
-        if (!hasMore || rows.length === 0) {
-          break;
-        }
-
-        cursor += rows.length;
-      }
-
-      if (selectedEarningsCodeId == null) {
-        throw new Error("No earnings code found for selected rule");
-      }
-
-      const encoded = payrollManagerInterface.encodeFunctionData(
-        "configurePayBatch",
-        [
-          slugBytes,
-          DEFAULT_PAY_BATCH_CODE,
-          payeeIdInput,
-          [{ earningsCodeId: selectedEarningsCodeId, rate: parsedRate, runData: encodedConfig }],
-        ]
-      );
-
-      return {
-        to: payrollManagerAddress,
-        value: 0,
-        data: encoded,
-      };
-    },
-    [config, ruleType, defaultHours, rate, hoursStart, hoursEnd, enableCustomHours, payrollManagerAddress, payrollManagerInterface]
-  );
-
-  const configurePayroll = useExecuteRawTx(
-    buildConfigurePayrollTx,
-    (_: number, slugInput: string, payeeIdInput: number) =>
-      `Payroll configured for payee ${payeeIdInput} (${payeeAddress}, ${payeeName}, ${slugInput})`
-  );
+  // Routed via MTA.execute so PayrollOperator + Admin + SuperAdmin all work,
+  // not just the org owner. See [usePayrollActions](../../hooks/payroll/usePayrollActions.ts).
+  const slugBytes = useMemo(() => (slug ? orgSlugFor(slug) : ""), [slug]);
+  const payrollActions = usePayrollActions(slugBytes);
 
   const handleConfigureRule = async () => {
     if (!canEditPayroll) return;
     if (!slug || !payrollManagerAddress) return;
-    
+
     // Validate start <= end when custom hours enabled
     if (enableCustomHours && isHoursThreshold) {
       const start = Number(hoursStart) || 0;
@@ -262,8 +178,57 @@ export function PayrollRuleConfigurator({ slug, payeeId, rowData, canEdit = fals
         return;
       }
     }
-    
-    await configurePayroll(Number(chainId), slug, payeeId);
+
+    const parsedRate = ethers.utils.parseEther(rate || "0");
+
+    const earningsRule =
+      ruleType === PayrollRuleType.HoursThreshold
+        ? config?.hoursRuleAddress
+        : ruleType === PayrollRuleType.FlatAmount
+        ? config?.oneTimePaymentAddress
+        : config?.commissionRuleAddress;
+
+    if (!earningsRule) {
+      throw new Error("Earnings rule contract address missing");
+    }
+
+    let encodedConfig = "0x";
+    if (ruleType === PayrollRuleType.HoursThreshold) {
+      const start = Number(hoursStart) || 0;
+      const end = enableCustomHours ? ethers.BigNumber.from(hoursEnd) : ethers.constants.MaxUint256;
+      encodedConfig = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [start, end]);
+    }
+
+    // Look up the earnings code id that points at the selected rule contract.
+    // Paginated read on PayrollManager — view function, no auth involved.
+    const readContract = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as any, provider);
+    let cursor = 0;
+    let selectedEarningsCodeId: ethers.BigNumberish | null = null;
+    while (selectedEarningsCodeId === null) {
+      const page = await readContract.getOrganizationEarningsCodes(slugBytes, cursor, 100);
+      const rows: any[] = page?.rows ?? page?.[0] ?? [];
+      const hasMore = Boolean(page?.hasMore ?? page?.[1]);
+      const match = rows.find(
+        (row) =>
+          Boolean(row.isActive) &&
+          String(row.rule || "").toLowerCase() === String(earningsRule).toLowerCase(),
+      );
+      if (match) {
+        selectedEarningsCodeId = match.earningsCodeId;
+        break;
+      }
+      if (!hasMore || rows.length === 0) break;
+      cursor += rows.length;
+    }
+    if (selectedEarningsCodeId == null) {
+      throw new Error("No earnings code found for selected rule");
+    }
+
+    await payrollActions.configurePayBatchSingle(DEFAULT_PAY_BATCH_CODE, payeeId, {
+      earningsCodeId: selectedEarningsCodeId,
+      rate: parsedRate,
+      runData: encodedConfig,
+    });
   };
 
   if (isLoadingPayrollState) {

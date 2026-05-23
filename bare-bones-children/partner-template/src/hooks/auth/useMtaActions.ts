@@ -289,6 +289,35 @@ export function useMtaActions(slug: string) {
     (roleSlugs: string[]) => `Cleared ${roleSlugs.length} target grant${roleSlugs.length === 1 ? "" : "s"}`,
   );
 
+  // ─── Front door (MTA.execute) ────────────────────────────────────────────
+  //
+  // The only way a non-owner caller (PayrollOperator / TreasuryOperator /
+  // Admin) can exercise their role on a foundation contract surface
+  // (PayrollManager, PayrollTreasury, registered org contracts) is to route
+  // the call through MTA.execute — that's where `_isAuthorized` reads the
+  // foundation default grants + per-slug permissions. Direct calls hit the
+  // foundation's `authorized(slug)` modifier, which only knows about the
+  // slug owner via the stateless PayrollSlugAuthorityResolver.
+  //
+  // Owner-mode bypass in OrganizationManager._assertAuthorized only fires
+  // when MTA itself is `msg.sender` — so MTA.execute → forwards to target,
+  // target sees msg.sender == contractOwner (MTA), and trusts the call.
+  //
+  // `successLabel` is passed through both the builder and the message fn so
+  // useExecuteRawTx's `(...args) => string` shape stays satisfied. The
+  // builder ignores it, the message returns it. Pass something the user
+  // will recognize ("Created pay batch X", etc.).
+  const execute = useExecuteRawTx(
+    (target: string, data: string, _successLabel: string, options: string = "0x") =>
+      buildCall("execute", [
+        slug,
+        ethers.utils.getAddress(target.toLowerCase()),
+        data,
+        options,
+      ]),
+    (_target: string, _data: string, successLabel: string) => successLabel,
+  );
+
   return {
     pauseSlug,
     unpauseSlug,
@@ -316,5 +345,6 @@ export function useMtaActions(slug: string) {
     detachPermissionsFromRole,
     setTargetGrants,
     clearTargetGrants,
+    execute,
   };
 }

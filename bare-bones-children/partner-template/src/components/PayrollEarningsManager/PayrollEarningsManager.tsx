@@ -6,9 +6,8 @@ import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
 import { Modal } from "../Modal/Modal";
 import { Sheet } from "../Primitives/Sheet";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
-import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
+import { usePayrollActions } from "../../hooks/payroll/usePayrollActions";
 import { getBareBonesConfiguration } from "../../constants/misc";
-import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
 import type { OrganizationEarningsCodeView } from "../../utils/payroll/fetchPayrollViews";
 import {
   formatEarningsCodeIdLabel,
@@ -161,10 +160,6 @@ export function PayrollEarningsManager({
 
   const config = useMemo(() => (chainId ? getBareBonesConfiguration(chainId) : null), [chainId]);
   const payrollManagerAddress = config?.payrollManagerAddress;
-  const payrollManagerInterface = useMemo(
-    () => new ethers.utils.Interface(PayrollManagerABI as any),
-    [],
-  );
 
   const resolveRuleType = useCallback(
     (ruleAddress: string): RuleType => {
@@ -369,67 +364,34 @@ export function PayrollEarningsManager({
   }
 
   // ---- TX builders ----
-  const registerTx = useExecuteRawTx(
-    (_: number, orgSlug: string) => {
-      if (!payrollManagerAddress || !config) throw new Error("Payroll manager config missing");
-      const slugBytes = orgSlugFor(orgSlug);
-      const codeName = earningsCodeName.trim().toUpperCase();
-      if (!codeName) throw new Error("Earnings code name is required");
-      const codeNameBytes = ethers.utils.formatBytes32String(codeName);
-      const ruleAddress =
-        ruleType === RuleType.Hourly
-          ? config.hoursRuleAddress
-          : ruleType === RuleType.Weekly
-            ? config.weeklyScheduleRuleAddress
-            : ruleType === RuleType.OneTime
-              ? config.oneTimePaymentAddress
-              : config.salaryPerSecondRuleAddress;
-      const encodedConfig = encodeRuleConfig(ruleType);
-      return {
-        to: payrollManagerAddress,
-        data: payrollManagerInterface.encodeFunctionData("registerEarningsCode", [
-          slugBytes,
-          codeNameBytes,
-          ruleAddress,
-          encodedConfig,
-        ]),
-      } as any;
-    },
-    (_: number, orgSlug: string) => `Registered ${ruleType} earnings code for ${orgSlug}`,
-  );
-
-  const setEarningsCodeTx = useExecuteRawTx(
-    (
-      _: number,
-      orgSlug: string,
-      earningsCodeIdRaw: string,
-      encodedConfig: string,
-      nextIsActive: boolean,
-    ) => {
-      if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-      const slugBytes = orgSlugFor(orgSlug);
-      return {
-        to: payrollManagerAddress,
-        data: payrollManagerInterface.encodeFunctionData("setEarningsCode", [
-          slugBytes,
-          ethers.BigNumber.from(earningsCodeIdRaw),
-          encodedConfig,
-          nextIsActive,
-        ]),
-      } as any;
-    },
-    (_: number, orgSlug: string, earningsCodeIdRaw: string, __: string, nextIsActive: boolean) =>
-      `${nextIsActive ? "Updated" : "Deactivated"} earnings code ${earningsCodeIdRaw} for ${orgSlug}`,
-  );
+  // Routed via MTA.execute so PayrollOperator + Admin + SuperAdmin all work,
+  // not just the org owner. See [usePayrollActions](../../hooks/payroll/usePayrollActions.ts).
+  const slugBytes = useMemo(() => (slug ? orgSlugFor(slug) : ""), [slug]);
+  const payrollActions = usePayrollActions(slugBytes);
 
   const canRegister = Boolean(canEdit && slug && payrollManagerAddress && mode === "register");
   const canSaveEdit = Boolean(canEdit && slug && payrollManagerAddress && mode === "edit" && editingTarget);
 
   async function handleRegister() {
-    if (!chainId || !canRegister || isSubmitting) return;
+    if (!chainId || !canRegister || isSubmitting || !config) return;
+    const codeName = earningsCodeName.trim().toUpperCase();
+    if (!codeName) return;
+    const codeNameBytes = ethers.utils.formatBytes32String(codeName);
+    const ruleAddress =
+      ruleType === RuleType.Hourly
+        ? config.hoursRuleAddress
+        : ruleType === RuleType.Weekly
+          ? config.weeklyScheduleRuleAddress
+          : ruleType === RuleType.OneTime
+            ? config.oneTimePaymentAddress
+            : config.salaryPerSecondRuleAddress;
     setPendingAction(PendingAction.Register);
     try {
-      await registerTx(chainId, slug);
+      await payrollActions.registerEarningsCode(
+        codeNameBytes,
+        ruleAddress,
+        encodeRuleConfig(ruleType),
+      );
       onSubmitted?.();
       onClose();
     } finally {
@@ -443,10 +405,8 @@ export function PayrollEarningsManager({
     // pending labels so the loader appears on the clicked button only.
     setPendingAction(nextIsActive === isActive ? PendingAction.Save : PendingAction.Toggle);
     try {
-      await setEarningsCodeTx(
-        chainId,
-        slug,
-        editingTarget.earningsCodeId.toString(),
+      await payrollActions.setEarningsCode(
+        editingTarget.earningsCodeId,
         encodeRuleConfig(ruleType),
         nextIsActive,
       );

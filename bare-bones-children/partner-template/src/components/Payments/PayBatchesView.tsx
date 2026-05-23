@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
 import { useWalletProvider } from "../../hooks/useWalletProvider";
 import { useReadProvider } from "../../hooks/useReadProvider";
-import { useExecuteRawTx } from "../../hooks/useExecuteRawTx";
+import { usePayrollActions } from "../../hooks/payroll/usePayrollActions";
 import { useTxRefresh } from "../../providers/TxRefreshProvider";
 import { DEFAULT_CHAIN_ID, getBareBonesConfiguration } from "../../constants/misc";
 import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
@@ -163,7 +163,12 @@ export function PayBatchesView({ slug, isAdmin }: PayBatchesViewProps) {
   const chainIdOrDefault = chainId ?? DEFAULT_CHAIN_ID;
   const config = useMemo(() => getBareBonesConfiguration(chainIdOrDefault), [chainIdOrDefault]);
   const payrollManagerAddress = config?.payrollManagerAddress;
-  const iface = useMemo(() => new ethers.utils.Interface(PayrollManagerABI as any), []);
+  // All operator-surface writes route through MTA.execute so non-owner roles
+  // (PayrollOperator / Admin / SuperAdmin) actually pass auth — direct calls
+  // to PayrollManager only authorize the slug owner via the stateless
+  // PayrollSlugAuthorityResolver.
+  const slugBytes = useMemo(() => (slug ? orgSlugFor(slug) : ""), [slug]);
+  const payrollActions = usePayrollActions(slugBytes);
 
   const batchPayeeIds = useMemo(
     () => new Set(batchRows.map((row) => row.payeeId.toString())),
@@ -258,64 +263,42 @@ export function PayBatchesView({ slug, isAdmin }: PayBatchesViewProps) {
       .finally(() => setLoadingBatchRows(false));
   }, [selectedBatchCode]);
 
-  const createPayBatch = useExecuteRawTx(
-    (_: number, orgSlug: string, payBatchCodeRaw: string) => {
-      if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-      const slugBytes = orgSlugFor(orgSlug);
-      const payBatchCode = formatBatchCodeInput(payBatchCodeRaw);
+  async function configurePayBatch(
+    payBatchCode: string,
+    actions: PayrollConfigActionPayload[],
+  ) {
+    if (!actions || !Array.isArray(actions) || actions.length === 0) {
+      throw new Error("No actions to apply");
+    }
+    const normalizedActions = normalizeConfigureActions(actions);
+    const hookActions = normalizedActions.map((action) => {
+      const earningsCodeIds = action.earningsCodeIds.map((id) => ethers.BigNumber.from(id));
+      const assignments =
+        action.action === PayrollConfigActionKind.Upsert
+          ? earningsCodeIds.map((earningsCodeId, idx) => ({
+              earningsCodeId,
+              rate: ethers.BigNumber.from(action.rates[idx] ?? 0),
+              runData: action.runData[idx] ?? "0x",
+            }))
+          : [];
       return {
-        to: payrollManagerAddress,
-        data: iface.encodeFunctionData("createPayBatch", [slugBytes, payBatchCode]),
-      } as any;
-    },
-    (_: number, __: string, payBatchCodeRaw: string) => `Created pay batch ${payBatchCodeRaw}`,
-  );
-
-  const configurePayBatch = useExecuteRawTx(
-    (_: number, orgSlug: string, payBatchCode: string, actions: PayrollConfigActionPayload[]) => {
-      if (!payrollManagerAddress) throw new Error("Payroll manager address missing");
-      if (!actions || !Array.isArray(actions) || actions.length === 0) {
-        throw new Error("No actions to apply");
-      }
-      const slugBytes = orgSlugFor(orgSlug);
-      const normalizedActions = normalizeConfigureActions(actions);
-      const txActions = normalizedActions.map((action) => {
-        const earningsCodeIds = action.earningsCodeIds.map((id) => ethers.BigNumber.from(id));
-        const assignments =
-          action.action === PayrollConfigActionKind.Upsert
-            ? earningsCodeIds.map((earningsCodeId, idx) => ({
-                earningsCodeId,
-                rate: ethers.BigNumber.from(action.rates[idx] ?? 0),
-                runData: action.runData[idx] ?? "0x",
-              }))
-            : [];
-        return {
-          action: action.action,
-          payeeId: ethers.BigNumber.from(action.payeeId),
-          assignments,
-          earningsCodeIds,
-        };
-      });
-      return {
-        to: payrollManagerAddress,
-        data: iface.encodeFunctionData(
-          "configurePayBatch(bytes32,bytes32,(uint8,uint256,(uint256,uint256,bytes)[],uint256[])[])",
-          [slugBytes, payBatchCode, txActions],
-        ),
-      } as any;
-    },
-    (_: number, __: string, payBatchCode: string, actions: PayrollConfigActionPayload[]) =>
-      `Configured ${actions.length} staged action(s) for ${parseBatchCodeLabel(payBatchCode)}`,
-  );
+        action: action.action as 0 | 1,
+        payeeId: ethers.BigNumber.from(action.payeeId),
+        assignments,
+        earningsCodeIds,
+      };
+    });
+    return payrollActions.configurePayBatch(payBatchCode, hookActions);
+  }
 
   async function handleCreatePayBatch() {
     if (!chainId || !slug || !newBatchCode.trim() || creatingBatch) return;
     setCreatingBatch(true);
     try {
-      await createPayBatch(chainId, slug, newBatchCode.trim());
-      const nextCode = formatBatchCodeInput(newBatchCode.trim());
+      const payBatchCode = formatBatchCodeInput(newBatchCode.trim());
+      await payrollActions.createPayBatch(payBatchCode);
       setNewBatchCode("");
-      await refreshData(slug, nextCode);
+      await refreshData(slug, payBatchCode);
     } finally {
       setCreatingBatch(false);
     }
@@ -425,7 +408,7 @@ export function PayBatchesView({ slug, isAdmin }: PayBatchesViewProps) {
             config={config}
             onSave={async (actions) => {
               if (!chainId || !slug || !selectedBatchCode) return false;
-              const tx = await configurePayBatch(chainId, slug, selectedBatchCode, actions);
+              const tx = await configurePayBatch(selectedBatchCode, actions);
               return tx !== undefined;
             }}
             onAfterApply={async () => {

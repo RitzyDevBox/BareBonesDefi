@@ -103,7 +103,16 @@ export function PaymentPage() {
   // by its actual role assignments, not just by org ownership. The hook
   // returns empty defaults when the slug isn't bootstrapped, so it's safe to
   // call unconditionally — though it short-circuits when slug is "".
-  const mtaState = useMtaState(slug);
+  //
+  // IMPORTANT: useMtaState's `slug` parameter is the on-chain bytes32 hex,
+  // not the human-readable name. The subgraph filters Member/Role/etc by
+  // `slug: Bytes!`. Passing the name "Tempo" silently matches nothing —
+  // mtaState.members comes back empty, the connected wallet's role check
+  // misses, and the user looks "roleless" to the UI even when on-chain they
+  // have PayrollOperator/etc. Encode here using the same helper the rest of
+  // the codebase uses for the (orgSlug, chainId) lookup.
+  const slugBytes = useMemo(() => (slug ? orgSlugFor(slug) : ""), [slug]);
+  const mtaState = useMtaState(slugBytes);
 
   // Admin scope here = anyone the on-chain authorizer will let pass for
   // PayrollManager's operator surface:
