@@ -34,7 +34,6 @@ import {
   OrganizerMailing,
   OrganizerOrg,
   StepId,
-  STUB_GOVERNOR_ADDRESS,
   makeEmptyFiler,
   makeEmptyMailing,
   makeEmptyOrg,
@@ -105,7 +104,7 @@ export function EntityFormation({
     [activeDao?.name],
   );
   const defaultContract = useMemo(
-    () => activeDao?.governor?.address || STUB_GOVERNOR_ADDRESS,
+    () => activeDao?.governor?.address ?? "",
     [activeDao?.governor?.address],
   );
 
@@ -140,8 +139,11 @@ export function EntityFormation({
       setName(`${activeDao.name} DAO LLC`);
     }
   }, [activeDao?.name, name]);
+  // Pre-fill the contract address once the parent resolves the governor
+  // (subgraph / RPC lookup is async). Only fires while the field is still
+  // empty — never clobbers a hydrated draft value or user input.
   useEffect(() => {
-    if (activeDao?.governor?.address && contractAddr === STUB_GOVERNOR_ADDRESS) {
+    if (activeDao?.governor?.address && contractAddr === "") {
       setContractAddr(activeDao.governor.address);
     }
   }, [activeDao?.governor?.address, contractAddr]);

@@ -18,7 +18,6 @@ import {
   OrganizerMailing,
   OrganizerOrg,
   StepId,
-  STUB_GOVERNOR_ADDRESS,
   efHasDesignator,
 } from "./types";
 
@@ -95,17 +94,22 @@ interface EligibilityProps {
 }
 
 export function StepEligibility({ activeDao, wallet, onNext }: EligibilityProps) {
-  const govAddress = activeDao?.governor?.address || STUB_GOVERNOR_ADDRESS;
+  const govAddress = activeDao?.governor?.address;
+  const tokenAddress = activeDao?.token?.address;
   const checks = [
     {
       label: "Governor + Timelock deployed",
-      detail: `${activeDao?.governor?.name || "GovernorBravo"} · ${shortAddress(govAddress)}`,
-      ok: true,
+      detail: govAddress
+        ? `${activeDao?.governor?.name || "DAOGovernor"} · ${shortAddress(govAddress)}`
+        : "No Governor detected for this org — deploy one before filing",
+      ok: !!govAddress,
     },
     {
       label: "ERC20Votes token attached",
-      detail: `${activeDao?.symbol || "ACME"} · ${activeDao?.totalSupply || "12.4M supply"}`,
-      ok: true,
+      detail: tokenAddress
+        ? `${activeDao?.symbol || "—"} · ${activeDao?.totalSupply || ""}`.trim()
+        : "No governance token detected for this org",
+      ok: !!tokenAddress,
     },
     {
       label: "You hold WY_FILING_ROLE",
@@ -641,19 +645,15 @@ export function StepContract({
   onNext,
 }: ContractProps) {
   const valid = /^0x[a-fA-F0-9]{40}$/.test(contractAddr);
-  const supporting = [
+  const supporting: { k: string; v: string | null; sub?: string }[] = [
     {
       k: "Timelock",
-      v: activeDao?.timelock?.address || "0x3aD7F0d5D2C4901bBcd28b91A48Bc7Db4eC3F112",
+      v: activeDao?.timelock?.address ?? null,
     },
     {
       k: "ERC20Votes Token",
-      v: activeDao?.token?.address || "0x91AdBcD12345678ABcDeF12345678abcDef2C04",
-      sub: activeDao?.symbol || "ACME",
-    },
-    {
-      k: "Members Registry",
-      v: "0xb70212340000abcDeF000000aBcDef12345670044",
+      v: activeDao?.token?.address ?? null,
+      sub: activeDao?.symbol,
     },
   ];
   return (
@@ -702,7 +702,7 @@ export function StepContract({
                   )}
                 </div>
                 <div className="mono ef-dim" style={{ fontSize: 12 }}>
-                  {shortAddress(s.v)}
+                  {s.v ? shortAddress(s.v) : "Not detected"}
                 </div>
               </div>
             ))}

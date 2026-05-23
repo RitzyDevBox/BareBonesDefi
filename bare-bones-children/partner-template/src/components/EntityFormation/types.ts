@@ -123,8 +123,6 @@ export const EF_STEPS: FormationStep[] = [
   { id: "review", label: "Review & file", sub: "Submit to Wyoming" },
 ];
 
-export const STUB_GOVERNOR_ADDRESS = "0x7B4f29ae8E1d2F90c4f8B3A6E0D3B25a91A5D921";
-
 export function efHasDesignator(s: string): boolean {
   return /\b(DAO LLC|DAO|LAO)\b/i.test(s || "");
 }
