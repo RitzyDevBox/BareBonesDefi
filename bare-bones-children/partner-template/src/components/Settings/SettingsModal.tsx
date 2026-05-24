@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ThemeMode } from "../../themes/theme";
 import { useThemeMode } from "../../themes/useThemeMode";
 import { useMediaQuery, ScreenSize } from "../../hooks/useMediaQuery";
@@ -9,6 +9,7 @@ import { ButtonBase } from "../Button/ButtonBase";
 import { IconButton } from "../Button/IconButton";
 import { DEPLOYMENT_TARGET, DeploymentTarget } from "../../config/deployment";
 import { showStagingIntro } from "../Staging/StagingIntroModal";
+import { PrivacyPolicyModal } from "./PrivacyPolicyModal";
 
 interface ToggleSwitchProps {
   on: boolean;
@@ -132,6 +133,12 @@ function SettingsBody({
   onClose,
 }: Pick<SettingsModalProps, "showTestnets" | "onToggleTestnets"> & { onClose: () => void }) {
   const isStaging = DEPLOYMENT_TARGET === DeploymentTarget.Staging;
+  // Local state for the policy modal lives here (not at the parent) so the
+  // settings modal stays mounted underneath — closing the policy returns
+  // the user to the settings view without re-opening the whole settings
+  // modal. The policy modal portals to body and uses a higher z-index, so
+  // it stacks over settings cleanly.
+  const [policyOpen, setPolicyOpen] = useState(false);
   return (
     <Stack gap="none">
       <SettingsRow
@@ -169,7 +176,30 @@ function SettingsBody({
           }
         />
       )}
-
+      <SettingsRow
+        title="Privacy Policy"
+        subtitle="How we collect, use, and disclose your information"
+        right={
+          <ButtonBase
+            shape="pill"
+            onClick={() => setPolicyOpen(true)}
+            style={{
+              padding: "6px 14px",
+              fontSize: 12,
+              fontWeight: 500,
+              background: "var(--colors-surface)",
+              color: "var(--colors-text-main)",
+              border: "1px solid var(--colors-border)",
+            }}
+          >
+            View
+          </ButtonBase>
+        }
+      />
+      <PrivacyPolicyModal
+        isOpen={policyOpen}
+        onClose={() => setPolicyOpen(false)}
+      />
     </Stack>
   );
 }

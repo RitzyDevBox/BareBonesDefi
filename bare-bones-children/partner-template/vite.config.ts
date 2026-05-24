@@ -14,6 +14,13 @@ const SHARED_TEMPLATES_DIR = path.resolve(
   "../../../BareBonesApi/src/templates",
 );
 
+// Legal docs (privacy policy, future ToS) live at the monorepo root in
+// `docs/` so a lawyer can review them as plain markdown without spelunking
+// into either subproject. The Privacy Policy modal imports the markdown
+// via `?raw` and renders it with a tiny inline subset renderer — so vite
+// just needs filesystem access to read the file at dev time.
+const SHARED_LEGAL_DIR = path.resolve(__dirname, "../../../docs");
+
 const tlsKey = process.env.LOCAL_TLS_KEY;
 const tlsCert = process.env.LOCAL_TLS_CERT;
 const httpsConfig =
@@ -40,7 +47,7 @@ export default defineConfig(({ command }) => ({
       // Default `server.fs.allow` is the project root only. Extend it to
       // the API's templates directory so the wizard's review step can pull
       // the shared Articles-of-Organization template.
-      allow: [path.resolve(__dirname), SHARED_TEMPLATES_DIR],
+      allow: [path.resolve(__dirname), SHARED_TEMPLATES_DIR, SHARED_LEGAL_DIR],
     },
     ...(httpsConfig ? { https: httpsConfig } : {}),
   },
