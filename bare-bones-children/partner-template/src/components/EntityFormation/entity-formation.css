@@ -987,8 +987,12 @@
   gap: 10px;
 }
 @media (max-width: 520px) {
-  .entity-formation-root .ef-row-2,
-  .entity-formation-root .ef-row-3 { grid-template-columns: 1fr; }
+  .entity-formation-root .ef-row-2 { grid-template-columns: 1fr; }
+  /* City + State + Postal: keep State+Postal sharing the second row on
+     mobile (both are 2-5 chars; stacking all three wastes vertical space).
+     City takes the full first row. */
+  .entity-formation-root .ef-row-3 { grid-template-columns: 1fr 1fr; }
+  .entity-formation-root .ef-row-3 > :first-child { grid-column: 1 / -1; }
 }
 
 /* Phone input — dial-code dropdown + number */
