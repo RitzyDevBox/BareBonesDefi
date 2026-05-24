@@ -31,23 +31,37 @@ const entityFormationRoutes = FEATURE_FLAGS.entityFormation
   ? [{ path: `${ROUTES.ENTITIES_FORMATION}`, element: <EntityFormationPage /> }]
   : [];
 
+const basicWalletRoutes = FEATURE_FLAGS.basicWallet
+  ? [{ path: `${ROUTES.BASIC_WALLET}/:diamondAddress?`, element: <BasicWalletPage /> }]
+  : [];
+
+const dappBrowserRoutes = FEATURE_FLAGS.dappBrowser
+  ? [{ path: `${ROUTES.DAPP_BROWSER}`, element: <DappBrowserPage /> }]
+  : [];
+
+const vaultsRoutes = FEATURE_FLAGS.vaults
+  ? [
+      { path: `${ROUTES.VAULTS}`, element: <VaultPage /> },
+      { path: `${ROUTES.VAULT_DETAIL_ROUTE}`, element: <VaultWalletPage /> },
+    ]
+  : [];
+
 export const router = createHashRouter([
   {
     path: ROUTES.ROOT,
     element: <App />,
     children: [
       { index: true, element: <LandingPage /> },
-      { path: `${ROUTES.BASIC_WALLET}/:diamondAddress?`, element: <BasicWalletPage /> },
-      { path: `${ROUTES.DAPP_BROWSER}`, element: <DappBrowserPage /> },
       { path: `${ROUTES.DAOS}`, element: <DAOsPage /> },
       { path: `${ROUTES.DAOS_DETAIL_ROUTE}`, element: <DAODetailPage /> },
       { path: `${ROUTES.PAYMENTS}`, element: <PaymentPage /> },
       { path: `${ROUTES.PAYMENTS_ORG_ROUTE}`, element: <PaymentPage /> },
       { path: `${ROUTES.PAYROLL_DETAIL_ROUTE}`, element: <CurrentPayrollPage /> },
+      ...basicWalletRoutes,
+      ...dappBrowserRoutes,
       ...organizationRoutes,
       ...entityFormationRoutes,
-      { path: `${ROUTES.VAULTS}`, element: <VaultPage /> },
-      { path: `${ROUTES.VAULT_DETAIL_ROUTE}`, element: <VaultWalletPage /> },
+      ...vaultsRoutes,
       ...devOnlyRoutes,
 
       { path: "*", element: <Navigate to={ROUTES.ROOT} replace /> },

@@ -162,11 +162,19 @@ export const PERMISSION_MANAGER_ROLE_SLUGS: ReadonlySet<string> = systemRoleSlug
   "PermissionManager",
 ]);
 
-/** Bypass on PayrollTreasury's operator surface (deposit / withdraw / pay).
- *  TreasuryOperator via `_isFoundationDefaultGrant`. Note: today the
- *  PayrollTreasury contract doesn't actually route through MTA for these
- *  selectors, so this bundle is aspirational — consult the contract before
- *  relying on it. */
+/** UI gate for the "finalize payroll" action — `PayrollManager
+ *  .finalizePayrollChunk` is the only payroll operation that actually
+ *  disburses funds (it's what eventually triggers `PayrollTreasury.pay`).
+ *  Separated from [[PAYROLL_ADMIN_ROLE_SLUGS]] so an operator can be
+ *  granted "configure payroll" (PayrollOperator → build batches, set
+ *  rates, run processing chunks) without also being granted "release
+ *  funds" (TreasuryOperator → finalize, which moves the money).
+ *
+ *  Note: the contract still lists `finalizePayrollChunk` in
+ *  `_isPayrollOperatorDefaultSig`, so today a PayrollOperator-only wallet
+ *  can finalize even though this UI bundle excludes them. Splitting the
+ *  contract-side default-grant for finalize into TreasuryOperator is a
+ *  follow-up if the UI/contract gates should match exactly. */
 export const TREASURY_ADMIN_ROLE_SLUGS: ReadonlySet<string> = systemRoleSlugSet([
   "SuperAdmin",
   "Admin",

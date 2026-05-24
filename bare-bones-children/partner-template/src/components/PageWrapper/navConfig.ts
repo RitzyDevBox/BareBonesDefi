@@ -4,6 +4,9 @@ import { FEATURE_FLAGS } from "../../constants/featureFlags";
 
 const ORGANIZATION_ID = "organization";
 const ENTITY_FORMATION_ID = "entity-formation";
+const WALLET_ID = "wallet";
+const BROWSER_ID = "browser";
+const VAULTS_ID = "vaults";
 
 export interface NavItem {
   id: string;
@@ -13,18 +16,21 @@ export interface NavItem {
 
 const ALL_NAV_ITEMS: NavItem[] = [
   { id: "home", label: "Home", path: ROUTES.ROOT },
-  { id: "wallet", label: "Wallet", path: ROUTES.BASIC_WALLET },
-  { id: "browser", label: "Browser", path: ROUTES.DAPP_BROWSER },
+  { id: WALLET_ID, label: "Wallet", path: ROUTES.BASIC_WALLET },
+  { id: BROWSER_ID, label: "Browser", path: ROUTES.DAPP_BROWSER },
   { id: "daos", label: "DAOs", path: ROUTES.DAOS },
   { id: ORGANIZATION_ID, label: "Organizations", path: ROUTES.ORGANIZATIONS },
   { id: ENTITY_FORMATION_ID, label: "Formation", path: ROUTES.ENTITIES_FORMATION },
   { id: "Payments", label: "Payments", path: ROUTES.PAYMENTS },
-  { id: "vaults", label: "Vaults", path: ROUTES.VAULTS },
+  { id: VAULTS_ID, label: "Vaults", path: ROUTES.VAULTS },
 ];
 
 const VISIBLE: NavItem[] = ALL_NAV_ITEMS.filter((item) => {
   if (item.id === ORGANIZATION_ID) return FEATURE_FLAGS.organizations;
   if (item.id === ENTITY_FORMATION_ID) return FEATURE_FLAGS.entityFormation;
+  if (item.id === WALLET_ID) return FEATURE_FLAGS.basicWallet;
+  if (item.id === BROWSER_ID) return FEATURE_FLAGS.dappBrowser;
+  if (item.id === VAULTS_ID) return FEATURE_FLAGS.vaults;
   return true;
 });
 
