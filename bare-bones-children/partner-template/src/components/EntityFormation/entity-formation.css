@@ -3,6 +3,13 @@
    .mono, .crumb) do not leak into the rest of the app. */
 
 .entity-formation-root {
+  /* iPhone SE (375px) is the floor we support. Belt-and-suspenders clip on
+     horizontal overflow so any single oversized cell (a long monospace
+     address, an unbreakable URL) can't make the page horizontally scroll
+     and push the step-nav arrows + Continue button off-screen. The real
+     fix for inputs is `box-sizing: border-box` below; this is the safety
+     net for everything else. */
+  overflow-x: hidden;
   /* Map the design's tokens (--accent, --bg, --line, etc.) onto the
      project's theme variables. Lets the design's CSS keep its original
      selectors with minimal edits while still picking up theme switches. */
@@ -25,12 +32,59 @@
   color: var(--text);
 }
 
+/* Box model invariant for the whole wizard: padding + border are inside the
+   declared width. Without this, `.input { width: 100% }` blew past its
+   container by 2× the input padding (24px) and forced horizontal page
+   overflow on mobile — symptom was the right step-nav arrow + the form's
+   Continue button sliding off the right edge of a 375px viewport. */
+.entity-formation-root,
+.entity-formation-root *,
+.entity-formation-root *::before,
+.entity-formation-root *::after {
+  box-sizing: border-box;
+}
+
+/* Belt-and-suspenders: every form element capped at 100% of its parent and
+   allowed to shrink inside flex/grid cells. Without `min-width: 0` an input
+   inside a 1fr cell keeps its UA-default intrinsic width (~150-200px from
+   the `size` attribute) and forces the row past viewport width on narrow
+   screens. */
+.entity-formation-root input,
+.entity-formation-root select,
+.entity-formation-root textarea {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Same fix for the structural containers — grid + flex items default to
+   `min-width: auto` (= min-content), which on a row that contains an input
+   or a long mono address means the row refuses to shrink below the input's
+   intrinsic width and pushes the page wider than the viewport. Forcing
+   `min-width: 0` lets the column accept the layout's actual constraint. */
+.entity-formation-root .ef-card,
+.entity-formation-root .ef-card-body,
+.entity-formation-root .ef-form,
+.entity-formation-root .ef-form-body,
+.entity-formation-root .ef-row-2,
+.entity-formation-root .ef-row-3,
+.entity-formation-root .ef-phone,
+.entity-formation-root .field-grid,
+.entity-formation-root .field {
+  min-width: 0;
+}
+
 /* ---------- helpers the design assumes exist ---------- */
 
 .entity-formation-root .container {
   max-width: 1080px;
   margin: 0 auto;
   padding: 0 24px;
+}
+@media (max-width: 720px) {
+  /* Edge-to-edge on mobile: the card + step nav own the full viewport
+     width. Internal 16px padding on card head/body/foot still keeps text
+     off the screen edges. Tested down to 375px (iPhone SE). */
+  .entity-formation-root .container { padding: 0; }
 }
 
 .entity-formation-root .crumb {
@@ -105,6 +159,11 @@
   gap: 14px;
 }
 .entity-formation-root .field-grid .field.full { grid-column: 1 / -1; }
+@media (max-width: 520px) {
+  /* Single column on the smallest phones — the two-column layout squeezed
+     inputs below readable width at 375px. */
+  .entity-formation-root .field-grid { grid-template-columns: 1fr; }
+}
 
 /* ----------------------------------------------------------
    .ef-* — the design's scoped layout/visuals (copied as-is).
@@ -196,12 +255,31 @@
   .entity-formation-root .ef-stat { align-items: flex-start; text-align: left; }
 }
 
+/* Hero text gets a small inset on mobile so the headline / lede don't kiss
+   the screen edge — `.container` itself goes edge-to-edge at ≤720px so the
+   card can be fullscreen, but the hero copy still needs gutter breathing
+   room. */
+@media (max-width: 720px) {
+  .entity-formation-root .ef-hero { padding: 32px 16px 24px; }
+  .entity-formation-root .ef-hero .ef-sub { font-size: 15px; }
+  .entity-formation-root .ef-progress { margin-top: 20px; }
+}
+
 .entity-formation-root .ef-shell {
   display: grid;
   grid-template-columns: 280px 1fr;
   gap: 40px;
   align-items: start;
   padding: 40px 0 80px;
+}
+/* Grid items default to `min-width: auto` (= min-content). On a 375px screen
+   the step content's min-content was ~756px, which forced the 1fr column to
+   blow past the viewport — `overflow-x: hidden` then clipped the visible
+   layout but the children inherited the inflated column width, so `.ef-card`
+   et al. rendered ~756px wide while the viewport was 375. Forcing
+   `min-width: 0` lets the grid item accept the column's actual size. */
+.entity-formation-root .ef-shell > * {
+  min-width: 0;
 }
 @media (max-width: 980px) {
   .entity-formation-root .ef-shell {
@@ -289,14 +367,61 @@
 .entity-formation-root .ef-step-l { font-size: 14px; font-weight: 500; }
 .entity-formation-root .ef-step-s { font-size: 11.5px; color: var(--text-mute); }
 
+/* Step-nav scroller row: flanking arrow buttons + the list. On desktop the
+   arrows are hidden (the list is a vertical column with no need for them);
+   on mobile the list is a horizontal scroller and the arrows pan it.
+   `min-width: 0` is critical — without it the inner overflow-x list would
+   force the row to expand and push the right arrow off-screen at 375px. */
+.entity-formation-root .ef-stepnav-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+}
+.entity-formation-root .ef-stepnav-arrow {
+  display: none;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  font-size: 22px;
+  line-height: 1;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+.entity-formation-root .ef-stepnav-arrow:hover {
+  border-color: var(--line-strong);
+}
+.entity-formation-root .ef-stepnav-arrow:active {
+  background: var(--bg-elev-2);
+}
+
 @media (max-width: 980px) {
-  .entity-formation-root .ef-stepnav { position: static; }
+  .entity-formation-root .ef-stepnav {
+    position: static;
+    /* Small inset so the arrow buttons don't kiss the viewport edges. The
+       container goes edge-to-edge at this width so this is the only inset
+       the step nav has. */
+    padding: 0 8px;
+  }
   .entity-formation-root .ef-stepnav-list {
     flex-direction: row;
     gap: 8px;
     overflow-x: auto;
     padding-bottom: 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+    scroll-snap-type: x proximity;
+    /* Hide native horizontal scrollbar — arrows are the affordance. */
+    scrollbar-width: none;
   }
+  .entity-formation-root .ef-stepnav-list::-webkit-scrollbar { display: none; }
   .entity-formation-root .ef-stepnav-list::before { display: none; }
   .entity-formation-root .ef-step {
     flex-shrink: 0;
@@ -304,8 +429,10 @@
     background: var(--bg-elev);
     border: 1px solid var(--line);
     border-radius: 999px;
+    scroll-snap-align: center;
   }
   .entity-formation-root .ef-step-s { display: none; }
+  .entity-formation-root .ef-stepnav-arrow { display: inline-flex; }
 }
 
 .entity-formation-root .ef-card {
@@ -349,6 +476,8 @@
 .entity-formation-root .ef-card-foot {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 18px 28px;
   border-top: 1px solid var(--line);
@@ -359,6 +488,36 @@
   color: var(--text-mute);
   font-family: var(--font-mono);
   align-self: center;
+}
+
+/* Mobile card: edge-to-edge (no border, no rounding), so the card reads
+   like a fullscreen sheet on phones. The card body and nested form bodies
+   both contribute horizontal padding; on a 375px screen the inputs were
+   getting double-padded down to ~280px of writable width. Drop the card
+   body padding to 12px and the form-body padding to 12px so inputs get
+   the room they need without the row overflowing. */
+@media (max-width: 720px) {
+  .entity-formation-root .ef-card {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+  .entity-formation-root .ef-card-head { padding: 16px 12px 14px; }
+  .entity-formation-root .ef-card-title { font-size: 22px; }
+  .entity-formation-root .ef-card-body { padding: 12px; }
+  .entity-formation-root .ef-card-foot {
+    padding: 12px;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .entity-formation-root .ef-card-foot-hint {
+    display: none; /* steal the horizontal budget for the Back + Continue buttons */
+  }
+  /* The two nested form panels (.ef-form) sit inside the card body. Drop
+     their head + body horizontal padding too so the inputs aren't twice-
+     inset. */
+  .entity-formation-root .ef-form-head { padding: 14px 12px 12px; }
+  .entity-formation-root .ef-form-body { padding: 12px; }
 }
 
 .entity-formation-root .ef-section { margin-top: 24px; }
@@ -921,6 +1080,11 @@
   color: var(--text-mute);
 }
 .entity-formation-root .ef-phone-num {
+  /* width:100% so the input fills its 1fr grid cell instead of falling back
+     to its UA-default intrinsic width (~150-180px), which on a narrow phone
+     would visually overflow the surrounding .ef-phone container. */
+  width: 100%;
+  min-width: 0;
   height: 40px;
   border: 0;
   background: transparent;
@@ -978,6 +1142,8 @@
 
 /* Native select */
 .entity-formation-root .ef-select {
+  width: 100%;
+  max-width: 100%;
   height: 40px;
   padding: 0 30px 0 12px;
   background: var(--bg);

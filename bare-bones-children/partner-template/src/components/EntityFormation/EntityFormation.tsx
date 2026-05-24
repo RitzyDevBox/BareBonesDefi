@@ -119,6 +119,48 @@ export function EntityFormation({
   };
 
   const stepIdx = EF_STEPS.findIndex((s) => s.id === step);
+
+  // Step-nav scroller. On mobile the step list is a horizontal scroller;
+  // when the user advances (Continue) we need the new active chip to be
+  // visible. The arrow buttons drive horizontal scroll for users who can't
+  // / don't realize they can swipe — tap nudges, hold scrolls continuously.
+  const stepListRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const list = stepListRef.current;
+    if (!list) return;
+    const active = list.querySelector<HTMLElement>(".ef-step.active");
+    if (!active) return;
+    // `block: "nearest"` keeps the page-scroll position; `inline: "center"`
+    // pulls the chip into the visible middle of the horizontal scroller.
+    active.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [stepIdx]);
+
+  // Hold-to-scroll for the mobile arrows. PointerDown kicks off a RAF loop
+  // that pans the list every frame; pointerup/leave/cancel stops it. A
+  // single tap still moves a chunk via the initial scrollBy call, so users
+  // can either tap or hold.
+  const holdScrollRef = useRef<{ raf: number; dir: -1 | 1 } | null>(null);
+  const stopHoldScroll = () => {
+    if (holdScrollRef.current) {
+      cancelAnimationFrame(holdScrollRef.current.raf);
+      holdScrollRef.current = null;
+    }
+  };
+  const startHoldScroll = (dir: -1 | 1) => {
+    const list = stepListRef.current;
+    if (!list) return;
+    // Initial nudge so a quick tap still feels responsive.
+    list.scrollBy({ left: dir * 60, behavior: "smooth" });
+    // Then continuous pan while held. 8px/frame ≈ 480px/s on a 60Hz display,
+    // tuned by feel — fast enough to traverse the whole 8-step list in ~1s
+    // but slow enough to land precisely on a single chip.
+    const tick = () => {
+      list.scrollBy({ left: dir * 8 });
+      holdScrollRef.current = { raf: requestAnimationFrame(tick), dir };
+    };
+    holdScrollRef.current = { raf: requestAnimationFrame(tick), dir };
+  };
+  useEffect(() => stopHoldScroll, []);
   const nextStep = () =>
     goStep(EF_STEPS[Math.min(stepIdx + 1, EF_STEPS.length - 1)].id);
   const prevStep = () => goStep(EF_STEPS[Math.max(stepIdx - 1, 0)].id);
@@ -589,8 +631,20 @@ export function EntityFormation({
         <div className="ef-shell">
           <nav className="ef-stepnav" aria-label="Formation steps">
             <div className="ef-stepnav-head">Filing progress</div>
-            <div className="ef-stepnav-list">
-              {EF_STEPS.map((s, i) => {
+            <div className="ef-stepnav-row">
+              <button
+                type="button"
+                className="ef-stepnav-arrow"
+                aria-label="Scroll steps left"
+                onPointerDown={() => startHoldScroll(-1)}
+                onPointerUp={stopHoldScroll}
+                onPointerLeave={stopHoldScroll}
+                onPointerCancel={stopHoldScroll}
+              >
+                ‹
+              </button>
+              <div className="ef-stepnav-list" ref={stepListRef}>
+                {EF_STEPS.map((s, i) => {
                 const completion = draft.detail?.completedSteps;
                 const doneBackend =
                   s.id !== "eligibility" &&
@@ -627,6 +681,18 @@ export function EntityFormation({
                   </button>
                 );
               })}
+              </div>
+              <button
+                type="button"
+                className="ef-stepnav-arrow"
+                aria-label="Scroll steps right"
+                onPointerDown={() => startHoldScroll(1)}
+                onPointerUp={stopHoldScroll}
+                onPointerLeave={stopHoldScroll}
+                onPointerCancel={stopHoldScroll}
+              >
+                ›
+              </button>
             </div>
             {draft.saving && (
               <div
