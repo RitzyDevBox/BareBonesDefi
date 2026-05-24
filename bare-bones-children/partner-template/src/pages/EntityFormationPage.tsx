@@ -10,6 +10,8 @@ import { useActiveOrganization } from "../providers/ActiveOrganizationProvider";
 import { CHAIN_INFO_MAP, getBareBonesConfiguration } from "../constants/misc";
 import { useTxRefresh } from "../providers/TxRefreshProvider";
 import { orgSlugFor } from "../utils/payroll/orgSlug";
+import { useMtaState } from "../hooks/auth/useMtaState";
+import { FILING_ADMIN_ROLE_SLUGS } from "../constants/mtaRoles";
 
 export function EntityFormationPage() {
   const { provider, account, chainId, connect } = useWalletProvider();
@@ -121,6 +123,33 @@ export function EntityFormationPage() {
     };
   }, [provider, tokenAddress, txVersion]);
 
+  // Filing collects PII (filer name + address + phone, business email, mailing
+  // address). Gate visibility on operational-owner roles: SuperAdmin / Admin
+  // via MTA membership, or the slug's super-admin (the slug owner). Roleless
+  // members and non-filing operators (PayrollOperator, MemberManager, etc.)
+  // see a "permission required" notice instead of the wizard.
+  const slugBytes = useMemo(
+    () => (activeOrgSlug ? orgSlugFor(activeOrgSlug) : ""),
+    [activeOrgSlug],
+  );
+  const mtaState = useMtaState(slugBytes);
+  type ViewStatus = "idle" | "checking" | "allowed" | "denied";
+  const viewStatus: ViewStatus = useMemo(() => {
+    if (!account || !activeOrgSlug) return "idle";
+    if (mtaState.loading) return "checking";
+    if (
+      mtaState.superAdmin &&
+      mtaState.superAdmin.toLowerCase() === account.toLowerCase()
+    ) {
+      return "allowed";
+    }
+    const me = mtaState.members.find(
+      (m) => m.wallet.address.toLowerCase() === account.toLowerCase(),
+    );
+    if (me && me.roles.some((r) => FILING_ADMIN_ROLE_SLUGS.has(r))) return "allowed";
+    return "denied";
+  }, [account, activeOrgSlug, mtaState.loading, mtaState.superAdmin, mtaState.members]);
+
   const activeDao: FormationDao | undefined = useMemo(() => {
     if (!activeOrgSlug && !governorAddress) return undefined;
     return {
@@ -152,6 +181,7 @@ export function EntityFormationPage() {
       wallet={account ? { address: account } : undefined}
       orgSlug={activeOrgSlug}
       governorStatus={governor.status}
+      viewStatus={viewStatus}
       onConnectWallet={() => {
         void connect();
       }}

@@ -213,6 +213,19 @@ export function ActiveOrganizationProvider({ children }: { children: React.React
     setSelectedAt(0);
   }, [provider, account, chainId, loadingOrgs, accessibleOrgs, activeOrgSlug, selectedAt]);
 
+  // Auto-select the first accessible org when the user has access to at
+  // least one but nothing is currently selected. Saves the "pick an org"
+  // friction on every fresh session / after a clear. Only fires once the
+  // access queries have settled so we don't pick before owned + member
+  // resolve, and never overrides an existing selection.
+  useEffect(() => {
+    if (activeOrgSlug) return;
+    if (!account || loadingOrgs) return;
+    if (accessibleOrgs.length === 0) return;
+    setActiveOrgSlugState(accessibleOrgs[0]);
+    setSelectedAt(Date.now());
+  }, [activeOrgSlug, account, loadingOrgs, accessibleOrgs]);
+
   // Grace re-poll: while inside the selection grace window AND the slug
   // isn't yet visible in either access check, bump `graceTick` on a timer
   // so the queries re-run. Stops as soon as access is confirmed or the

@@ -58,6 +58,10 @@ interface EntityFormationProps {
    *  silent stuck-loader.
    */
   governorStatus?: "idle" | "resolving" | "missing" | "resolved";
+  /** Result of the MTA role lookup that gates wizard visibility (filing
+   *  collects PII so only SuperAdmin / Admin can view it). Same shape as
+   *  governorStatus — "idle" / "checking" / "allowed" / "denied". */
+  viewStatus?: "idle" | "checking" | "allowed" | "denied";
   onConnectWallet?: () => void;
 }
 
@@ -92,6 +96,7 @@ export function EntityFormation({
   wallet,
   orgSlug,
   governorStatus = "idle",
+  viewStatus = "idle",
   onConnectWallet,
 }: EntityFormationProps) {
   const { isSignedIn, signIn, loading: authLoading, error: authError } =
@@ -532,6 +537,35 @@ export function EntityFormation({
           kicker="Organization required"
           title="Pick an organization to file for"
           lede="Wyoming filing is tied to a specific on-chain DAO. Select the organization from the navbar, then return here."
+        />
+      </div>
+    );
+  }
+
+  // PII gate. The wizard collects legal names, residential / business
+  // addresses, phone numbers, and business emails — restrict to operational
+  // owners (SuperAdmin / Admin via MTA, computed by the page). Roleless
+  // members and non-filing operators see a permission notice instead.
+  if (viewStatus === "checking" || viewStatus === "idle") {
+    return (
+      <div className="entity-formation-root">
+        <Hero activeDao={activeDao} chain={chain} progress={0} stepIdx={0} />
+        <ShellNotice
+          kicker="Checking access"
+          title="Verifying your role…"
+          lede="Confirming your filing permissions for this organization."
+        />
+      </div>
+    );
+  }
+  if (viewStatus === "denied") {
+    return (
+      <div className="entity-formation-root">
+        <Hero activeDao={activeDao} chain={chain} progress={0} stepIdx={0} />
+        <ShellNotice
+          kicker="Permission required"
+          title="You don't have access to file for this organization"
+          lede="Filing collects personally identifiable information for the organizers. Only members with the SuperAdmin or Admin role can view or submit this form. Ask the org's admin to grant you access, or switch to an organization you're an admin of."
         />
       </div>
     );

@@ -181,6 +181,17 @@ export const PAUSE_ROLE_SLUGS: ReadonlySet<string> = systemRoleSlugSet([
   "Pauser",
 ]);
 
+/** Access to the entity formation wizard for an org. The wizard collects
+ *  PII (filer name + address + phone, business email, principal-office
+ *  address, mailing address) so we restrict visibility to operational
+ *  owners. No dedicated "Filing" system role exists today — SuperAdmin +
+ *  Admin are the closest match. Add a Filing role here if/when one is
+ *  introduced in MTA. */
+export const FILING_ADMIN_ROLE_SLUGS: ReadonlySet<string> = systemRoleSlugSet([
+  "SuperAdmin",
+  "Admin",
+]);
+
 /** Encode a free-form role name as a bytes32 slug. Matches MTA's bootstrap
  *  convention (`bytes32("Admin")` etc.) — utf8-packed into the high bytes,
  *  zero-padded. Names longer than 31 bytes can't round-trip through bytes32
