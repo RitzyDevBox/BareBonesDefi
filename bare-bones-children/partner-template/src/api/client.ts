@@ -168,6 +168,40 @@ export const api = {
         method: "POST",
         body: JSON.stringify({}),
       }),
+    // Fetches the rendered Articles-of-Organization PDF and triggers a
+    // browser download. Can't use a plain `<a href>` because the endpoint
+    // requires the SIWE JWT in the Authorization header, which an anchor
+    // can't carry. Pattern: fetch as blob → mint a transient object-URL →
+    // synthesize a click on a hidden anchor → revoke the URL on next tick.
+    downloadArticlesPdf: async (entityId: string, filename?: string) => {
+      const jwt = getJwt();
+      const headers: Record<string, string> = {};
+      if (jwt) headers.Authorization = `Bearer ${jwt}`;
+      const res = await fetch(`${API_URL}/entities/${entityId}/articles.pdf`, {
+        headers,
+      });
+      if (!res.ok) {
+        let code = `http_${res.status}`;
+        try {
+          const body = await res.json();
+          if (body?.error) code = body.error;
+        } catch {
+          /* not JSON */
+        }
+        throw new ApiError(res.status, code);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename || `articles-of-organization-${entityId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Revoke after the click fires so the browser still has the URL
+      // mapped when it starts the download.
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    },
   },
   documents: {
     list: (entityId: string) =>

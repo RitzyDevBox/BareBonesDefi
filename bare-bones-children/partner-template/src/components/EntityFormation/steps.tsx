@@ -3,6 +3,15 @@ import { shortAddress } from "../../utils/formatUtils";
 import { REGISTERED_AGENTS } from "./agents.config";
 import { CheckIcon } from "./CheckIcon";
 import { PhoneInput } from "./PhoneInput";
+import { api } from "../../api/client";
+import {
+  activeSections,
+  ARTICLES_FOOTER,
+  ARTICLES_SUBTITLE,
+  ARTICLES_TITLE,
+  ArticlesMergeData,
+  Inline,
+} from "../../../../../../BareBonesApi/src/templates/articles-of-organization";
 import {
   AgentCustom,
   AgentMode,
@@ -1151,6 +1160,12 @@ export function StepNotice({ activeDao, notice, setNotice, onPrev, onNext }: Not
 // ---------- step 7: Review & file ----------
 
 interface ReviewProps {
+  /** Server-side entity id — used as the path param when downloading the
+   *  rendered Articles PDF. Optional only so the wizard can render the
+   *  review step before the draft has been created server-side (which
+   *  shouldn't happen in normal flow but keeps the type honest). When
+   *  unset, the Download buttons disable themselves. */
+  entityId?: string;
   name: string;
   mgmt: ManagementType;
   contractAddr: string;
@@ -1170,6 +1185,7 @@ interface ReviewProps {
 }
 
 export function StepReview({
+  entityId,
   name,
   mgmt,
   contractAddr,
@@ -1187,6 +1203,20 @@ export function StepReview({
   onEdit,
   onFile,
 }: ReviewProps) {
+  // Download handler — defined before the `if (filed)` early return so
+  // both the draft-mode "Download Articles draft" button and the post-
+  // filing "Download stamped Articles" button can reuse it. Today both
+  // hit the same endpoint; once the WY SOS handoff is wired up the
+  // stamped variant will switch to whatever artifact the SOS returns.
+  const downloadArticles = async () => {
+    if (!entityId) return;
+    try {
+      await api.entities.downloadArticlesPdf(entityId);
+    } catch (err) {
+      console.error("Failed to download Articles PDF", err);
+    }
+  };
+
   if (filed) {
     return (
       <div className="ef-card">
@@ -1290,7 +1320,12 @@ export function StepReview({
           >
             ← Back to draft
           </button>
-          <button type="button" className="btn-primary btn-sm">
+          <button
+            type="button"
+            className="btn-primary btn-sm"
+            onClick={downloadArticles}
+            disabled={!entityId}
+          >
             ↓ Download stamped Articles
           </button>
         </div>
@@ -1363,11 +1398,57 @@ export function StepReview({
   const agentFee = agentMode === "service" ? (agent?.price ?? 0) : 0;
   const total = stateFee + agentFee;
 
-  // Article VIII (Operating Agreement) is statutorily optional — only render
-  // it when the user picked a storage option that produces a public artifact
-  // worth referencing on the public Articles.
-  const showOaArticle = agreementStorage !== "off";
-  const oaUri = "ar://placeholder-tx-id";
+  // Build the same `ArticlesMergeData` the API uses when rendering the
+  // PDF, so the on-screen preview and the downloadable PDF stay byte-for-
+  // byte aligned. The PDF endpoint pulls these values from the persisted
+  // Entity row; here we read them from local React state so the preview
+  // reflects unsaved edits the user is still typing into the wizard.
+  // Address composition mirrors the server's `composeAddress` helper.
+  const principalOfficeFull = org.street1
+    ? `${org.street2 ? `${org.street1}, ${org.street2}` : org.street1}, ${org.city} ${org.region} ${org.postal}`
+    : "";
+  const articlesData: ArticlesMergeData = {
+    legalName: name,
+    principalOffice: principalOfficeFull,
+    businessEmail: org.email || "",
+    businessPhone: org.phoneNum ? `${org.phoneDial} ${org.phoneNum}` : "",
+    filerFirstName: filer.first || "",
+    filerLastName: filer.last || "",
+    filerRoleClaim: filer.role || "",
+    managementClause:
+      mgmt === "member" ? "member-managed" : "algorithmically managed",
+    contractAddress: contractAddr || "",
+    chainName: chain?.name || "Polygon",
+    chainId: String(chain?.chainId ?? 137),
+    registeredAgentName:
+      agentMode === "service" ? agent?.name || "" : "Self-listed agent",
+    operatingAgreementUri: "ar://placeholder-tx-id",
+    agreementStorageActive: agreementStorage !== "off",
+  };
+
+  // Inline runs come from the template; we just style them. `merge` =
+  // body text in a highlighted span so the user can see what was pulled
+  // from their inputs; `mergeMono` = same, plus monospace. Resolve the
+  // placeholder fallback locally so unset values show as e.g. "[legalName]"
+  // both here and in the PDF.
+  const renderInline = (run: Inline, key: number): ReactNode => {
+    if (run.kind === "text") return <span key={key}>{run.value}</span>;
+    const raw = articlesData[run.field];
+    const value =
+      typeof raw === "boolean"
+        ? ""
+        : raw && raw.length > 0
+          ? raw
+          : `[${run.field}]`;
+    return (
+      <span
+        key={key}
+        className={`ef-doc-fill${run.kind === "mergeMono" ? " mono" : ""}`}
+      >
+        {value}
+      </span>
+    );
+  };
 
   return (
     <div className="ef-card">
@@ -1380,89 +1461,17 @@ export function StepReview({
       <div className="ef-card-body">
         <div className="ef-review">
           <div className="ef-doc">
-            <h3 className="ef-doc-title">Articles of Organization</h3>
-            <div className="ef-doc-sub">
-              Wyoming Decentralized Autonomous Organization LLC
-            </div>
+            <h3 className="ef-doc-title">{ARTICLES_TITLE}</h3>
+            <div className="ef-doc-sub">{ARTICLES_SUBTITLE}</div>
 
-            <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article I — Name</div>
-              <div>
-                The name of the entity is <span className="ef-doc-fill">{name}</span>.
+            {activeSections(articlesData).map((section) => (
+              <div key={section.id} className="ef-doc-art">
+                <div className="ef-doc-art-h">{section.heading}</div>
+                {section.paragraphs.map((paragraph, pi) => (
+                  <div key={pi}>{paragraph.map(renderInline)}</div>
+                ))}
               </div>
-            </div>
-            <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article II — Principal Office</div>
-              <div>
-                The principal office is{" "}
-                <span className="ef-doc-fill">
-                  {org.street1 || "[street]"}
-                  {org.street2 ? `, ${org.street2}` : ""}, {org.city || "[city]"}{" "}
-                  {org.region || "[state]"} {org.postal || "[zip]"}
-                </span>
-                . Contact: <span className="ef-doc-fill">{org.email || "[email]"}</span>,{" "}
-                <span className="ef-doc-fill mono">
-                  {org.phoneDial} {org.phoneNum || "[phone]"}
-                </span>
-                .
-              </div>
-            </div>
-            <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article III — Organizer</div>
-              <div>
-                The organizer of this entity is{" "}
-                <span className="ef-doc-fill">
-                  {filer.first || "[first]"} {filer.last || "[last]"}
-                </span>
-                {filer.role ? (
-                  <>
-                    , acting as <span className="ef-doc-fill">{filer.role}</span>
-                  </>
-                ) : null}
-                .
-              </div>
-            </div>
-            <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article IV — Management</div>
-              <div>
-                This DAO shall be{" "}
-                <span className="ef-doc-fill">
-                  {mgmt === "member" ? "member-managed" : "algorithmically managed"}
-                </span>
-                .
-              </div>
-            </div>
-            <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article V — Smart Contract Identifier</div>
-              <div>
-                The publicly available identifier is{" "}
-                <span className="ef-doc-fill mono">{shortAddress(contractAddr, 8)}</span>
-                , deployed on{" "}
-                <span className="ef-doc-fill">{chain?.name || "Polygon"}</span> (chain id{" "}
-                <span className="mono">{chain?.chainId || 137}</span>).
-              </div>
-            </div>
-            <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article VI — Registered Agent</div>
-              <div>
-                <span className="ef-doc-fill">
-                  {agentMode === "service" ? agent?.name || "—" : "Self-listed agent"}
-                </span>
-              </div>
-            </div>
-            <div className="ef-doc-art">
-              <div className="ef-doc-art-h">Article VII — Notice to Members</div>
-              <div>Members are on notice of the risks specified in W.S. 17-31-114.</div>
-            </div>
-            {showOaArticle && (
-              <div className="ef-doc-art">
-                <div className="ef-doc-art-h">Article VIII — Operating Agreement</div>
-                <div>
-                  Referenced at <span className="ef-doc-fill mono">{oaUri}</span>. Smart
-                  contracts may enhance per W.S. 17-31-104.
-                </div>
-              </div>
-            )}
+            ))}
 
             <div
               style={{
@@ -1475,7 +1484,7 @@ export function StepReview({
               }}
               className="mono"
             >
-              Filed pursuant to W.S. 17-31-101 et seq.
+              {ARTICLES_FOOTER}
             </div>
           </div>
 
@@ -1534,22 +1543,10 @@ export function StepReview({
                 type="button"
                 className="btn-ghost btn-sm"
                 style={{ justifyContent: "flex-start" }}
+                onClick={downloadArticles}
+                disabled={!entityId}
               >
                 ↓ Download Articles draft
-              </button>
-              <button
-                type="button"
-                className="btn-ghost btn-sm"
-                style={{ justifyContent: "flex-start" }}
-              >
-                ↓ Download Operating Agreement
-              </button>
-              <button
-                type="button"
-                className="btn-ghost btn-sm"
-                style={{ justifyContent: "flex-start" }}
-              >
-                ↗ Share with counsel
               </button>
             </div>
           </div>

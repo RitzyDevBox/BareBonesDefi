@@ -796,6 +796,7 @@ export function EntityFormation({
             )}
             {step === "review" && (
               <StepReview
+                entityId={draft.detail?.id}
                 name={name}
                 mgmt={mgmt}
                 contractAddr={contractAddr}
