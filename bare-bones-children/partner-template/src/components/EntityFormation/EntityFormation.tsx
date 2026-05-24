@@ -9,6 +9,7 @@ import {
 } from "../Toasts/toast.types";
 import { REGISTERED_AGENTS } from "./agents.config";
 import { CheckIcon } from "./CheckIcon";
+import { ChevronLeft, ChevronRight } from "./Icons";
 import {
   StepAgent,
   StepAgreement,
@@ -294,25 +295,39 @@ export function EntityFormation({
   const phoneToE164 = (dial: string, num: string) =>
     num ? `${dial}${num.replace(/\D+/g, "")}` : "";
 
-  const handleBasicsNext = async () => {
-    try {
-      await draft.saveBasics({
-        legalName: name,
-        managementType: mgmt === "member" ? "MEMBER" : "ALGORITHMIC",
-      });
-      nextStep();
-    } catch {
-      /* error already in draft.error; stay on step */
+  // Every step's Continue button shares the same shape: optionally run a
+  // server save, then advance to the next step. When the formation is
+  // locked (status != DRAFT) the save is skipped — the server would 409
+  // (`requireDraft`) anyway, and view-only mode means there's nothing
+  // meaningful to persist — but the user still gets to page forward.
+  // A save error keeps the user on the current step; `draft.error`
+  // already surfaces the message.
+  const advanceStep = async (save: () => Promise<unknown>) => {
+    if (!filed) {
+      try {
+        await save();
+      } catch {
+        return; // stay on step; error surfaced via draft.error
+      }
     }
+    nextStep();
   };
 
-  const handleOrganizerNext = async () => {
-    try {
+  const handleBasicsNext = () =>
+    advanceStep(() =>
+      draft.saveBasics({
+        legalName: name,
+        managementType: mgmt === "member" ? "MEMBER" : "ALGORITHMIC",
+      }),
+    );
+
+  const handleOrganizerNext = () =>
+    advanceStep(() => {
       const businessPhone = phoneToE164(org.phoneDial, org.phoneNum);
       const filerPhone = filerSame
         ? businessPhone
         : phoneToE164(filer.phoneDial, filer.phoneNum);
-      await draft.saveOrganizer({
+      return draft.saveOrganizer({
         businessEmail: org.email || null,
         businessPhoneE164: businessPhone || null,
         businessPhoneCountry: org.phoneIso || null,
@@ -344,26 +359,18 @@ export function EntityFormation({
               country: mailing.country,
             },
       });
-      nextStep();
-    } catch {
-      /* stay */
-    }
-  };
+    });
 
-  const handleContractNext = async () => {
-    try {
-      await draft.saveContract({
+  const handleContractNext = () =>
+    advanceStep(() =>
+      draft.saveContract({
         daoAddress: contractAddr || null,
         chainId: chain?.chainId ?? null,
-      });
-      nextStep();
-    } catch {
-      /* stay */
-    }
-  };
+      }),
+    );
 
-  const handleAgentNext = async () => {
-    try {
+  const handleAgentNext = () =>
+    advanceStep(() => {
       const payload =
         agentMode === "service"
           ? { agentMode: "SERVICE" as const, agentServiceKey: agentId }
@@ -374,16 +381,12 @@ export function EntityFormation({
               agentCustomCity: agentCustom.city,
               agentCustomZip: agentCustom.zip,
             };
-      await draft.saveAgent(payload);
-      nextStep();
-    } catch {
-      /* stay */
-    }
-  };
+      return draft.saveAgent(payload);
+    });
 
-  const handleAgreementNext = async () => {
-    try {
-      await draft.saveAgreement({
+  const handleAgreementNext = () =>
+    advanceStep(() =>
+      draft.saveAgreement({
         agreementSource: agreementSrc === "generate" ? "GENERATE" : "UPLOAD",
         agreementStorage:
           agreementStorage === "off"
@@ -391,21 +394,10 @@ export function EntityFormation({
             : agreementStorage === "arweave"
               ? "ARWEAVE"
               : "ONCHAIN",
-      });
-      nextStep();
-    } catch {
-      /* stay */
-    }
-  };
+      }),
+    );
 
-  const handleNoticeNext = async () => {
-    try {
-      await draft.ackNotice();
-      nextStep();
-    } catch {
-      /* stay */
-    }
-  };
+  const handleNoticeNext = () => advanceStep(() => draft.ackNotice());
 
   // Wraps the Agreement-step file picker. Uploads immediately as
   // OPERATING_AGREEMENT — bytes go to the server right away (no local
@@ -650,7 +642,7 @@ export function EntityFormation({
                 aria-label="Scroll steps left"
                 onClick={() => nudgeStepList(-1)}
               >
-                ‹
+                <ChevronLeft size={18} stroke={2.25} />
               </button>
               <div className="ef-stepnav-list" ref={stepListRef}>
                 {EF_STEPS.map((s, i) => {
@@ -697,7 +689,7 @@ export function EntityFormation({
                 aria-label="Scroll steps right"
                 onClick={() => nudgeStepList(1)}
               >
-                ›
+                <ChevronRight size={18} stroke={2.25} />
               </button>
             </div>
             {draft.saving && (
@@ -716,6 +708,27 @@ export function EntityFormation({
           </nav>
 
           <div>
+            {filed && (
+              <div className="ef-locked-banner">
+                <strong>This formation is locked.</strong>{" "}
+                Status is{" "}
+                <code>{draft.detail?.status?.toLowerCase() ?? "submitted"}</code>{" "}
+                — fields are visible but cannot be edited. Use the step nav to
+                review your entries; download the stamped Articles from the
+                Review step.
+              </div>
+            )}
+            {/*
+              When the formation is locked (status != DRAFT) the wrapping
+              div gets `data-ef-locked="true"`. CSS in entity-formation.css
+              uses that attribute to disable form-control interactivity
+              (inputs, selects, tile pickers) without touching the
+              `.ef-card-foot` Continue/Back buttons — so users can still
+              page through the wizard to view their data, and Continue
+              just navigates forward without calling save (each
+              `handle*Next` short-circuits when `filed` is true).
+            */}
+            <div data-ef-locked={filed ? "true" : undefined}>
             {step === "eligibility" && (
               <StepEligibility
                 activeDao={activeDao}
@@ -817,6 +830,7 @@ export function EntityFormation({
                 onFile={handleFile}
               />
             )}
+            </div>
           </div>
         </div>
       </section>

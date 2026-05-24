@@ -810,6 +810,69 @@
   line-height: 1.7;
   color: var(--text-dim);
 }
+
+/* Locked-state interactivity. When the wrapping div carries
+   `data-ef-locked="true"` (status != DRAFT) every form control inside is
+   visually greyed and click-blocked. Real <input>/<select>/<textarea>
+   plus all the custom-styled clickables (.ef-tile, .ef-agent,
+   .ef-checkbox, .ef-sameas-toggle, .ef-phone-dial-trigger) — the last set
+   is the easy-to-miss one: they're <label>/<button>/<div> with onClick
+   handlers, not real form inputs, so the `<fieldset disabled>` pattern
+   we briefly tried didn't reach them. `pointer-events: none` is the
+   uniform fix.
+
+   Explicit exemptions: `.ef-card-foot` (Continue / Back / File / Download)
+   and `.ef-summary-edit` (the "Edit" links in the review summary) stay
+   interactive — they're navigation, not data entry. Continue's save
+   handler is the one that decides to skip the API call when locked.
+
+   Step-nav (`.ef-stepnav-row`) is a sibling of this div so it's never
+   touched by these rules. */
+.entity-formation-root [data-ef-locked="true"] input,
+.entity-formation-root [data-ef-locked="true"] select,
+.entity-formation-root [data-ef-locked="true"] textarea,
+.entity-formation-root [data-ef-locked="true"] .ef-tile,
+.entity-formation-root [data-ef-locked="true"] .ef-agent,
+.entity-formation-root [data-ef-locked="true"] .ef-checkbox,
+.entity-formation-root [data-ef-locked="true"] .ef-sameas-toggle,
+.entity-formation-root [data-ef-locked="true"] .ef-phone-dial-trigger,
+.entity-formation-root [data-ef-locked="true"] .ef-phone-num {
+  pointer-events: none;
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+/* Re-enable the foot + the summary edit links explicitly so they win over
+   the broad rule above. */
+.entity-formation-root [data-ef-locked="true"] .ef-card-foot,
+.entity-formation-root [data-ef-locked="true"] .ef-card-foot *,
+.entity-formation-root [data-ef-locked="true"] .ef-summary-edit {
+  pointer-events: auto;
+  opacity: 1;
+  cursor: pointer;
+}
+
+/* Banner shown above the step area when the formation row's status is
+   SUBMITTED / FILED / etc. (i.e., not DRAFT). Pairs with the locked-
+   interactivity rules above; explicit text complements the visual fade. */
+.entity-formation-root .ef-locked-banner {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--line));
+  background: color-mix(in oklab, var(--accent) 6%, var(--bg-elev));
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.entity-formation-root .ef-locked-banner code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-elev-2);
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .entity-formation-root .ef-notice-h {
   font-family: var(--font-display);
   font-size: 14px;

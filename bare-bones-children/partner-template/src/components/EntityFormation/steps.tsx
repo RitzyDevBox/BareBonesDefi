@@ -4,6 +4,7 @@ import { REGISTERED_AGENTS } from "./agents.config";
 import { CheckIcon } from "./CheckIcon";
 import { PhoneInput } from "./PhoneInput";
 import { api } from "../../api/client";
+import { ChevronRight, DownloadIcon } from "./Icons";
 import {
   activeSections,
   ARTICLES_FOOTER,
@@ -72,7 +73,7 @@ function StepCardFoot({
     <div className="ef-card-foot">
       {onPrev ? (
         <button type="button" className="btn-ghost btn-sm" onClick={onPrev}>
-          ← Back
+          Back
         </button>
       ) : (
         <span />
@@ -86,7 +87,7 @@ function StepCardFoot({
             onClick={onNext}
             disabled={nextDisabled}
           >
-            {nextLabel} →
+            {nextLabel}
           </button>
         )}
       </div>
@@ -1304,7 +1305,8 @@ export function StepReview({
                   </div>
                   {!it.done && (
                     <button type="button" className="btn-ghost btn-sm">
-                      Open →
+                      Open
+                      <ChevronRight size={14} />
                     </button>
                   )}
                 </div>
@@ -1318,7 +1320,7 @@ export function StepReview({
             className="btn-ghost btn-sm"
             onClick={() => setFiled(false)}
           >
-            ← Back to draft
+            Back to draft
           </button>
           <button
             type="button"
@@ -1326,7 +1328,8 @@ export function StepReview({
             onClick={downloadArticles}
             disabled={!entityId}
           >
-            ↓ Download stamped Articles
+            <DownloadIcon size={14} />
+            Download stamped Articles
           </button>
         </div>
       </div>
@@ -1546,7 +1549,8 @@ export function StepReview({
                 onClick={downloadArticles}
                 disabled={!entityId}
               >
-                ↓ Download Articles draft
+                <DownloadIcon size={14} />
+                Download Articles draft
               </button>
             </div>
           </div>
@@ -1554,10 +1558,10 @@ export function StepReview({
       </div>
       <div className="ef-card-foot">
         <button type="button" className="btn-ghost btn-sm" onClick={onPrev}>
-          ← Back
+          Back
         </button>
         <button type="button" className="btn-primary btn-sm" onClick={onFile}>
-          File with Wyoming · ${total} →
+          File with Wyoming · ${total}
         </button>
       </div>
     </div>
