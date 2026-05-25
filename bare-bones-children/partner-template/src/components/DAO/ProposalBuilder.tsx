@@ -99,6 +99,9 @@ const MTA_ABI_TEXT = JSON.stringify(MultiTenantAuthABI, null, 2);
 
 const TOKEN_FUNCTIONS_INTERFACE = new ethers.utils.Interface(TOKEN_FUNCTIONS_ABI_OBJECT as any);
 const GOVERNANCE_INTERFACE = new ethers.utils.Interface(DAOGovernorABI as any);
+const UUPS_UPGRADE_INTERFACE = new ethers.utils.Interface([
+  "function upgradeToAndCall(address newImplementation, bytes data) payable",
+]);
 const CALIBUR_INTERFACE = new ethers.utils.Interface(CaliburEntryABI as any);
 const DIAMOND_CUT_INTERFACE = new ethers.utils.Interface(DiamondCutFacetABI as any);
 const TIMELOCK_ROLE_INTERFACE = new ethers.utils.Interface(TIMELOCK_ROLE_ABI_OBJECT as any);
@@ -124,6 +127,7 @@ type ProposalActionPreset =
   | "gov-set-proposal-threshold"
   | "gov-update-quorum-numerator"
   | "gov-update-timelock"
+  | "gov-upgrade-implementation"
   | "gov-add-proposer"
   | "gov-add-canceller"
   | "gov-add-executor"
@@ -157,6 +161,7 @@ const PRESET_META: Record<ProposalActionPreset, PresetMeta> = {
   "gov-set-proposal-threshold": { label: "Set Proposal Threshold", description: "Min token balance to propose." },
   "gov-update-quorum-numerator": { label: "Update Quorum Numerator", description: "Quorum as % of total supply." },
   "gov-update-timelock": { label: "Update Timelock", description: "Point the governor at a new timelock." },
+  "gov-upgrade-implementation": { label: "Upgrade Governor Implementation", description: "Point this Governor at a new implementation via UUPS upgradeToAndCall." },
   "gov-add-proposer": { label: "Add Proposer", description: "Grant PROPOSER_ROLE on the timelock." },
   "gov-add-canceller": { label: "Add Canceller", description: "Grant CANCELLER_ROLE on the timelock." },
   "gov-add-executor": { label: "Add Executor", description: "Grant EXECUTOR_ROLE on the timelock." },
@@ -185,6 +190,7 @@ const PRESETS_BY_KIND: Record<AddressKind, ProposalActionPreset[]> = {
     "gov-set-proposal-threshold",
     "gov-update-quorum-numerator",
     "gov-update-timelock",
+    "gov-upgrade-implementation",
   ],
   timelock: [
     "gov-add-proposer",
@@ -494,6 +500,22 @@ const TEMPLATES: TemplateDef[] = [
         : null,
   },
   {
+    id: "tpl-gov-upgrade-implementation",
+    title: "Upgrade Governor implementation",
+    description: "Point the Governor proxy at a new implementation contract.",
+    icon: "⬆",
+    resolve: ({ governorAddress }) =>
+      governorAddress
+        ? {
+            preset: "gov-upgrade-implementation",
+            target: governorAddress,
+            targetKind: "governor",
+            targetLabel: "Governor",
+            description: "Upgrade Governor implementation",
+          }
+        : null,
+  },
+  {
     id: "tpl-authorizer-call",
     title: "Authorizer (MTA) call",
     description: "Grant / revoke tenant roles in the Multi-Tenant Authorizer.",
@@ -631,6 +653,7 @@ export function ProposalBuilder({
   // ── Per-preset legacy form state (unchanged semantics, just lifted here) ─
   const [governanceUintValue, setGovernanceUintValue] = useState("");
   const [governanceAddressValue, setGovernanceAddressValue] = useState("");
+  const [upgradeImplCalldata, setUpgradeImplCalldata] = useState("");
   const [roleAccountAddress, setRoleAccountAddress] = useState("");
   const [walletAddressValue, setWalletAddressValue] = useState("");
   const [walletNonceValue, setWalletNonceValue] = useState("");
@@ -734,6 +757,7 @@ export function ProposalBuilder({
     setValuesByParam({});
     setGovernanceUintValue("");
     setGovernanceAddressValue("");
+    setUpgradeImplCalldata("");
     setRoleAccountAddress("");
     setWalletAddressValue("");
     setWalletNonceValue("");
@@ -958,6 +982,24 @@ export function ProposalBuilder({
         ethers.utils.getAddress(governanceAddressValue.trim()),
       ]);
       return { target: encodedTarget, calldata, functionSignature: "updateTimelock(address)", valueWei: "0" };
+    }
+
+    if (actionPreset === "gov-upgrade-implementation") {
+      if (!governanceAddressValue.trim()) throw new Error("New implementation address is required.");
+      const initData = upgradeImplCalldata.trim() || "0x";
+      if (!ethers.utils.isHexString(initData)) {
+        throw new Error("Post-upgrade calldata must be a 0x-prefixed hex string (use 0x for none).");
+      }
+      const calldata = UUPS_UPGRADE_INTERFACE.encodeFunctionData("upgradeToAndCall", [
+        ethers.utils.getAddress(governanceAddressValue.trim()),
+        initData,
+      ]);
+      return {
+        target: encodedTarget,
+        calldata,
+        functionSignature: "upgradeToAndCall(address,bytes)",
+        valueWei: "0",
+      };
     }
 
     const roleConfig = GOVERNANCE_ROLE_CONFIG[actionPreset];
@@ -1452,6 +1494,34 @@ export function ProposalBuilder({
                       }
                     />
                   </FormField>
+                )}
+
+                {actionPreset === "gov-upgrade-implementation" && (
+                  <>
+                    <div className="bb-field-hint bb-muted" style={{ marginBottom: 8 }}>
+                      Points this Governor at a new implementation contract (UUPS).
+                      _authorizeUpgrade only accepts calls from the Timelock, so this
+                      proposal must reach execution. Leave the post-upgrade calldata
+                      as 0x unless the new impl exposes a reinitializer.
+                    </div>
+                    <FormField label="New Implementation Address" style={{ marginBottom: 0 }}>
+                      <AddressInput
+                        value={governanceAddressValue}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setGovernanceAddressValue(e.target.value)
+                        }
+                      />
+                    </FormField>
+                    <FormField label="Post-upgrade calldata (optional)" style={{ marginBottom: 0 }}>
+                      <Input
+                        value={upgradeImplCalldata}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setUpgradeImplCalldata(e.target.value)
+                        }
+                        placeholder="0x"
+                      />
+                    </FormField>
+                  </>
                 )}
 
                 {GOVERNANCE_ROLE_CONFIG[actionPreset] && (
