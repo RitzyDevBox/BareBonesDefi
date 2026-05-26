@@ -54,10 +54,12 @@ function AddrCell({
 function ConfigGrid({
   overview,
   account,
+  currentVotesDisplay,
   blockExplorerBase,
 }: {
   overview: DaoGovernanceOverview;
   account?: string | null;
+  currentVotesDisplay?: string;
   blockExplorerBase?: string;
 }) {
   const executorMembers = overview.executorRoleMembers ?? [];
@@ -71,9 +73,20 @@ function ConfigGrid({
       : "Restricted executors"
     : "Restricted executors";
 
+  // "Your Voting Power" — show the connected wallet's current effective votes.
+  // Falls back to "Connect wallet" prompt when no account, and to "0" when the
+  // upstream fetch produced an empty string (token missing, query failed) but a
+  // wallet IS connected — that way we distinguish "no wallet" from "no votes."
+  const yourVotesLabel = !account
+    ? "Connect wallet"
+    : currentVotesDisplay && currentVotesDisplay.length > 0
+    ? currentVotesDisplay
+    : "0";
+
   return (
     <Stack gap="sm">
       <div className="bb-cfg-grid">
+        <CfgCell label="Your Voting Power" value={yourVotesLabel} />
         <CfgCell label="Voting Delay" value={overview.votingDelay} />
         <CfgCell label="Voting Period" value={overview.votingPeriod} />
         <CfgCell label="Quorum" value={overview.quorumRatio} />
@@ -203,6 +216,11 @@ type Props = {
   governanceOverview?: DaoGovernanceOverview | null;
   governanceLoading?: boolean;
   account?: string | null;
+  /** Formatted "X TKN" string of the connected wallet's current effective
+   *  voting power. Fetched upstream via `token.getVotes(account)`. Surfaced
+   *  on the Configuration tab. Empty string when unavailable (no wallet
+   *  connected, no token, query failed). */
+  currentVotesDisplay?: string;
   votePowerByProposalId?: Record<string, string>;
   hasVotedByProposalId?: Record<string, boolean>;
   votingProposalId?: string | null;
@@ -228,6 +246,7 @@ export function ProposalsList({
   governanceOverview,
   governanceLoading,
   account,
+  currentVotesDisplay,
   votePowerByProposalId,
   hasVotedByProposalId,
   votingProposalId,
@@ -368,7 +387,12 @@ export function ProposalsList({
             governanceLoading ? (
               <Text.Body color="muted">Loading governance configuration…</Text.Body>
             ) : governanceOverview ? (
-              <ConfigGrid overview={governanceOverview} account={account} blockExplorerBase={blockExplorerBase} />
+              <ConfigGrid
+                overview={governanceOverview}
+                account={account}
+                currentVotesDisplay={currentVotesDisplay}
+                blockExplorerBase={blockExplorerBase}
+              />
             ) : (
               <Text.Body color="muted">No governance configuration available.</Text.Body>
             )

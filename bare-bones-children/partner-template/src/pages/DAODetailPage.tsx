@@ -177,6 +177,49 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
     };
   }, [provider, account, governanceOverview?.tokenAddress, shouldShowDelegatePrompt, version]);
 
+  // ─── Current voting power display ───────────────────────────────────────────
+  // Reads the connected wallet's effective voting power via `token.getVotes`.
+  // Surfaces on the Configuration tab so the user can see at a glance how much
+  // weight their wallet currently carries (after delegation has taken effect).
+  // Distinct from `undelegatedVotesDisplay` which shows "balance not yet
+  // delegated" — this one shows the post-delegation, governance-effective number.
+  const [currentVotesDisplay, setCurrentVotesDisplay] = useState<string>("");
+  useEffect(() => {
+    let cancelled = false;
+    const tokenAddress = governanceOverview?.tokenAddress;
+    if (!provider || !account || !tokenAddress) {
+      setCurrentVotesDisplay("");
+      return;
+    }
+    void (async () => {
+      try {
+        const token = new ethers.Contract(
+          tokenAddress,
+          [
+            "function getVotes(address) view returns (uint256)",
+            "function decimals() view returns (uint8)",
+            "function symbol() view returns (string)",
+          ],
+          provider as ethers.providers.Provider,
+        );
+        const [votesRaw, decimals, symbol] = await Promise.all([
+          token.getVotes(account),
+          token.decimals().catch(() => 18),
+          token.symbol().catch(() => ""),
+        ]);
+        if (cancelled) return;
+        const human = ethers.utils.formatUnits(ethers.BigNumber.from(votesRaw), decimals);
+        const trimmed = human.replace(/\.?0+$/, "") || "0";
+        setCurrentVotesDisplay(`${trimmed}${symbol ? " " + symbol : ""}`);
+      } catch {
+        if (!cancelled) setCurrentVotesDisplay("");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [provider, account, governanceOverview?.tokenAddress, version]);
+
   // ─── Transaction hooks ──────────────────────────────────────────────────────
 
   const executePropose = useExecuteRawTx(
@@ -532,6 +575,7 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
         governanceOverview={governanceOverview}
         governanceLoading={governanceLoading}
         account={account}
+        currentVotesDisplay={currentVotesDisplay}
         votePowerByProposalId={votePowerByProposalId}
         hasVotedByProposalId={hasVotedByProposalId}
         votingProposalId={votingProposalId}

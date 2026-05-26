@@ -4,6 +4,14 @@ import {
   AccountTypeId, KycStatus, Member, OnboardingStatus, Permission, Role, SbtStatus, WalletKind,
 } from "../../types/members";
 import { MembersModal } from "./MembersModal";
+import { SYSTEM_ROLE_SLUG } from "../../constants/mtaRoles";
+
+// SuperAdmin can't be assigned via the standard assignRoles flow — the
+// contract enforces transferSuperAdmin as the only rotation path. We surface
+// every other system role (Admin, Pauser, RoleManager, MemberManager,
+// PermissionManager, PayrollOperator, TreasuryOperator) in the picker so the
+// "onboard the Timelock as Admin" workflow works without leaving the wizard.
+const SUPER_ADMIN_ROLE_LOWER = SYSTEM_ROLE_SLUG.SuperAdmin.toLowerCase();
 
 interface AddMemberWizardProps {
   roles: Role[];
@@ -348,14 +356,19 @@ function RoleStep({
   allRoles: Role[];
   allPermissions: Permission[];
 }) {
-  // System roles (SuperAdmin / Admin / Pauser / etc.) are managed at the
-  // contract level only — never assignable through the standard onboarding
-  // UX. Hide them from this picker so the user can't accidentally try to
-  // assign them via assignRoles (the contract would either revert or, for
-  // SuperAdmin specifically, only accept transferSuperAdmin).
-  const compatible = allRoles.filter(
-    (r) => !r.isSystemRole && r.accountTypes.includes(accountType),
-  );
+  // Surface system roles (Admin / Pauser / RoleManager / MemberManager /
+  // PermissionManager / PayrollOperator / TreasuryOperator) alongside any
+  // custom roles compatible with the picked account type. System roles have
+  // `accountTypes: []` in the synthesized rows, so they'd otherwise be hidden
+  // by the accountType-match filter — bypass that for system roles since
+  // they apply universally. SuperAdmin is excluded because the contract
+  // enforces transferSuperAdmin as the only rotation path; assignRoles
+  // rejects it with SuperAdminLocked.
+  const compatible = allRoles.filter((r) => {
+    if (r.id.toLowerCase() === SUPER_ADMIN_ROLE_LOWER) return false;
+    if (r.isSystemRole) return true;
+    return r.accountTypes.includes(accountType);
+  });
 
   function toggle(id: string) {
     set("roles", form.roles.includes(id) ? form.roles.filter((r) => r !== id) : [...form.roles, id]);
@@ -389,7 +402,16 @@ function RoleStep({
           >
             <div className="bb-amw-role-head">
               <span className="bb-amw-role-name">{r.name}</span>
-              {r.isDefault && <span className="bb-amw-role-default">default</span>}
+              {r.isSystemRole && (
+                <span
+                  className="bb-amw-role-default"
+                  style={{ background: "rgba(99, 102, 241, 0.15)", color: "rgb(99, 102, 241)" }}
+                  title="System role enforced by MTA contract"
+                >
+                  system
+                </span>
+              )}
+              {r.isDefault && !r.isSystemRole && <span className="bb-amw-role-default">default</span>}
               <span className="bb-amw-role-perm-count">{r.permissions.length} perm</span>
             </div>
             <div className="bb-amw-role-desc">{r.desc}</div>
@@ -399,6 +421,9 @@ function RoleStep({
         {compatible.length === 0 && (
           <div className="bb-amw-empty">No roles compatible with this account type yet.</div>
         )}
+      </div>
+      <div className="bb-amw-empty" style={{ marginTop: 8, fontSize: 12 }}>
+        SuperAdmin isn't shown — it rotates via Transfer Super Admin, not standard role assignment.
       </div>
 
       <div className="bb-amw-section-head">Effective permissions</div>

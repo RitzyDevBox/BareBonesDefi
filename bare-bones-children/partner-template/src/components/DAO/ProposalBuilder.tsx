@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { ethers } from "ethers";
 import { Input } from "../BasicComponents";
 import { FormField } from "../FormField/FormField";
@@ -102,6 +102,21 @@ const GOVERNANCE_INTERFACE = new ethers.utils.Interface(DAOGovernorABI as any);
 const UUPS_UPGRADE_INTERFACE = new ethers.utils.Interface([
   "function upgradeToAndCall(address newImplementation, bytes data) payable",
 ]);
+
+/** OZ's Governor.propose() reverts with `GovernorUnexpectedProposalState(_, _, 0x0)`
+ *  when the proposal hash already exists. The hash is `keccak256(abi.encode(targets,
+ *  values, calldatas, keccak256(description)))` — so submitting the same template
+ *  twice with the same auto-filled description collides. Appending an ISO timestamp
+ *  (second precision) to auto-populated descriptions makes each fresh proposal
+ *  unique without forcing the user to type anything; they can still edit/replace
+ *  the suffix before submitting. */
+function withDefaultStamp(base: string): string {
+  const iso = new Date().toISOString().slice(0, 19).replace("T", " ");
+  return `${base} — ${iso}`;
+}
+const OWNABLE_INTERFACE = new ethers.utils.Interface([
+  "function transferOwnership(address newOwner)",
+]);
 const CALIBUR_INTERFACE = new ethers.utils.Interface(CaliburEntryABI as any);
 const DIAMOND_CUT_INTERFACE = new ethers.utils.Interface(DiamondCutFacetABI as any);
 const TIMELOCK_ROLE_INTERFACE = new ethers.utils.Interface(TIMELOCK_ROLE_ABI_OBJECT as any);
@@ -142,6 +157,7 @@ type ProposalActionPreset =
   | "wallet-deploy"
   | "auth-mta-function"
   | "auth-execute-mint"
+  | "auth-execute-transfer-token-ownership"
   | "custom";
 
 interface PresetMeta {
@@ -176,6 +192,7 @@ const PRESET_META: Record<ProposalActionPreset, PresetMeta> = {
   "wallet-deploy": { label: "Deploy Smart Wallet", description: "Use the factory to deploy a new Diamond wallet." },
   "auth-mta-function": { label: "Authorizer (MTA) Function", description: "Invoke a Multi-Tenant Authorizer function." },
   "auth-execute-mint": { label: "Execute · Mint Token", description: "Mint via auth.execute → token.mint (owner-gated)." },
+  "auth-execute-transfer-token-ownership": { label: "Execute · Transfer Token Ownership", description: "Rotate token owner via auth.execute → token.transferOwnership. Defaults to Timelock for stricter governance." },
   custom: { label: "Custom ABI Function", description: "Paste an ABI and invoke any function." },
 };
 
@@ -218,7 +235,7 @@ const PRESETS_BY_KIND: Record<AddressKind, ProposalActionPreset[]> = {
   ],
   vault: ["custom"],
   factory: ["wallet-deploy"],
-  mta: ["auth-execute-mint", "auth-mta-function"],
+  mta: ["auth-execute-mint", "auth-execute-transfer-token-ownership", "auth-mta-function"],
   "authority-resolver": ["custom"],
   "kernel-initializer": ["custom"],
   config: ["custom"],
@@ -403,6 +420,11 @@ interface TemplateContext {
   tokenAddress: string;
   mtaAddress: string;
   factoryAddress: string;
+  /** Lowercased current `token.owner()` for the active DAO's token, or null
+   *  if not loaded / unknown / fetch failed. Templates that depend on who
+   *  owns the token (mint, transfer-ownership) use this to choose the right
+   *  routing — or hide entirely when ownership doesn't match. */
+  tokenOwner: string | null;
 }
 
 interface TemplateResolution {
@@ -451,21 +473,38 @@ const TEMPLATES: TemplateDef[] = [
     title: "Mint governance tokens",
     description: "Mint new governance tokens to a contributor.",
     icon: "🪙",
-    // Routed through MTA's execute() because the token's mint() is onlyOwner
-    // and the owner is the MTA. The MTA gates the inner call on
-    // TOKEN_MINTER_ROLE (seeded at bootstrap) and re-issues as the owner so
-    // Ownable passes. A direct mint() call from the timelock reverts with
-    // OwnableUnauthorizedAccount(timelock).
-    resolve: ({ tokenAddress, mtaAddress }) =>
-      tokenAddress && mtaAddress
-        ? {
-            preset: "auth-execute-mint",
-            target: mtaAddress,
-            targetKind: "mta",
-            targetLabel: "Multi-Tenant Authorizer",
-            description: "Mint governance tokens to a contributor",
-          }
-        : null,
+    // The token's `mint()` is onlyOwner. Routing depends on the current owner:
+    //   - MTA owns it (default): wrap in MTA.execute so MTA forwards as owner
+    //     and gates the call on TOKEN_MINTER_ROLE.
+    //   - Timelock owns it (after a transfer-out): direct call to token.mint;
+    //     when the Governor proposal executes, the Timelock IS the caller so
+    //     Ownable passes natively. No MTA hop needed.
+    //   - Some other owner (custom wiring): hide entirely — we can't pick a
+    //     correct route blindly and a stale template that always reverts is
+    //     worse than no template.
+    resolve: ({ tokenAddress, mtaAddress, timelockAddress, tokenOwner }) => {
+      if (!tokenAddress || !tokenOwner) return null;
+      const ownerLower = tokenOwner.toLowerCase();
+      if (mtaAddress && ownerLower === mtaAddress.toLowerCase()) {
+        return {
+          preset: "auth-execute-mint",
+          target: mtaAddress,
+          targetKind: "mta",
+          targetLabel: "Multi-Tenant Authorizer",
+          description: "Mint governance tokens to a contributor (via MTA)",
+        };
+      }
+      if (timelockAddress && ownerLower === timelockAddress.toLowerCase()) {
+        return {
+          preset: "token-mint",
+          target: tokenAddress,
+          targetKind: "token",
+          targetLabel: "Governance token",
+          description: "Mint governance tokens to a contributor (Timelock-owned)",
+        };
+      }
+      return null;
+    },
   },
   {
     id: "tpl-voting-delay",
@@ -498,6 +537,26 @@ const TEMPLATES: TemplateDef[] = [
             description: "Grant CANCELLER role on the timelock",
           }
         : null,
+  },
+  {
+    id: "tpl-transfer-token-to-timelock",
+    title: "Transfer token ownership to Timelock",
+    description: "Rotate the governance token's owner from MTA to the Timelock for stricter governance. After this lands, MTA can no longer call token admin functions — the Timelock controls them directly via Governor proposals.",
+    icon: "🔐",
+    // Only show when MTA actually owns the token. After the transfer lands,
+    // MTA can't call transferOwnership anymore (it's no longer the owner),
+    // so the template would always revert — hide it instead.
+    resolve: ({ mtaAddress, tokenAddress, timelockAddress, tokenOwner }) => {
+      if (!mtaAddress || !tokenAddress || !timelockAddress || !tokenOwner) return null;
+      if (tokenOwner.toLowerCase() !== mtaAddress.toLowerCase()) return null;
+      return {
+        preset: "auth-execute-transfer-token-ownership",
+        target: mtaAddress,
+        targetKind: "mta",
+        targetLabel: "Multi-Tenant Authorizer",
+        description: "Transfer governance token ownership to the Timelock",
+      };
+    },
   },
   {
     id: "tpl-gov-upgrade-implementation",
@@ -630,6 +689,52 @@ export function ProposalBuilder({
     contactsStore,
   } = useAddressBook({ governorAddress });
 
+  // Read the active token's current owner so owner-sensitive templates
+  // (mint, transfer-ownership) can pick the right route or hide. Refetch
+  // whenever the token address changes; ignore stale responses if the user
+  // switches DAOs mid-flight.
+  const [tokenOwner, setTokenOwner] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const tokenAddress = daoAddresses.token;
+    if (!provider || !tokenAddress) {
+      setTokenOwner(null);
+      return;
+    }
+    void (async () => {
+      try {
+        const token = new ethers.Contract(
+          tokenAddress,
+          ["function owner() view returns (address)"],
+          provider as ethers.providers.Provider,
+        );
+        const owner = await token.owner();
+        if (!cancelled) setTokenOwner(String(owner).toLowerCase());
+      } catch {
+        if (!cancelled) setTokenOwner(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [provider, daoAddresses.token]);
+
+  const templateContext = useMemo<TemplateContext>(() => ({
+    governorAddress: daoAddresses.governor,
+    timelockAddress: daoAddresses.timelock,
+    tokenAddress: daoAddresses.token,
+    mtaAddress,
+    factoryAddress,
+    tokenOwner,
+  }), [daoAddresses.governor, daoAddresses.timelock, daoAddresses.token, mtaAddress, factoryAddress, tokenOwner]);
+
+  /** Templates whose `resolve(ctx)` currently returns a non-null resolution.
+   *  Hides templates that wouldn't execute under the current state (e.g. mint
+   *  when neither MTA nor Timelock owns the token, or transfer-ownership when
+   *  MTA isn't the current owner). Re-evaluated whenever the context changes. */
+  const visibleTemplates = useMemo(
+    () => TEMPLATES.filter((t) => t.resolve(templateContext) !== null),
+    [templateContext],
+  );
+
   // ── Wizard state ─────────────────────────────────────────────────────────
   const [step, setStep] = useState<StepId>("method");
   const [method, setMethod] = useState<"template" | "address" | null>(null);
@@ -721,9 +826,12 @@ export function ProposalBuilder({
 
     // Pre-fill the description when blank so users (and the e2e test) don't
     // have to type one explicitly for simple single-call proposals. They can
-    // still edit it on the review step.
+    // still edit it on the review step. Stamp with an ISO timestamp so two
+    // back-to-back submissions of the same preset don't collide on hash —
+    // OZ Governor reverts GovernorUnexpectedProposalState if the proposalId
+    // already exists.
     if (!description.trim()) {
-      setDescription(PRESET_META[preset].label);
+      setDescription(withDefaultStamp(PRESET_META[preset].label));
     }
 
     if (preset === "custom") {
@@ -743,6 +851,12 @@ export function ProposalBuilder({
     if (preset === "auth-mta-function" || preset === "auth-execute-mint") {
       setAbiText(MTA_ABI_TEXT);
       setSelectedFunctionSignature("");
+    }
+    // Pre-fill the new-owner field with the Timelock so the one-click "transfer
+    // token to Timelock" flow needs zero typing. User can still override before
+    // submitting (e.g. to transfer to a Governor proxy or a multisig).
+    if (preset === "auth-execute-transfer-token-ownership" && daoAddresses.timelock) {
+      setGovernanceAddressValue(daoAddresses.timelock);
     }
   }
 
@@ -784,14 +898,7 @@ export function ProposalBuilder({
   }
 
   function applyTemplate(t: TemplateDef) {
-    const ctx: TemplateContext = {
-      governorAddress: daoAddresses.governor,
-      timelockAddress: daoAddresses.timelock,
-      tokenAddress: daoAddresses.token,
-      mtaAddress,
-      factoryAddress,
-    };
-    const resolved = t.resolve(ctx);
+    const resolved = t.resolve(templateContext);
     if (!resolved) {
       setError(`"${t.title}" can't be used yet — the required DAO contract isn't available.`);
       return;
@@ -802,8 +909,10 @@ export function ProposalBuilder({
     // Always overwrite — switching templates without resetting the
     // description leaves stale text from the previously-clicked template
     // (e.g. picking Treasury Transfer then switching to Mint kept the
-    // "Transfer governance tokens…" copy).
-    setDescription(resolved.description);
+    // "Transfer governance tokens…" copy). Stamp with an ISO timestamp so
+    // back-to-back template clicks generate unique proposal hashes
+    // (OZ Governor rejects duplicate proposalIds with GovernorUnexpectedProposalState).
+    setDescription(withDefaultStamp(resolved.description));
     applyPreset(resolved.preset);
     setStep("function");
   }
@@ -901,6 +1010,27 @@ export function ProposalBuilder({
         ethers.BigNumber.from(governanceUintValue.trim()),
       ]);
       return { target: encodedTarget, calldata, functionSignature: "mint(address,uint256)", valueWei: "0" };
+    }
+
+    if (actionPreset === "auth-execute-transfer-token-ownership") {
+      if (!governanceAddressValue.trim()) throw new Error("New owner address is required.");
+      if (!daoAddresses.token) throw new Error("Governance token address unavailable for this DAO.");
+      if (!orgSlug) throw new Error("Org slug unavailable — required to route through MTA.");
+      const innerCalldata = OWNABLE_INTERFACE.encodeFunctionData("transferOwnership", [
+        ethers.utils.getAddress(governanceAddressValue.trim()),
+      ]);
+      const outerCalldata = MTA_INTERFACE.encodeFunctionData("execute", [
+        orgSlug,
+        ethers.utils.getAddress(daoAddresses.token),
+        innerCalldata,
+        "0x",
+      ]);
+      return {
+        target: encodedTarget,
+        calldata: outerCalldata,
+        functionSignature: "execute(bytes32,address,bytes,bytes)",
+        valueWei: "0",
+      };
     }
 
     if (actionPreset === "auth-execute-mint") {
@@ -1208,7 +1338,12 @@ export function ProposalBuilder({
               </p>
             </div>
             <div className="bb-pw-types">
-              {TEMPLATES.map((t) => (
+              {visibleTemplates.length === 0 && (
+                <div className="bb-banner bb-banner-muted" style={{ padding: 12 }}>
+                  No templates available for the current DAO state. Pick "Address" instead to compose a proposal manually.
+                </div>
+              )}
+              {visibleTemplates.map((t) => (
                 <button
                   key={t.id}
                   type="button"
@@ -1466,6 +1601,46 @@ export function ProposalBuilder({
                       }
                     />
                   </FormField>
+                )}
+
+                {actionPreset === "auth-execute-transfer-token-ownership" && (
+                  <>
+                    <div className="bb-field-hint bb-muted" style={{ marginBottom: 8 }}>
+                      Wrapped through MTA · auth.execute(slug, token, transferOwnership(...)).
+                      Caller must hold SuperAdmin or Admin role on this org's slug.
+                      Defaults the new owner to this DAO's Timelock — set to a Governor proxy,
+                      multisig, or other address to rotate elsewhere. After the rotation MTA
+                      can no longer call mint / pause / upgrade on this token; the new owner
+                      controls them directly.
+                    </div>
+                    <FormField label="slug · auto" style={{ marginBottom: 0 }}>
+                      <div className="bb-pw-readonly-pill">
+                        <span className="bb-pw-readonly-pill-name">
+                          {parsePayeeNameLabel(orgSlug) || "—"}
+                        </span>
+                        <span className="bb-pw-readonly-pill-sub bb-mono">
+                          {orgSlug ? `${orgSlug.slice(0, 10)}…${orgSlug.slice(-8)}` : "—"}
+                        </span>
+                      </div>
+                    </FormField>
+                    <FormField label="target · auto" style={{ marginBottom: 0 }}>
+                      <div className="bb-pw-readonly-pill">
+                        <AddrAvatar address={daoAddresses.token} name="Governance Token" size={20} />
+                        <span className="bb-pw-readonly-pill-name">Governance Token</span>
+                        <span className="bb-pw-readonly-pill-sub bb-mono">
+                          {daoAddresses.token ? shortAddress(daoAddresses.token) : "—"}
+                        </span>
+                      </div>
+                    </FormField>
+                    <FormField label="New Owner (defaults to Timelock)" style={{ marginBottom: 0 }}>
+                      <AddressInput
+                        value={governanceAddressValue}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setGovernanceAddressValue(e.target.value)
+                        }
+                      />
+                    </FormField>
+                  </>
                 )}
 
                 {(
