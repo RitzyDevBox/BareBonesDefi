@@ -164,10 +164,13 @@ export function DAOsPage() {
           </Card>
         )}
 
+        {/* The deploy workflow always creates a NEW org+DAO atomically via
+            OrgAndDaoLauncher. Don't propagate the connected-org slug as a
+            lock — that misleads the modal into "deploying a DAO FOR Tempo"
+            when the user actually wants a fresh DAO with its own slug. */}
         <CreateDaoModal
           isOpen={showDeployModal}
           onClose={() => setShowDeployModal(false)}
-          lockedOrgSlug={activeOrgSlug ?? undefined}
         />
 
         {account && accessibleOrgs.length > 0 && (

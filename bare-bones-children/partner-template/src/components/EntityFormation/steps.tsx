@@ -1205,16 +1205,20 @@ export function StepReview({
   onFile,
 }: ReviewProps) {
   // Download handler — defined before the `if (filed)` early return so
-  // both the draft-mode "Download Articles draft" button and the post-
-  // filing "Download stamped Articles" button can reuse it. Today both
-  // hit the same endpoint; once the WY SOS handoff is wired up the
-  // stamped variant will switch to whatever artifact the SOS returns.
-  const downloadArticles = async () => {
+  // both the draft-mode and post-filing buttons can reuse it. Hits the
+  // combined formation-documents endpoint, which bundles the WY SOS
+  // Articles fill (page 1+) and the Operating Agreement draft (pages
+  // after) into a single PDF. OA pages render auto-fillable fields from
+  // chain state and leave the rest as `[FIELD]` placeholders for counsel
+  // review — see operating-agreement.ts. Once the WY SOS handoff is
+  // wired up, the stamped variant may switch to whatever artifact the
+  // SOS returns instead.
+  const downloadFormationDocs = async () => {
     if (!entityId) return;
     try {
-      await api.entities.downloadArticlesPdf(entityId);
+      await api.entities.downloadFormationDocumentsPdf(entityId);
     } catch (err) {
-      console.error("Failed to download Articles PDF", err);
+      console.error("Failed to download formation documents PDF", err);
     }
   };
 
@@ -1325,11 +1329,11 @@ export function StepReview({
           <button
             type="button"
             className="btn-primary btn-sm"
-            onClick={downloadArticles}
+            onClick={downloadFormationDocs}
             disabled={!entityId}
           >
             <DownloadIcon size={14} />
-            Download stamped Articles
+            Download formation documents
           </button>
         </div>
       </div>
@@ -1546,11 +1550,11 @@ export function StepReview({
                 type="button"
                 className="btn-ghost btn-sm"
                 style={{ justifyContent: "flex-start" }}
-                onClick={downloadArticles}
+                onClick={downloadFormationDocs}
                 disabled={!entityId}
               >
                 <DownloadIcon size={14} />
-                Download Articles draft
+                Download formation documents
               </button>
             </div>
           </div>

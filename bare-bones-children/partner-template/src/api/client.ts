@@ -86,6 +86,45 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
+// Shared blob-download helper for the entity PDF routes. Each route
+// (articles.pdf, operating-agreement.pdf, formation-documents.pdf)
+// requires the SIWE JWT in the Authorization header, which a plain
+// `<a href>` can't carry. Pattern: fetch as blob with auth → mint a
+// transient object-URL → synthesize a click on a hidden anchor → revoke
+// the URL on next tick. Centralized so all three routes share the same
+// auth + download dance without copy-paste drift.
+async function downloadEntityPdf(
+  entityId: string,
+  suffix: string,
+  filename: string,
+): Promise<void> {
+  const jwt = getJwt();
+  const headers: Record<string, string> = {};
+  if (jwt) headers.Authorization = `Bearer ${jwt}`;
+  const res = await fetch(`${API_URL}/entities/${entityId}/${suffix}`, { headers });
+  if (!res.ok) {
+    let code = `http_${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.error) code = body.error;
+    } catch {
+      /* not JSON */
+    }
+    throw new ApiError(res.status, code);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Revoke after the click fires so the browser still has the URL mapped
+  // when it starts the download.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 export const api = {
   auth: {
     nonce: (address: string) =>
@@ -174,33 +213,20 @@ export const api = {
     // can't carry. Pattern: fetch as blob → mint a transient object-URL →
     // synthesize a click on a hidden anchor → revoke the URL on next tick.
     downloadArticlesPdf: async (entityId: string, filename?: string) => {
-      const jwt = getJwt();
-      const headers: Record<string, string> = {};
-      if (jwt) headers.Authorization = `Bearer ${jwt}`;
-      const res = await fetch(`${API_URL}/entities/${entityId}/articles.pdf`, {
-        headers,
-      });
-      if (!res.ok) {
-        let code = `http_${res.status}`;
-        try {
-          const body = await res.json();
-          if (body?.error) code = body.error;
-        } catch {
-          /* not JSON */
-        }
-        throw new ApiError(res.status, code);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename || `articles-of-organization-${entityId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      // Revoke after the click fires so the browser still has the URL
-      // mapped when it starts the download.
-      setTimeout(() => URL.revokeObjectURL(url), 0);
+      await downloadEntityPdf(entityId, "articles.pdf", filename ?? `articles-of-organization-${entityId}.pdf`);
+    },
+    // Combined Articles + OA bundle in a single PDF (Articles pages first,
+    // OA pages after). Same auth + download dance as `downloadArticlesPdf`.
+    // OA pages are best-effort: chain reads fill what they can, everything
+    // else renders as visible `[FIELD]` placeholders for counsel review.
+    downloadFormationDocumentsPdf: async (entityId: string, filename?: string) => {
+      await downloadEntityPdf(entityId, "formation-documents.pdf", filename ?? `formation-documents-${entityId}.pdf`);
+    },
+    // Operating Agreement only (no Articles bundle). Most users will want
+    // the combined `downloadFormationDocumentsPdf`; this is here for the
+    // OA-only case (e.g., counsel reviewing just the OA draft).
+    downloadOperatingAgreementPdf: async (entityId: string, filename?: string) => {
+      await downloadEntityPdf(entityId, "operating-agreement.pdf", filename ?? `operating-agreement-${entityId}.pdf`);
     },
   },
   documents: {
