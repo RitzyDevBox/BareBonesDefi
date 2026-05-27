@@ -4,8 +4,12 @@ import { ethers } from "ethers";
 import DAOGovernorABI from "../../abis/dao/DAOGovernor.abi.json";
 import ERC20ABI from "../../abis/ERC20.json";
 import ERC20VotesABI from "../../abis/diamond/ERC20Votes.abi.json";
+import MultiTenantAuthABI from "../../abis/auth/MultiTenantAuth.abi.json";
+import GovernanceTokenABI from "../../abis/dao/GovernanceToken.abi.json";
+import TimelockControllerABI from "../../abis/dao/TimelockController.abi.json";
 import type { DaoProposalSummary } from "../../components/DAO/types";
 import { shortAddress } from "../../utils/formatUtils";
+import { FUNCTION_SELECTOR_MAP } from "../../utils/functionSelectorMap";
 import { fetchDaoGovernorByAddress, fetchDaoProposalsByGovernor, fetchDaoVotesByGovernor } from "../../utils/graph/daoGraphService";
 
 const PROPOSAL_STATE_LABELS: Record<number, string> = {
@@ -64,6 +68,119 @@ function formatDecodedArg(value: unknown): string {
 const DAO_GOVERNOR_DECODE_INTERFACE = new ethers.utils.Interface(DAOGovernorABI as any);
 const ERC20_TRANSFER_INTERFACE = new ethers.utils.Interface(ERC20ABI as any);
 const ERC20_VOTES_INTERFACE = new ethers.utils.Interface(ERC20VotesABI as any);
+const MTA_INTERFACE = new ethers.utils.Interface(MultiTenantAuthABI as any);
+const GOVERNANCE_TOKEN_INTERFACE = new ethers.utils.Interface(GovernanceTokenABI as any);
+const TIMELOCK_INTERFACE = new ethers.utils.Interface(TimelockControllerABI as any);
+
+/** Lookup table: `contractName` → ABI Interface for decoding params. Mirrors
+ *  the contract names emitted by `generate-function-selectors.mjs` (filename
+ *  basename minus extensions), so a selector hit in `FUNCTION_SELECTOR_MAP`
+ *  can directly route to the right Interface for parameter decoding. */
+const DECODE_INTERFACES_BY_CONTRACT: Record<string, ethers.utils.Interface> = {
+  DAOGovernor: DAO_GOVERNOR_DECODE_INTERFACE,
+  ERC20: ERC20_TRANSFER_INTERFACE,
+  ERC20Votes: ERC20_VOTES_INTERFACE,
+  MultiTenantAuth: MTA_INTERFACE,
+  GovernanceToken: GOVERNANCE_TOKEN_INTERFACE,
+  TimelockController: TIMELOCK_INTERFACE,
+};
+
+/** MTA.execute wraps an inner call: `execute(slug, target, innerCalldata, options)`.
+ *  When we see this selector, recursively summarize the inner call so the
+ *  display reads "MultiTenantAuth.execute → GovernanceToken.mint(to, amount)"
+ *  instead of stopping at the outer wrapper. The wrapped-call indices are
+ *  the positions of (target, innerCalldata) in the args tuple. */
+interface WrapperSpec {
+  /** Selector for the wrapping function (e.g. MTA.execute = 0x81dcea6a). */
+  selector: string;
+  /** Index of the target address argument in the decoded args. */
+  targetArgIdx: number;
+  /** Index of the inner-calldata bytes argument in the decoded args. */
+  innerDataArgIdx: number;
+}
+
+const WRAPPER_SPECS: WrapperSpec[] = [
+  // MultiTenantAuth.execute(bytes32 slug, address target, bytes data, bytes options)
+  { selector: MTA_INTERFACE.getSighash("execute"), targetArgIdx: 1, innerDataArgIdx: 2 },
+];
+
+/** O(1) selector → readable label using the build-time selector map. Returns
+ *  null when the selector isn't recognized so callers can fall back to the
+ *  hex sentinel. The returned `name` already includes the contract prefix
+ *  (e.g. "MultiTenantAuth.execute"). */
+function lookupSelectorLabel(selector: string): { contract: string; name: string; full: string } | null {
+  const entry = FUNCTION_SELECTOR_MAP[selector.toLowerCase()];
+  if (!entry) return null;
+  return { contract: entry.contract, name: entry.name, full: `${entry.contract}.${entry.name}` };
+}
+
+/** Decode a single call into a human-readable line. Recurses through known
+ *  wrapper selectors (MTA.execute today) so the displayed string includes
+ *  both the wrapper AND the wrapped call. `governorAddress` is special-cased
+ *  to display as "Governor" instead of an address. Returns the readable string. */
+function decodeCallLine(
+  target: string,
+  calldata: string,
+  value: string,
+  governorAddress: string,
+  depth: number = 0,
+): string {
+  const targetDisplay = target.toLowerCase() === governorAddress.toLowerCase()
+    ? "Governor"
+    : shortAddress(target);
+  const nonZeroValue = value !== "0";
+
+  if (calldata === "0x" || calldata.length < 10) {
+    return nonZeroValue
+      ? `Send native value ${value} to ${targetDisplay}`
+      : `Call ${targetDisplay} (no calldata)`;
+  }
+
+  const selector = calldata.slice(0, 10).toLowerCase();
+  const lookup = lookupSelectorLabel(selector);
+
+  // If we know the selector and have a matching Interface, decode params too.
+  let decodedDisplay: string | null = null;
+  if (lookup) {
+    const iface = DECODE_INTERFACES_BY_CONTRACT[lookup.contract];
+    if (iface) {
+      try {
+        const decoded = iface.parseTransaction({ data: calldata });
+        const params = decoded.args?.map((arg) => formatDecodedArg(arg)).join(", ") ?? "";
+        const prefix = target.toLowerCase() === governorAddress.toLowerCase() ? "Governor" : lookup.contract;
+        decodedDisplay = `${prefix}.${decoded.name}(${params})`;
+      } catch { /* iface didn't actually decode — fall back to label-only */ }
+    }
+    if (decodedDisplay === null) {
+      // Selector known but couldn't parse — at least show the contract.method
+      // label so the user isn't stuck on a raw hex selector.
+      decodedDisplay = `${targetDisplay} → ${lookup.full}(…)`;
+    }
+  } else {
+    // Fully unknown selector. Last-ditch hex display.
+    decodedDisplay = nonZeroValue
+      ? `Call ${targetDisplay} selector ${selector} (value ${value})`
+      : `Call ${targetDisplay} selector ${selector}`;
+  }
+
+  // Recursive wrapper unwrap. Stop at depth 3 to bound runaway nesting
+  // (deeper wrapper chains aren't a real pattern in this codebase).
+  if (lookup && depth < 3) {
+    const spec = WRAPPER_SPECS.find((s) => s.selector.toLowerCase() === selector);
+    const iface = lookup ? DECODE_INTERFACES_BY_CONTRACT[lookup.contract] : undefined;
+    if (spec && iface) {
+      try {
+        const decoded = iface.parseTransaction({ data: calldata });
+        const innerTarget = String(decoded.args?.[spec.targetArgIdx] ?? ethers.constants.AddressZero);
+        const innerData = String(decoded.args?.[spec.innerDataArgIdx] ?? "0x");
+        const innerLine = decodeCallLine(innerTarget, innerData, "0", governorAddress, depth + 1);
+        decodedDisplay = `${decodedDisplay} → ${innerLine}`;
+      } catch { /* leave wrapper-only display in place */ }
+    }
+  }
+
+  return decodedDisplay;
+}
 
 function summarizeProposalCalls(args: {
   governorAddress: string;
@@ -76,38 +193,7 @@ function summarizeProposalCalls(args: {
     const target = String(args.targets[i] ?? ethers.constants.AddressZero);
     const value = String(args.values[i] ?? "0");
     const calldata = String(args.calldatas[i] ?? "0x");
-    const targetDisplay = shortAddress(target);
-    const nonZeroValue = value !== "0";
-
-    if (calldata === "0x" || calldata.length < 10) {
-      summaries.push(nonZeroValue ? `Send native value ${value} to ${targetDisplay}` : `Call ${targetDisplay} (no calldata)`);
-      continue;
-    }
-
-    try {
-      const decoded = DAO_GOVERNOR_DECODE_INTERFACE.parseTransaction({ data: calldata });
-      const params = decoded.args?.map((arg) => formatDecodedArg(arg)).join(", ") ?? "";
-      const prefix = target.toLowerCase() === args.governorAddress.toLowerCase() ? "Governor" : targetDisplay;
-      summaries.push(`${prefix}.${decoded.name}(${params})`);
-      continue;
-    } catch { /* fall through */ }
-
-    try {
-      const decoded = ERC20_TRANSFER_INTERFACE.parseTransaction({ data: calldata });
-      const params = decoded.args?.map((arg) => formatDecodedArg(arg)).join(", ") ?? "";
-      summaries.push(`${targetDisplay}.${decoded.name}(${params})`);
-      continue;
-    } catch { /* fall through */ }
-
-    try {
-      const decoded = ERC20_VOTES_INTERFACE.parseTransaction({ data: calldata });
-      const params = decoded.args?.map((arg) => formatDecodedArg(arg)).join(", ") ?? "";
-      summaries.push(`${targetDisplay}.${decoded.name}(${params})`);
-      continue;
-    } catch { /* fall through */ }
-
-    const selector = calldata.slice(0, 10);
-    summaries.push(nonZeroValue ? `Call ${targetDisplay} selector ${selector} (value ${value})` : `Call ${targetDisplay} selector ${selector}`);
+    summaries.push(decodeCallLine(target, calldata, value, args.governorAddress));
   }
   return summaries;
 }

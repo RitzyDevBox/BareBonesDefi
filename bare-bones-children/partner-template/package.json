@@ -17,6 +17,7 @@
     "deploy:github-pages:staging": "bash scripts/deploy-github-pages.sh --staging",
     "deploy:github-pages:live": "bash scripts/deploy-github-pages.sh --live",
     "extract-error-selectors": "node scripts/generate-error-selectors.mjs --inputFolders=src/abis --outputMap=src/utils/abiUtils.ts",
+    "extract-function-selectors": "node scripts/generate-function-selectors.mjs --inputFolders=src/abis --outputMap=src/utils/functionSelectorMap.ts",
     "arweave:estimate": "node scripts/estimate-deploy-arweave.mjs",
     "arweave:fund-bundlr": "node scripts/fund-bundlr.mjs",
     "arweave:deploy": "node scripts/deploy-arweave.mjs",
