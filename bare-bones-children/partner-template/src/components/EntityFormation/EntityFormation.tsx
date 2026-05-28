@@ -14,7 +14,7 @@ import {
   StepAgent,
   StepAgreement,
   StepBasics,
-  StepContract,
+  StepDocuments,
   StepEligibility,
   StepNotice,
   StepOrganizer,
@@ -76,8 +76,11 @@ function isStepId(s: string | null): s is StepId {
 const MISSING_TO_STEP: Record<string, StepId> = {
   legalName: "basics",
   managementType: "basics",
-  daoAddress: "contract",
-  chainId: "contract",
+  // Smart-contract bind happens implicitly at the eligibility step now —
+  // the contract step was removed; eligibility persists daoAddress +
+  // chainId on Continue. Route missing-field redirects there.
+  daoAddress: "eligibility",
+  chainId: "eligibility",
   businessEmail: "organizer",
   filerFirstName: "organizer",
   filerLastName: "organizer",
@@ -149,9 +152,14 @@ export function EntityFormation({
     goStep(EF_STEPS[Math.min(stepIdx + 1, EF_STEPS.length - 1)].id);
   const prevStep = () => goStep(EF_STEPS[Math.max(stepIdx - 1, 0)].id);
 
+  // Prefer the on-chain org slug (the canonical name the org was launched
+  // with) over `activeDao.name`, which can resolve to "Untitled" for orgs
+  // whose Governor name field is unset or wasn't read off-chain yet. The
+  // slug is the launcher's `cfg.name` arg packed into bytes32 and is
+  // always set for any launched org.
   const defaultName = useMemo(
-    () => `${activeDao?.name || "Acme"} DAO LLC`,
-    [activeDao?.name],
+    () => `${orgSlug || activeDao?.name || "Acme"} DAO LLC`,
+    [orgSlug, activeDao?.name],
   );
   const defaultContract = useMemo(
     () => activeDao?.governor?.address ?? "",
@@ -162,7 +170,13 @@ export function EntityFormation({
   // (see hydration effect below); after that the user owns it. PII lives
   // here in React state only — never written to localStorage.
   const [name, setName] = useState(defaultName);
-  const [mgmt, setMgmt] = useState<ManagementType>("member");
+  // Algorithmic management is the recommended default for DAO LLCs — the
+  // whole point of forming under W.S. § 17-31 (the DAO Supplement) vs.
+  // the plain LLC chapter is to elect algorithmic management. The
+  // `member` option remains available for hybrid models where humans
+  // retain residual authority, but it's not the default a new wizard
+  // session lands on.
+  const [mgmt, setMgmt] = useState<ManagementType>("algo");
   const [contractAddr, setContractAddr] = useState(defaultContract);
   const [org, setOrg] = useState<OrganizerOrg>(makeEmptyOrg);
   const [mailingSame, setMailingSame] = useState(true);
@@ -181,6 +195,12 @@ export function EntityFormation({
   const [agreementStorage, setAgreementStorage] =
     useState<AgreementStorage>("arweave");
   const [notice, setNotice] = useState(false);
+  // Documents step — both flags live in React state only (no DB persistence).
+  // V2 will replace this with a wallet-signed attestation that needs a
+  // different shape on the server side. Reset on draft switch (see
+  // hydration effect below).
+  const [hasDownloaded, setHasDownloaded] = useState(false);
+  const [documentsAcked, setDocumentsAcked] = useState(false);
 
   // Pre-fill from activeDao when it arrives async, but only if local state
   // is still at its pre-load stub (don't wipe user input).
@@ -198,16 +218,56 @@ export function EntityFormation({
     }
   }, [activeDao?.governor?.address, contractAddr]);
 
-  // Hydrate the form once from the server's detail (after refresh, after
-  // sign-in). Guarded by a per-draft id ref so we don't overwrite local
-  // edits on every detail re-render. PII stays in React state only.
+  // Hydrate the form once per server-resolved draft (after refresh, after
+  // sign-in, or after the user switches DAOs in the navbar). Guarded by a
+  // per-draft id ref so we don't overwrite local edits on every detail
+  // re-render. PII stays in React state only.
+  //
+  // CRITICAL: when the draft id CHANGES (e.g. user creates a new DAO from
+  // a different org and the wizard rescopes), we must RESET form state to
+  // defaults before applying server-derived values. Hydration only fires
+  // a `setX(server.x)` when the server field is populated — so a fresh
+  // draft with empty fields would leave the OLD draft's values in place
+  // (bug: switching DAOs while on Review showed the previous entity's
+  // name / address / filer / RA in the new entity's review pane). Reset
+  // first, then layer the new draft's data on top.
   const hydratedForRef = useRef<string | null>(null);
   useEffect(() => {
     const d = draft.detail;
     if (!d || hydratedForRef.current === d.id) return;
     hydratedForRef.current = d.id;
 
-    if (d.legalName) setName(d.legalName);
+    // Reset every form-state cell back to its useState default so stale
+    // values from a prior draft don't leak through the hydration's
+    // conditional setters below.
+    setName(defaultName);
+    setMgmt("algo");
+    setContractAddr(defaultContract);
+    setOrg(makeEmptyOrg());
+    setMailingSame(true);
+    setMailing(makeEmptyMailing());
+    setFiler(makeEmptyFiler());
+    setFilerSame(false);
+    setAgentMode("service");
+    setAgentId("cloudpeak");
+    setAgentCustom({ name: "", street: "", city: "Cheyenne", zip: "82001" });
+    setAgreementSrc("generate");
+    setAgreementStorage("arweave");
+    setNotice(false);
+    setHasDownloaded(false);
+    setDocumentsAcked(false);
+    // Reset wizard navigation too — if the user had advanced into a later
+    // step on the previous draft (e.g. they were on Review when they
+    // created a new DAO from the header), don't leave them stranded on a
+    // step they haven't filled in for the new entity. Send them back to
+    // eligibility so the new flow starts at step 1.
+    goStep("eligibility");
+
+    // Skip the server's legacy placeholder ("Untitled DAO LLC") so older
+    // drafts that were minted before the slug-derived default landed get the
+    // nicer "<Slug> DAO LLC" string from `defaultName` instead of stickily
+    // showing the placeholder. User-typed names always survive.
+    if (d.legalName && d.legalName !== "Untitled DAO LLC") setName(d.legalName);
     if (d.managementType) setMgmt(d.managementType === "MEMBER" ? "member" : "algo");
     if (d.daoAddress) setContractAddr(d.daoAddress);
 
@@ -361,7 +421,12 @@ export function EntityFormation({
       });
     });
 
-  const handleContractNext = () =>
+  // Eligibility step's Continue persists the smart-contract bind that
+  // used to be a dedicated step. The contract addr + chainId come from
+  // the connected DAO + selected chain (already shown read-only in the
+  // eligibility checks), so there's no separate input to validate — if
+  // eligibility passes, the bind is valid by construction.
+  const handleEligibilityNext = () =>
     advanceStep(() =>
       draft.saveContract({
         daoAddress: contractAddr || null,
@@ -421,6 +486,24 @@ export function EntityFormation({
   };
 
   const handleFile = async () => {
+    // Block submit until the user has downloaded the formation documents
+    // and ticked the review-ack box on the Documents step. The Review-step
+    // File button already disables on this — this is a defence-in-depth
+    // check (e.g., callers wiring this handler to a future shortcut).
+    if (!hasDownloaded || !documentsAcked) {
+      goStep("documents");
+      toastStore.show({
+        id: `documents-required-${Date.now()}`,
+        title: "Review the documents first",
+        message:
+          "Download the Articles + Operating Agreement and confirm you've reviewed them before filing.",
+        type: ToastType.Warn,
+        behavior: ToastBehavior.AutoClose,
+        durationMs: 5000,
+        position: ToastPosition.Top,
+      });
+      return;
+    }
     const outcome = await draft.submit();
     if (outcome.ok) {
       toastStore.show({
@@ -732,8 +815,9 @@ export function EntityFormation({
             {step === "eligibility" && (
               <StepEligibility
                 activeDao={activeDao}
+                chain={chain}
                 wallet={wallet}
-                onNext={nextStep}
+                onNext={handleEligibilityNext}
               />
             )}
             {step === "basics" && (
@@ -760,15 +844,6 @@ export function EntityFormation({
                 setFilerSame={setFilerSame}
                 onPrev={prevStep}
                 onNext={handleOrganizerNext}
-              />
-            )}
-            {step === "contract" && (
-              <StepContract
-                activeDao={activeDao}
-                chain={chain}
-                contractAddr={contractAddr}
-                onPrev={prevStep}
-                onNext={handleContractNext}
               />
             )}
             {step === "agent" && (
@@ -807,6 +882,18 @@ export function EntityFormation({
                 onNext={handleNoticeNext}
               />
             )}
+            {step === "documents" && (
+              <StepDocuments
+                entityId={draft.detail?.id}
+                hasDownloaded={hasDownloaded}
+                setHasDownloaded={setHasDownloaded}
+                acked={documentsAcked}
+                setAcked={setDocumentsAcked}
+                onPrev={prevStep}
+                onNext={nextStep}
+                onEdit={goStep}
+              />
+            )}
             {step === "review" && (
               <StepReview
                 entityId={draft.detail?.id}
@@ -825,6 +912,7 @@ export function EntityFormation({
                 setFiled={() => {
                   /* server is the source of truth — no local toggle */
                 }}
+                documentsReady={hasDownloaded && documentsAcked}
                 onPrev={prevStep}
                 onEdit={goStep}
                 onFile={handleFile}

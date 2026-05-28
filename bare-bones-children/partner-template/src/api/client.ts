@@ -104,13 +104,19 @@ async function downloadEntityPdf(
   const res = await fetch(`${API_URL}/entities/${entityId}/${suffix}`, { headers });
   if (!res.ok) {
     let code = `http_${res.status}`;
+    let details: Record<string, unknown> | undefined;
     try {
       const body = await res.json();
       if (body?.error) code = body.error;
+      if (body && typeof body === "object") details = body;
     } catch {
       /* not JSON */
     }
-    throw new ApiError(res.status, code);
+    // Pass `details` through so callers can read the structured payload —
+    // notably the `missing: string[]` array the formation-documents.pdf
+    // route returns with a 409 `incomplete_draft` response so the
+    // download UI can show which step still needs filling.
+    throw new ApiError(res.status, code, details);
   }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);

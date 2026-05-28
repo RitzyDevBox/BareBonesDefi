@@ -763,23 +763,73 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
+  /* Critical: without this the summary card refuses to shrink below its
+     widest row's intrinsic width when its grid-cell parent (.ef-review's
+     right column at 1fr) is narrower than that. Long addresses + emails
+     then push the whole card past its column and get clipped. */
+  min-width: 0;
 }
 .entity-formation-root .ef-summary-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  /* `flex-start` so when the value side wraps to multiple lines the
+     label stays aligned with the first line of the value, not vertically
+     centered against the whole wrapped block. */
+  align-items: flex-start;
   gap: 12px;
   padding: 12px 16px;
   background: var(--bg-elev);
+  min-width: 0;
 }
 .entity-formation-root .ef-summary-row + .ef-summary-row { border-top: 1px solid var(--line); }
-.entity-formation-root .ef-summary-k { font-size: 12.5px; color: var(--text-mute); }
+.entity-formation-root .ef-summary-k {
+  font-size: 12.5px;
+  color: var(--text-mute);
+  /* Keep labels readable instead of wrapping into 1-char-per-line
+     columns when the row is tight. The value side gets all the shrink
+     budget instead. */
+  flex-shrink: 0;
+}
 .entity-formation-root .ef-summary-v {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
   font-size: 13.5px;
   font-weight: 500;
+  /* The actual fix for the >980px desktop cutoff: `min-width: 0` plus
+     `flex: 1` lets this column shrink to whatever space the grid leaves
+     after the label, then `overflow-wrap: break-word` on the inner span
+     wraps long unbroken tokens (0x... addresses, emails, URLs) instead
+     of pushing the row past the card edge. */
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.entity-formation-root .ef-summary-v > span {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Narrow viewports: stack label / value vertically so the row never has
+   to fit [label][value][edit] on one line. iPhone SE (375px) is the
+   supported floor per the wizard's mobile-responsive baseline. Chosen at
+   520px so it also picks up small landscape phones + foldables that
+   would otherwise truncate before the single-column threshold. */
+@media (max-width: 520px) {
+  .entity-formation-root .ef-summary-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .entity-formation-root .ef-summary-v {
+    justify-content: space-between;
+    width: 100%;
+  }
 }
 .entity-formation-root .ef-summary-edit {
   background: transparent;

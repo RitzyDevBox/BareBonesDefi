@@ -36,10 +36,10 @@ export type StepId =
   | "eligibility"
   | "basics"
   | "organizer"
-  | "contract"
   | "agent"
   | "agreement"
   | "notice"
+  | "documents"
   | "review";
 
 export type ManagementType = "member" | "algo";
@@ -126,10 +126,10 @@ export const EF_STEPS: FormationStep[] = [
   { id: "eligibility", label: "Eligibility", sub: "On-chain prerequisites" },
   { id: "basics", label: "Entity basics", sub: "Name + management" },
   { id: "organizer", label: "Organizer & contact", sub: "Principal office + filer" },
-  { id: "contract", label: "Smart contract", sub: "Canonical identifier" },
   { id: "agent", label: "Registered agent", sub: "In-state address" },
   { id: "agreement", label: "Operating agreement", sub: "On + off-chain rules" },
   { id: "notice", label: "Member notice", sub: "Statutory disclosure" },
+  { id: "documents", label: "Formation documents", sub: "Download + review" },
   { id: "review", label: "Review & file", sub: "Submit to Wyoming" },
 ];
 

@@ -1,18 +1,10 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { shortAddress } from "../../utils/formatUtils";
 import { REGISTERED_AGENTS } from "./agents.config";
 import { CheckIcon } from "./CheckIcon";
 import { PhoneInput } from "./PhoneInput";
 import { api } from "../../api/client";
 import { ChevronRight, DownloadIcon } from "./Icons";
-import {
-  activeSections,
-  ARTICLES_FOOTER,
-  ARTICLES_SUBTITLE,
-  ARTICLES_TITLE,
-  ArticlesMergeData,
-  Inline,
-} from "../../../../../../BareBonesApi/src/templates/articles-of-organization";
 import {
   AgentCustom,
   AgentMode,
@@ -99,13 +91,22 @@ function StepCardFoot({
 
 interface EligibilityProps {
   activeDao?: FormationDao;
+  chain?: FormationChain;
   wallet?: FormationWallet;
   onNext: () => void;
 }
 
-export function StepEligibility({ activeDao, wallet, onNext }: EligibilityProps) {
+export function StepEligibility({ activeDao, chain, wallet, onNext }: EligibilityProps) {
   const govAddress = activeDao?.governor?.address;
+  const timelockAddress = activeDao?.timelock?.address;
   const tokenAddress = activeDao?.token?.address;
+  // The smart-contract bind that used to live on its own step is now
+  // surfaced inline here — Governor, Timelock, Token, and Chain are all
+  // read off `activeDao` (resolved by the page from the org slug via
+  // payrollManager.daoOf + governor.token / governor.timelock). When the
+  // user hits Continue, the parent persists daoAddress + chainId to the
+  // entity row; nothing here is editable, so the only gating is the
+  // eligibility checks themselves.
   const checks = [
     {
       label: "Governor + Timelock deployed",
@@ -130,13 +131,29 @@ export function StepEligibility({ activeDao, wallet, onNext }: EligibilityProps)
     },
   ];
   const passing = checks.filter((c) => c.ok).length;
+  const contracts: { k: string; v: string | null; sub?: string }[] = [
+    {
+      k: "Governor (DAO contract)",
+      v: govAddress ?? null,
+      sub: activeDao?.governor?.name || undefined,
+    },
+    {
+      k: "Timelock Controller",
+      v: timelockAddress ?? null,
+    },
+    {
+      k: "Membership Token",
+      v: tokenAddress ?? null,
+      sub: activeDao?.symbol,
+    },
+  ];
   return (
     <div className="ef-card">
       <StepCardHead
         step={0}
         total={7}
         title="Eligibility check"
-        lede="Confirm your on-chain org has everything Wyoming needs to recognize it as a DAO LLC."
+        lede="Confirm your on-chain org has everything Wyoming needs to recognize it as a DAO LLC. Contracts below get recorded in the Articles."
       />
       <div className="ef-card-body">
         <div className="ef-section">
@@ -160,12 +177,41 @@ export function StepEligibility({ activeDao, wallet, onNext }: EligibilityProps)
         </div>
 
         <div className="ef-section">
+          <div className="ef-section-head">Smart contracts recorded in Articles · W.S. § 17-31-106(b)</div>
+          <div className="ef-summary">
+            {contracts.map((c, i) => (
+              <div key={i} className="ef-summary-row">
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 500 }}>{c.k}</div>
+                  {c.sub && (
+                    <div className="ef-mute mono" style={{ fontSize: 11.5 }}>
+                      {c.sub}
+                    </div>
+                  )}
+                </div>
+                <div className="mono ef-dim" style={{ fontSize: 12 }}>
+                  {c.v ? shortAddress(c.v) : "Not detected"}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <span className="ef-addr-chip">
+              <span className="ef-addr-chip-k">Chain</span>
+              <span>
+                {chain?.name || "Polygon"} · {chain?.chainId || 137}
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <div className="ef-section">
           <div className="ef-section-head">Note</div>
           <div className="ef-pre">
             <span style={{ color: "var(--text-dim)" }}>
               Wyoming doesn't require members to be onboarded before filing — you can mint
-              tokens and add members after the entity is recognized. The contract addresses
-              below are what gets recorded in the Articles.
+              tokens and add members after the entity is recognized. To file a different
+              org's DAO, switch orgs from the navbar.
             </span>
           </div>
         </div>
@@ -227,15 +273,15 @@ export function StepBasics({ name, setName, mgmt, setMgmt, onPrev, onNext }: Bas
           <div className="ef-tiles cols-2">
             {[
               {
-                id: "member" as const,
-                title: "Member-managed",
-                sub: "Members vote on proposals; the smart contract executes the result.",
+                id: "algo" as const,
+                title: "Algorithmically managed",
+                sub: "Management authority vested in the Governor Contract per W.S. § 17-31-104(e). Members vote on proposals; the Timelock executes the result.",
                 tag: "recommended" as const,
               },
               {
-                id: "algo" as const,
-                title: "Algorithmically managed",
-                sub: "Smart contract executes operations without human votes.",
+                id: "member" as const,
+                title: "Member-managed",
+                sub: "Members hold direct management authority; smart contracts assist but do not control. Use for hybrid models where humans retain residual authority.",
                 tag: null,
               },
             ].map((opt) => (
@@ -635,102 +681,12 @@ export function StepOrganizer({
   );
 }
 
-// ---------- step 3: Contract ----------
-
-interface ContractProps {
-  activeDao?: FormationDao;
-  chain?: FormationChain;
-  contractAddr: string;
-  onPrev: () => void;
-  onNext: () => void;
-}
-
-export function StepContract({
-  activeDao,
-  chain,
-  contractAddr,
-  onPrev,
-  onNext,
-}: ContractProps) {
-  const valid = /^0x[a-fA-F0-9]{40}$/.test(contractAddr);
-  const supporting: { k: string; v: string | null; sub?: string }[] = [
-    {
-      k: "Timelock",
-      v: activeDao?.timelock?.address ?? null,
-    },
-    {
-      k: "ERC20Votes Token",
-      v: activeDao?.token?.address ?? null,
-      sub: activeDao?.symbol,
-    },
-  ];
-  return (
-    <div className="ef-card">
-      <StepCardHead
-        step={3}
-        total={7}
-        title="Smart contract bind"
-        lede="The on-chain identifier Wyoming will treat as the canonical DAO contract. Sourced from your organization's Governor; switch orgs from the navbar to file a different entity."
-      />
-      <div className="ef-card-body">
-        <div className="ef-section">
-          <div className="ef-section-head">Canonical identifier</div>
-          <div className="ef-summary">
-            <div className="ef-summary-row">
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 500 }}>
-                  DAO contract (Governor)
-                </div>
-                {activeDao?.governor?.name && (
-                  <div className="ef-mute mono" style={{ fontSize: 11.5 }}>
-                    {activeDao.governor.name}
-                  </div>
-                )}
-              </div>
-              <div className="mono ef-dim" style={{ fontSize: 12 }}>
-                {contractAddr ? shortAddress(contractAddr) : "Not detected"}
-              </div>
-            </div>
-          </div>
-          <div style={{ marginTop: 10 }}>
-            <span className="ef-addr-chip">
-              <span className="ef-addr-chip-k">Chain</span>
-              <span>
-                {chain?.name || "Polygon"} · {chain?.chainId || 137}
-              </span>
-            </span>
-          </div>
-        </div>
-
-        <div className="ef-section">
-          <div className="ef-section-head">
-            Supporting contracts · referenced but not canonical
-          </div>
-          <div className="ef-summary">
-            {supporting.map((s, i) => (
-              <div key={i} className="ef-summary-row">
-                <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 500 }}>{s.k}</div>
-                  {s.sub && (
-                    <div className="ef-mute mono" style={{ fontSize: 11.5 }}>
-                      {s.sub}
-                    </div>
-                  )}
-                </div>
-                <div className="mono ef-dim" style={{ fontSize: 12 }}>
-                  {s.v ? shortAddress(s.v) : "Not detected"}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      <StepCardFoot onPrev={onPrev} onNext={onNext} nextDisabled={!valid} />
-    </div>
-  );
-}
-
-// ---------- step 4: Agent ----------
+// ---------- step 3: Agent ----------
+// (The "Smart contract" step that used to live here was folded into the
+// Eligibility step — its content was read-only contract addresses
+// resolved off `activeDao`, with no editable inputs. Surfacing them on
+// Eligibility lets the user verify the on-chain identifiers in the same
+// view where they confirm prerequisites, and removes a redundant step.)
 
 interface AgentProps {
   agentMode: AgentMode;
@@ -1180,9 +1136,222 @@ interface ReviewProps {
   filer: OrganizerFiler;
   filed: boolean;
   setFiled: (v: boolean) => void;
+  /** True once the user has clicked Download on the Documents step AND
+   *  ticked the review-ack checkbox. The File button refuses to fire when
+   *  this is false — the step nav lets users jump straight to Review and
+   *  this is the only place we re-check the gate. */
+  documentsReady: boolean;
   onPrev: () => void;
   onEdit: (id: StepId) => void;
   onFile: () => void;
+}
+
+// ---------- step 6: Documents ----------
+// Surfaces the generated Articles + Operating Agreement bundle so the
+// operator (or counsel) must actually look at what's about to be filed
+// before transitioning to the final Review & File step.
+//
+// V1 is "verified-downloaded" — the user clicks Download, the file gets
+// served, and a checkbox acknowledges they've reviewed it. State lives
+// in React only (not persisted to the DB) because v2 will replace this
+// with a wallet-signed attestation that needs a different shape on the
+// server side anyway. The OA template's §17.4 explicitly contemplates
+// on-chain attestation as the signing path — see GO_LIVE_READINESS §3.
+//
+// The download route itself enforces field completeness server-side
+// (returns 409 `incomplete_draft` with `missing: [...]` if anything's
+// still null). The UI surfaces that list inline with Edit links back to
+// the relevant prior step instead of silently letting the user generate
+// a bracketed-placeholder PDF they might mistake for a finished draft.
+
+interface DocumentsProps {
+  entityId?: string;
+  hasDownloaded: boolean;
+  setHasDownloaded: (v: boolean) => void;
+  acked: boolean;
+  setAcked: (v: boolean) => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onEdit: (id: StepId) => void;
+}
+
+/** Map of API `missing` field names → human label + the wizard step
+ *  that collects that field. Used to render an inline "complete X
+ *  first" hint with a jump button instead of a raw 409 toast. */
+const MISSING_FIELD_DESCRIPTORS: Record<string, { label: string; step: StepId }> = {
+  legalName: { label: "Legal name", step: "basics" },
+  managementType: { label: "Management type", step: "basics" },
+  daoAddress: { label: "DAO contract address", step: "eligibility" },
+  chainId: { label: "Chain", step: "eligibility" },
+  businessEmail: { label: "Principal-office business email", step: "organizer" },
+  filerFirstName: { label: "Organizer first name", step: "organizer" },
+  filerLastName: { label: "Organizer last name", step: "organizer" },
+  filerRoleClaim: { label: "Organizer role", step: "organizer" },
+  principalOffice: { label: "Principal office address", step: "organizer" },
+  agentMode: { label: "Registered agent (service or self-listed)", step: "agent" },
+  agentServiceKey: { label: "Registered agent service", step: "agent" },
+  agentCustom: { label: "Self-listed agent details (name, street, city, ZIP)", step: "agent" },
+  agreementSource: { label: "Operating agreement source", step: "agreement" },
+  agreementStorage: { label: "Operating agreement storage backend", step: "agreement" },
+};
+
+export function StepDocuments({
+  entityId,
+  hasDownloaded,
+  setHasDownloaded,
+  acked,
+  setAcked,
+  onPrev,
+  onNext,
+  onEdit,
+}: DocumentsProps) {
+  // Local "missing field" state — populated when the download route
+  // returns 409. Cleared on a successful download or when the user
+  // navigates to fix a field. Kept in component state (not parent
+  // props) because it only matters within this step's render lifetime.
+  const [missing, setMissing] = useState<string[] | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [genericError, setGenericError] = useState<string | null>(null);
+
+  const doDownload = async () => {
+    if (!entityId) return;
+    setDownloading(true);
+    setMissing(null);
+    setGenericError(null);
+    try {
+      await api.entities.downloadFormationDocumentsPdf(entityId);
+      setHasDownloaded(true);
+    } catch (err: unknown) {
+      // 409 incomplete_draft → surface the missing list inline. Any
+      // other failure shows as a generic error toast; user can retry.
+      const apiErr = err as { status?: number; code?: string; details?: { missing?: unknown } };
+      if (apiErr?.status === 409 && Array.isArray(apiErr?.details?.missing)) {
+        setMissing(apiErr.details.missing.map(String));
+      } else {
+        setGenericError(apiErr?.code ?? "Download failed");
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="ef-card">
+      <StepCardHead
+        step={6}
+        total={8}
+        title="Formation documents"
+        lede="Download the Articles of Organization and Operating Agreement so you (or counsel) can review what's being filed before it leaves the wizard."
+      />
+      <div className="ef-card-body">
+        <div className="ef-section">
+          <div className="ef-section-head">Generated documents</div>
+          <div className="ef-pre" style={{ marginBottom: 16 }}>
+            <span style={{ color: "var(--text-dim)" }}>
+              The download bundles the official Wyoming SOS Articles of
+              Organization form (page 1+) with the Operating Agreement draft
+              (subsequent pages). The Articles are fully auto-filled from
+              your wizard inputs. The Operating Agreement pulls contract
+              addresses from chain state and includes the §17-31-114 notice
+              + W.S. §17-31-114 auto-dissolution enumeration; remaining
+              bracketed items are flagged for counsel review.
+            </span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <button
+              type="button"
+              className={`btn-${hasDownloaded ? "ghost" : "primary"} btn-sm`}
+              style={{ justifyContent: "flex-start", alignSelf: "flex-start" }}
+              onClick={doDownload}
+              disabled={!entityId || downloading}
+            >
+              <DownloadIcon size={14} />
+              {downloading
+                ? "Generating PDF…"
+                : hasDownloaded
+                  ? "Download again"
+                  : "Download formation documents"}
+            </button>
+            {hasDownloaded && (
+              <div style={{ fontSize: 12, color: "var(--text-mute)" }}>
+                Downloaded. Open the PDF, review the Articles + Operating
+                Agreement, then check the box below to continue.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {missing && missing.length > 0 && (
+          <div className="ef-section">
+            <div className="ef-section-head" style={{ color: "var(--text-warn, #c47800)" }}>
+              Some fields still need to be filled before this PDF can be generated
+            </div>
+            <div className="ef-summary">
+              {missing.map((f) => {
+                const d = MISSING_FIELD_DESCRIPTORS[f];
+                return (
+                  <div key={f} className="ef-summary-row">
+                    <div className="ef-summary-k">{d?.label ?? f}</div>
+                    {d?.step && (
+                      <button
+                        type="button"
+                        className="ef-summary-edit"
+                        onClick={() => onEdit(d.step)}
+                      >
+                        Fix
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {genericError && (
+          <div className="ef-section">
+            <div style={{ fontSize: 13, color: "var(--text-warn, #c47800)" }}>
+              {genericError}
+            </div>
+          </div>
+        )}
+
+        <div className="ef-section">
+          <label
+            className={`ef-checkbox ${acked ? "on" : ""}`}
+            style={{
+              cursor: hasDownloaded ? "pointer" : "not-allowed",
+              opacity: hasDownloaded ? 1 : 0.5,
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              if (!hasDownloaded) return;
+              setAcked(!acked);
+            }}
+          >
+            <span className="ef-checkbox-box" />
+            <span>
+              I have downloaded and reviewed the Articles of Organization and
+              Operating Agreement. I understand that what gets filed to
+              Wyoming matches the downloaded PDF.
+            </span>
+          </label>
+        </div>
+      </div>
+      <StepCardFoot
+        onPrev={onPrev}
+        onNext={onNext}
+        nextDisabled={!hasDownloaded || !acked}
+        hint={
+          !hasDownloaded
+            ? "Download the documents first"
+            : !acked
+              ? "Confirm you've reviewed the documents"
+              : null
+        }
+      />
+    </div>
+  );
 }
 
 export function StepReview({
@@ -1200,6 +1369,7 @@ export function StepReview({
   filer,
   filed,
   setFiled,
+  documentsReady,
   onPrev,
   onEdit,
   onFile,
@@ -1378,11 +1548,11 @@ export function StepReview({
         : "— Not set",
       edit: "organizer",
     },
-    { k: "Contract", v: shortAddress(contractAddr), edit: "contract", mono: true },
+    { k: "Contract", v: shortAddress(contractAddr), edit: "eligibility", mono: true },
     {
       k: "Chain",
       v: `${chain?.name || "Polygon"} · ${chain?.chainId || 137}`,
-      edit: "contract",
+      edit: "eligibility",
     },
     {
       k: "Registered agent",
@@ -1405,96 +1575,28 @@ export function StepReview({
   const agentFee = agentMode === "service" ? (agent?.price ?? 0) : 0;
   const total = stateFee + agentFee;
 
-  // Build the same `ArticlesMergeData` the API uses when rendering the
-  // PDF, so the on-screen preview and the downloadable PDF stay byte-for-
-  // byte aligned. The PDF endpoint pulls these values from the persisted
-  // Entity row; here we read them from local React state so the preview
-  // reflects unsaved edits the user is still typing into the wizard.
-  // Address composition mirrors the server's `composeAddress` helper.
-  const principalOfficeFull = org.street1
-    ? `${org.street2 ? `${org.street1}, ${org.street2}` : org.street1}, ${org.city} ${org.region} ${org.postal}`
-    : "";
-  const articlesData: ArticlesMergeData = {
-    legalName: name,
-    principalOffice: principalOfficeFull,
-    businessEmail: org.email || "",
-    businessPhone: org.phoneNum ? `${org.phoneDial} ${org.phoneNum}` : "",
-    filerFirstName: filer.first || "",
-    filerLastName: filer.last || "",
-    filerRoleClaim: filer.role || "",
-    managementClause:
-      mgmt === "member" ? "member-managed" : "algorithmically managed",
-    contractAddress: contractAddr || "",
-    chainName: chain?.name || "Polygon",
-    chainId: String(chain?.chainId ?? 137),
-    registeredAgentName:
-      agentMode === "service" ? agent?.name || "" : "Self-listed agent",
-    operatingAgreementUri: "ar://placeholder-tx-id",
-    agreementStorageActive: agreementStorage !== "off",
-  };
-
-  // Inline runs come from the template; we just style them. `merge` =
-  // body text in a highlighted span so the user can see what was pulled
-  // from their inputs; `mergeMono` = same, plus monospace. Resolve the
-  // placeholder fallback locally so unset values show as e.g. "[legalName]"
-  // both here and in the PDF.
-  const renderInline = (run: Inline, key: number): ReactNode => {
-    if (run.kind === "text") return <span key={key}>{run.value}</span>;
-    const raw = articlesData[run.field];
-    const value =
-      typeof raw === "boolean"
-        ? ""
-        : raw && raw.length > 0
-          ? raw
-          : `[${run.field}]`;
-    return (
-      <span
-        key={key}
-        className={`ef-doc-fill${run.kind === "mergeMono" ? " mono" : ""}`}
-      >
-        {value}
-      </span>
-    );
-  };
-
   return (
     <div className="ef-card">
       <StepCardHead
         step={7}
         total={7}
         title="Review and file"
-        lede="A final look at the rendered Articles, side-by-side with the summary and cost."
+        lede="Download the formation documents to review (or hand to counsel), then file."
       />
       <div className="ef-card-body">
-        <div className="ef-review">
-          <div className="ef-doc">
-            <h3 className="ef-doc-title">{ARTICLES_TITLE}</h3>
-            <div className="ef-doc-sub">{ARTICLES_SUBTITLE}</div>
+        {/* Single-column layout — the prior side-by-side Articles preview
+            was removed because it rendered a hand-styled JSX approximation
+            of the prose template, which no longer matches what the API
+            actually generates: Articles are filled into the official WY
+            SOS AcroForm PDF, and the Operating Agreement is a separate
+            pdf-lib-rendered document. Showing the old prose preview was
+            actively misleading. Operators (and counsel) download the
+            real combined PDF instead — that's the single source of truth.
 
-            {activeSections(articlesData).map((section) => (
-              <div key={section.id} className="ef-doc-art">
-                <div className="ef-doc-art-h">{section.heading}</div>
-                {section.paragraphs.map((paragraph, pi) => (
-                  <div key={pi}>{paragraph.map(renderInline)}</div>
-                ))}
-              </div>
-            ))}
-
-            <div
-              style={{
-                marginTop: 28,
-                paddingTop: 16,
-                borderTop: "1px solid var(--line)",
-                fontSize: 11,
-                color: "var(--text-mute)",
-                textAlign: "center",
-              }}
-              className="mono"
-            >
-              {ARTICLES_FOOTER}
-            </div>
-          </div>
-
+            The summary + cost still need to be visible at-a-glance so the
+            user can verify what's about to be filed without leaving the
+            page. */}
+        <div>
           <div>
             <div className="ef-section-head">Summary</div>
             <div className="ef-summary">
@@ -1559,12 +1661,42 @@ export function StepReview({
             </div>
           </div>
         </div>
+        {!documentsReady && (
+          <div className="ef-section" style={{ marginTop: 20 }}>
+            <div
+              className="ef-section-head"
+              style={{ color: "var(--text-warn, #c47800)" }}
+            >
+              Download + review the formation documents before filing
+            </div>
+            <div className="ef-summary">
+              <div className="ef-summary-row">
+                <div className="ef-summary-k">
+                  Open the Documents step to download the Articles + Operating
+                  Agreement and confirm you've reviewed them.
+                </div>
+                <button
+                  type="button"
+                  className="ef-summary-edit"
+                  onClick={() => onEdit("documents")}
+                >
+                  Open
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <div className="ef-card-foot">
         <button type="button" className="btn-ghost btn-sm" onClick={onPrev}>
           Back
         </button>
-        <button type="button" className="btn-primary btn-sm" onClick={onFile}>
+        <button
+          type="button"
+          className="btn-primary btn-sm"
+          onClick={onFile}
+          disabled={!documentsReady}
+        >
           File with Wyoming · ${total}
         </button>
       </div>
