@@ -1,0 +1,1 @@
+import{C as o,F as s}from"./index-Gg2kl29S.js";import{U as t}from"./types-Ctr1HB_9.js";const n={fields:[{id:"asset",component:s.TOKEN_AMOUNT_PICKER,label:"ETH Amount",options:{userScope:t.SmartWallet,defaultTokenAddressResolver:e=>e?o[e].wethAddress:void 0,preventTokenChange:!0}}]};export{n as UNWRAP_SCHEMA,n as default};

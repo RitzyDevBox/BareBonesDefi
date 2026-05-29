@@ -1,0 +1,1 @@
+import{U as o}from"./types-Ctr1HB_9.js";import{F as e}from"./index-Gg2kl29S.js";const p={fields:[{id:"asset",component:e.TOKEN_AMOUNT_PICKER,label:"Asset",options:{userScope:o.Account}}]};export{p as DEPOSIT_SCHEMA,p as default};
