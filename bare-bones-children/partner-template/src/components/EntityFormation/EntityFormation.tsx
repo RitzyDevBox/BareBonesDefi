@@ -184,7 +184,7 @@ export function EntityFormation({
   const [filer, setFiler] = useState<OrganizerFiler>(makeEmptyFiler);
   const [filerSame, setFilerSame] = useState(false);
   const [agentMode, setAgentMode] = useState<AgentMode>("service");
-  const [agentId, setAgentId] = useState("cloudpeak");
+  const [agentId, setAgentId] = useState(REGISTERED_AGENTS[0]?.id ?? "");
   const [agentCustom, setAgentCustom] = useState<AgentCustom>({
     name: "",
     street: "",
@@ -249,13 +249,19 @@ export function EntityFormation({
     setFiler(makeEmptyFiler());
     setFilerSame(false);
     setAgentMode("service");
-    setAgentId("cloudpeak");
+    setAgentId(REGISTERED_AGENTS[0]?.id ?? "");
     setAgentCustom({ name: "", street: "", city: "Cheyenne", zip: "82001" });
     setAgreementSrc("generate");
     setAgreementStorage("arweave");
     setNotice(false);
-    setHasDownloaded(false);
-    setDocumentsAcked(false);
+    // Documents-step gates: a filed entity (status != DRAFT) provably passed
+    // the submit gate at StepDocuments, which requires BOTH hasDownloaded
+    // AND documentsAcked — so default both to true for filed drafts. Without
+    // this, navigating back to a submitted entity shows the doc step as
+    // un-downloaded / un-acked even though the filing already happened.
+    const alreadyFiled = !!(d.status && d.status !== "DRAFT");
+    setHasDownloaded(alreadyFiled);
+    setDocumentsAcked(alreadyFiled);
     // Reset wizard navigation too — if the user had advanced into a later
     // step on the previous draft (e.g. they were on Review when they
     // created a new DAO from the header), don't leave them stranded on a

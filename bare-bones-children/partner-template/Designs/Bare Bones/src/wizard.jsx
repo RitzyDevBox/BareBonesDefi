@@ -256,10 +256,11 @@ const Step3_Agent = () => {
                 <thead><tr><th></th><th>Provider</th><th>Price / yr</th><th>Coverage</th><th></th></tr></thead>
                 <tbody>
                   {[
-                    { sel: true, name: 'Cloud Peak Law Group', price: '$49', cov: 'Mail forwarding, scan-to-email' },
-                    { sel: false, name: 'Northwest Registered Agent', price: '$125', cov: 'Mail forwarding, free year 1 of LLC formation' },
-                    { sel: false, name: 'Wyoming Trust & LLC', price: '$59', cov: 'Mail forwarding only' },
-                    { sel: false, name: 'Registered Agents Inc.', price: '$200', cov: 'Mail + privacy address service' },
+                    // Placeholder providers — no real registered-agent partnerships yet.
+                    { sel: true, name: 'Acme Agent Services', price: '$49', cov: 'Mail forwarding, scan-to-email' },
+                    { sel: false, name: 'Beta Mail Forwarding', price: '$125', cov: 'Mail forwarding, free year 1 of LLC formation' },
+                    { sel: false, name: 'Gamma Trust Services', price: '$59', cov: 'Mail forwarding only' },
+                    { sel: false, name: 'Delta Privacy Agent Inc.', price: '$200', cov: 'Mail + privacy address service' },
                   ].map((p, i) => (
                     <tr key={i}>
                       <td><span className="radio-dot" style={p.sel ? { borderColor: 'var(--ink)' } : {}}>{p.sel && <span style={{ position: 'absolute', inset: 3, borderRadius: '50%', background: 'var(--ink)' }}></span>}</span></td>

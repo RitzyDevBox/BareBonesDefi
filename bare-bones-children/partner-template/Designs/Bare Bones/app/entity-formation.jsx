@@ -30,11 +30,12 @@ const EF_DIAL_CODES = [
   { iso: 'PT', code: '+351', flag: '🇵🇹', name: 'Portugal' },
 ];
 
+// Placeholder providers — no real registered-agent partnerships yet.
 const EF_AGENTS = [
-  { id: 'cloudpeak',  name: 'Cloud Peak Law Group',       price: 49,  coverage: 'Mail forwarding · scan-to-email',         badge: 'recommended' },
-  { id: 'northwest',  name: 'Northwest Registered Agent', price: 125, coverage: 'Mail forwarding · privacy address',       badge: null },
-  { id: 'wytrust',    name: 'Wyoming Trust & LLC',        price: 59,  coverage: 'Mail forwarding only',                    badge: null },
-  { id: 'rai',        name: 'Registered Agents Inc.',     price: 200, coverage: 'Mail forwarding + privacy address service', badge: null },
+  { id: 'acme',  name: 'Acme Agent Services',       price: 49,  coverage: 'Mail forwarding · scan-to-email',         badge: 'recommended' },
+  { id: 'beta',  name: 'Beta Mail Forwarding',      price: 125, coverage: 'Mail forwarding · privacy address',       badge: null },
+  { id: 'gamma', name: 'Gamma Trust Services',      price: 59,  coverage: 'Mail forwarding only',                    badge: null },
+  { id: 'delta', name: 'Delta Privacy Agent Inc.',  price: 200, coverage: 'Mail forwarding + privacy address service', badge: null },
 ];
 
 function efHasDesignator(s) { return /\b(DAO LLC|DAO|LAO)\b/i.test(s || ''); }
@@ -669,7 +670,7 @@ function EntityFormation({ chain, wallet, onConnect, activeDao }) {
   const [filerSame, setFilerSame] = React.useState(false);
 
   const [agentMode, setAgentMode] = React.useState('service');
-  const [agentId, setAgentId] = React.useState('cloudpeak');
+  const [agentId, setAgentId] = React.useState('acme');
   const [agentCustom, setAgentCustom] = React.useState({ name: '', street: '', city: 'Cheyenne', zip: '82001' });
   const [agreementSrc, setAgreementSrc] = React.useState('generate');
   const [agreementStorage, setAgreementStorage] = React.useState('ipfs');
