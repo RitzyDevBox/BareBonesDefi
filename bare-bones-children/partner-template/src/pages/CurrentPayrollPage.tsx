@@ -46,7 +46,6 @@ import {
 import {
   PayrollEarningsStagingSection,
   ProcessPayrollFlowModal,
-  type PayrollConfigActionPayload,
 } from "../components/PayrollStagingManager";
 
 export function CurrentPayrollPage() {
