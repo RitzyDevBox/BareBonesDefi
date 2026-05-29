@@ -60,7 +60,12 @@ else
 fi
 
 printf "Building app from branch: %s (deployment target: %s)\n" "$CURRENT_BRANCH" "$DEPLOYMENT_TARGET"
-VITE_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" npm run build
+# Route through the per-target build script (build:local / build:staging /
+# build:live) so target-specific env vars like VITE_API_URL get applied.
+# The previous `npm run build` ran the generic `tsc && vite build` and
+# dropped VITE_API_URL on the floor — the deployed bundle ended up with
+# the localhost fallback baked in.
+npm run "build:${DEPLOYMENT_TARGET}"
 
 if [[ ! -d "$DIST_DIR" ]]; then
   echo "Build failed: dist directory was not created."
