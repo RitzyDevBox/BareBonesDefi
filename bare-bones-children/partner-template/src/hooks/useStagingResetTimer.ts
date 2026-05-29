@@ -16,7 +16,10 @@ interface UseStagingResetTimerResult {
    *  "every N hours" and "in M:SS". */
   intervalSeconds: number | null;
   nextResetAt: Date | null;
-  /** True only when DEPLOYMENT_TARGET=staging — gates UI like the intro modal. */
+  /** True only when DEPLOYMENT_TARGET=staging — gates the chain-reset
+   *  countdown section (the only piece backed by a real server cron). The
+   *  intro modal itself uses a broader gate (Local OR Staging) and just
+   *  hides this section when the cron timer isn't available. */
   enabled: boolean;
 }
 

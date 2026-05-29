@@ -7,8 +7,7 @@ import { Sheet } from "../Primitives/Sheet";
 import { Stack } from "../Primitives";
 import { ButtonBase } from "../Button/ButtonBase";
 import { IconButton } from "../Button/IconButton";
-import { DEPLOYMENT_TARGET, DeploymentTarget } from "../../config/deployment";
-import { showStagingIntro } from "../Staging/StagingIntroModal";
+import { IS_DEMO_ENV, showStagingIntro } from "../Staging/StagingIntroModal";
 import { PrivacyPolicyModal } from "./PrivacyPolicyModal";
 
 interface ToggleSwitchProps {
@@ -132,7 +131,6 @@ function SettingsBody({
   onToggleTestnets,
   onClose,
 }: Pick<SettingsModalProps, "showTestnets" | "onToggleTestnets"> & { onClose: () => void }) {
-  const isStaging = DEPLOYMENT_TARGET === DeploymentTarget.Staging;
   // Local state for the policy modal lives here (not at the parent) so the
   // settings modal stays mounted underneath — closing the policy returns
   // the user to the settings view without re-opening the whole settings
@@ -151,10 +149,10 @@ function SettingsBody({
         subtitle="Display testnet networks in the chain selector"
         right={<ToggleSwitch on={showTestnets} onChange={onToggleTestnets} />}
       />
-      {isStaging && (
+      {IS_DEMO_ENV && (
         <SettingsRow
-          title="Staging intro"
-          subtitle="Re-open the auto-faucet + chain reset explainer"
+          title="Demo intro"
+          subtitle="Re-open the demo-environment warning + auto-faucet explainer"
           right={
             <ButtonBase
               shape="pill"
