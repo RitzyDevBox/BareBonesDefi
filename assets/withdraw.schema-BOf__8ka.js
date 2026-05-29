@@ -1,0 +1,1 @@
+import{U as o}from"./types-Ctr1HB_9.js";import{F as e}from"./index-BwZ7DOxA.js";const i={fields:[{id:"asset",component:e.TOKEN_AMOUNT_PICKER,label:"Asset",options:{userScope:o.SmartWallet}},{id:"recipient",component:e.ADDRESS,label:"Recipient Address"}]};export{i as WITHDRAW_SCHEMA,i as default};
