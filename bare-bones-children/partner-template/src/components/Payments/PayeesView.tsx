@@ -506,7 +506,10 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
       if (bundleEntries.length > 0) {
         await submitMtaEdits(slug, bundleEntries);
       }
-      await onPayeesChanged();
+      // PaymentPage already subscribes to TxRefresh.version and re-fetches
+      // the roster with a 3s subgraph-catch-up debounce there, so the
+      // imperative `onPayeesChanged()` call is now redundant — leaving it
+      // would just race the debounced version-driven refresh.
       setStaged([]);
       setStagedEdits({});
       setAdding(false);
@@ -526,7 +529,7 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
           nameSlug: ethers.utils.formatBytes32String(r.name.trim()),
         })),
       );
-      await onPayeesChanged();
+      // Same as above — version-driven refresh in PaymentPage handles this.
       setBatchOpen(false);
     } finally {
       setOnboarding(false);

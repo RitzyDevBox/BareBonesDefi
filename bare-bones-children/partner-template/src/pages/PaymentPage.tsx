@@ -86,7 +86,20 @@ export function PaymentPage() {
   }, [slug, readProvider, payrollManagerAddress, chainIdOrDefault]);
 
   useEffect(() => {
-    void refresh();
+    // First mount (version === 0): fetch immediately.
+    // On every subsequent tx-refresh bump: give the subgraph a beat to
+    // index the new entity before re-reading, otherwise this page reads
+    // its own stale roster back from graph-node and the user thinks the
+    // tx didn't take effect (PayeesView's onboard flow is the most visible
+    // sufferer — new payee never lands in the table).
+    if (version === 0) {
+      void refresh();
+      return;
+    }
+    const handle = setTimeout(() => {
+      void refresh();
+    }, 3_000);
+    return () => clearTimeout(handle);
   }, [refresh, version]);
 
   // Pull the MTA state for this org so we can authorize the connected wallet
