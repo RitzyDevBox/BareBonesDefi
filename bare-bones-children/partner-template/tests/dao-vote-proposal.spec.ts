@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { installMockWallet } from "./_demo/mockWallet";
 import { mine } from "./_lib/anvilTime";
+import { deployOrgAndDao } from "./_lib/deployOrg";
 
 test.beforeEach(async ({ page }) => {
   await installMockWallet(page);
@@ -24,15 +25,7 @@ test("create proposal and cast a For vote", async ({ page }) => {
   ).toBeVisible({ timeout: 5000 });
 
   // 2. Deploy a fresh DAO via the switcher modal (defaults are fine).
-  await page.getByTestId("dao-switcher").click();
-  await page.getByTestId("dao-create-new").click();
-  await page.getByTestId("dao-orgslug-input").fill(orgSlug);
-  await page.getByTestId("dao-modal-continue").click();
-  await page.getByTestId("dao-modal-continue").click();
-  await page.getByTestId("dao-modal-deploy").click();
-  await expect(
-    page.getByText(new RegExp(`Launched org \\+ DAO "${orgSlug}"`, "i"))
-  ).toBeVisible({ timeout: 60_000 });
+  await deployOrgAndDao(page, orgSlug);
 
   // 3. Navigate to DAOs.
   await page.getByRole("button", { name: "DAOs", exact: true }).click();
@@ -96,15 +89,19 @@ test("create proposal and cast a For vote", async ({ page }) => {
     timeout: 30_000,
   });
 
-  // 6. votingDelay defaults to 1 block. Mine an empty block so the proposal
-  // becomes Active and the vote buttons unlock — anvil otherwise just sits
-  // at the propose-tx block.
-  await mine(2);
+  // 6. votingDelay defaults to 1 block, but the proposals list comes from
+  // the subgraph (useDaoProposals → fetchDaoProposalsByGovernor) which
+  // indexes blocks asynchronously and re-fetches on a 5s polling tick
+  // (`useGlobalTick(5)`). Mine a handful of empty blocks so the subgraph
+  // poller has work to pull from anvil. Don't reload — that resets the
+  // mockWallet's authorized flag and disconnects the wallet.
+  await mine(5);
 
   // 7. Cast a For vote. The For button is hidden until the proposal becomes
-  // Active and the dapp's polling picks up the new state, so allow time.
+  // Active and the dapp's polling picks up the new state, so allow time
+  // (>= a few `useGlobalTick(5)` cycles).
   const voteFor = page.getByTestId("proposal-vote-for");
-  await expect(voteFor).toBeVisible({ timeout: 30_000 });
+  await expect(voteFor).toBeVisible({ timeout: 90_000 });
   await expect(voteFor).toBeEnabled();
   await voteFor.click();
 

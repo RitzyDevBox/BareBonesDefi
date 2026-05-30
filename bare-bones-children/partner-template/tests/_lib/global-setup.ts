@@ -27,9 +27,11 @@
 //   PLAYWRIGHT_SKIP_BOOTSTRAP=1   — don't even run deploy:anvil first time
 //   PLAYWRIGHT_SKIP_ANVIL_RESTORE=1
 //   PLAYWRIGHT_SKIP_GRAPH_RESET=1
+//   PLAYWRIGHT_SKIP_API=1         — don't start BareBonesApi (entity-formation
+//                                   tests depend on it for the SIWE gate)
 
-import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { execSync, spawn } from "node:child_process";
+import { existsSync, openSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -41,6 +43,10 @@ const SUBGRAPH_DEPLOYMENT_ENV = resolve(REPO_ROOT, ".anvil", "subgraph.deploymen
 const GRAPH_PROJECT_DIR = resolve(REPO_ROOT, "BareBonesGraph", "secure-value-reserve");
 const GRAPH_ADMIN_URL = process.env.GRAPH_ADMIN_URL ?? "http://localhost:8020";
 const ANVIL_RPC_URL = process.env.ANVIL_RPC_URL ?? "http://127.0.0.1:8545";
+const API_DIR = resolve(REPO_ROOT, "BareBonesApi");
+const API_PORT = Number(process.env.PLAYWRIGHT_API_PORT ?? 7423);
+const API_HEALTH_URL = `http://localhost:${API_PORT}/health`;
+const API_LOG_FILE = process.env.PLAYWRIGHT_API_LOG_FILE ?? "/tmp/barebones-api-playwright.log";
 
 // Local docker compose project name = directory name when no `name:` set.
 const GRAPH_NODE_CONTAINER = "secure-value-reserve-graph-node-1";
@@ -387,6 +393,123 @@ async function resetGraph(): Promise<void> {
   console.log(`${TAG} graph reset in ${Date.now() - start}ms`);
 }
 
+// ── BareBonesApi ──────────────────────────────────────────────────────
+
+async function isApiHealthy(): Promise<boolean> {
+  try {
+    const res = await fetch(API_HEALTH_URL, {
+      method: "GET",
+      signal: AbortSignal.timeout(2000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForApi(maxWaitMs: number): Promise<boolean> {
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    if (await isApiHealthy()) return true;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return false;
+}
+
+/** Ensure BareBonesApi is up on :7423. The entity-formation flow's SIWE
+ *  gate calls /siwe/nonce, /siwe/verify; without the API the page sits on
+ *  "Sign in with Ethereum" and the connected-flow test still passes because
+ *  it only asserts the gate copy, but any future wizard-submit test would
+ *  need the API.
+ *
+ *  Setup is idempotent (BareBonesApi/scripts/setup.sh): brings up its own
+ *  Postgres docker container on :5433 and applies Prisma migrations. The
+ *  API itself runs as a detached `npm run dev` child that survives the
+ *  globalSetup process — like vite via the webServer config, we leave it
+ *  running for the duration of the test session (and reuse on re-runs). */
+async function ensureApi(): Promise<void> {
+  if (process.env.PLAYWRIGHT_SKIP_API === "1") {
+    console.log(`${TAG} PLAYWRIGHT_SKIP_API=1, skipping BareBonesApi startup`);
+    return;
+  }
+
+  // When anvil was just restored from golden, the chain has gone back to
+  // a state where this run's freshly-created orgSlugs do not yet exist.
+  // BUT — the API's Postgres still has formation-entity rows for those
+  // slugs from previous runs, so a fresh deploy collides on the unique
+  // (orgSlug, chainId) key and returns 409 entity_already_exists. Wipe
+  // the API's Postgres volume in lockstep with the anvil restore so each
+  // test session is genuinely starting from scratch on both sides.
+  const wipingDb = process.env.PLAYWRIGHT_SKIP_ANVIL_RESTORE !== "1";
+  if (wipingDb) {
+    console.log(`${TAG} wiping BareBonesApi Postgres volume (matched to anvil restore)…`);
+    runQuiet("bash scripts/teardown.sh --wipe", API_DIR);
+  }
+
+  // The API loads `MTA_ADDRESS_<chainId>` and `CHAIN_RPC_URL_<chainId>` from
+  // .env.deploy.anvil.generated at startup (see BareBonesApi/src/lib/env.ts).
+  // A fresh `deploy:anvil` rewrites that file with new addresses, but a
+  // long-running API process keeps the OLD values in process.env — so the
+  // MTA role check reads from a contract that no longer exists, returns
+  // ZeroHash, and the formation wizard 403s with "not_a_member". Force a
+  // restart so the API re-reads the file every time globalSetup runs.
+  //
+  // Resolve listener PIDs through `lsof -t -i:PORT -sTCP:LISTEN` (LISTEN
+  // filter avoids the test runner's own outbound socket on 7423) and call
+  // `process.kill` directly — going through bash + pipes earlier was
+  // taking down the test runner via signal cascade.
+  if (await isApiHealthy()) {
+    console.log(`${TAG} stopping running BareBonesApi so it re-reads MTA_ADDRESS env…`);
+    const lookup = runQuiet(`lsof -t -i:${API_PORT} -sTCP:LISTEN`);
+    const pids = lookup.stdout
+      .split("\n")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => Number.isFinite(n) && n > 1 && n !== process.pid);
+    for (const pid of pids) {
+      try {
+        process.kill(pid, "SIGTERM");
+      } catch (err) {
+        console.warn(`${TAG} could not SIGTERM api pid ${pid}:`, (err as Error).message);
+      }
+    }
+    for (let i = 0; i < 20; i++) {
+      if (!(await isApiHealthy())) break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+
+  const start = Date.now();
+
+  if (!existsSync(resolve(API_DIR, "node_modules"))) {
+    console.log(`${TAG} installing BareBonesApi dependencies (first run)…`);
+    run("npm install", API_DIR);
+  }
+
+  // setup.sh writes .env on first run, brings up Postgres in docker, runs
+  // Prisma migrations. Idempotent — safe to call every time.
+  console.log(`${TAG} preparing BareBonesApi (postgres + migrations)…`);
+  run("bash scripts/setup.sh", API_DIR);
+
+  console.log(`${TAG} spawning 'npm run dev' for BareBonesApi → ${API_LOG_FILE}`);
+  const logFd = openSync(API_LOG_FILE, "a");
+  const child = spawn("npm", ["run", "dev"], {
+    cwd: API_DIR,
+    stdio: ["ignore", logFd, logFd],
+    detached: true,
+    env: process.env,
+  });
+  // Detach so the API outlives the globalSetup process. Playwright's
+  // webServer pattern works the same way (reuseExistingServer=true).
+  child.unref();
+
+  if (!(await waitForApi(60_000))) {
+    throw new Error(
+      `${TAG} BareBonesApi at ${API_HEALTH_URL} never came up — see ${API_LOG_FILE}`,
+    );
+  }
+  console.log(`${TAG} BareBonesApi ready in ${Date.now() - start}ms`);
+}
+
 // ── Entry point ───────────────────────────────────────────────────────
 
 export default async function globalSetup() {
@@ -394,4 +517,5 @@ export default async function globalSetup() {
   await restoreAnvil();
   await setAnvilFastMining();
   await resetGraph();
+  await ensureApi();
 }

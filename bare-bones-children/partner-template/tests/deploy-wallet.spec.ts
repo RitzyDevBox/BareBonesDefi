@@ -5,7 +5,10 @@ test.beforeEach(async ({ page }) => {
   await installMockWallet(page);
 });
 
-test("deploy wallet → success toast appears", async ({ page }) => {
+// FEATURE_FLAGS.basicWallet is currently false (see src/constants/featureFlags.ts),
+// which hides the "Wallet" nav button and unregisters the /basic-wallet-facet
+// route — so the page can't be reached. Skip until the flag flips back on.
+test.skip("deploy wallet → success toast appears", async ({ page }) => {
   // Anvil mines instantly but ethers' Web3Provider has pollingInterval=12s in
   // WalletContext, so tx.wait() may take that long to observe the receipt.
   test.setTimeout(60_000);

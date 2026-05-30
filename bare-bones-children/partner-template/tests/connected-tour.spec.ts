@@ -15,7 +15,11 @@ test("connect mock wallet and tour", async ({ page }) => {
     timeout: 5000,
   });
 
-  for (const label of ["Wallet", "Browser", "DAOs", "Vaults", "Home"]) {
+  // Visible nav labels are gated by FEATURE_FLAGS — on local + staging
+  // builds only Home, DAOs, Formation, Payments render (see
+  // src/components/PageWrapper/navConfig.ts). Wallet, Browser, Vaults are
+  // currently hidden; reintroduce them here when their flag flips on.
+  for (const label of ["DAOs", "Formation", "Payments", "Home"]) {
     await page.getByRole("button", { name: label, exact: true }).click();
   }
 });

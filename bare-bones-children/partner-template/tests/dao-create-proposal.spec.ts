@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { installMockWallet } from "./_demo/mockWallet";
 import { mine } from "./_lib/anvilTime";
+import { deployOrgAndDao } from "./_lib/deployOrg";
 
 test.beforeEach(async ({ page }) => {
   await installMockWallet(page);
@@ -28,15 +29,7 @@ test("create a Set Voting Delay proposal", async ({ page }) => {
   ).toBeVisible({ timeout: 5000 });
 
   // 2. Deploy DAO via switcher modal (defaults are fine for proposal creation)
-  await page.getByTestId("dao-switcher").click();
-  await page.getByTestId("dao-create-new").click();
-  await page.getByTestId("dao-orgslug-input").fill(orgSlug);
-  await page.getByTestId("dao-modal-continue").click();
-  await page.getByTestId("dao-modal-continue").click();
-  await page.getByTestId("dao-modal-deploy").click();
-  await expect(
-    page.getByText(new RegExp(`Launched org \\+ DAO "${orgSlug}"`, "i"))
-  ).toBeVisible({ timeout: 60_000 });
+  await deployOrgAndDao(page, orgSlug);
 
   // 3. Navigate to DAOs (active org auto-set after deploy → embedded DAODetail)
   await page.getByRole("button", { name: "DAOs", exact: true }).click();

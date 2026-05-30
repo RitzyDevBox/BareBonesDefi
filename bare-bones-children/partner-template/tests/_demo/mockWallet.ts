@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { installAutoDismissIntro } from "../_lib/installAutoDismissIntro";
 
 export type MockWalletOpts = {
   /** Address to expose as the connected account. Defaults to anvil account #0. */
@@ -15,6 +16,11 @@ export async function installMockWallet(page: Page, opts: MockWalletOpts = {}) {
   const account = opts.account ?? ANVIL_ACCOUNT_0;
   const chainId = opts.chainId ?? 31337;
   const rpcUrl = opts.rpcUrl ?? "http://127.0.0.1:8545";
+
+  // The wallet provider is useless if the user can't actually click
+  // anything on the page — the StagingIntroModal backdrop intercepts
+  // every click on local + staging builds. Auto-dismiss it on every load.
+  await installAutoDismissIntro(page);
 
   await page.addInitScript(
     ({ account, chainId, rpcUrl }) => {
