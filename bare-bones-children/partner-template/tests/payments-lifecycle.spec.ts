@@ -113,17 +113,31 @@ test("full lifecycle: deploy → onboard payee → attach earnings → start pay
     await expect(rateInput).toBeHidden({ timeout: 10_000 });
   };
 
-  // First payee: pick whoever's first in the dropdown, stage them onto the
-  // batch, expand the row, attach OTP earning.
-  await addPayeeSelect.selectOption({ index: 1 });
+  // Helper: pick a specific payee from the dropdown by the option's label
+  // text. Each option is rendered as `${name} · ${shortAddress(wallet)}`,
+  // so a substring match on the wallet's leading hex bytes resolves to
+  // exactly that payee regardless of dropdown order.
+  const selectPayeeByWallet = async (walletAddress: string) => {
+    const prefix = walletAddress.slice(0, 6); // e.g. "0xf39F"
+    const optionValue = await addPayeeSelect
+      .locator("option", { hasText: new RegExp(prefix, "i") })
+      .first()
+      .getAttribute("value");
+    if (!optionValue) {
+      throw new Error(`No addable-payee option matches wallet prefix ${prefix}`);
+    }
+    await addPayeeSelect.selectOption(optionValue);
+  };
+
+  // First payee — anvil #0 (the deployer, seeded as Admin).
+  await selectPayeeByWallet(ANVIL_ACCOUNT_0);
   await page.getByTestId("staging-table-add-payee-btn").click();
   await page.getByTestId("staging-table-expand-all-btn").click();
   await page.waitForTimeout(1_000);
   await attachOtpToRow(ANVIL_ACCOUNT_0);
 
-  // Second payee: pick the next remaining option, stage them too, expand,
-  // attach earning to the freshly-added row.
-  await addPayeeSelect.selectOption({ index: 1 });
+  // Second payee — anvil #1 (the freshly-onboarded payee).
+  await selectPayeeByWallet(ANVIL_ACCOUNT_1);
   await page.getByTestId("staging-table-add-payee-btn").click();
   await page.getByTestId("staging-table-expand-all-btn").click();
   await page.waitForTimeout(1_000);
@@ -171,27 +185,19 @@ test("full lifecycle: deploy → onboard payee → attach earnings → start pay
   await expect(processItem).toBeEnabled({ timeout: 15_000 });
   await processItem.click();
 
-  // Wait for the Process step to become active (the Process row carries
-  // data-status="active"|"done"). Then click Continue and wait for the
-  // Process step to be done (covers both the in-flight processing tx and the
-  // delay between processing and the indexer updating payroll status).
-  const processStep = page.getByTestId("process-flow-step-process");
-  await expect(processStep).toBeVisible({ timeout: 30_000 });
-  await page.getByTestId("process-flow-continue-btn").click();
-  await expect(processStep).toHaveAttribute("data-status", "done", {
-    timeout: 120_000,
+  // A single Continue click runs BOTH processPayrollChunk and
+  // finalizePayrollChunk back-to-back (see useProcessCurrentPayroll.ts —
+  // when status transitions to Processed mid-call it follows up with
+  // finalize in the same handler). So the test clicks Continue exactly
+  // once, then waits for the finalize step row to flip to done.
+  await expect(page.getByTestId("process-flow-step-process")).toBeVisible({
+    timeout: 30_000,
   });
-
-  // Now finalize. Wait for the Continue button to be enabled (it goes
-  // disabled while the previous tx is in-flight), then click and wait for
-  // the finalize step to be done.
-  const continueBtn = page.getByTestId("process-flow-continue-btn");
-  await expect(continueBtn).toBeEnabled({ timeout: 60_000 });
-  await continueBtn.click();
+  await page.getByTestId("process-flow-continue-btn").click();
   await expect(page.getByTestId("process-flow-step-finalize")).toHaveAttribute(
     "data-status",
     "done",
-    { timeout: 120_000 },
+    { timeout: 180_000 },
   );
 
   // 8. Final state — the "Payroll finalized" step row reaches data-status=done.
