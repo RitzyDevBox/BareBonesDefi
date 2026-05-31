@@ -69,7 +69,34 @@ specs that don't use a mock wallet (`nav-tour`) call it directly. No
 per-test boilerplate, and the observer self-disconnects after the first
 dismiss or after 10s.
 
+## Chain visibility and per-build map gating
+
+The frontend serves three deployment targets (`local`, `staging`, `live`) from one codebase, gated at build time by `VITE_DEPLOYMENT_TARGET`. `VISIBLE_CHAIN_IDS` in [src/constants/misc.ts](src/constants/misc.ts) is the single source of truth for which chains a given build exposes.
+
+Convention: chain-keyed maps holding **values consumed at runtime** (URLs, RPC endpoints, anything that can trigger a network fetch) must be filtered by `VISIBLE_CHAIN_IDS`. Pattern:
+
+```ts
+const BASE_FOO_BY_CHAIN = { [LOCAL_CHAIN_ID]: ..., [STAGING_CHAIN_ID]: ..., [POLYGON_CHAIN_ID]: ... };
+export const FOO_BY_CHAIN = Object.fromEntries(
+  Object.entries(BASE_FOO_BY_CHAIN).filter(([id]) => VISIBLE_CHAIN_IDS.includes(Number(id)))
+);
+```
+
+Why the gating matters even though `VISIBLE_CHAIN_IDS` already filters the UI's chain picker: MetaMask is a single shared extension across all tabs. A user with another tab connected to local anvil (chain 31337) will have the staging frontend see `chainId === 31337` when it asks the wallet. Any unfiltered map then yields the local-chain entry — including local RPC / subgraph URLs — and the resulting fetch to `127.0.0.1:*` from a public origin triggers Chrome's Private Network Access banner ("this site wants to use other apps and services on this device").
+
+Considered and rejected: per-target ternaries that overload chain ids per build (e.g. `LOCAL_CHAIN_ID === STAGING_CHAIN_ID` on staging). Earlier code did this and silently mixed local + staging address overrides on the same map key. The current pattern — unconditional `BASE_*` map + filtered exported map — keeps every chain's data isolated and lets one switch (`VISIBLE_CHAIN_IDS`) gate everything.
+
+Maps currently filtered: `CHAIN_INFO_MAP`, `NATIVE_TOKENS_BY_CHAIN`, `CHAIN_SVR_SUBGRAPH_URL`. Maps that hold only addresses or template names (no network fetches) intentionally aren't filtered — their accessor functions fall through to a polygon default, which is the correct production fallback.
+
 ## Changelog
+
+### 2026-05-31 — gate `CHAIN_SVR_SUBGRAPH_URL` by `VISIBLE_CHAIN_IDS`
+
+Staging bundle was leaking the local subgraph URL (`http://127.0.0.1:8000/subgraphs/name/secure-value-reserve-local`). Users with MetaMask left on local anvil (chain 31337) from a dev tab triggered the local branch of the subgraph lookup on `bear-bones.xyz`, causing Chrome to show the Private Network Access permission banner from a public origin.
+
+Applied the same `Object.fromEntries(...).filter(...)` pattern already used for `CHAIN_INFO_MAP` / `NATIVE_TOKENS_BY_CHAIN`. The existing `if (!url) return empty;` guards in `mtaGraphService` / `daoGraphService` / `vaultGraphService` then early-return cleanly when the map has no entry for the wallet's reported chain.
+
+Scope: only `CHAIN_SVR_SUBGRAPH_URL`. The other chain-keyed maps (`SVR_TEMPLATE_CONFIG_BY_CHAIN`, `DAO_GOVERNOR_TEMPLATE_CONFIG_BY_CHAIN`, `MOCK_GOVERNANCE_TOKEN_BY_CHAIN`, `BARE_BONES_CHAIN_OVERRIDES`) hold only addresses / template names — they don't trigger network fetches, so they don't contribute to the leak.
 
 ### 2026-05-29 — payments + formation e2e coverage
 

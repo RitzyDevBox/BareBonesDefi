@@ -158,11 +158,22 @@ export interface BareBonesConfiguration {
   svrFactoryAddress?: string;
 }
 
-export const CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = {
+// Filtered by VISIBLE_CHAIN_IDS so a build only registers subgraph URLs for
+// chains it actually exposes. Without this, the local URL (127.0.0.1:8000)
+// stays in the staging bundle and gets fetched whenever the wallet reports
+// chain 31337 (e.g. left over from a dev tab) — Chrome then shows a Private
+// Network Access "use other apps and services" warning on the public origin.
+const BASE_CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = {
   [POLYGON_CHAIN_ID]: POLYGON_SECURE_VALUE_RESERVE_GRAPH_URL,
   [LOCAL_CHAIN_ID]: LOCAL_SECURE_VALUE_RESERVE_GRAPH_URL,
   [STAGING_CHAIN_ID]: STAGING_SVR_GRAPH_URL,
 };
+
+export const CHAIN_SVR_SUBGRAPH_URL: Partial<Record<number, string>> = Object.fromEntries(
+  Object.entries(BASE_CHAIN_SVR_SUBGRAPH_URL).filter(([chainId]) =>
+    VISIBLE_CHAIN_IDS.includes(Number(chainId))
+  )
+);
 
 
 /**
