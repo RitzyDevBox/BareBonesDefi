@@ -22,7 +22,7 @@ export function AdminListField({ label, subtitle, values, onChange }: AdminListF
   };
 
   return (
-    <div className="bb-addr-list">
+    <div className="bb-addr-list" data-testid="dao-admin-list">
       <div>
         <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{label}</label>
         {subtitle ? <div className="bb-field-hint" style={{ marginTop: 0 }}>{subtitle}</div> : null}
@@ -34,10 +34,12 @@ export function AdminListField({ label, subtitle, values, onChange }: AdminListF
         {values.map((v, i) => (
           <div
             key={i}
+            data-testid={`dao-admin-row-${i}`}
             className="bb-addr-list-row"
             style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 2fr) auto", gap: 8 }}
           >
             <input
+              data-testid={`dao-admin-row-${i}-name-input`}
               className="bb-input"
               value={v.name}
               onChange={(e) => update(i, { name: e.target.value })}
@@ -45,6 +47,7 @@ export function AdminListField({ label, subtitle, values, onChange }: AdminListF
               maxLength={31}
             />
             <input
+              data-testid={`dao-admin-row-${i}-address-input`}
               className="bb-input bb-mono"
               value={v.wallet}
               onChange={(e) => update(i, { wallet: e.target.value })}
@@ -52,6 +55,7 @@ export function AdminListField({ label, subtitle, values, onChange }: AdminListF
             />
             <button
               type="button"
+              data-testid={`dao-admin-row-${i}-remove-btn`}
               className="bb-icon-btn-sm"
               aria-label="Remove admin"
               onClick={() => remove(i)}
@@ -61,7 +65,12 @@ export function AdminListField({ label, subtitle, values, onChange }: AdminListF
           </div>
         ))}
       </div>
-      <button type="button" className="bb-addr-list-add" onClick={add}>
+      <button
+        type="button"
+        data-testid="dao-admin-list-add-btn"
+        className="bb-addr-list-add"
+        onClick={add}
+      >
         + Add admin
       </button>
     </div>

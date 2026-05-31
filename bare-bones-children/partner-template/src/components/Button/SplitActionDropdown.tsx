@@ -13,6 +13,10 @@ interface SplitActionDropdownProps {
   actions: SplitActionItem[];
   /** Tighter sizing for inline use in cramped toolbars (e.g. phone). */
   compact?: boolean;
+  /** Optional prefix for `data-testid` attributes on the primary button, the
+   *  dropdown trigger, and each menu item. When set, produces e.g.
+   *  `<prefix>-primary`, `<prefix>-trigger`, `<prefix>-item-<kebab-label>`. */
+  testIdPrefix?: string;
 }
 
 export function SplitActionDropdown({
@@ -21,6 +25,7 @@ export function SplitActionDropdown({
   primaryDisabled = false,
   actions,
   compact = false,
+  testIdPrefix,
 }: SplitActionDropdownProps) {
   const minHeight = compact ? 36 : 42;
   const primaryPaddingX = compact ? 12 : 16;
@@ -62,6 +67,7 @@ export function SplitActionDropdown({
       >
       <button
         type="button"
+        data-testid={testIdPrefix ? `${testIdPrefix}-primary` : undefined}
         onClick={onPrimaryClick}
         disabled={primaryDisabled}
         style={{
@@ -81,6 +87,7 @@ export function SplitActionDropdown({
 
       <button
         type="button"
+        data-testid={testIdPrefix ? `${testIdPrefix}-trigger` : undefined}
         aria-label="Open actions"
         onClick={() => setOpen((prev) => !prev)}
         style={{
@@ -123,6 +130,11 @@ export function SplitActionDropdown({
             <button
               key={action.label}
               type="button"
+              data-testid={
+                testIdPrefix
+                  ? `${testIdPrefix}-item-${action.label.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`
+                  : undefined
+              }
               disabled={action.disabled}
               onClick={() => {
                 setOpen(false);

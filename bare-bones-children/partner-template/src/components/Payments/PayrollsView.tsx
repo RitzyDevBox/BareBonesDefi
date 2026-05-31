@@ -183,6 +183,7 @@ function CreateCard({
 
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14, flexWrap: "wrap" }}>
         <button
+          data-testid="payrolls-create-empty-btn"
           className="bb-btn-ghost"
           onClick={() => onCreate(null, "empty")}
           disabled={!isAdmin || !slug || creating}
@@ -191,6 +192,7 @@ function CreateCard({
           Create empty
         </button>
         <button
+          data-testid="payrolls-start-payroll-btn"
           className="bb-btn-primary"
           onClick={() => onCreate(selectedBatchCode, "batch")}
           disabled={!isAdmin || !slug || creating || !selectedBatchCode}
@@ -395,6 +397,7 @@ export function PayrollsView({ slug, isAdmin }: PayrollsViewProps) {
                 <button
                   key={row.payrollId}
                   type="button"
+                  data-testid={`payrolls-open-card-${row.payrollId}`}
                   className={`bb-prl-active-card bb-prl-tone-${tone}`}
                   onClick={() => navigate(ROUTES.PAYROLL_DETAIL(slug, row.payrollId))}
                 >
@@ -465,6 +468,7 @@ export function PayrollsView({ slug, isAdmin }: PayrollsViewProps) {
               <button
                 key={row.payrollId}
                 type="button"
+                data-testid={`payrolls-open-historic-${row.payrollId}`}
                 className="bb-prl-row"
                 onClick={() => navigate(ROUTES.PAYROLL_DETAIL(slug, row.payrollId))}
               >

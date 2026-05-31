@@ -313,6 +313,7 @@ export function PayBatchesView({ slug, isAdmin }: PayBatchesViewProps) {
         <div className="bb-pb-bar-l">
           <label className="bb-kicker">Selected batch</label>
           <select
+            data-testid="paybatches-selected-batch-select"
             className="bb-input"
             value={selectedBatchCode ?? ""}
             onChange={(e) => setSelectedBatchCode(e.target.value || null)}
@@ -330,6 +331,7 @@ export function PayBatchesView({ slug, isAdmin }: PayBatchesViewProps) {
         {isAdmin && (
           <div className="bb-pb-bar-r">
             <input
+              data-testid="paybatches-new-batch-name-input"
               className="bb-input bb-input-sm bb-pb-create-in"
               placeholder="New pay batch name…"
               value={newBatchCode}
@@ -340,6 +342,7 @@ export function PayBatchesView({ slug, isAdmin }: PayBatchesViewProps) {
               disabled={creatingBatch}
             />
             <button
+              data-testid="paybatches-create-batch-btn"
               className="bb-btn-primary"
               disabled={!newBatchCode.trim() || !chainId || creatingBatch}
               onClick={() => void handleCreatePayBatch()}

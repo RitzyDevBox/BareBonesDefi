@@ -35,25 +35,20 @@ test("admin sees Payments admin surfaces; non-admin does not", async ({ browser 
   // Pay Batches tab — admin should see the "+ Create batch" control and
   // the ⚡ Admin badge in the nav.
   await adminPage.goto(`/#/payments/${orgSlug}?tab=batches`);
-  await expect(adminPage.getByRole("button", { name: /Create batch/ })).toBeVisible({
+  await expect(adminPage.getByTestId("paybatches-create-batch-btn")).toBeVisible({
     timeout: 30_000,
   });
   await expect(adminPage.getByText(/⚡ Admin/)).toBeVisible();
   // The new-batch input is only rendered for admins (see PayBatchesView,
   // isAdmin branch).
-  await expect(
-    adminPage.getByPlaceholder(/New pay batch name/i),
-  ).toBeVisible();
+  await expect(adminPage.getByTestId("paybatches-new-batch-name-input")).toBeVisible();
 
-  // Payrolls tab — admin should see the "Start a new payroll" CreateCard
-  // with both Create empty + Start payroll buttons.
+  // Payrolls tab — admin should see the Start payroll surface enabled.
   await adminPage.goto(`/#/payments/${orgSlug}?tab=payrolls`);
-  await expect(
-    adminPage.getByRole("heading", { name: /Start a new payroll/i }),
-  ).toBeVisible({ timeout: 30_000 });
-  await expect(
-    adminPage.getByRole("button", { name: /Create empty/i }),
-  ).toBeEnabled();
+  await expect(adminPage.getByTestId("payrolls-create-empty-btn")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(adminPage.getByTestId("payrolls-create-empty-btn")).toBeEnabled();
 
   // ---- Non-admin context (anvil #1, no role on the org) ----
   const nonAdminCtx = await browser.newContext();
@@ -70,25 +65,20 @@ test("admin sees Payments admin surfaces; non-admin does not", async ({ browser 
   // URL, PaymentPage fetches by slug regardless of switcher state.
   await nonAdminPage.goto(`/#/payments/${orgSlug}?tab=batches`);
 
-  // Wait for the org to resolve — the "Selected batch" label is part of the
-  // base view rendered for both admins and non-admins, so its presence tells
-  // us we're past the org-loading state.
-  await expect(nonAdminPage.getByText(/Selected batch/i)).toBeVisible({
+  // Wait for the org to resolve — the batch selector is part of the
+  // base view rendered for both admins and non-admins.
+  await expect(nonAdminPage.getByTestId("paybatches-selected-batch-select")).toBeVisible({
     timeout: 30_000,
   });
 
   // Admin-only surfaces should be hidden.
-  await expect(nonAdminPage.getByRole("button", { name: /Create batch/ })).toHaveCount(0);
-  await expect(nonAdminPage.getByPlaceholder(/New pay batch name/i)).toHaveCount(0);
+  await expect(nonAdminPage.getByTestId("paybatches-create-batch-btn")).toHaveCount(0);
+  await expect(nonAdminPage.getByTestId("paybatches-new-batch-name-input")).toHaveCount(0);
   await expect(nonAdminPage.getByText(/⚡ Admin/)).toHaveCount(0);
 
-  // Payrolls tab — for a non-admin the CreateCard is only shown if the org
-  // exists (it does), but Create empty + Start payroll buttons must be
-  // disabled. Assert at least Create empty is disabled.
+  // Payrolls tab — Create empty stays visible but disabled for non-admin.
   await nonAdminPage.goto(`/#/payments/${orgSlug}?tab=payrolls`);
-  const createEmpty = nonAdminPage.getByRole("button", { name: /Create empty/i });
-  // The CreateCard always renders when orgExists is true, but every input
-  // and button is gated on isAdmin.
+  const createEmpty = nonAdminPage.getByTestId("payrolls-create-empty-btn");
   await expect(createEmpty).toBeVisible({ timeout: 30_000 });
   await expect(createEmpty).toBeDisabled();
 

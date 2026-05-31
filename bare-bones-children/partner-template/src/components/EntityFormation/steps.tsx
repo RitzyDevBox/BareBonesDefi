@@ -64,7 +64,12 @@ function StepCardFoot({
   return (
     <div className="ef-card-foot">
       {onPrev ? (
-        <button type="button" className="btn-ghost btn-sm" onClick={onPrev}>
+        <button
+          type="button"
+          data-testid="formation-step-back-btn"
+          className="btn-ghost btn-sm"
+          onClick={onPrev}
+        >
           Back
         </button>
       ) : (
@@ -75,6 +80,7 @@ function StepCardFoot({
         {onNext && (
           <button
             type="button"
+            data-testid="formation-step-next-btn"
             className="btn-primary btn-sm"
             onClick={onNext}
             disabled={nextDisabled}
@@ -251,6 +257,7 @@ export function StepBasics({ name, setName, mgmt, setMgmt, onPrev, onNext }: Bas
           <div className="ef-section-head">Legal name</div>
           <div className="field full">
             <input
+              data-testid="formation-legal-name-input"
               className="input"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -403,6 +410,7 @@ export function StepOrganizer({
               <div className="field full">
                 <label>Street address</label>
                 <input
+                  data-testid="formation-principal-street1-input"
                   className="input"
                   placeholder="118 W 23rd St"
                   value={org.street1}
@@ -412,6 +420,7 @@ export function StepOrganizer({
               <div className="field full">
                 <label>Suite / unit (optional)</label>
                 <input
+                  data-testid="formation-principal-street2-input"
                   className="input"
                   placeholder="Floor 4"
                   value={org.street2}
@@ -422,6 +431,7 @@ export function StepOrganizer({
                 <div className="field">
                   <label>City</label>
                   <input
+                    data-testid="formation-principal-city-input"
                     className="input"
                     placeholder="Cheyenne"
                     value={org.city}
@@ -431,6 +441,7 @@ export function StepOrganizer({
                 <div className="field">
                   <label>State</label>
                   <input
+                    data-testid="formation-principal-region-input"
                     className="input"
                     placeholder="WY"
                     value={org.region}
@@ -440,6 +451,7 @@ export function StepOrganizer({
                 <div className="field">
                   <label>Postal</label>
                   <input
+                    data-testid="formation-principal-postal-input"
                     className="input mono"
                     placeholder="82001"
                     value={org.postal}
@@ -471,6 +483,7 @@ export function StepOrganizer({
               <div className="field full">
                 <label>Business email</label>
                 <input
+                  data-testid="formation-principal-email-input"
                   className="input"
                   type="email"
                   placeholder="filings@your-dao.xyz"
@@ -480,7 +493,7 @@ export function StepOrganizer({
                 />
                 <div className="field-hint">Statutory notices from Wyoming SOS land here.</div>
               </div>
-              <div className="field full">
+              <div className="field full" data-testid="formation-principal-phone-field">
                 <label>Business phone</label>
                 <PhoneInput
                   value={{ phoneDial: org.phoneDial, phoneIso: org.phoneIso, phoneNum: org.phoneNum }}
@@ -504,6 +517,7 @@ export function StepOrganizer({
             <div className="ef-sameas">
               <button
                 type="button"
+                data-testid="formation-filer-sameas-toggle"
                 className={`ef-sameas-toggle ${filerSame ? "on" : ""}`}
                 onClick={() => setFilerSame(!filerSame)}
                 aria-pressed={filerSame}
@@ -516,6 +530,7 @@ export function StepOrganizer({
                 <div className="field">
                   <label>First name</label>
                   <input
+                    data-testid="formation-filer-first-input"
                     className="input"
                     placeholder="Jane"
                     value={filer.first}
@@ -525,6 +540,7 @@ export function StepOrganizer({
                 <div className="field">
                   <label>Last name</label>
                   <input
+                    data-testid="formation-filer-last-input"
                     className="input"
                     placeholder="Eberhardt"
                     value={filer.last}
@@ -1090,6 +1106,7 @@ export function StepNotice({ activeDao, notice, setNotice, onPrev, onNext }: Not
         </div>
 
         <label
+          data-testid="formation-notice-ack-checkbox"
           className={`ef-checkbox ${notice ? "on" : ""}`}
           onClick={(e) => {
             e.preventDefault();
@@ -1260,6 +1277,7 @@ export function StepDocuments({
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <button
               type="button"
+              data-testid="formation-documents-download-btn"
               className={`btn-${hasDownloaded ? "ghost" : "primary"} btn-sm`}
               style={{ justifyContent: "flex-start", alignSelf: "flex-start" }}
               onClick={doDownload}
@@ -1318,6 +1336,7 @@ export function StepDocuments({
 
         <div className="ef-section">
           <label
+            data-testid="formation-documents-ack-checkbox"
             className={`ef-checkbox ${acked ? "on" : ""}`}
             style={{
               cursor: hasDownloaded ? "pointer" : "not-allowed",
@@ -1399,7 +1418,7 @@ export function StepReview({
           <span className="ef-success-glyph">
             <CheckIcon size={28} stroke={2.5} />
           </span>
-          <h2 className="ef-success-title">Filed.</h2>
+          <h2 data-testid="formation-filed-title" className="ef-success-title">Filed.</h2>
           <p className="ef-success-meta">
             {name} is recognized under Wyoming law as a Decentralized Autonomous
             Organization LLC.
@@ -1688,11 +1707,17 @@ export function StepReview({
         )}
       </div>
       <div className="ef-card-foot">
-        <button type="button" className="btn-ghost btn-sm" onClick={onPrev}>
+        <button
+          type="button"
+          data-testid="formation-review-back-btn"
+          className="btn-ghost btn-sm"
+          onClick={onPrev}
+        >
           Back
         </button>
         <button
           type="button"
+          data-testid="formation-review-file-btn"
           className="btn-primary btn-sm"
           onClick={onFile}
           disabled={!documentsReady}

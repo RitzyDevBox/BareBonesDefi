@@ -109,7 +109,10 @@ function PayrollRow({
   }, [extraColumns, canEdit, isCompactRow]);
 
   return (
-    <>
+    <div
+      data-testid={`staging-row-${payee.paymentAddress.toLowerCase()}`}
+      style={{ display: "contents" }}
+    >
       <div
         className={`bb-stg-row ${tintClass}`}
         role="row"
@@ -186,7 +189,7 @@ function PayrollRow({
           {renderExpandedRow(payee)}
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -296,13 +299,18 @@ export function EditablePayrollTable({
           {!isCompactRow && (
             <>
               <button
+                data-testid="staging-table-expand-all-btn"
                 className="bb-btn-ghost bb-btn-xs"
                 onClick={expandAll}
                 disabled={filteredPayees.length === 0}
               >
                 Expand all
               </button>
-              <button className="bb-btn-ghost bb-btn-xs" onClick={collapseAll}>
+              <button
+                data-testid="staging-table-collapse-all-btn"
+                className="bb-btn-ghost bb-btn-xs"
+                onClick={collapseAll}
+              >
                 Collapse all
               </button>
             </>
@@ -407,6 +415,7 @@ export function EditablePayrollTable({
             }
           >
             <select
+              data-testid="staging-table-add-payee-select"
               className="bb-input"
               value={selectedAddPayeeId || ""}
               onChange={(e) => onSelectedAddPayeeIdChange?.(e.target.value)}
@@ -426,6 +435,7 @@ export function EditablePayrollTable({
             </select>
           </div>
           <button
+            data-testid="staging-table-add-payee-btn"
             className="bb-btn-primary bb-btn-add-payee"
             onClick={onAddPayee}
             disabled={!selectedAddPayeeId || addablePayees.length === 0 || disableAddPayee}
@@ -439,10 +449,20 @@ export function EditablePayrollTable({
 
       {showActionsRow && (
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
-          <button className="bb-btn-ghost" onClick={onClearStaged} disabled={disableClear}>
+          <button
+            data-testid="staging-table-clear-btn"
+            className="bb-btn-ghost"
+            onClick={onClearStaged}
+            disabled={disableClear}
+          >
             Clear
           </button>
-          <button className="bb-btn-primary" onClick={onApplyStaged} disabled={disableApply}>
+          <button
+            data-testid="staging-table-apply-btn"
+            className="bb-btn-primary"
+            onClick={onApplyStaged}
+            disabled={disableApply}
+          >
             {isApplyingStaged ? <span className="bb-spinner bb-sm" /> : null}
             {isApplyingStaged ? "Applying…" : "Apply"}
           </button>

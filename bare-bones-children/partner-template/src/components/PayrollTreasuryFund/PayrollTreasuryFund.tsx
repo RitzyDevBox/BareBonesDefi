@@ -288,6 +288,7 @@ export function PayrollTreasuryFund({
             <Stack>
               <Text.Label>Amount</Text.Label>
               <NumberInput
+                data-testid="treasury-amount-input"
                 value={amount}
                 onChange={(e) => setAmount((e.target as HTMLInputElement).value)}
                 placeholder="0.0"
@@ -296,6 +297,7 @@ export function PayrollTreasuryFund({
 
               <Row gap="sm" wrap>
                 <ButtonPrimary
+                  data-testid="treasury-supply-btn"
                   onClick={handleDepositFunds}
                   disabled={
                     !amount || disabled || !organizationSlug || isDepositing || isWithdrawing
@@ -306,6 +308,7 @@ export function PayrollTreasuryFund({
                   Supply Treasury
                 </ButtonPrimary>
                 <ButtonSecondary
+                  data-testid="treasury-withdraw-btn"
                   onClick={handleWithdrawFunds}
                   disabled={
                     !amount ||

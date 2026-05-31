@@ -97,7 +97,13 @@ export function ProcessPayrollFlowModal({
 
       <Stack gap="xs">
         {processFlowSteps.map((step) => (
-          <Row key={step.key} gap="sm" align="center">
+          <Row
+            key={step.key}
+            gap="sm"
+            align="center"
+            data-testid={`process-flow-step-${step.key}`}
+            data-status={step.done ? "done" : step.active ? "active" : "idle"}
+          >
             <Text.Body
               style={{ width: 20, display: "inline-flex", justifyContent: "center" }}
               color={step.done ? "success" : step.active ? "warn" : "muted"}
@@ -154,10 +160,16 @@ export function ProcessPayrollFlowModal({
       ) : null}
 
       <Row justify="end" gap="sm">
-        <ButtonSecondary style={{ flex: 0 }} onClick={onClose} disabled={isProcessing}>
+        <ButtonSecondary
+          data-testid="process-flow-close-btn"
+          style={{ flex: 0 }}
+          onClick={onClose}
+          disabled={isProcessing}
+        >
           Close
         </ButtonSecondary>
         <ButtonPrimary
+          data-testid="process-flow-continue-btn"
           style={{ flex: 0 }}
           onClick={onContinue}
           disabled={isProcessing || isFinalized || isCancelled || Boolean(treasuryShortfall)}

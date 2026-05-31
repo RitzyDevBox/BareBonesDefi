@@ -657,6 +657,7 @@ export function CurrentPayrollPage() {
                     canEdit={isAdmin && !isViewOnly && currentPayrollId != null}
                     headerActions={
                       <SplitActionDropdown
+                        testIdPrefix="payroll-actions"
                         compact={screenSize === ScreenSize.Phone}
                         label={isPreviewingPayroll ? "Previewing..." : "Preview"}
                         onPrimaryClick={handlePreviewPayroll}

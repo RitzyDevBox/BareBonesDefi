@@ -817,7 +817,10 @@ export function EntityFormation({
               just navigates forward without calling save (each
               `handle*Next` short-circuits when `filed` is true).
             */}
-            <div data-ef-locked={filed ? "true" : undefined}>
+            <div
+              data-testid="formation-wrapper"
+              data-ef-locked={filed ? "true" : undefined}
+            >
             {step === "eligibility" && (
               <StepEligibility
                 activeDao={activeDao}

@@ -166,82 +166,61 @@ test("plain Admin walks through every formation step, reloads → still editable
   await expect(page.getByText(/Eligibility check/i)).toBeVisible({
     timeout: 60_000,
   });
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByTestId("formation-step-next-btn").click();
 
   // ── Step 1 · Basics — fill legal name ─────────────────────────────
   await expect(
     page.getByRole("heading", { name: /Entity basics/i }),
   ).toBeVisible({ timeout: 15_000 });
-  await page
-    .locator(".ef-section", { hasText: "Legal name" })
-    .locator("input.input")
-    .fill(legalName);
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByTestId("formation-legal-name-input").fill(legalName);
+  await page.getByTestId("formation-step-next-btn").click();
 
   // ── Step 2 · Organizer ────────────────────────────────────────────
   await expect(
     page.getByRole("heading", { name: /Organizer/i }),
   ).toBeVisible({ timeout: 15_000 });
-  // Principal office form. The collapsible Mailing section AND the
-  // Agent step share placeholders (City, State, Postal), so scope every
-  // fill to the "Principal office" form section to avoid touching the
-  // wrong inputs.
-  // Both .ef-form blocks contain the words "Principal office" (the
-  // Organizer form has a "Use principal office email & phone" toggle).
-  // First .ef-form in the DOM is the Principal-office one.
-  const principal = page.locator(".ef-form").first();
-  await principal.getByPlaceholder("118 W 23rd St").fill("100 Test Street");
-  await principal.getByPlaceholder("Cheyenne").fill("Cheyenne");
-  await principal.getByPlaceholder("WY").fill("WY");
-  await principal.getByPlaceholder("82001").fill("82001");
-  await principal.getByPlaceholder("filings@your-dao.xyz").fill("filings@test.dao");
-  await principal.getByPlaceholder("555 123 4567").fill("3075550100");
-  // "Use principal office email & phone for the organizer" — there are
-  // two `.ef-sameas-toggle` buttons on this step (filer-same is first,
-  // mailing-same is second and already ON by default).
-  await page.locator(".ef-sameas-toggle").first().click();
-  const organizer = page.locator(".ef-form").nth(1);
-  await organizer.getByPlaceholder("Jane", { exact: true }).fill("Jane");
-  await organizer.getByPlaceholder("Eberhardt").fill("Doe");
+  // Principal office fields — each input is testid-anchored so we don't
+  // need to scope by class/.first() any more.
+  await page.getByTestId("formation-principal-street1-input").fill("100 Test Street");
+  await page.getByTestId("formation-principal-city-input").fill("Cheyenne");
+  await page.getByTestId("formation-principal-region-input").fill("WY");
+  await page.getByTestId("formation-principal-postal-input").fill("82001");
+  await page.getByTestId("formation-principal-email-input").fill("filings@test.dao");
+  // Phone: PhoneInput renders an inner numeric input inside the field
+  // wrapper. Scope to the testid-tagged wrapper and grab the only input.
+  await page
+    .getByTestId("formation-principal-phone-field")
+    .locator("input")
+    .last()
+    .fill("3075550100");
 
-  // DEBUG: read every textbox value on the Organizer screen so a Continue-
-  // disabled state surfaces the actual unfilled field.
-  const orgValues = await page.evaluate(() => {
-    const out: Record<string, string> = {};
-    document.querySelectorAll<HTMLInputElement>(".ef-card-body input").forEach((el) => {
-      const labelEl =
-        el.parentElement?.querySelector("label") ??
-        el.closest(".field")?.querySelector("label");
-      const label = labelEl?.textContent?.trim() ?? el.placeholder;
-      out[label || "?"] = el.value;
-    });
-    return out;
-  });
-  // eslint-disable-next-line no-console
-  console.log("[organizer] field values:", JSON.stringify(orgValues));
+  // "Use principal office email & phone for the organizer" toggle.
+  await page.getByTestId("formation-filer-sameas-toggle").click();
 
-  await page.getByRole("button", { name: "Continue", exact: true }).click({ timeout: 10_000 });
+  // Filer name fields.
+  await page.getByTestId("formation-filer-first-input").fill("Jane");
+  await page.getByTestId("formation-filer-last-input").fill("Doe");
+
+  await page.getByTestId("formation-step-next-btn").click({ timeout: 10_000 });
 
   // ── Step 3 · Agent (defaults: service mode, first agent pre-selected) ──
   await expect(
     page.getByRole("heading", { name: /Registered agent/i }),
   ).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByTestId("formation-step-next-btn").click();
 
   // ── Step 4 · Agreement (defaults: generate + arweave) ────────────
   await expect(
     page.getByRole("heading", { name: /Operating agreement/i }),
   ).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByTestId("formation-step-next-btn").click();
 
   // ── Step 5 · Notice ──────────────────────────────────────────────
   await expect(
     page.getByRole("heading", { name: /Member notice/i }),
   ).toBeVisible({ timeout: 30_000 });
-  await page
-    .getByText(/I have read and understand the above/i)
-    .click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByTestId("formation-notice-ack-checkbox").click();
+  await page.getByTestId("formation-step-next-btn").click();
 
   // ── Step 6 · Documents ───────────────────────────────────────────
   await expect(
@@ -258,36 +237,24 @@ test("plain Admin walks through every formation step, reloads → still editable
       body: "%PDF-1.4\n%%EOF",
     }),
   );
-  await page
-    .getByRole("button", { name: /Download formation documents/i })
-    .click();
-  // Acknowledge the "I've reviewed it" checkbox so Continue unlocks.
-  await page
-    .getByText(/I have downloaded and reviewed/i)
-    .click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByTestId("formation-documents-download-btn").click();
+  await page.getByTestId("formation-documents-ack-checkbox").click();
+  await page.getByTestId("formation-step-next-btn").click();
 
   // ── Step 7 · Review — File with Wyoming ──────────────────────────
-  // documentsReady (hasDownloaded + ack) is React-only state — it lives
-  // in memory until the entity status transitions out of DRAFT. We just
-  // finished both gates on the previous step, so the File button is
-  // enabled here. After a reload it won't be (those React flags reset),
-  // which is why the locked-state check below reloads AFTER filing.
-  const fileBtn = page.getByRole("button", { name: /File with Wyoming/i });
+  const fileBtn = page.getByTestId("formation-review-file-btn");
   await expect(fileBtn).toBeEnabled({ timeout: 30_000 });
   await fileBtn.click();
 
-  // "Filed." h2 only renders when status transitions out of DRAFT —
-  // the success state proves the API submit landed.
-  await expect(page.getByRole("heading", { name: /^Filed\.?$/i })).toBeVisible({
+  await expect(page.getByTestId("formation-filed-title")).toBeVisible({
     timeout: 30_000,
   });
 
   // ── Reload — verify the filed state survives a fresh React tree.
   //    Once status != DRAFT, the hydration effect sets `filed = true`,
   //    which both auto-passes hasDownloaded/acked AND wraps every step
-  //    body in `data-ef-locked="true"`. CSS on that attribute disables
-  //    every form input. ─────────────────────────────────────────────
+  //    body with `data-testid="formation-wrapper"` carrying
+  //    `data-ef-locked="true"`. ─────────────────────────────────────
   await page.reload();
   await page
     .getByRole("button", { name: "Connect", exact: true })
@@ -303,16 +270,15 @@ test("plain Admin walks through every formation step, reloads → still editable
   // Step-nav step number is replaced by a check icon once steps are
   // done (or the entity is filed) — match on the label only.
   await page.getByRole("button", { name: /Entity basics/i }).first().click();
-  const filedNameInput = page
-    .locator(".ef-section", { hasText: "Legal name" })
-    .locator("input.input");
+  const filedNameInput = page.getByTestId("formation-legal-name-input");
   await expect(filedNameInput).toHaveValue(legalName, { timeout: 30_000 });
   // Lock is enforced by CSS keyed off `data-ef-locked="true"` on the
-  // step-content wrapper — the input itself doesn't get a `disabled`
-  // attribute, so Playwright's toBeEditable() would still return true.
-  // Assert the wrapping attribute instead. Also surface the "Filed."
-  // locked-banner copy which only renders on submitted entities.
-  await expect(page.locator('[data-ef-locked="true"]')).toBeVisible();
+  // wrapping div. Assert the wrapper attribute via the testid instead of
+  // a positional / class lookup.
+  await expect(page.getByTestId("formation-wrapper")).toHaveAttribute(
+    "data-ef-locked",
+    "true",
+  );
   await expect(page.getByText(/This formation is locked\./i)).toBeVisible();
 });
 

@@ -106,6 +106,7 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
             <div className="bb-field">
               <label>Token name</label>
               <input
+                data-testid="dao-token-name-input"
                 className="bb-input"
                 type="text"
                 value={factory.name}
@@ -117,6 +118,7 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
             <div className="bb-field">
               <label>Symbol</label>
               <input
+                data-testid="dao-token-symbol-input"
                 className="bb-input bb-mono"
                 type="text"
                 value={factory.symbol}
@@ -150,6 +152,7 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
                 {factory.allocations.map((row, i) => (
                   <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 6 }}>
                     <input
+                      data-testid={`dao-token-allocation-holder-input-${i}`}
                       className="bb-input bb-mono"
                       type="text"
                       value={row.holder}
@@ -157,6 +160,7 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
                       onChange={(e) => updateAllocation(i, { holder: e.target.value })}
                     />
                     <TokenUnitsInput
+                      data-testid={`dao-token-allocation-amount-input-${i}`}
                       className="bb-input bb-mono"
                       value={row.amount}
                       placeholder="Amount (tokens)"
@@ -236,6 +240,7 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
         <div className="bb-field">
           <label>Timelock delay (seconds)</label>
           <input
+            data-testid="dao-governance-timelock-delay-input"
             className="bb-input bb-mono"
             type="text"
             inputMode="numeric"
@@ -247,6 +252,7 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
         <div className="bb-field">
           <label>Quorum (%)</label>
           <input
+            data-testid="dao-governance-quorum-input"
             className="bb-input bb-mono"
             type="text"
             inputMode="numeric"
@@ -258,6 +264,7 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
         <div className="bb-field">
           <label>Voting delay (blocks)</label>
           <input
+            data-testid="dao-governance-voting-delay-input"
             className="bb-input bb-mono"
             type="text"
             inputMode="numeric"
@@ -270,6 +277,7 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
         <div className="bb-field">
           <label>Voting period (blocks)</label>
           <input
+            data-testid="dao-governance-voting-period-input"
             className="bb-input bb-mono"
             type="text"
             inputMode="numeric"
@@ -282,6 +290,7 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
         <div className="bb-field bb-full">
           <label>Proposal threshold (tokens)</label>
           <TokenUnitsInput
+            data-testid="dao-governance-proposal-threshold-input"
             className="bb-input bb-mono"
             value={form.proposalThreshold}
             placeholder="1"

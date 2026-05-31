@@ -79,6 +79,7 @@ function PayeeRowEditor({ initial, onCancel, onSubmit, saving = false, showStatu
     <div className="bb-payees-row-edit" role="row">
       <div className="bb-payees-cell bb-payees-cell-name">
         <input
+          data-testid="payee-row-name-input"
           className="bb-input bb-input-sm"
           placeholder="Payee name"
           value={name}
@@ -89,6 +90,7 @@ function PayeeRowEditor({ initial, onCancel, onSubmit, saving = false, showStatu
       </div>
       <div className="bb-payees-cell">
         <AddressInput
+          data-testid="payee-row-address-input"
           className="bb-input bb-input-sm bb-mono"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
@@ -119,6 +121,7 @@ function PayeeRowEditor({ initial, onCancel, onSubmit, saving = false, showStatu
           Cancel
         </ButtonSecondary>
         <ButtonPrimary
+          data-testid="payee-row-stage-btn"
           size="sm"
           fullWidth={false}
           disabled={!valid || saving}
@@ -564,6 +567,7 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
               Batch onboard
             </button>
             <button
+              data-testid="payees-add-btn"
               className="bb-btn-primary bb-btn-sm"
               onClick={() => setAdding(true)}
               disabled={!editable || onboarding}
@@ -667,6 +671,7 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
                   Discard
                 </ButtonSecondary>
                 <ButtonPrimary
+                  data-testid="payees-submit-btn"
                   size="sm"
                   fullWidth={false}
                   onClick={() => void handleSubmitStaged()}

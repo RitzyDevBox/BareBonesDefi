@@ -385,7 +385,12 @@ export function EditableEarningsPanel({
       })}
 
       {canEdit && !isStagedPayeeRemoval && (
-        <button type="button" className="bb-stg-add-child" onClick={onAdd}>
+        <button
+          type="button"
+          data-testid="staging-row-add-earning-btn"
+          className="bb-stg-add-child"
+          onClick={onAdd}
+        >
           + {addLabel}
         </button>
       )}

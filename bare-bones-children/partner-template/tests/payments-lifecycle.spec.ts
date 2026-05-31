@@ -53,23 +53,20 @@ test("full lifecycle: deploy → onboard payee → attach earnings → start pay
   //    is already an MTA member as SuperAdmin; trying to re-onboard the
   //    same address would revert (`already a member`).
   await page.goto(`/#/payments/${orgSlug}?tab=overview`);
-  await expect(page.getByRole("button", { name: /\+ Add payee/i })).toBeVisible({
+  await expect(page.getByTestId("payees-add-btn")).toBeVisible({
     timeout: 30_000,
   });
-  await page.getByRole("button", { name: /\+ Add payee/i }).click();
-  await page.getByPlaceholder("Payee name").fill("E2E Self");
-  await page
-    .locator(".bb-payees-row-edit")
-    .getByPlaceholder("0x…")
-    .fill(ANVIL_ACCOUNT_1);
+  await page.getByTestId("payees-add-btn").click();
+  await page.getByTestId("payee-row-name-input").fill("E2E Self");
+  await page.getByTestId("payee-row-address-input").fill(ANVIL_ACCOUNT_1);
   // Visible pause: watcher should see the row filled in (name + address)
   // before the Stage click commits it to the pending list.
   await page.waitForTimeout(2_000);
-  await page.getByRole("button", { name: /^Stage$/i }).click();
+  await page.getByTestId("payee-row-stage-btn").click();
   // And another pause so the staged row is visible before the on-chain
   // Submit tx fires.
   await page.waitForTimeout(2_000);
-  await page.getByRole("button", { name: /^Submit \(\d+\)$/ }).click();
+  await page.getByTestId("payees-submit-btn").click();
   await expect(page.getByText(/Onboarded \d+ payee/i)).toBeVisible({
     timeout: 90_000,
   });
@@ -79,81 +76,61 @@ test("full lifecycle: deploy → onboard payee → attach earnings → start pay
   await waitForSubgraphMember(orgSlug, ANVIL_ACCOUNT_1, 90_000);
 
   // 3. Pay Batches tab — stage two payees onto DEFAULT_PAY_BATCH, each with
-  //    a system One-Time-Payment earnings code attached. The flow per payee
-  //    is: pick from dropdown → "Add payee to batch" → expand the new row →
-  //    "+ Add default earning" → pick OTP code + rate → Stage. Then repeat
-  //    for the second payee. The "Add default earning" button only exists
-  //    on a row that doesn't yet have one, so after the first earning is
-  //    staged the only visible button is on whichever row still needs one.
+  //    a system One-Time-Payment earnings code attached.
   await page.goto(`/#/payments/${orgSlug}?tab=batches`);
-  await expect(page.getByText(/Selected batch/i)).toBeVisible({ timeout: 30_000 });
-  const addPayeeSelect = page
-    .locator("select")
-    .filter({ has: page.locator("option", { hasText: /Select a payee to add/i }) });
+  await expect(page.getByTestId("paybatches-selected-batch-select")).toBeVisible({
+    timeout: 30_000,
+  });
+  const addPayeeSelect = page.getByTestId("staging-table-add-payee-select");
 
-  // Helper: attach the system One-Time-Payment earnings code to one of the
-  // staged rows. `which` selects which "+ Add default earning" button to
-  // press: "first" for the row that's currently at the top, "last" for the
-  // most-recently-added row (used when a prior row already has an earning
-  // staged but its button is still in the DOM, so .first() would re-target
-  // the wrong row).
-  const attachOtp = async (which: "first" | "last") => {
-    const allAddBtns = page.getByRole("button", { name: /Add default earning/i });
-    const addBtn = which === "first" ? allAddBtns.first() : allAddBtns.last();
+  // Helper: attach the system One-Time-Payment earnings code to a specific
+  // staged row, identified by the payee's wallet address. Each row gets a
+  // `data-testid="staging-row-<address>"` wrapper, so we can scope the
+  // "+ Add default earning" button to the exact row regardless of order.
+  const attachOtpToRow = async (walletAddress: string) => {
+    const row = page.getByTestId(`staging-row-${walletAddress.toLowerCase()}`);
+    const addBtn = row.getByTestId("staging-row-add-earning-btn");
     await expect(addBtn).toBeVisible({ timeout: 15_000 });
     await addBtn.click();
-    // The staging modal uses the generic <Modal> component which sets
-    // inline styles instead of a class — fall back to the only mono
-    // <select> visible at this point (the earnings-code picker).
-    const codeSelect = page.locator("select.bb-mono").first();
+    const codeSelect = page.getByTestId("earning-stager-code-select");
     await expect(codeSelect).toBeVisible({ timeout: 10_000 });
     // The system OTP code's option label is "SYS_2 · One Time Payment ·
-    // PerPayroll Earnings" — with a SPACE between "One" and "Time", not a
-    // hyphen. Allow either (and PerPayroll / Fixed as fallbacks).
+    // PerPayroll Earnings" — pick the first PerPayroll-flavored option.
     const otpOptionValue = await codeSelect
       .locator("option", { hasText: /One[\s-]?Time|PerPayroll|OTP|Fixed/i })
       .first()
       .getAttribute("value");
     if (!otpOptionValue) throw new Error("No One-Time-Payment system earnings code in dropdown");
     await codeSelect.selectOption(otpOptionValue);
-    const committedValue = await codeSelect.inputValue();
-    if (!committedValue) {
-      throw new Error(`codeSelect didn't commit OTP value (got "${committedValue}")`);
-    }
-    // Rate input — focus, clear, then type so React's onChange fires
-    // for each character (fill() can race state updates on disabled→
-    // enabled transitions tied to the select above).
-    const rateInput = page.getByPlaceholder("e.g. 20");
+
+    const rateInput = page.getByTestId("earning-stager-rate-input");
     await expect(rateInput).toBeVisible({ timeout: 10_000 });
     await rateInput.click();
     await rateInput.fill("");
     await rateInput.type("100", { delay: 50 });
     await page.waitForTimeout(1_000);
-    await page.getByRole("button", { name: /^Stage$/i }).click();
+    await page.getByTestId("earning-stager-stage-btn").click();
     await expect(rateInput).toBeHidden({ timeout: 10_000 });
   };
 
   // First payee: pick whoever's first in the dropdown, stage them onto the
-  // batch, expand the row, attach OTP earning to the (only) row.
+  // batch, expand the row, attach OTP earning.
   await addPayeeSelect.selectOption({ index: 1 });
-  await page.getByRole("button", { name: /Add payee to batch/i }).click();
-  await page.getByRole("button", { name: "Expand all", exact: true }).click();
+  await page.getByTestId("staging-table-add-payee-btn").click();
+  await page.getByTestId("staging-table-expand-all-btn").click();
   await page.waitForTimeout(1_000);
-  await attachOtp("first");
+  await attachOtpToRow(ANVIL_ACCOUNT_0);
 
   // Second payee: pick the next remaining option, stage them too, expand,
-  // attach earning. Both rows now have an "Add default earning" button (a
-  // staged earning doesn't remove the button — you can stack earnings on a
-  // single row). So target the LAST button, which belongs to the just-added
-  // row that still has no earning attached.
+  // attach earning to the freshly-added row.
   await addPayeeSelect.selectOption({ index: 1 });
-  await page.getByRole("button", { name: /Add payee to batch/i }).click();
-  await page.getByRole("button", { name: "Expand all", exact: true }).click();
+  await page.getByTestId("staging-table-add-payee-btn").click();
+  await page.getByTestId("staging-table-expand-all-btn").click();
   await page.waitForTimeout(1_000);
-  await attachOtp("last");
+  await attachOtpToRow(ANVIL_ACCOUNT_1);
 
-  // Wait for modal close + section Apply to be visible+enabled.
-  const sectionApply = page.locator(".bb-btn-primary").filter({ hasText: /^Apply$/ });
+  // Apply the staged changes (configurePayBatch tx).
+  const sectionApply = page.getByTestId("staging-table-apply-btn");
   await expect(sectionApply).toBeVisible({ timeout: 15_000 });
   await expect(sectionApply).toBeEnabled({ timeout: 15_000 });
   await sectionApply.click();
@@ -163,62 +140,66 @@ test("full lifecycle: deploy → onboard payee → attach earnings → start pay
 
   // 4. Payrolls tab — start a payroll against the populated DEFAULT_PAY_BATCH.
   await page.goto(`/#/payments/${orgSlug}?tab=payrolls`);
-  await expect(
-    page.getByRole("heading", { name: /Start a new payroll/i }),
-  ).toBeVisible({ timeout: 30_000 });
-  const startPayroll = page.getByRole("button", { name: /^Start payroll$/i });
+  const startPayroll = page.getByTestId("payrolls-start-payroll-btn");
+  await expect(startPayroll).toBeVisible({ timeout: 30_000 });
   await expect(startPayroll).toBeEnabled({ timeout: 30_000 });
   await startPayroll.click();
   await expect(page.getByText(/Created payroll/i)).toBeVisible({
     timeout: 60_000,
   });
 
-  // 5. Navigate into the new payroll's detail page.
-  const openCard = page.getByRole("button", { name: /Payroll #\d+/ }).first();
+  // 5. Navigate into the new payroll's detail page. Each Payroll #N card is
+  //    `data-testid="payrolls-open-card-<id>"`; we don't know the id, so grab
+  //    the first card matching the prefix.
+  const openCard = page.locator('[data-testid^="payrolls-open-card-"]').first();
   await expect(openCard).toBeVisible({ timeout: 30_000 });
   await openCard.click();
 
-  // 6. Fund the treasury via PayrollTreasuryFund. The card has a single
-  //    NumberInput (placeholder "0.0") for the amount and a "Supply Treasury"
-  //    primary button. The placeholder is unique on this page so we can
-  //    target it directly. The button is disabled until the input has a
-  //    parseable amount — fill first, then click.
-  const supplyBtn = page.getByRole("button", { name: /^Supply Treasury$/i });
+  // 6. Fund the treasury via PayrollTreasuryFund.
+  const supplyBtn = page.getByTestId("treasury-supply-btn");
   await expect(supplyBtn).toBeVisible({ timeout: 30_000 });
-  await page.getByPlaceholder("0.0").fill("1000");
+  await page.getByTestId("treasury-amount-input").fill("1000");
   await expect(supplyBtn).toBeEnabled({ timeout: 10_000 });
   await supplyBtn.click();
   await expect(page.getByText(/Deposited/i)).toBeVisible({ timeout: 90_000 });
 
   // 7. Open the Process flow modal and run Process + Finalize. The Process
-  //    action lives inside a SplitActionDropdown whose primary button is
-  //    "Preview"; the dropdown trigger has aria-label="Open actions" and the
-  //    menu contains a "Process" item.
-  await page
-    .getByRole("button", { name: /Open actions/i })
-    .first()
-    .click();
-  const processItem = page.getByRole("button", { name: /^Process$/i });
+  //    action lives inside a SplitActionDropdown wired with
+  //    `testIdPrefix="payroll-actions"`.
+  await page.getByTestId("payroll-actions-trigger").click();
+  const processItem = page.getByTestId("payroll-actions-item-process");
   await expect(processItem).toBeEnabled({ timeout: 15_000 });
   await processItem.click();
-  await expect(page.getByText(/Process payroll chunks/i)).toBeVisible({
-    timeout: 30_000,
-  });
-  await page.getByRole("button", { name: /Continue/i }).click();
-  await expect(page.getByText(/Finalize payroll chunks/i)).toBeVisible({
-    timeout: 90_000,
-  });
-  await page.getByRole("button", { name: /Continue/i }).click();
 
-  // 8. Final state — the flow modal shows the finalize step done. Match the
-  //    "is already finalized" success banner instead of the step label, since
-  //    the step label is in the DOM from the moment the modal opens (just
-  //    rendered muted) and would pass even before finalize ran. The success
-  //    banner only appears after `isFinalized === true`, so it's the real
-  //    proof the on-chain finalize tx mined and the UI re-read the status.
-  await expect(page.getByText(/already finalized/i)).toBeVisible({
-    timeout: 90_000,
+  // Wait for the Process step to become active (the Process row carries
+  // data-status="active"|"done"). Then click Continue and wait for the
+  // Process step to be done (covers both the in-flight processing tx and the
+  // delay between processing and the indexer updating payroll status).
+  const processStep = page.getByTestId("process-flow-step-process");
+  await expect(processStep).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId("process-flow-continue-btn").click();
+  await expect(processStep).toHaveAttribute("data-status", "done", {
+    timeout: 120_000,
   });
+
+  // Now finalize. Wait for the Continue button to be enabled (it goes
+  // disabled while the previous tx is in-flight), then click and wait for
+  // the finalize step to be done.
+  const continueBtn = page.getByTestId("process-flow-continue-btn");
+  await expect(continueBtn).toBeEnabled({ timeout: 60_000 });
+  await continueBtn.click();
+  await expect(page.getByTestId("process-flow-step-finalize")).toHaveAttribute(
+    "data-status",
+    "done",
+    { timeout: 120_000 },
+  );
+
+  // 8. Final state — the "Payroll finalized" step row reaches data-status=done.
+  await expect(page.getByTestId("process-flow-step-complete")).toHaveAttribute(
+    "data-status",
+    "done",
+    { timeout: 90_000 },
+  );
 });
 
 test.afterEach(async ({ page }, testInfo) => {

@@ -29,47 +29,37 @@ test("create a pay batch, then start an empty payroll", async ({ page }) => {
   await page.goto(`/#/payments/${orgSlug}?tab=batches`);
 
   // A freshly-launched org comes with the DEFAULT_PAY_BATCH already in the
-  // selector (auto-registered by PayrollManager on org create). The header
-  // for the page renders the "Selected batch" label — wait on that as a
-  // signal the batch view has loaded.
-  await expect(page.getByText(/Selected batch/i)).toBeVisible({ timeout: 30_000 });
+  // selector (auto-registered by PayrollManager on org create). Wait on
+  // the batch-select testid as the signal the batch view mounted.
+  await expect(page.getByTestId("paybatches-selected-batch-select")).toBeVisible({
+    timeout: 30_000,
+  });
 
   // 3. Create a batch.
-  const batchInput = page.getByPlaceholder(/New pay batch name/i);
+  const batchInput = page.getByTestId("paybatches-new-batch-name-input");
   await expect(batchInput).toBeVisible();
   await batchInput.fill(batchName);
-  await page.getByRole("button", { name: /Create batch/ }).click();
+  await page.getByTestId("paybatches-create-batch-btn").click();
 
   // 4. handleCreatePayBatch sets the selected-batch code to the new batch
   // before re-fetching the list, so the new batch label lands in the
-  // "Selected" meta cell. Either that cell or a refreshed dropdown will
-  // contain a visible "weekly" — assert on the first visible occurrence.
-  // (The <select>'s option list refreshes on a separate eth_call that can
-  // lag the selectedBatchCode write — don't pin assertion to a specific DOM
-  // path.)
+  // "Selected" meta cell. The dropdown lags on a separate eth_call — assert
+  // on the first visible occurrence of the label as a smoke check.
   await expect(
     page.getByText(batchName, { exact: true }).first(),
   ).toBeVisible({ timeout: 30_000 });
 
-  // 5. The "Batch default earnings" panel header is rendered per-payee row
-  // by EditableEarningsPanel, so a fresh org with no payees won't show it
-  // yet — what DOES show is the section-level "Add payee to batch" affordance.
-  // Asserting on that is the right signal that the staging section mounted.
-  await expect(
-    page.getByRole("button", { name: /Add payee to batch/i }),
-  ).toBeVisible({ timeout: 30_000 });
+  // 5. The staging section's "Add payee to batch" affordance shows once
+  // mounted — use it as a "batches view is interactive" signal.
+  await expect(page.getByTestId("staging-table-add-payee-btn")).toBeVisible({
+    timeout: 30_000,
+  });
 
   // 6. Switch to Payrolls tab and start a new payroll against the default
-  // pay-batch template (auto-selected by the CreateCard). "Start payroll"
-  // routes through PayrollManager.createPayroll with a real batch code;
-  // "Create empty" passes HashZero which is rejected by some authorizer
-  // configurations, so the batch-backed path is more reliably testable.
+  // pay-batch template (auto-selected by the CreateCard).
   await page.goto(`/#/payments/${orgSlug}?tab=payrolls`);
-  await expect(
-    page.getByRole("heading", { name: /Start a new payroll/i }),
-  ).toBeVisible({ timeout: 30_000 });
-
-  const startPayroll = page.getByRole("button", { name: /^Start payroll$/i });
+  const startPayroll = page.getByTestId("payrolls-start-payroll-btn");
+  await expect(startPayroll).toBeVisible({ timeout: 30_000 });
   await expect(startPayroll).toBeEnabled({ timeout: 30_000 });
   await startPayroll.click();
 

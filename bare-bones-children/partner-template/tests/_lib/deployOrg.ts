@@ -47,60 +47,36 @@ export async function deployOrgAndDao(
   await page.getByTestId("dao-modal-continue").click();
 
   // Step 2 · Governance (factory token defaults need name/symbol/amount).
-  // `ACME Equity` and `ACME` both match a plain ACME substring search, so
-  // use exact match for the symbol input.
-  await page.getByPlaceholder("ACME Equity").fill(`${orgSlug} Token`);
-  await page.getByPlaceholder("ACME", { exact: true }).fill("TST");
-  // The Amount input is a TokenUnitsInput — its DOM input still carries
-  // the visible placeholder, so we can target it the same way.
-  await page.getByPlaceholder("Amount (tokens)").fill("1000000");
-
-  // Governance inputs in CreateDaoModal/StepGovernance.tsx are <label> +
-  // <input> siblings inside `.bb-field` — no htmlFor / id wiring, so
-  // `getByLabel` doesn't resolve. Use an xpath that hops from the visible
-  // label text to the next sibling input.
-  const fieldInput = (labelText: string) =>
-    page
-      .getByText(labelText, { exact: true })
-      .locator("xpath=./following-sibling::input[1]");
+  await page.getByTestId("dao-token-name-input").fill(`${orgSlug} Token`);
+  await page.getByTestId("dao-token-symbol-input").fill("TST");
+  // The pre-seeded allocation row is index 0; fill its amount field.
+  await page.getByTestId("dao-token-allocation-amount-input-0").fill("1000000");
 
   if (overrides.votingPeriodBlocks != null) {
-    await fieldInput("Voting period (blocks)").fill(
-      String(overrides.votingPeriodBlocks),
-    );
+    await page
+      .getByTestId("dao-governance-voting-period-input")
+      .fill(String(overrides.votingPeriodBlocks));
   }
   if (overrides.votingDelayBlocks != null) {
-    await fieldInput("Voting delay (blocks)").fill(
-      String(overrides.votingDelayBlocks),
-    );
+    await page
+      .getByTestId("dao-governance-voting-delay-input")
+      .fill(String(overrides.votingDelayBlocks));
   }
   if (overrides.timelockDelaySeconds != null) {
-    await fieldInput("Timelock delay (seconds)").fill(
-      String(overrides.timelockDelaySeconds),
-    );
+    await page
+      .getByTestId("dao-governance-timelock-delay-input")
+      .fill(String(overrides.timelockDelaySeconds));
   }
 
   await page.getByTestId("dao-modal-continue").click();
 
-  // Step 3 · Roles. Cancellers default to the connected account.
+  // Step 3 · Roles. SuperAdmin fields are now testid-anchored.
   if (overrides.superAdmin) {
-    // Two inputs share the "defaults to timelock" copy — a "Display name"
-    // text input (no bb-mono) and the address input (bb-mono). MTA's
-    // bootstrap requires BOTH a name slug and an address, so fill both.
-    const nameInput = page
-      .locator("input.bb-input:not(.bb-mono)")
-      .filter({
-        has: page.locator(`xpath=self::input[contains(@placeholder, "Display name")]`),
-      })
-      .first();
+    const nameInput = page.getByTestId("dao-super-admin-name-input");
+    const adminInput = page.getByTestId("dao-super-admin-address-input");
     await nameInput.fill("E2E_Admin");
-
-    const adminInput = page
-      .locator("input.bb-mono[placeholder*='defaults to timelock' i]")
-      .first();
     await adminInput.fill(overrides.superAdmin);
 
-    // Verify both stuck before clicking deploy.
     const filledName = await nameInput.inputValue();
     const filledAddr = await adminInput.inputValue();
     if (filledAddr.trim().toLowerCase() !== overrides.superAdmin.toLowerCase()) {
@@ -115,19 +91,17 @@ export async function deployOrgAndDao(
     }
   }
 
-  // Initial admins via AdminListField. The same step also renders a
-  // Cancellers AddressListField that uses the SAME `.bb-addr-list-row`
-  // class — scope to the "Initial admins" .bb-addr-list block first,
-  // otherwise we'd be filling cancellers rows.
+  // Initial admins via AdminListField. Each row's name/address is testid-keyed
+  // by index, so we just click "+ Add admin" N times and fill in by index.
   if (overrides.admins && overrides.admins.length > 0) {
-    const adminBlock = page
-      .locator(".bb-addr-list")
-      .filter({ hasText: "Initial admins" });
     for (let i = 0; i < overrides.admins.length; i++) {
-      await adminBlock.getByRole("button", { name: "+ Add admin" }).click();
-      const row = adminBlock.locator(".bb-addr-list-row").nth(i);
-      await row.locator("input.bb-input:not(.bb-mono)").fill(overrides.admins[i].name);
-      await row.locator("input.bb-mono").fill(overrides.admins[i].wallet);
+      await page.getByTestId("dao-admin-list-add-btn").click();
+      await page
+        .getByTestId(`dao-admin-row-${i}-name-input`)
+        .fill(overrides.admins[i].name);
+      await page
+        .getByTestId(`dao-admin-row-${i}-address-input`)
+        .fill(overrides.admins[i].wallet);
     }
   }
 

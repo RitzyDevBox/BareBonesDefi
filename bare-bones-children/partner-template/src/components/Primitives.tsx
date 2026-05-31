@@ -46,6 +46,7 @@ export function Row({
   justify = "start",
   wrap = false,
   style,
+  ...rest
 }: {
   children: React.ReactNode;
   gap?: "xs" | "sm" | "md" | "lg" | "xl";
@@ -53,9 +54,10 @@ export function Row({
   justify?: "start" | "center" | "end" | "between";
   wrap?: boolean;
   style?: React.CSSProperties;
-}) {
+} & Omit<React.HTMLAttributes<HTMLDivElement>, "style" | "children">) {
   return (
     <div
+      {...rest}
       style={{
         display: "flex",
         alignItems:

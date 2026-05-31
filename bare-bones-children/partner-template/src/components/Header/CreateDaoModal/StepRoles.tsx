@@ -46,6 +46,7 @@ export function StepRoles({ form, onChange }: StepRolesProps) {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 2fr)", gap: 8 }}>
           <input
+            data-testid="dao-super-admin-name-input"
             className="bb-input"
             value={form.authSuperAdminName}
             onChange={(e) => onChange({ authSuperAdminName: e.target.value })}
@@ -53,6 +54,7 @@ export function StepRoles({ form, onChange }: StepRolesProps) {
             maxLength={31}
           />
           <input
+            data-testid="dao-super-admin-address-input"
             className="bb-input bb-mono"
             value={form.authSuperAdmin}
             onChange={(e) => onChange({ authSuperAdmin: e.target.value })}

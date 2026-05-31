@@ -550,6 +550,7 @@ export function PayrollEarningsStagingSection({
         <div className="bb-field bb-full">
           <label>Earnings Code</label>
           <select
+            data-testid="earning-stager-code-select"
             className="bb-input bb-mono"
             value={modalCodeId}
             onChange={(e) => setModalCodeId(e.target.value)}
@@ -604,6 +605,7 @@ export function PayrollEarningsStagingSection({
         <div className="bb-field">
           <label>Rate</label>
           <input
+            data-testid="earning-stager-rate-input"
             className="bb-input bb-mono"
             value={modalRate}
             onChange={(e) => setModalRate(e.target.value)}
@@ -714,11 +716,16 @@ export function PayrollEarningsStagingSection({
       </div>
 
       <Row justify="end" gap="sm" style={{ marginTop: 4 }}>
-        <ButtonSecondary style={{ flex: 0, minWidth: 120 }} onClick={closeEarningsModal}>
+        <ButtonSecondary
+          data-testid="earning-stager-close-btn"
+          style={{ flex: 0, minWidth: 120 }}
+          onClick={closeEarningsModal}
+        >
           Close
         </ButtonSecondary>
         {canEdit && (
           <ButtonPrimary
+            data-testid="earning-stager-stage-btn"
             style={{ flex: 0, minWidth: 120 }}
             onClick={handleSubmitEarning}
             disabled={
