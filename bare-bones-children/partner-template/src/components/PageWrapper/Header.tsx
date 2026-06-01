@@ -205,7 +205,7 @@ function FullHeader({
           {/* Brand */}
           <button style={brandStyle} onClick={() => navigate("/")} aria-label={`${APP_NAME} home`}>
 
-            <BareBonesLogo size={20} />
+            <BareBonesLogo size={40} />
             <span>{APP_NAME}</span>
           </button>
 
@@ -290,7 +290,7 @@ function MobileHeader({
         <div style={innerStyle}>
           {/* Brand — icon only on mobile, doubles as "home" affordance */}
           <button style={brandStyle} onClick={() => navigate("/")} aria-label={`${APP_NAME} home`}>
-            <BareBonesLogo size={20} />
+            <BareBonesLogo size={36} />
           </button>
 
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>

@@ -14,8 +14,8 @@ const SHAFT_BOTTOM_Y = 67;
 const BONE_COLOR   = "#ECEBE6";
 const BONE_STROKE  = "#B9B7AF";
 
-const PAW_COLOR    = "#4C5D73";
-const FINGER_COLOR = "#2F3A4A";
+const PAW_COLOR    = "#00B6E6"; // theme primary (oklch 0.72 0.14 225)
+const FINGER_COLOR = "#00769C"; // deeper shade of theme primary (oklch 0.52 0.12 225)
 
 /* ================= FRACTURE ================= */
 
