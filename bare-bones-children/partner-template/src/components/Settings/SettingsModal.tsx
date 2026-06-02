@@ -9,6 +9,7 @@ import { ButtonBase } from "../Button/ButtonBase";
 import { IconButton } from "../Button/IconButton";
 import { IS_DEMO_ENV, showStagingIntro } from "../Staging/StagingIntroModal";
 import { PrivacyPolicyModal } from "./PrivacyPolicyModal";
+import { useSettings, SettingsKey } from "../../hooks/useSettings";
 
 interface ToggleSwitchProps {
   on: boolean;
@@ -55,6 +56,23 @@ interface SettingsRowProps {
   title: string;
   subtitle?: string;
   right: React.ReactNode;
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontSize: 11,
+        fontWeight: 600,
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        color: "var(--colors-text-muted)",
+        padding: "16px 0 2px",
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 function SettingsRow({ title, subtitle, right }: SettingsRowProps) {
@@ -137,6 +155,7 @@ function SettingsBody({
   // modal. The policy modal portals to body and uses a higher z-index, so
   // it stacks over settings cleanly.
   const [policyOpen, setPolicyOpen] = useState(false);
+  const { settings, toggle } = useSettings();
   return (
     <Stack gap="none">
       <SettingsRow
@@ -148,6 +167,37 @@ function SettingsBody({
         title="Show Testnets"
         subtitle="Display testnet networks in the chain selector"
         right={<ToggleSwitch on={showTestnets} onChange={onToggleTestnets} />}
+      />
+      <SectionLabel>Features</SectionLabel>
+      <SettingsRow
+        title="Wallet"
+        subtitle="Show the smart-account Wallet tab and its pages"
+        right={
+          <ToggleSwitch
+            on={settings[SettingsKey.BasicWallet]}
+            onChange={() => toggle(SettingsKey.BasicWallet)}
+          />
+        }
+      />
+      <SettingsRow
+        title="Payments"
+        subtitle="Show the Payments &amp; payroll tab and its pages"
+        right={
+          <ToggleSwitch
+            on={settings[SettingsKey.Payments]}
+            onChange={() => toggle(SettingsKey.Payments)}
+          />
+        }
+      />
+      <SettingsRow
+        title="Vaults"
+        subtitle="Show the Vaults tab and its pages"
+        right={
+          <ToggleSwitch
+            on={settings[SettingsKey.Vaults]}
+            onChange={() => toggle(SettingsKey.Vaults)}
+          />
+        }
       />
       {IS_DEMO_ENV && (
         <SettingsRow

@@ -90,6 +90,43 @@ Maps currently filtered: `CHAIN_INFO_MAP`, `NATIVE_TOKENS_BY_CHAIN`, `CHAIN_SVR_
 
 ## Changelog
 
+### 2026-06-01 — Wallet / Vaults / Payments become user-toggleable from Settings
+
+Started as "hide the Payments tab behind a flag" (same launch-surface posture as
+`basicWallet`/`vaults`), then the ask widened: the user wants **Wallet, Vaults,
+and Payments toggleable at runtime from the Settings modal on every build** —
+flip one on and its full feature (nav tab **and** all its routes) lights up.
+
+Implementation — promote those three from build-time `FEATURE_FLAGS` gates to
+runtime, localStorage-persisted settings, reusing the existing `useSettings`
+store rather than introducing new state machinery:
+- Added `BasicWallet` / `Vaults` / `Payments` keys to `SettingsKey`
+  ([src/hooks/useSettings.ts](src/hooks/useSettings.ts)). Their **defaults** read
+  from `FEATURE_FLAGS` ([src/constants/featureFlags.ts](src/constants/featureFlags.ts)),
+  so a build still seeds the first-load state; the user override wins after that.
+- `useNavItems()` ([src/components/PageWrapper/navConfig.ts](src/components/PageWrapper/navConfig.ts))
+  is now a real hook again (was a static-list shim) — it reads `useSettings()` so
+  the navbar re-renders the instant a flag flips. The other gates (Organizations,
+  Formation, Browser) stay build-time `FEATURE_FLAGS`.
+- The router is built once at module load, so these routes can't be conditionally
+  included like the build-time ones. Instead they're **always registered** and
+  wrapped in `<FeatureRoute flag={…}>` ([src/Router.tsx](src/Router.tsx)), which
+  redirects to home when the flag is off — this is what keeps a hidden feature
+  unreachable by direct URL, not just absent from the nav.
+- Three toggles added under a "Features" section in the Settings modal
+  ([src/components/Settings/SettingsModal.tsx](src/components/Settings/SettingsModal.tsx)).
+
+Decisions:
+- **Public on all builds, including `live`.** The user explicitly chose this over
+  a dev-only / non-production-only section. Consequence to keep in mind: any
+  production visitor can un-hide Wallet/Vaults/Payments before those areas are
+  launch-ready. If that becomes a problem, the narrowing point is `FeatureRoute`
+  + the Settings section's render condition, not the flags themselves.
+- **Only these three.** Organizations / Formation / Browser stay code-only —
+  the user scoped the toggles to "wallets, payments, vaults, that's it."
+- **Reused `useSettings`, no new dep/store.** Module-level `useSyncExternalStore`
+  already cross-syncs every consumer (navbar, router guard, modal) on toggle.
+
 ### 2026-05-31 — gate `CHAIN_SVR_SUBGRAPH_URL` by `VISIBLE_CHAIN_IDS`
 
 Staging bundle was leaking the local subgraph URL (`http://127.0.0.1:8000/subgraphs/name/secure-value-reserve-local`). Users with MetaMask left on local anvil (chain 31337) from a dev tab triggered the local branch of the subgraph lookup on `bear-bones.xyz`, causing Chrome to show the Private Network Access permission banner from a public origin.

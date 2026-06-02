@@ -1,19 +1,33 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { DEPLOYMENT_CONFIG } from "../config/deployment";
+import { FEATURE_FLAGS } from "../constants/featureFlags";
 
 const SETTINGS_KEY = "app-settings";
 
 /** Top-level boolean settings the user can toggle from the Settings UI. */
 export enum SettingsKey {
   ShowTestnets = "showTestnets",
+  // Feature toggles — each surfaces a whole product area (its nav tab + all of
+  // its routes) in the UI. Persisted per-browser like every other setting; the
+  // default comes from the build-time FEATURE_FLAGS so a build can ship a
+  // feature pre-enabled while the user can still flip it locally.
+  BasicWallet = "basicWallet",
+  Vaults = "vaults",
+  Payments = "payments",
 }
 
 interface Settings {
   [SettingsKey.ShowTestnets]: boolean;
+  [SettingsKey.BasicWallet]: boolean;
+  [SettingsKey.Vaults]: boolean;
+  [SettingsKey.Payments]: boolean;
 }
 
 const defaults: Settings = {
   [SettingsKey.ShowTestnets]: DEPLOYMENT_CONFIG.showTestnetsByDefault,
+  [SettingsKey.BasicWallet]: FEATURE_FLAGS.basicWallet,
+  [SettingsKey.Vaults]: FEATURE_FLAGS.vaults,
+  [SettingsKey.Payments]: FEATURE_FLAGS.payments,
 };
 
 function load(): Settings {
