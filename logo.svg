@@ -35,11 +35,11 @@
     cx="64"
     cy="52"
     r="13.5"
-    fill="#4C5D73"
+    fill="#00B6E6"
   />
 
   <!-- FINGERS -->
-  <circle cx="47" cy="34" r="7.5" fill="#2F3A4A" />
-  <circle cx="64" cy="29" r="7.5" fill="#2F3A4A" />
-  <circle cx="81" cy="34" r="7.5" fill="#2F3A4A" />
+  <circle cx="47" cy="34" r="7.5" fill="#00769C" />
+  <circle cx="64" cy="29" r="7.5" fill="#00769C" />
+  <circle cx="81" cy="34" r="7.5" fill="#00769C" />
 </svg>
