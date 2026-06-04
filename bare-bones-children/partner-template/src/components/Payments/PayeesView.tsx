@@ -257,7 +257,12 @@ function BatchOnboardSheet({ onClose, onSubmit, submitting }: BatchSheetProps) {
   );
 }
 
+// onPayeesChanged is currently unused: the imperative refresh became redundant
+// once PaymentPage subscribed to TxRefresh.version (see the edit-submit handler
+// comment below). Kept on the signature — we may reinstate the imperative
+// refresh — and void-referenced so noUnusedParameters stays satisfied.
 export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesChanged }: PayeesViewProps) {
+  void onPayeesChanged; // kept intentionally; see note above
   const { chainId } = useWalletProvider();
   const config = useMemo(() => (chainId ? getBareBonesConfiguration(chainId) : null), [chainId]);
   const mtaAddress = config?.multiTenantAuthAddress;

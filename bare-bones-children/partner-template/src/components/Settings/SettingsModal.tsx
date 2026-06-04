@@ -10,6 +10,7 @@ import { IconButton } from "../Button/IconButton";
 import { IS_DEMO_ENV, showStagingIntro } from "../Staging/StagingIntroModal";
 import { PrivacyPolicyModal } from "./PrivacyPolicyModal";
 import { useSettings, SettingsKey } from "../../hooks/useSettings";
+import { FEATURE_FLAGS } from "../../constants/featureFlags";
 
 interface ToggleSwitchProps {
   on: boolean;
@@ -168,37 +169,41 @@ function SettingsBody({
         subtitle="Display testnet networks in the chain selector"
         right={<ToggleSwitch on={showTestnets} onChange={onToggleTestnets} />}
       />
-      <SectionLabel>Features</SectionLabel>
-      <SettingsRow
-        title="Wallet"
-        subtitle="Show the smart-account Wallet tab and its pages"
-        right={
-          <ToggleSwitch
-            on={settings[SettingsKey.BasicWallet]}
-            onChange={() => toggle(SettingsKey.BasicWallet)}
+      {FEATURE_FLAGS.showFeatureToggles && (
+        <>
+          <SectionLabel>Features</SectionLabel>
+          <SettingsRow
+            title="Wallet"
+            subtitle="Show the smart-account Wallet tab and its pages"
+            right={
+              <ToggleSwitch
+                on={settings[SettingsKey.BasicWallet]}
+                onChange={() => toggle(SettingsKey.BasicWallet)}
+              />
+            }
           />
-        }
-      />
-      <SettingsRow
-        title="Payments"
-        subtitle="Show the Payments &amp; payroll tab and its pages"
-        right={
-          <ToggleSwitch
-            on={settings[SettingsKey.Payments]}
-            onChange={() => toggle(SettingsKey.Payments)}
+          <SettingsRow
+            title="Payments"
+            subtitle="Show the Payments &amp; payroll tab and its pages"
+            right={
+              <ToggleSwitch
+                on={settings[SettingsKey.Payments]}
+                onChange={() => toggle(SettingsKey.Payments)}
+              />
+            }
           />
-        }
-      />
-      <SettingsRow
-        title="Vaults"
-        subtitle="Show the Vaults tab and its pages"
-        right={
-          <ToggleSwitch
-            on={settings[SettingsKey.Vaults]}
-            onChange={() => toggle(SettingsKey.Vaults)}
+          <SettingsRow
+            title="Vaults"
+            subtitle="Show the Vaults tab and its pages"
+            right={
+              <ToggleSwitch
+                on={settings[SettingsKey.Vaults]}
+                onChange={() => toggle(SettingsKey.Vaults)}
+              />
+            }
           />
-        }
-      />
+        </>
+      )}
       {IS_DEMO_ENV && (
         <SettingsRow
           title="Demo intro"

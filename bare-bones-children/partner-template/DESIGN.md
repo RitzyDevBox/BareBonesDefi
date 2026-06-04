@@ -90,6 +90,21 @@ Maps currently filtered: `CHAIN_INFO_MAP`, `NATIVE_TOKENS_BY_CHAIN`, `CHAIN_SVR_
 
 ## Changelog
 
+### 2026-06-04 — hide the Settings "Features" toggles on deployed builds
+**Reverses the "public on all builds" decision below.** For the pre-launch
+staging deploy, the Settings → "Features" section (Wallet / Payments / Vaults
+toggles) is now hidden on every non-local build via
+`FEATURE_FLAGS.showFeatureToggles` (`=== DeploymentTarget.Local`), gated in
+[SettingsModal.tsx](src/components/Settings/SettingsModal.tsx). Why: a visitor
+to staging/live could otherwise self-enable those unfinished tabs; the user
+wants them off and unreachable until launch. This uses exactly the narrowing
+point the 2026-06-01 entry anticipated ("the Settings section's render
+condition"). The features stay off-by-default, so `<FeatureRoute>` already
+blocks direct-URL access — hiding the toggle is what removes the only way to
+flip them on. The visible nav tabs (Home, DAOs, Formation) are untouched; this
+change suppresses only the in-Settings toggles. Local dev (and the demo
+recordings) keep the toggles for parity.
+
 ### 2026-06-01 — Wallet / Vaults / Payments become user-toggleable from Settings
 
 Started as "hide the Payments tab behind a flag" (same launch-surface posture as

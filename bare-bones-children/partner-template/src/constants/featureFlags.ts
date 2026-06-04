@@ -21,4 +21,9 @@ export const FEATURE_FLAGS = {
   // On staging we want a single-chain UX — only the staging Anvil shows up,
   // no real-money chains. Local dev keeps everything for parity testing.
   stagingOnlyChains: DEPLOYMENT_TARGET === DeploymentTarget.Staging,
+  // The Settings "Features" toggles (Wallet / Payments / Vaults) let a user
+  // self-enable pre-launch tabs. Deployed builds shouldn't expose those
+  // toggles yet — show the section only on local dev so the features stay off
+  // (and unreachable) on staging/live until they're ready to launch.
+  showFeatureToggles: DEPLOYMENT_TARGET === DeploymentTarget.Local,
 } as const;
