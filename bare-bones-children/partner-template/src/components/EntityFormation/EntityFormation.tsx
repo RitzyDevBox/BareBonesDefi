@@ -120,11 +120,16 @@ export function EntityFormation({
   const stepParam = params.get("step");
   const step: StepId = isStepId(stepParam) ? stepParam : "eligibility";
 
+  // Ref to the wizard card column. On step change we keep the card in view
+  // instead of yanking the page to the top (which re-revealed the hero on
+  // every Continue). `block: "nearest"` only scrolls if the card top has
+  // drifted out of the viewport, so a focused card stays put.
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const goStep = (id: StepId) => {
     const next = new URLSearchParams(params);
     next.set("step", id);
     setParams(next, { replace: true });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    cardRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
 
   const stepIdx = EF_STEPS.findIndex((s) => s.id === step);
@@ -796,7 +801,7 @@ export function EntityFormation({
             )}
           </nav>
 
-          <div>
+          <div ref={cardRef}>
             {filed && (
               <div className="ef-locked-banner">
                 <strong>This formation is locked.</strong>{" "}
