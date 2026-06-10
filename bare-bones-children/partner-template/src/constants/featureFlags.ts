@@ -14,7 +14,7 @@ export const FEATURE_FLAGS = {
   // controls both its nav entry and its routes (gated via <FeatureRoute>).
   basicWallet: false,
   vaults: false,
-  payments: false,
+  payments: true,
   // Staging hosts the same Anvil chain as local dev (just on a remote box),
   // so include it for both targets. Production excludes it.
   localAnvilChain: DEPLOYMENT_TARGET !== DeploymentTarget.Live,
