@@ -222,21 +222,36 @@ export function useDeployDao() {
 
       const superAdminNameSlug = packBytes32Name(params.authSuperAdminName);
 
-      const initialAdmins = params.authInitialAdmins.map((a) => ({
-        wallet: toChecksumAddress(a.wallet),
-        nameSlug: packBytes32Name(a.name),
-      }));
+      // The SuperAdmin is bootstrapped as a member by the launcher, so it must NOT also appear
+      // in the admin / minter / pauser / additional-member lists or `bootstrap` reverts
+      // `MemberAlreadyExists()`. When the SuperAdmin field is blank, the launcher substitutes the
+      // owner (= connected account) in ShareToken mode, or the freshly-deployed timelock otherwise
+      // (unknown here → nothing to dedupe). Drop the resolved SuperAdmin wallet from every list.
+      const effectiveSuperAdmin = (
+        superAdmin !== ZERO_ADDRESS
+          ? superAdmin
+          : params.tokenSource.useFactory && account
+            ? toChecksumAddress(account)
+            : ZERO_ADDRESS
+      ).toLowerCase();
+      const notSuperAdmin = (wallet: string) => wallet.toLowerCase() !== effectiveSuperAdmin;
 
-      const additionalMembers = params.additionalMembers.map((m) => ({
-        wallet: toChecksumAddress(m.wallet),
-        // _createMember rejects bytes32(0) for regular members — UI validation
-        // must require a non-empty name; we still defensively pack.
-        nameSlug: packBytes32Name(m.name),
-        accountType: m.accountType,
-        roleSlug: m.roleSlugString.trim()
-          ? packBytes32Name(m.roleSlugString)
-          : ethers.constants.HashZero,
-      }));
+      const initialAdmins = params.authInitialAdmins
+        .map((a) => ({ wallet: toChecksumAddress(a.wallet), nameSlug: packBytes32Name(a.name) }))
+        .filter((a) => notSuperAdmin(a.wallet));
+
+      const additionalMembers = params.additionalMembers
+        .map((m) => ({
+          wallet: toChecksumAddress(m.wallet),
+          // _createMember rejects bytes32(0) for regular members — UI validation
+          // must require a non-empty name; we still defensively pack.
+          nameSlug: packBytes32Name(m.name),
+          accountType: m.accountType,
+          roleSlug: m.roleSlugString.trim()
+            ? packBytes32Name(m.roleSlugString)
+            : ethers.constants.HashZero,
+        }))
+        .filter((m) => notSuperAdmin(m.wallet));
 
       // Token-side branch — factory mode requires daoCfg.token = address(0)
       // (the launcher reverts `TokenAddressConflict` otherwise).
@@ -252,6 +267,10 @@ export function useDeployDao() {
         };
         initialMinters: string[];
         initialPausers: string[];
+        // When true (factory path), the launcher deploys a cap-table ShareToken as the DAO's
+        // IVotes source (ERC20-emulation Common class) instead of a fungible GovernanceToken —
+        // so the cap table exists, slug-registered + writable, from formation. See CAPTABLE.md.
+        useShareToken: boolean;
       };
 
       if (params.tokenSource.useFactory) {
@@ -264,10 +283,14 @@ export function useDeployDao() {
             symbol: fc.symbol.trim(),
             mintable: fc.mintable,
             initialHolders: fc.allocations.map((a) => toChecksumAddress(a.holder)),
-            initialAmounts: fc.allocations.map((a) => a.amount),
+            // Allocations are entered as whole tokens/shares; scale to 18-decimal base units to
+            // match the ERC20Votes / cap-table convention the rest of the app displays with.
+            initialAmounts: fc.allocations.map((a) => ethers.utils.parseUnits(a.amount, 18).toString()),
           },
-          initialMinters: fc.initialMinters.map((a) => toChecksumAddress(a)),
-          initialPausers: fc.initialPausers.map((a) => toChecksumAddress(a)),
+          initialMinters: fc.initialMinters.map((a) => toChecksumAddress(a)).filter(notSuperAdmin),
+          initialPausers: fc.initialPausers.map((a) => toChecksumAddress(a)).filter(notSuperAdmin),
+          // Default new DAOs to the cap-table token.
+          useShareToken: true,
         };
       } else {
         daoToken = toChecksumAddress(params.tokenSource.byoToken);
@@ -282,6 +305,7 @@ export function useDeployDao() {
           },
           initialMinters: [],
           initialPausers: [],
+          useShareToken: false,
         };
       }
 

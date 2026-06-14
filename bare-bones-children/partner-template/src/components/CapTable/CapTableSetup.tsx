@@ -59,7 +59,8 @@ export function CapTableSetup({ orgSlug, members, onCancel, onComplete }: CapTab
         complianceSBT: ethers.constants.AddressZero, // KYC gate off for v1
         defaultClass: defaultCommonClass(className.trim() || "Common"),
         initialHolders: validRows.map((r) => ethers.utils.getAddress(r.address)),
-        initialAmounts: validRows.map((r) => r.amount),
+        // Whole shares entered → 18-decimal base units (matches the cap-table display convention).
+        initialAmounts: validRows.map((r) => ethers.utils.parseUnits(r.amount, 18).toString()),
       };
       await onComplete(cfg);
     } finally {

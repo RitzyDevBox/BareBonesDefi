@@ -21,6 +21,11 @@
         "name": "auth_",
         "type": "address",
         "internalType": "contract MultiTenantAuth"
+      },
+      {
+        "name": "shareTokenFactory_",
+        "type": "address",
+        "internalType": "contract ShareTokenFactory"
       }
     ],
     "stateMutability": "nonpayable"
@@ -224,6 +229,11 @@
                 "name": "initialPausers",
                 "type": "address[]",
                 "internalType": "address[]"
+              },
+              {
+                "name": "useShareToken",
+                "type": "bool",
+                "internalType": "bool"
               }
             ]
           }
@@ -422,6 +432,11 @@
                 "name": "initialPausers",
                 "type": "address[]",
                 "internalType": "address[]"
+              },
+              {
+                "name": "useShareToken",
+                "type": "bool",
+                "internalType": "bool"
               }
             ]
           }
@@ -451,6 +466,19 @@
         "name": "",
         "type": "address",
         "internalType": "contract OrganizationManager"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "shareTokenFactory",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ShareTokenFactory"
       }
     ],
     "stateMutability": "view"
@@ -513,6 +541,11 @@
   {
     "type": "error",
     "name": "InvalidOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ShareTokenFactoryRequired",
     "inputs": []
   },
   {

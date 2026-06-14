@@ -145,3 +145,18 @@
 .ct-claim-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid color-mix(in oklab, var(--colors-primary) 40%, var(--colors-border)); background: color-mix(in oklab, var(--colors-primary) 8%, transparent); border-radius: 12px; }
 
 .ct-footnote { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 0 2px; color: var(--colors-text-muted); font-size: 12px; }
+
+/* expandable class detail */
+.ct-grp-clickable { cursor: pointer; }
+.ct-grp-clickable:hover .ct-class-name { color: var(--colors-primary); }
+.ct-caret { margin-left: 10px; color: var(--colors-text-muted); }
+.ct-detail td { padding: 0; border-bottom: 1px solid var(--colors-border); background: var(--colors-background); }
+.ct-detail-inner { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+.ct-detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--colors-border); border: 1px solid var(--colors-border); border-radius: 10px; overflow: hidden; }
+@media (max-width: 900px) { .ct-detail-grid { grid-template-columns: repeat(2, 1fr); } }
+.ct-pcell { background: var(--colors-surface); padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; }
+.ct-pk { font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--colors-text-muted); }
+.ct-pv { font-size: 13px; color: var(--colors-text-main); font-weight: 500; }
+.ct-flags { display: flex; flex-wrap: wrap; gap: 6px; }
+.ct-flag-chip { font-size: 10px; padding: 3px 8px; border-radius: 5px; border: 1px solid var(--colors-border); color: var(--colors-text-muted); }
+.ct-flag-chip.on { color: var(--colors-primary); border-color: color-mix(in oklab, var(--colors-primary) 40%, var(--colors-border)); background: color-mix(in oklab, var(--colors-primary) 8%, transparent); }

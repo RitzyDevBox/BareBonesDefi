@@ -113,6 +113,19 @@ singletons are MTA-owned; holder-scoped calls (`transfer`, `claim`) are direct w
 
 ## Changelog
 
+### 2026-06-14 — Cap Table: formation wiring, 18-dec amounts, faithful design re-port
+- **Cap table is the DAO token at formation** (`useDeployDao` defaults `useShareToken`); resolved
+  on-chain as `daoOf(slug) → governor.token()`. Dedupe the SuperAdmin out of the admin/minter/
+  pauser/member lists before launch (was causing `MemberAlreadyExists()`).
+- **18-decimal amounts** everywhere: cap-table display normalizes via `formatUnits(_, 18)`; issue/
+  transfer/setup/allocation inputs are entered as whole tokens and scaled (`parseUnits(_, 18)`).
+- **Faithful re-port** of the designer surfaces (the first pass was too simplified): the design's
+  shared CSS is ported to `styles/capTableSurfaces.css` (tokens aliased to `--colors-*`); Raise is a
+  full **page** (`Fundraising.tsx` — SAFE / note / priced-round picker + 3-step round flow), class
+  management is a full page + `ClassEditor` with the complete `ClassParams` (`ClassManager.tsx`), and
+  Issue/Transfer/Clawback are faithful `ig-*` modals. `useCapTableActions` extended with recordNote /
+  openRound / convertSafes / convertNotes / retireClass / removeClass / declareLiquidityEvent.
+
 ### 2026-06-14 — Cap Table feature
 Flag-gated Cap Table: `SettingsKey.CapTable` + Settings toggle + nav + `/cap-table[/:org]`;
 addresses in `constants/misc.ts` (local+staging keys); `abis/capTable/`; `hooks/capTable/`

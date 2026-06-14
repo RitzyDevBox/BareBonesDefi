@@ -40,6 +40,12 @@ function bn(v: ethers.BigNumberish): string {
   return ethers.BigNumber.from(v).toString();
 }
 
+// Share amounts are entered as whole tokens but stored as 18-decimal base units (ERC20/cap-table
+// convention the rest of the app uses). Scale on the way in.
+function units(wholeTokens: string): string {
+  return ethers.utils.parseUnits(wholeTokens, 18).toString();
+}
+
 export function useCapTableActions(slug: string, shareTokenAddress: string | null) {
   const { account, chainId } = useWalletProvider();
   const config = useMemo(() => (chainId != null ? getBareBonesConfiguration(chainId) : null), [chainId]);
@@ -113,7 +119,7 @@ export function useCapTableActions(slug: string, shareTokenAddress: string | nul
   // ── Owner-gated writes (via MTA.execute) ─────────────────────────────────
   const issueGrant = useExecuteRawTx(
     (classId: number, to: string, amount: string) =>
-      mtaExecuteTx(requireShareToken(), shareIface.encodeFunctionData("issue", [classId, to, bn(amount)])),
+      mtaExecuteTx(requireShareToken(), shareIface.encodeFunctionData("issue", [classId, to, units(amount)])),
     (_classId, _to, amount) => `Issued ${amount} shares`,
   );
 
@@ -127,7 +133,7 @@ export function useCapTableActions(slug: string, shareTokenAddress: string | nul
     (classId: number, amount: string) =>
       mtaExecuteTx(
         requireShareToken(),
-        shareIface.encodeFunctionData("setReservedPool", [classId, bn(amount)]),
+        shareIface.encodeFunctionData("setReservedPool", [classId, units(amount)]),
       ),
     () => "Option pool updated",
   );
@@ -144,30 +150,95 @@ export function useCapTableActions(slug: string, shareTokenAddress: string | nul
     () => "Grant cancelled",
   );
 
+  function requireConvertibles(): string {
+    if (!config?.convertiblesAddress || config.convertiblesAddress === ZERO) {
+      throw new Error("Convertibles address not configured for this chain.");
+    }
+    return config.convertiblesAddress;
+  }
+
   const recordSafe = useExecuteRawTx(
-    (investor: string, principal: string, cap: string, discountBps: number, targetClassId: number) => {
-      if (!config?.convertiblesAddress || config.convertiblesAddress === ZERO) {
-        throw new Error("Convertibles address not configured for this chain.");
-      }
-      // recordSafe(slug, investor, principal, valuationCap, discountBps, targetClassId)
-      const inner = convIface.encodeFunctionData("recordSafe", [
-        slugBytes,
-        investor,
-        bn(principal),
-        bn(cap),
-        discountBps,
-        targetClassId,
-      ]);
-      return mtaExecuteTx(config.convertiblesAddress, inner);
-    },
+    (investor: string, principal: string, cap: string, discountBps: number, targetClassId: number) =>
+      // recordSafe(slug, investor, principal(USD), valuationCap(USD), discountBps, targetClass)
+      mtaExecuteTx(
+        requireConvertibles(),
+        convIface.encodeFunctionData("recordSafe", [slugBytes, investor, bn(principal), bn(cap), discountBps, targetClassId]),
+      ),
     () => "SAFE recorded",
+  );
+
+  const recordNote = useExecuteRawTx(
+    (
+      investor: string,
+      principal: string,
+      cap: string,
+      discountBps: number,
+      interestRateBps: number,
+      maturityUnix: number,
+      targetClassId: number,
+    ) =>
+      // recordNote(slug, investor, principal, cap, discountBps, interestRateBps, maturity, targetClass)
+      mtaExecuteTx(
+        requireConvertibles(),
+        convIface.encodeFunctionData("recordNote", [
+          slugBytes,
+          investor,
+          bn(principal),
+          bn(cap),
+          discountBps,
+          interestRateBps,
+          maturityUnix,
+          targetClassId,
+        ]),
+      ),
+    () => "Convertible note recorded",
+  );
+
+  const openRound = useExecuteRawTx(
+    (pricePerShare: string, preConversionShares: string) =>
+      mtaExecuteTx(
+        requireConvertibles(),
+        convIface.encodeFunctionData("openRound", [slugBytes, bn(pricePerShare), units(preConversionShares)]),
+      ),
+    () => "Priced round opened",
+  );
+
+  const convertSafes = useExecuteRawTx(
+    (roundId: number, ids: number[]) =>
+      mtaExecuteTx(requireConvertibles(), convIface.encodeFunctionData("convertSafes", [slugBytes, roundId, ids])),
+    () => "SAFEs converted",
+  );
+
+  const convertNotes = useExecuteRawTx(
+    (roundId: number, ids: number[]) =>
+      mtaExecuteTx(requireConvertibles(), convIface.encodeFunctionData("convertNotes", [slugBytes, roundId, ids])),
+    () => "Notes converted",
+  );
+
+  // ── Class lifecycle (owner-gated) ────────────────────────────────────────
+  const retireClass = useExecuteRawTx(
+    (classId: number) =>
+      mtaExecuteTx(requireShareToken(), shareIface.encodeFunctionData("retireClass", [classId])),
+    () => "Class retired",
+  );
+
+  const removeClass = useExecuteRawTx(
+    (classId: number) =>
+      mtaExecuteTx(requireShareToken(), shareIface.encodeFunctionData("removeClass", [classId])),
+    () => "Class removed",
+  );
+
+  const declareLiquidityEvent = useExecuteRawTx(
+    (classId: number) =>
+      mtaExecuteTx(requireShareToken(), shareIface.encodeFunctionData("declareLiquidityEvent", [classId])),
+    () => "Liquidity event declared",
   );
 
   // ── Holder-initiated direct calls ────────────────────────────────────────
   const transferShares = useExecuteRawTx(
     (classId: number, to: string, amount: string) => ({
       to: requireShareToken(),
-      data: shareIface.encodeFunctionData("transfer", [classId, to, bn(amount)]),
+      data: shareIface.encodeFunctionData("transfer", [classId, to, units(amount)]),
       value: undefined,
     }),
     (_classId, _to, amount) => `Transferred ${amount} shares`,
@@ -190,6 +261,13 @@ export function useCapTableActions(slug: string, shareTokenAddress: string | nul
     clawbackUnvested,
     cancelGrant,
     recordSafe,
+    recordNote,
+    openRound,
+    convertSafes,
+    convertNotes,
+    retireClass,
+    removeClass,
+    declareLiquidityEvent,
     transferShares,
     claimVotes,
   };

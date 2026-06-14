@@ -58,10 +58,46 @@ function VestBar({ holder, color }: { holder: CapHolder; color: string }) {
   );
 }
 
+function ClassParamsDetail({ c }: { c: CapClass }) {
+  const p = c.params;
+  const Cell = ({ k, v }: { k: string; v: string }) => (
+    <div className="ct-pcell">
+      <span className="ct-pk">{k}</span>
+      <span className="ct-pv">{v}</span>
+    </div>
+  );
+  const Flag = ({ on, label }: { on: boolean; label: string }) => (
+    <span className={`ct-flag-chip${on ? " on" : ""}`}>
+      {label}: {on ? "true" : "false"}
+    </span>
+  );
+  return (
+    <div className="ct-detail-inner">
+      <div className="ct-detail-grid">
+        <Cell k="Vote weight" v={`${bpsToX(p.voteWeightBps)} · ${p.voteWeightBps} bps`} />
+        <Cell k="Payout priority" v={String(p.payoutPriority)} />
+        <Cell k="Distribution weight" v={bpsToX(p.distributionWeightBps)} />
+        <Cell k="Authorized cap" v={p.authorizedCap === "0" ? "Unlimited" : p.authorizedCap} />
+        <Cell k="Vesting" v={vestSummary(p)} />
+        <Cell k="Transfer lockup" v={p.transferLockDuration ? `${Math.round(p.transferLockDuration / 86400)}d` : "none"} />
+        <Cell k="Status" v={["Active", "Retired", "Removed"][c.status] ?? "—"} />
+        <Cell k="Reserved (pool)" v={fmtShares(c.reservedPool)} />
+      </div>
+      <div className="ct-flags">
+        <Flag on={!p.excludeFromFullyDiluted} label="countsFullyDiluted" />
+        <Flag on={!p.excludeFromVotingTotal} label="countsVotingTotal" />
+        <Flag on={p.unvestedVotes} label="unvestedVotes" />
+        <Flag on={p.requiresLiquidityEvent} label="requiresLiquidityEvent" />
+      </div>
+    </div>
+  );
+}
+
 export function CapTableView({ state, isAdmin, account, onSetup, onIssue, onTransfer }: CapTableViewProps) {
   const { classes, holders } = state;
   const [filter, setFilter] = useState<number | "all">("all");
   const [q, setQ] = useState("");
+  const [openClass, setOpenClass] = useState<number | null>(null);
 
   const issuedTotal = state.issuedTotal;
   const fdTotal = state.fullyDiluted || issuedTotal;
@@ -250,7 +286,11 @@ export function CapTableView({ state, isAdmin, account, onSetup, onIssue, onTran
                   <Fragment key={c.classId}>
                     <tr className="ct-grp">
                       <td colSpan={6}>
-                        <div className="ct-grp-inner">
+                        <div
+                          className="ct-grp-inner ct-grp-clickable"
+                          onClick={() => setOpenClass((o) => (o === c.classId ? null : c.classId))}
+                          data-testid={`captable-class-${c.classId}`}
+                        >
                           <span className="ct-class-dot" style={{ background: c.isPool ? "var(--colors-text-muted)" : c.color }} />
                           <span className="ct-class-name">{c.params.name}</span>
                           <span className="ct-rights">
@@ -261,10 +301,19 @@ export function CapTableView({ state, isAdmin, account, onSetup, onIssue, onTran
                           </span>
                           <span className="ct-grp-sub">
                             <b>{fmtShares(c.isPool ? c.reservedPool : c.totalIssued)}</b> · {fmtPct((classFd / fdTotal) * 100)} FD
+                            <span className="ct-caret">{openClass === c.classId ? "▴" : "▾"}</span>
                           </span>
                         </div>
                       </td>
                     </tr>
+
+                    {openClass === c.classId && (
+                      <tr className="ct-detail">
+                        <td colSpan={6}>
+                          <ClassParamsDetail c={c} />
+                        </td>
+                      </tr>
+                    )}
 
                     {c.isPool ? (
                       <tr className="ct-row">

@@ -28,6 +28,41 @@ export function bpsToX(bps: number): string {
   return `${(bps / 10000).toFixed(bps % 10000 === 0 ? 0 : 2)}x`;
 }
 
+export function fmtUsd(n: number): string {
+  return `$${Number(n).toLocaleString("en-US")}`;
+}
+
+export function abbrevUsd(n: number): string {
+  const a = Math.abs(n);
+  if (a >= 1_000_000) return `$${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (a >= 1_000) return `$${(n / 1_000).toFixed(0)}k`;
+  return `$${n}`;
+}
+
+const SEC_YEAR = 365 * 24 * 60 * 60;
+const SEC_MONTH = 30 * 24 * 60 * 60;
+const SEC_DAY = 24 * 60 * 60;
+
+export function secToDur(s: number): string {
+  if (!s) return "none";
+  const y = s / SEC_YEAR;
+  if (y >= 1 && Number.isInteger(y)) return `${y} yr`;
+  if (y >= 1) return `${y.toFixed(1)} yr`;
+  const m = Math.round(s / SEC_MONTH);
+  if (m >= 1) return `${m} mo`;
+  return `${Math.round(s / SEC_DAY)} d`;
+}
+
+export function payoutLabel(p: number): string {
+  return p <= 1 ? "Senior · 1st" : p >= 100 ? "Residual · last" : `#${p}`;
+}
+
+export function distLabel(bps: number): string {
+  if (bps === 10000) return "1.0×";
+  if (bps > 10000) return `+${(bps - 10000) / 100}%`;
+  return `${(bps / 10000).toFixed(2)}×`;
+}
+
 export function shortAddress(a: string): string {
   return a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "";
 }

@@ -120,7 +120,7 @@ export function validateGovernance(form: GovernanceForm): string | null {
     }
     for (const a of nonEmpty) {
       if (!isAddr(a.holder)) return `Allocation address "${a.holder}" is invalid.`;
-      if (!isWholeNumber(a.amount)) return `Allocation amount "${a.amount}" must be a whole number (wei).`;
+      if (!isWholeNumber(a.amount)) return `Allocation amount "${a.amount}" must be a whole number of tokens.`;
     }
     for (const w of f.initialMinters) {
       const trimmed = w.trim();

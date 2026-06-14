@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import DAOGovernorABI from "../abis/dao/DAOGovernor.abi.json";
 import TimelockControllerABI from "../abis/dao/TimelockController.abi.json";
 import ERC20VotesABI from "../abis/diamond/ERC20Votes.abi.json";
+import ShareTokenABI from "../abis/capTable/ShareToken.abi.json";
 import { ProposalsList } from "../components/DAO/ProposalsList";
 import { DAOInfoHeader } from "../components/DAO/DAOInfoHeader";
 import { ProposalBuilder } from "../components/DAO/ProposalBuilder";
@@ -60,6 +61,7 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
 
   const governorInterface = useMemo(() => new ethers.utils.Interface(DAOGovernorABI as any), []);
   const ERC20VotesInterface = useMemo(() => new ethers.utils.Interface(ERC20VotesABI as any), []);
+  const ShareTokenInterface = useMemo(() => new ethers.utils.Interface(ShareTokenABI as any), []);
 
   // ─── Domain hooks ───────────────────────────────────────────────────────────
 
@@ -251,13 +253,30 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
     }
   );
 
+  // Activate the caller's voting power. The DAO's token is either a fungible ERC20Votes
+  // (legacy / BYO → `delegate(self)`) or a cap-table `ShareToken` (formation default →
+  // claim-to-vote, so `claimMany(self, [classIds])`). Probe `classCount()` to tell them apart;
+  // a fungible token reverts the probe and falls through to delegate.
   const executeSelfDelegate = useExecuteRawTx(
-    (_: number, tokenAddress: string, delegatee: string) => {
+    async (_: number, tokenAddress: string, delegatee: string) => {
       if (!ethers.utils.isAddress(tokenAddress)) throw new Error("Governance token address is unavailable.");
       if (!ethers.utils.isAddress(delegatee)) throw new Error("Wallet address is unavailable.");
+      if (provider) {
+        try {
+          const probe = new ethers.Contract(tokenAddress, ShareTokenABI as any, provider);
+          const count = Number((await probe.classCount()).toString());
+          const classIds = Array.from({ length: count }, (_v, i) => i);
+          return {
+            to: tokenAddress,
+            data: ShareTokenInterface.encodeFunctionData("claimMany", [delegatee, classIds]),
+          } as any;
+        } catch {
+          /* not a ShareToken → fall through to ERC20Votes delegate */
+        }
+      }
       return { to: tokenAddress, data: ERC20VotesInterface.encodeFunctionData("delegate", [delegatee]) } as any;
     },
-    () => "Delegated voting power to your wallet"
+    () => "Activated your voting power"
   );
 
   const executeQueueProposal = useExecuteRawTx(

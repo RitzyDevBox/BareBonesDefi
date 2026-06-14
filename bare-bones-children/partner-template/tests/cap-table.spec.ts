@@ -2,11 +2,12 @@ import { test, expect, type Page } from "@playwright/test";
 import { installMockWallet } from "./_demo/mockWallet";
 import { deployOrgAndDao } from "./_lib/deployOrg";
 
-const ANVIL_ACCOUNT_0 = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+const ANVIL_ACCOUNT_0 = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"; // founder / Super Admin
+const ANVIL_ACCOUNT_1 = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"; // grant recipient
 
-// Enable the cap-table feature flag at module init. `addInitScript` re-runs before app
-// code on every navigation, so useSettings' module-level load() picks it up. We do this
-// per-test (not in beforeEach) so the gated-off test can assert the default-hidden state.
+// Enable the cap-table feature flag at module init. `addInitScript` re-runs before app code on
+// every navigation, so useSettings' module-level load() picks it up. Per-test (not beforeEach)
+// so the gated-off test can assert the default-hidden state.
 async function enableCapTableFlag(page: Page) {
   await page.addInitScript(() => {
     try {
@@ -24,17 +25,15 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("cap table is hidden until its feature flag is enabled", async ({ page }) => {
-  // No flag set → the nav entry is absent and the route redirects home.
   await page.goto("/#/cap-table");
   await expect(page.locator("#root")).not.toBeEmpty();
   await expect(page.getByRole("button", { name: "Cap Table", exact: true })).toHaveCount(0);
-  // FeatureRoute redirects an off-flag direct hit back to root.
-  await expect(page).toHaveURL(/#\/$|#\/?$|\/$/);
+  await expect(page).toHaveURL(/#\/$|#\/?$|\/$/); // FeatureRoute redirects an off-flag direct hit home
 });
 
-test("founder can set up a cap table and see founder shares", async ({ page }) => {
-  // On-chain: org+DAO deploy, then a ShareTokenFactory.deployFor — each a tx with
-  // tx.wait(1) at ~2s blocks, so allow generous time.
+test("formation creates a cap table the Super Admin can issue grants on", async ({ page }) => {
+  // On-chain: org+DAO deploy (now deploys a ShareToken as the DAO token) + a grant issue, each a
+  // tx with tx.wait(1) at ~2s blocks.
   test.setTimeout(180_000);
 
   await enableCapTableFlag(page);
@@ -46,26 +45,21 @@ test("founder can set up a cap table and see founder shares", async ({ page }) =
   await page.getByRole("button", { name: "Connect", exact: true }).click();
   await expect(page.getByText(/0x[a-fA-F0-9]{4}…[a-fA-F0-9]{4}/)).toBeVisible({ timeout: 8_000 });
 
-  // 2. Deploy an org+DAO so the connected account is the org owner (→ cap-table admin)
+  // 2. Deploy org+DAO — the DAO's token IS the cap table (ShareToken mode), founder allocated 1M.
   await deployOrgAndDao(page, orgSlug);
 
-  // 3. Open the cap table for the active org
+  // 3. The cap table exists from formation with the founder's shares — no separate setup step.
   await page.getByRole("button", { name: "Cap Table", exact: true }).click();
+  await expect(page.getByTestId("captable-view")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId(`captable-row-${ANVIL_ACCOUNT_0.toLowerCase()}`)).toBeVisible({ timeout: 20_000 });
 
-  // 4. Empty state → start setup
-  await expect(page.getByTestId("captable-setup-cta")).toBeVisible({ timeout: 30_000 });
-  await page.getByTestId("captable-setup-cta").click();
+  // 4. Issue a grant to another wallet. This routes through MTA.execute and previously reverted
+  //    OutOfScope (the cap table wasn't slug-registered); formation-scoping makes it work now.
+  await page.getByTestId("captable-issue-grant-btn").click();
+  await expect(page.getByTestId("captable-issue-modal")).toBeVisible();
+  await page.getByTestId("captable-issue-recipient-input").fill(ANVIL_ACCOUNT_1);
+  await page.getByTestId("captable-issue-amount-input").fill("250000");
+  await page.getByTestId("captable-issue-submit").click();
 
-  // 5. Fill the founder setup (name/symbol/class are prefilled). One founder allocation.
-  await expect(page.getByTestId("captable-setup")).toBeVisible();
-  await page.getByTestId("captable-setup-address-0").fill(ANVIL_ACCOUNT_0);
-  await page.getByTestId("captable-setup-amount-0").fill("1000000");
-  await page.getByTestId("captable-setup-submit").click();
-
-  // 6. Cap table renders with the founder's shares
-  await expect(page.getByTestId("captable-view")).toBeVisible({ timeout: 90_000 });
-  await expect(page.getByTestId(`captable-row-${ANVIL_ACCOUNT_0.toLowerCase()}`)).toBeVisible({
-    timeout: 30_000,
-  });
-  await expect(page.getByTestId("captable-holder-count")).not.toHaveText("0");
+  await expect(page.getByTestId(`captable-row-${ANVIL_ACCOUNT_1.toLowerCase()}`)).toBeVisible({ timeout: 60_000 });
 });
