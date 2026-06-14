@@ -15,6 +15,7 @@ import { VaultWalletPage } from "./pages/VaultWalletPage";
 import { PaymentPage } from "./pages/PaymentPage";
 import { CurrentPayrollPage } from "./pages/CurrentPayrollPage.tsx";
 import { EntityFormationPage } from "./pages/EntityFormationPage";
+import { CapTablePage } from "./pages/CapTablePage";
 import { FEATURE_FLAGS } from "./constants/featureFlags";
 import { useSettings, SettingsKey } from "./hooks/useSettings";
 
@@ -80,6 +81,14 @@ export const router = createHashRouter([
       {
         path: `${ROUTES.VAULT_DETAIL_ROUTE}`,
         element: <FeatureRoute flag={SettingsKey.Vaults}><VaultWalletPage /></FeatureRoute>,
+      },
+      {
+        path: `${ROUTES.CAP_TABLE}`,
+        element: <FeatureRoute flag={SettingsKey.CapTable}><CapTablePage /></FeatureRoute>,
+      },
+      {
+        path: `${ROUTES.CAP_TABLE_ORG_ROUTE}`,
+        element: <FeatureRoute flag={SettingsKey.CapTable}><CapTablePage /></FeatureRoute>,
       },
       ...dappBrowserRoutes,
       ...organizationRoutes,

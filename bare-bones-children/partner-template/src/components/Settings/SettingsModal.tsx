@@ -202,6 +202,16 @@ function SettingsBody({
               />
             }
           />
+          <SettingsRow
+            title="Cap Table"
+            subtitle="Show the Cap Table tab and its pages"
+            right={
+              <ToggleSwitch
+                on={settings[SettingsKey.CapTable]}
+                onChange={() => toggle(SettingsKey.CapTable)}
+              />
+            }
+          />
         </>
       )}
       {IS_DEMO_ENV && (

@@ -9,6 +9,7 @@ const WALLET_ID = "wallet";
 const BROWSER_ID = "browser";
 const VAULTS_ID = "vaults";
 const PAYMENTS_ID = "Payments";
+const CAP_TABLE_ID = "cap-table";
 
 export interface NavItem {
   id: string;
@@ -24,6 +25,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { id: ORGANIZATION_ID, label: "Organizations", path: ROUTES.ORGANIZATIONS },
   { id: ENTITY_FORMATION_ID, label: "Formation", path: ROUTES.ENTITIES_FORMATION },
   { id: PAYMENTS_ID, label: "Payments", path: ROUTES.PAYMENTS },
+  { id: CAP_TABLE_ID, label: "Cap Table", path: ROUTES.CAP_TABLE },
   { id: VAULTS_ID, label: "Vaults", path: ROUTES.VAULTS },
 ];
 
@@ -42,6 +44,7 @@ export function useNavItems(): NavItem[] {
     if (item.id === WALLET_ID) return settings[SettingsKey.BasicWallet];
     if (item.id === VAULTS_ID) return settings[SettingsKey.Vaults];
     if (item.id === PAYMENTS_ID) return settings[SettingsKey.Payments];
+    if (item.id === CAP_TABLE_ID) return settings[SettingsKey.CapTable];
     return true;
   });
 }

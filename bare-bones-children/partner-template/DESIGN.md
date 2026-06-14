@@ -88,7 +88,39 @@ Considered and rejected: per-target ternaries that overload chain ids per build 
 
 Maps currently filtered: `CHAIN_INFO_MAP`, `NATIVE_TOKENS_BY_CHAIN`, `CHAIN_SVR_SUBGRAPH_URL`. Maps that hold only addresses or template names (no network fetches) intentionally aren't filtered — their accessor functions fall through to a polygon default, which is the correct production fallback.
 
+## Cap Table feature
+
+**Why:** surface the on-chain cap table (`BareBonesDiamond/src/captable`; design of record
+`BareBonesDiamond/CAPTABLE.md`, UX framing `BareBonesDiamond/CAPTABLE_DESIGN_HANDOFF.md`) —
+view ownership, run founder setup, issue grants, transfer.
+
+**Gating:** off by default behind `SettingsKey.CapTable` (seeded from `FEATURE_FLAGS.capTable`),
+same runtime-toggle + `<FeatureRoute>` pattern as Payments/Vaults, on `/cap-table[/:organizationId]`.
+
+**Org → ShareToken address resolution (the non-obvious choice).** No on-chain slug→ShareToken
+registry exists and the `OrgAndDaoLauncher` is intentionally not wired to deploy cap tables yet,
+so `shareTokenResolver.ts` resolves two-tiered: (1) a client-side record keyed by `(chainId, slug)`
+saved at setup time — works on local before the subgraph indexes; (2) the subgraph
+`ShareTokenDeployed` index by org owner — durable/cross-device. *Rejected:* CREATE3 address
+prediction (needs the per-owner namespaced index — fragile) and a new on-chain registry (contract
+change, out of scope).
+
+**Write routing.** Owner-gated calls (createClass/issue/clawback/setReservedPool, plus
+`recordSafe` on the Convertibles singleton) route through `MTA.execute` since the ShareToken +
+singletons are MTA-owned; holder-scoped calls (`transfer`, `claim`) are direct wallet calls
+(transfer is sender-scoped → only offered on the connected holder's own rows). KYC gate ships off
+(`complianceSBT = address(0)`).
+
 ## Changelog
+
+### 2026-06-14 — Cap Table feature
+Flag-gated Cap Table: `SettingsKey.CapTable` + Settings toggle + nav + `/cap-table[/:org]`;
+addresses in `constants/misc.ts` (local+staging keys); `abis/capTable/`; `hooks/capTable/`
+(resolver/read/actions); `components/CapTable/` (view, setup wizard, issue + transfer modals) +
+`styles/capTable.css`; `pages/CapTablePage.tsx`. e2e `tests/cap-table.spec.ts` (flag gating +
+founder setup → on-chain deploy → shares visible; both pass). Deferred: grant-level clawback UI,
+option-pool reservation in setup, full fundraising/round UI. Contract/deploy side:
+`BareBonesDiamond/CAPTABLE.md` changelog.
 
 ### 2026-06-04 — hide the Settings "Features" toggles on deployed builds
 **Reverses the "public on all builds" decision below.** For the pre-launch

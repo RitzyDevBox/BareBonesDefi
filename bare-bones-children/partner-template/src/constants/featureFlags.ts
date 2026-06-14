@@ -15,6 +15,9 @@ export const FEATURE_FLAGS = {
   basicWallet: false,
   vaults: false,
   payments: true,
+  // Cap table — on-chain equity register (ShareToken). Ships off by default; a user
+  // self-enables it from the Settings "Features" toggles (local dev) like the others.
+  capTable: false,
   // Staging hosts the same Anvil chain as local dev (just on a remote box),
   // so include it for both targets. Production excludes it.
   localAnvilChain: DEPLOYMENT_TARGET !== DeploymentTarget.Live,

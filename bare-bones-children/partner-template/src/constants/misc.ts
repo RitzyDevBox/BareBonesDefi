@@ -154,6 +154,16 @@ export interface BareBonesConfiguration {
    * `BareBonesDiamond/src/auth/MultiTenantAuth.sol`.
    */
   multiTenantAuthAddress: string;
+  /**
+   * Cap-table contracts (BareBonesDiamond/src/captable). The factory deploys a
+   * per-org `ShareToken` (multi-class equity register, IVotes endpoint); the
+   * financing singletons (Convertibles = SAFE/note, RevenueFinancing,
+   * ProfitInterest) are slug-keyed and MTA-gated. See CAPTABLE.md.
+   */
+  shareTokenFactoryAddress: string;
+  convertiblesAddress: string;
+  revenueFinancingAddress: string;
+  profitInterestAddress: string;
   // SVR Configuration
   svrFactoryAddress?: string;
 }
@@ -274,6 +284,14 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   tokenFactoryAddress: "0x0000000000000000000000000000000000000000",
   governanceTokenTemplateProviderAddress: "0x0000000000000000000000000000000000000000",
 
+  // Cap-table contracts — default zero on mainnets until the per-chain deploy
+  // lands. Local/staging anvils populate these via VITE_LOCAL_* / VITE_STAGING_*
+  // keys from the deploy harness (scripts/deploy-anvil-full.sh).
+  shareTokenFactoryAddress: "0x0000000000000000000000000000000000000000",
+  convertiblesAddress: "0x0000000000000000000000000000000000000000",
+  revenueFinancingAddress: "0x0000000000000000000000000000000000000000",
+  profitInterestAddress: "0x0000000000000000000000000000000000000000",
+
 } as const;
 
 export const DEFAULT_BROWSING_URL = "https://app.aave.com/";
@@ -306,6 +324,10 @@ const LOCAL_BARE_BONES_CONFIG_ENV_KEYS: Record<Exclude<keyof BareBonesConfigurat
   multiTenantAuthAddress: "VITE_LOCAL_MULTI_TENANT_AUTH_ADDRESS",
   tokenFactoryAddress: "VITE_LOCAL_TOKEN_FACTORY_ADDRESS",
   governanceTokenTemplateProviderAddress: "VITE_LOCAL_GOVERNANCE_TOKEN_TEMPLATE_PROVIDER_ADDRESS",
+  shareTokenFactoryAddress: "VITE_LOCAL_SHARE_TOKEN_FACTORY_ADDRESS",
+  convertiblesAddress: "VITE_LOCAL_CONVERTIBLES_ADDRESS",
+  revenueFinancingAddress: "VITE_LOCAL_REVENUE_FINANCING_ADDRESS",
+  profitInterestAddress: "VITE_LOCAL_PROFIT_INTEREST_ADDRESS",
 };
 
 function buildLocalBareBonesOverride(): Partial<BareBonesConfiguration> {
@@ -352,6 +374,10 @@ const STAGING_BARE_BONES_CONFIG_ENV_KEYS: Record<Exclude<keyof BareBonesConfigur
   multiTenantAuthAddress: "VITE_STAGING_MULTI_TENANT_AUTH_ADDRESS",
   tokenFactoryAddress: "VITE_STAGING_TOKEN_FACTORY_ADDRESS",
   governanceTokenTemplateProviderAddress: "VITE_STAGING_GOVERNANCE_TOKEN_TEMPLATE_PROVIDER_ADDRESS",
+  shareTokenFactoryAddress: "VITE_STAGING_SHARE_TOKEN_FACTORY_ADDRESS",
+  convertiblesAddress: "VITE_STAGING_CONVERTIBLES_ADDRESS",
+  revenueFinancingAddress: "VITE_STAGING_REVENUE_FINANCING_ADDRESS",
+  profitInterestAddress: "VITE_STAGING_PROFIT_INTEREST_ADDRESS",
 };
 
 function buildStagingBareBonesOverride(): Partial<BareBonesConfiguration> {

@@ -6,6 +6,7 @@ const WALLETS_SUB_ROUTE = 'wallets'
 const PAYMENTS_SUB_ROUTE = 'payments'
 const PAYROLL_SUB_ROUTE = 'payroll'
 const ENTITIES_SUB_ROUTE = 'entities'
+const CAP_TABLE_SUB_ROUTE = 'cap-table'
 
 export const ROUTES = {
   ROOT: "/",
@@ -20,6 +21,8 @@ export const ROUTES = {
   ENTITIES_FORMATION: `/${ENTITIES_SUB_ROUTE}/formation`,
   VAULTS: `/${VAULTS_SUB_ROUTE}`,
   VAULT_DETAIL_ROUTE: `/${WALLETS_SUB_ROUTE}/:walletAddress/${VAULTS_SUB_ROUTE}/:vaultAddress`,
+  CAP_TABLE: `/${CAP_TABLE_SUB_ROUTE}`,
+  CAP_TABLE_ORG_ROUTE: `/${CAP_TABLE_SUB_ROUTE}/:organizationId`,
 
   // Navigation helpers
   BASIC_WALLET_WITH_ADDRESS: (address: string) => `/${BASIC_WALLET_SUB_ROUTE}/${address}`,
@@ -30,6 +33,7 @@ export const ROUTES = {
     `/${PAYMENTS_SUB_ROUTE}/${organizationId}/${PAYROLL_SUB_ROUTE}/${String(payrollId)}`,
   ORGANIZATION_DETAIL: (organizationId: string) => `/${ORGANIZATION_SUB_ROUTE}/${organizationId}`,
   DAO_DETAIL: (daoAddress: string) => `/${DAOS_SUB_ROUTE}/${daoAddress}`,
+  CAP_TABLE_ORG: (organizationId: string) => `/${CAP_TABLE_SUB_ROUTE}/${organizationId}`,
   VAULT_DETAIL: (walletAddress: string, vaultAddress: string) =>
     `/${WALLETS_SUB_ROUTE}/${walletAddress}/${VAULTS_SUB_ROUTE}/${vaultAddress}`,
 } as const;

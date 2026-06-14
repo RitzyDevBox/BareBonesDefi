@@ -1,0 +1,147 @@
+/* Cap-table feature styles. Ported from the designer mockup (Designs/Bare Bones/app/
+   captable.jsx) and re-pointed at the app's --colors-* design tokens. All classes are
+   ct- prefixed so they stay isolated from the rest of the app. */
+
+.ct-page { display: flex; flex-direction: column; gap: 20px; }
+
+.ct-role {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 34px; padding: 0 12px;
+  border: 1px solid var(--colors-border); border-radius: 8px;
+  background: var(--colors-surface);
+  font-size: 12.5px; color: var(--colors-text-muted); white-space: nowrap;
+}
+.ct-role b { color: var(--colors-text-main); font-weight: 600; }
+.ct-role-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--colors-primary); }
+
+/* overview band */
+.ct-overview {
+  border: 1px solid var(--colors-border); border-radius: 14px;
+  background: var(--colors-surface); padding: 22px 24px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.ct-overview-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.ct-kicker { font-size: 10.5px; text-transform: uppercase; letter-spacing: .14em; color: var(--colors-text-muted); margin-bottom: 8px; }
+.ct-overview-h { font-size: 32px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; color: var(--colors-text-main); }
+.ct-overview-h small { font-size: 15px; color: var(--colors-text-muted); letter-spacing: 0; margin-left: 8px; font-weight: 400; }
+
+.ct-vsplit { display: flex; align-items: center; gap: 18px; }
+.ct-vsplit-item { display: flex; flex-direction: column; gap: 3px; }
+.ct-vsplit-k { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--colors-text-muted); text-transform: uppercase; letter-spacing: .08em; }
+.ct-vsplit-v { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; color: var(--colors-text-main); }
+.ct-swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+.ct-swatch.solid { background: var(--colors-text-main); }
+.ct-swatch.faded { background: color-mix(in oklab, var(--colors-text-main) 26%, var(--colors-surface)); }
+
+/* stacked ownership bar */
+.ct-bar { display: flex; gap: 3px; height: 18px; }
+.ct-bar-seg { border-radius: 3px; min-width: 3px; transition: filter .15s; }
+.ct-bar-seg:hover { filter: brightness(1.12); }
+.ct-bar-seg.hatch { background: repeating-linear-gradient(45deg, color-mix(in oklab, var(--colors-text-muted) 52%, var(--colors-surface)) 0 5px, color-mix(in oklab, var(--colors-text-muted) 26%, var(--colors-surface)) 5px 10px); }
+
+.ct-legend { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.ct-legend-item { display: inline-flex; align-items: center; gap: 9px; }
+.ct-legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+.ct-legend-name { font-size: 13px; color: var(--colors-text-main); font-weight: 500; }
+.ct-legend-sub { font-size: 11.5px; color: var(--colors-text-muted); }
+
+/* stat strip */
+.ct-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--colors-border); border: 1px solid var(--colors-border); border-radius: 12px; overflow: hidden; }
+.ct-stat { background: var(--colors-surface); padding: 16px 18px; display: flex; flex-direction: column; gap: 5px; }
+.ct-stat-k { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--colors-text-muted); }
+.ct-stat-v { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; color: var(--colors-text-main); line-height: 1.1; }
+.ct-stat-v small { font-size: 12px; color: var(--colors-text-muted); letter-spacing: 0; margin-left: 5px; font-weight: 400; }
+.ct-stat-sub { font-size: 11px; color: var(--colors-text-muted); }
+@media (max-width: 900px) { .ct-stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .ct-stats { grid-template-columns: 1fr; } }
+
+/* toolbar */
+.ct-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ct-seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--colors-surface); border: 1px solid var(--colors-border); border-radius: 10px; flex-wrap: wrap; }
+.ct-seg-btn { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--colors-text-muted); border-radius: 7px; background: transparent; border: none; cursor: pointer; }
+.ct-seg-btn:hover { color: var(--colors-text-main); }
+.ct-seg-btn.on { color: var(--colors-text-main); background: var(--colors-background); }
+.ct-seg-dot { width: 8px; height: 8px; border-radius: 2px; }
+.ct-seg-btn .count { font-size: 10.5px; color: var(--colors-text-muted); }
+.ct-toolbar-spacer { flex: 1; }
+.ct-search { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; background: var(--colors-surface); border: 1px solid var(--colors-border); border-radius: 9px; min-width: 220px; }
+.ct-search input { border: 0; background: transparent; outline: none; flex: 1; min-width: 0; font-size: 13px; color: var(--colors-text-main); }
+
+/* table */
+.ct-table-wrap { border: 1px solid var(--colors-border); border-radius: 14px; overflow: hidden; background: var(--colors-surface); }
+.ct-table-scroll { overflow-x: auto; }
+.ct-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 720px; }
+.ct-table thead th { text-align: left; font-size: 10px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--colors-text-muted); padding: 12px 16px; border-bottom: 1px solid var(--colors-border); background: var(--colors-background); white-space: nowrap; }
+.ct-table th.num, .ct-table td.num { text-align: right; }
+.ct-table tbody td { padding: 13px 16px; border-bottom: 1px solid var(--colors-border); vertical-align: middle; }
+.ct-row:hover td { background: color-mix(in oklab, var(--colors-background) 55%, transparent); }
+
+.ct-grp td { padding: 0; border-bottom: 1px solid var(--colors-border); background: var(--colors-background); }
+.ct-grp-inner { display: flex; align-items: center; gap: 12px; padding: 11px 16px; flex-wrap: wrap; }
+.ct-class-dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+.ct-class-name { font-size: 15px; font-weight: 600; letter-spacing: -0.005em; color: var(--colors-text-main); }
+.ct-rights { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.ct-right-chip { font-size: 10px; color: var(--colors-text-muted); padding: 2px 7px; border-radius: 5px; background: var(--colors-surface); border: 1px solid var(--colors-border); white-space: nowrap; }
+.ct-grp-sub { margin-left: auto; font-size: 11.5px; color: var(--colors-text-muted); white-space: nowrap; }
+.ct-grp-sub b { color: var(--colors-text-main); font-weight: 600; }
+
+/* holder cell */
+.ct-holder { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.ct-avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: inline-grid; place-items: center; color: #fff; font-size: 12px; font-weight: 600; }
+.ct-holder-k { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ct-holder-name { font-size: 14px; font-weight: 500; color: var(--colors-text-main); display: inline-flex; align-items: center; gap: 8px; }
+.ct-holder-role { font-size: 11.5px; color: var(--colors-text-muted); }
+.ct-type { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--colors-border); color: var(--colors-text-muted); }
+.ct-num { font-size: 13.5px; color: var(--colors-text-main); font-variant-numeric: tabular-nums; }
+.ct-num-dim { font-size: 12.5px; color: var(--colors-text-muted); font-variant-numeric: tabular-nums; }
+
+/* vest cell */
+.ct-vestcell { min-width: 170px; }
+.ct-vest { height: 7px; border-radius: 999px; overflow: hidden; background: var(--colors-border); }
+.ct-vest-fill { height: 100%; border-radius: 999px; }
+.ct-vest-label { margin-top: 5px; font-size: 11px; color: var(--colors-text-muted); display: flex; gap: 6px; align-items: baseline; }
+.ct-vest-label b { color: var(--colors-text-main); font-weight: 500; }
+.ct-vest-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 4px; }
+.ct-vest-tag.full { color: var(--colors-success); background: color-mix(in oklab, var(--colors-success) 14%, transparent); }
+.ct-vest-tag.cliff { color: var(--colors-warn); background: color-mix(in oklab, var(--colors-warn) 14%, transparent); }
+
+.ct-reserved { display: flex; align-items: center; gap: 11px; color: var(--colors-text-muted); }
+.ct-reserved-glyph { width: 30px; height: 30px; border-radius: 7px; border: 1px dashed var(--colors-border); display: inline-grid; place-items: center; }
+.ct-reserved-name { font-size: 14px; font-weight: 500; color: var(--colors-text-main); }
+.ct-reserved-sub { font-size: 11.5px; color: var(--colors-text-muted); }
+
+/* buttons */
+.ct-btn { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; border-radius: 9px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--colors-border); background: var(--colors-surface); color: var(--colors-text-main); white-space: nowrap; }
+.ct-btn:hover { background: var(--colors-background); }
+.ct-btn-primary { background: var(--colors-primary); border-color: var(--colors-primary); color: #fff; }
+.ct-btn-primary:hover { filter: brightness(1.05); background: var(--colors-primary); }
+.ct-btn:disabled { opacity: .5; cursor: not-allowed; }
+.ct-btn-danger { color: var(--colors-error); border-color: color-mix(in oklab, var(--colors-error) 40%, var(--colors-border)); background: var(--colors-surface); }
+
+/* empty state */
+.ct-empty { border: 1px solid var(--colors-border); border-radius: 16px; background: var(--colors-surface); padding: 60px 32px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; }
+.ct-empty-icon { width: 54px; height: 54px; border-radius: 14px; margin-bottom: 12px; background: color-mix(in oklab, var(--colors-primary) 14%, var(--colors-surface)); color: var(--colors-primary); display: inline-grid; place-items: center; font-size: 26px; }
+.ct-empty h3 { margin: 0; font-size: 24px; font-weight: 600; color: var(--colors-text-main); }
+.ct-empty p { margin: 0; max-width: 46ch; color: var(--colors-text-muted); font-size: 14.5px; line-height: 1.55; }
+.ct-empty-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
+
+/* modal */
+.ct-modal-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 9000; }
+.ct-modal { width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; background: var(--colors-surface); border: 1px solid var(--colors-border); border-radius: 16px; }
+.ct-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--colors-border); }
+.ct-modal-title { font-size: 18px; font-weight: 600; color: var(--colors-text-main); }
+.ct-modal-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+.ct-modal-foot { padding: 16px 22px; border-top: 1px solid var(--colors-border); display: flex; justify-content: flex-end; gap: 10px; }
+
+/* form */
+.ct-field { display: flex; flex-direction: column; gap: 6px; }
+.ct-label { font-size: 12px; font-weight: 500; color: var(--colors-text-muted); text-transform: uppercase; letter-spacing: .06em; }
+.ct-input, .ct-select { height: 38px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--colors-border); background: var(--colors-background); color: var(--colors-text-main); font-size: 14px; width: 100%; box-sizing: border-box; }
+.ct-input:focus, .ct-select:focus { outline: none; border-color: var(--colors-primary); }
+.ct-help { font-size: 12px; color: var(--colors-text-muted); }
+
+/* setup allocation rows */
+.ct-alloc-row { display: grid; grid-template-columns: 1fr 140px 36px; gap: 10px; align-items: center; }
+.ct-claim-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid color-mix(in oklab, var(--colors-primary) 40%, var(--colors-border)); background: color-mix(in oklab, var(--colors-primary) 8%, transparent); border-radius: 12px; }
+
+.ct-footnote { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 0 2px; color: var(--colors-text-muted); font-size: 12px; }

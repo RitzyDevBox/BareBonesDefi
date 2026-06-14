@@ -1,0 +1,774 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "authorityResolverSetter_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "amountOwed",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "atTime",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "authorityResolver",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "authorityResolverSetter",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "contractOwner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "convertNotes",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "roundId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "convertSafes",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "roundId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "instrumentCount",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "instruments",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "kind",
+        "type": "uint8",
+        "internalType": "enum Convertibles.Kind"
+      },
+      {
+        "name": "status",
+        "type": "uint8",
+        "internalType": "enum Convertibles.Status"
+      },
+      {
+        "name": "investor",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "principal",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "valuationCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "discountBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "interestRateBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "fundedAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "maturity",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "targetClass",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "markRepaid",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "openRound",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "pricePerShare",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "preConversionShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "roundId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "recordNote",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "investor",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "principal",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "valuationCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "discountBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "interestRateBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "maturity",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "targetClass",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "recordSafe",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "investor",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "principal",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "valuationCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "discountBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "targetClass",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "roundCount",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "rounds",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "pricePerShare",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "preConversionShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setAuthorityResolver",
+    "inputs": [
+      {
+        "name": "resolver",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setShareToken",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "shareToken",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "shareTokenOf",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "AuthorityResolverSet",
+    "inputs": [
+      {
+        "name": "resolver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Converted",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "investor",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "price",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NoteRecorded",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "investor",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "principal",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "cap",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "maturity",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Repaid",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "investor",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoundOpened",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "roundId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "pricePerShare",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "preConversionShares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SafeRecorded",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "investor",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "principal",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "cap",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ShareTokenSet",
+    "inputs": [
+      {
+        "name": "slug",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "shareToken",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "CannotRenounceWithoutResolver",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidMaturity",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotANote",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotASafe",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotAuthorized",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotContractOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotOpen",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotResolverSetter",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OverSubscribed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ShareTokenNotSet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnknownRound",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroValue",
+    "inputs": []
+  }
+]
