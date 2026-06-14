@@ -14,8 +14,25 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
 
+const ROUTES = ['home','directory','governance','wallets','payments','captable','formation','docs'];
+const routeFromHash = () => {
+  const h = (window.location.hash || '').replace(/^#/, '');
+  return ROUTES.includes(h) ? h : 'home';
+};
+
 function App() {
-  const [route, setRoute] = React.useState('home');
+  const [route, setRouteRaw] = React.useState(routeFromHash);
+  const setRoute = (r) => {
+    setRouteRaw(r);
+    if (ROUTES.includes(r)) { try { window.location.hash = r; } catch (e) {} }
+  };
+
+  // keep route in sync if the hash changes (deep links, back/forward)
+  React.useEffect(() => {
+    const onHash = () => setRouteRaw(routeFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
   const [chain, setChain] = React.useState(CHAINS[0]);
   const [wallet, setWallet] = React.useState(null);
   const [showTestnets, setShowTestnets] = React.useState(false);
@@ -160,9 +177,11 @@ function App() {
       />
       <main>
         {route === 'home' && <Landing go={setRoute} />}
+        {route === 'directory' && <Directory daos={daos} setDaos={setDaos} wallet={wallet} onConnect={connect} onSelectDao={(d) => { selectDao(d); setRoute('governance'); }} />}
         {route === 'governance' && <Governance chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'wallets' && <WalletsPage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'payments' && <PaymentsPage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
+        {route === 'captable' && <CapTablePage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'formation' && <EntityFormation chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'docs' && (
           <section className="section">

@@ -26,7 +26,7 @@ const Step6_Review = () => {
             </div>
             <div className="article">
               <div className="article-title">Article IV — Registered Agent</div>
-              <div><span className="fill">Acme Agent Services, LLC</span>, <span className="fill">123 Example Way, Sheridan, WY 82801</span>.</div>
+              <div><span className="fill">Cloud Peak Law Group, LLC</span>, <span className="fill">1309 Coffeen Ave Ste 1200, Sheridan, WY 82801</span>.</div>
             </div>
             <div className="article">
               <div className="article-title">Article V — Principal Office</div>
@@ -53,7 +53,7 @@ const Step6_Review = () => {
                 <dt>Management</dt><dd>Member-managed <a href="#/wizard/basics" style={{ marginLeft: 8, color: 'var(--accent)', fontSize: 12, fontWeight: 400 }}>edit</a></dd>
                 <dt>Contract</dt><dd className="mono" style={{ fontSize: 12 }}>0x7B4f…D921 <a href="#/wizard/contract" style={{ marginLeft: 8, color: 'var(--accent)', fontSize: 12, fontWeight: 400 }}>edit</a></dd>
                 <dt>Chain</dt><dd>Polygon</dd>
-                <dt>Agent</dt><dd>Acme Agent Services <a href="#/wizard/agent" style={{ marginLeft: 8, color: 'var(--accent)', fontSize: 12, fontWeight: 400 }}>edit</a></dd>
+                <dt>Agent</dt><dd>Cloud Peak Law <a href="#/wizard/agent" style={{ marginLeft: 8, color: 'var(--accent)', fontSize: 12, fontWeight: 400 }}>edit</a></dd>
                 <dt>Op. agreement</dt><dd>Generated · IPFS <a href="#/wizard/agreement" style={{ marginLeft: 8, color: 'var(--accent)', fontSize: 12, fontWeight: 400 }}>edit</a></dd>
               </dl>
             </div>
@@ -140,7 +140,7 @@ const Step7_Submit = () => {
         {path === 'api' && (
           <div className="card">
             <Callout tone="warn" title="Partner API in private preview">
-              We're working with Acme Agent Services to enable one-click filing. Available to a handful of pilot users today.
+              We're working with Cloud Peak Law to enable one-click filing. Available to a handful of pilot users today.
             </Callout>
             <div style={{ marginTop: 20 }}>
               <Field label="Payment method"><input className="input" defaultValue="Visa ending 4242" /></Field>
@@ -235,7 +235,7 @@ const Dashboard = () => (
       <div className="widget" style={{ gridColumn: 'span 4' }}>
         <h4>Registered agent</h4>
         <div className="stat-big">$49</div>
-        <div className="muted" style={{ marginTop: 6 }}>Acme Agent Services · renews Mar 14, 2027</div>
+        <div className="muted" style={{ marginTop: 6 }}>Cloud Peak Law · renews Mar 14, 2027</div>
         <div style={{ marginTop: 18, display: 'grid', gap: 8 }}>
           <Badge>Auto-renew on</Badge>
           <a href="#" style={{ fontSize: 13, color: 'var(--accent)' }}>Change agent →</a>

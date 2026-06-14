@@ -540,6 +540,7 @@ function Governance({ chain, wallet, onConnect, activeDao }) {
 
       <section className="section" style={{ paddingTop: 32 }}>
         <div className="container">
+          {window.CapTableVotingClaim && (tab === 'active' || tab === 'history') && React.createElement(window.CapTableVotingClaim, { wallet })}
           {(() => {
             const section = (tab === 'members' || tab === 'config') ? tab : 'proposals';
             return (
