@@ -5,6 +5,7 @@ import DAOGovernorABI from "../abis/dao/DAOGovernor.abi.json";
 import TimelockControllerABI from "../abis/dao/TimelockController.abi.json";
 import ERC20VotesABI from "../abis/diamond/ERC20Votes.abi.json";
 import ShareTokenABI from "../abis/capTable/ShareToken.abi.json";
+import "../styles/capTableSurfaces.css";
 import { ProposalsList } from "../components/DAO/ProposalsList";
 import { DAOInfoHeader } from "../components/DAO/DAOInfoHeader";
 import { ProposalBuilder } from "../components/DAO/ProposalBuilder";
@@ -221,6 +222,60 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
       cancelled = true;
     };
   }, [provider, account, governanceOverview?.tokenAddress, version]);
+
+  // ─── Cap-table claim banner (when the DAO token is a ShareToken) ──────────────
+  // Claim-to-vote: shares vest automatically but voting power for newly-vested shares must be
+  // claimed. Non-vesting grants are auto-attributed at issue, so this only surfaces for holders
+  // mid-vesting (vested voting power > already-claimed). One-click claimMany activates it.
+  const [capClaim, setCapClaim] = useState<{ token: string; classIds: number[]; unclaimed: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const tokenAddress = governanceOverview?.tokenAddress;
+    if (!provider || !account || !tokenAddress) {
+      setCapClaim(null);
+      return;
+    }
+    (async () => {
+      try {
+        const st = new ethers.Contract(tokenAddress, ShareTokenABI as ethers.ContractInterface, provider);
+        const count = Number((await st.classCount()).toString()); // reverts if not a ShareToken
+        let unclaimedBase = 0n;
+        const classIds: number[] = [];
+        for (let c = 0; c < count; c++) {
+          const bal = await st.balanceOf(account, c);
+          if (bal.isZero()) continue;
+          const [vested, claimed, params] = await Promise.all([
+            st.vestedBalanceOf(account, c),
+            st.claimedVotesOf(account, c),
+            st.classParams(c),
+          ]);
+          const weight = BigInt(params.voteWeightBps);
+          const eligible = (BigInt(vested.toString()) * weight) / 10000n;
+          const delta = eligible - BigInt(claimed.toString());
+          if (delta > 0n) {
+            unclaimedBase += delta;
+            classIds.push(c);
+          }
+        }
+        if (cancelled) return;
+        const unclaimed = Number(ethers.utils.formatUnits(unclaimedBase.toString(), 18));
+        setCapClaim(classIds.length > 0 ? { token: tokenAddress, classIds, unclaimed } : null);
+      } catch {
+        if (!cancelled) setCapClaim(null); // not a ShareToken / read failed
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [provider, account, governanceOverview?.tokenAddress, version]);
+
+  const executeClaimVotes = useExecuteRawTx(
+    (_: number, token: string, classIds: number[]) => ({
+      to: token,
+      data: ShareTokenInterface.encodeFunctionData("claimMany", [account, classIds]),
+    } as any),
+    () => "Voting power claimed",
+  );
 
   // ─── Transaction hooks ──────────────────────────────────────────────────────
 
@@ -497,6 +552,29 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
 
   const content = (
     <Stack gap="lg" style={{ width: "100%" }}>
+      {capClaim && capClaim.unclaimed > 0 && (
+        <div className="gov-claim" data-testid="dao-captable-claim">
+          <span className="gov-claim-icon">⚡</span>
+          <div className="gov-claim-k">
+            <div className="gov-claim-title">
+              You have <b>{capClaim.unclaimed.toLocaleString("en-US")}</b> unclaimed voting power
+            </div>
+            <div className="gov-claim-sub">
+              Your shares vest as you go, but voting power for newly-vested shares isn't automatic —
+              claim it to vote.
+            </div>
+          </div>
+          <button
+            className="btn-primary"
+            data-testid="dao-captable-claim-btn"
+            onClick={() => {
+              if (chainId != null) void executeClaimVotes(chainId, capClaim.token, capClaim.classIds);
+            }}
+          >
+            Claim {capClaim.unclaimed.toLocaleString("en-US")}
+          </button>
+        </div>
+      )}
       <DAOInfoHeader
         daoName={effectiveDaoName}
         governorAddress={governorAddress}

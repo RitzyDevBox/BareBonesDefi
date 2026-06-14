@@ -88,7 +88,11 @@ export function ClassManager({
               const p = c.params;
               const isPool = c.isPool;
               const retired = c.status === ClassStatus.Retired;
-              const capNum = Number(c.params.authorizedCap);
+              // authorizedCap is 18-decimal base units on-chain → show whole tokens.
+              const capNum =
+                c.params.authorizedCap && c.params.authorizedCap !== "0"
+                  ? Number(BigInt(c.params.authorizedCap) / 10n ** 18n)
+                  : 0;
               return (
                 <div
                   key={c.classId}
@@ -181,7 +185,17 @@ interface ClassEditorProps {
 
 export function ClassEditor({ initial, onClose, onSave }: ClassEditorProps) {
   const isNew = !initial;
-  const seed: ClassParams = initial?.params ?? defaultCommonClass("Preferred B");
+  const rawSeed: ClassParams = initial?.params ?? defaultCommonClass("Preferred B");
+  // Keep share-amount fields (authorizedCap / chunkAmount) in WHOLE TOKENS in editor state for a
+  // human-friendly input; on-chain they're 18-decimal base units, so convert in/out. Caps are whole
+  // tokens, so integer BigInt division is exact (no decimal-point artifacts from formatUnits).
+  const toWhole = (baseUnits: string) =>
+    baseUnits && baseUnits !== "0" ? (BigInt(baseUnits) / 10n ** 18n).toString() : "0";
+  const seed: ClassParams = {
+    ...rawSeed,
+    authorizedCap: toWhole(rawSeed.authorizedCap),
+    chunkAmount: toWhole(rawSeed.chunkAmount),
+  };
 
   const [name, setName] = useState<string>(seed.name);
   const [p, setP] = useState<ClassParams>({ ...seed });
@@ -217,13 +231,17 @@ export function ClassEditor({ initial, onClose, onSave }: ClassEditorProps) {
         vestCliff: p.vestKind === VestKind.None ? 0 : p.vestCliff,
         vestDuration: p.vestKind === VestKind.None ? 0 : p.vestDuration,
         vestPeriod: p.vestKind === VestKind.None ? 0 : p.vestPeriod,
-        chunkAmount: p.chunkAmount,
+        // Scale whole-token inputs back to 18-decimal base units (clean integer strings — never
+        // JS Number/sci-notation, which ethers rejects e.g. "1e+29").
+        chunkAmount:
+          p.chunkAmount && p.chunkAmount !== "0" ? ethers.utils.parseUnits(p.chunkAmount, 18).toString() : "0",
         transferLockDuration: p.transferLockDuration,
         transferGate: p.transferGate,
         payoutPriority: p.payoutPriority,
         distributionWeightBps: p.distributionWeightBps,
         distributionPolicy: p.distributionPolicy,
-        authorizedCap: p.authorizedCap,
+        authorizedCap:
+          p.authorizedCap && p.authorizedCap !== "0" ? ethers.utils.parseUnits(p.authorizedCap, 18).toString() : "0",
         excludeFromFullyDiluted: p.excludeFromFullyDiluted,
         excludeFromVotingTotal: p.excludeFromVotingTotal,
         unvestedVotes: p.unvestedVotes,
@@ -318,7 +336,7 @@ export function ClassEditor({ initial, onClose, onSave }: ClassEditorProps) {
                 <input
                   className="input mono"
                   value={capNum ? fmtShares(capNum) : "0"}
-                  onChange={(e) => set("authorizedCap", String(Number(onlyDigits(e.target.value)) || 0))}
+                  onChange={(e) => set("authorizedCap", onlyDigits(e.target.value) || "0")}
                 />
                 <span className="input-unit">sh</span>
               </div>

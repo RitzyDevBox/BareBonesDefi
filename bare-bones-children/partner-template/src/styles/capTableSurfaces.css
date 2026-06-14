@@ -271,6 +271,14 @@
 .ig-chart-title span { font-family: var(--font-mono); font-size: 11px; color: var(--text-mute); }
 .ig-stat-rows { display: flex; flex-direction: column; }
 
+/* governance claim banner (DAO page) */
+.gov-claim { display: flex; align-items: center; gap: 16px; padding: 16px 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--line)); background: color-mix(in oklab, var(--accent) 9%, var(--bg-elev)); }
+.gov-claim-icon { width: 40px; height: 40px; border-radius: 10px; background: color-mix(in oklab, var(--accent) 20%, var(--bg-elev-2)); color: var(--accent); display: inline-grid; place-items: center; flex-shrink: 0; font-size: 20px; }
+.gov-claim-k { flex: 1; min-width: 0; }
+.gov-claim-title { font-size: 16px; font-weight: var(--display-weight); letter-spacing: -0.005em; color: var(--text); }
+.gov-claim-title b { color: var(--accent); }
+.gov-claim-sub { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+
 /* range slider used by the transfer modal */
 .cts-slider { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; background: var(--bg-elev-2); outline: none; }
 .cts-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg-elev); cursor: pointer; }
