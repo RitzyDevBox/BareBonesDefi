@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { ethers } from "ethers";
 import "../styles/capTable.css";
 import "../styles/capTableSurfaces.css";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
@@ -25,14 +24,11 @@ import {
   ClassManager,
 } from "../components/CapTable";
 
-// Frontend gate for showing write affordances. On-chain MTA enforces the real permission set;
-// this just hides buttons a caller couldn't use. SuperAdmin / Admin (the slug-owner surface) and
-// the CapTableManager ops role may manage the table.
-const CAP_TABLE_ADMIN_ROLE_SLUGS = new Set<string>([
-  SYSTEM_ROLE_SLUG.SuperAdmin,
-  SYSTEM_ROLE_SLUG.Admin,
-  ethers.utils.formatBytes32String("CapTableManager"),
-]);
+// Cap-table management is locked to the **Super Admin**. The founder holds Super Admin at
+// formation (sets up classes / issues the founding cap table without governance), then
+// `transferSuperAdmin(timelock)` hands control to the DAO — after which the timelock is Super
+// Admin and cap-table actions go through governance. On-chain MTA enforces this; the gate below
+// just mirrors it so we don't surface buttons that would revert.
 
 type CapTableMode = "table" | "setup" | "raise" | "classes";
 
@@ -66,13 +62,22 @@ export function CapTablePage() {
   const { state, refresh } = useCapTable(slug, owner, mtaState.members);
   const actions = useCapTableActions(slug, state.shareTokenAddress);
 
+  // The connected wallet may manage the cap table iff it is the current Super Admin. We resolve the
+  // Super Admin from the member registry (the member holding SUPER_ADMIN_ROLE); at formation that's
+  // the founder (= owner), so we fall back to the org owner before the subgraph has indexed members.
+  // After the founder relinquishes to the timelock, no connected EOA matches → buttons hide and
+  // cap-table changes go through governance.
   const isAdmin = useMemo(() => {
     if (!account) return false;
-    if (orgInfo?.exists && orgInfo.owner.toLowerCase() === account.toLowerCase()) return true;
-    const me = mtaState.members.find((m) => m.wallet?.address?.toLowerCase() === account.toLowerCase());
-    if (!me) return false;
-    return me.roles.some((s) => CAP_TABLE_ADMIN_ROLE_SLUGS.has(s));
-  }, [account, orgInfo, mtaState.members]);
+    const superAdmin = mtaState.members.find((m) =>
+      m.roles.some((r) => r === SYSTEM_ROLE_SLUG.SuperAdmin),
+    );
+    if (superAdmin?.wallet?.address) {
+      return superAdmin.wallet.address.toLowerCase() === account.toLowerCase();
+    }
+    // Formation fallback (members not indexed yet): the founder/owner is Super Admin.
+    return Boolean(orgInfo?.exists && orgInfo.owner.toLowerCase() === account.toLowerCase());
+  }, [account, mtaState.members, orgInfo]);
 
   const [mode, setMode] = useState<CapTableMode>("table");
   const [issueOpen, setIssueOpen] = useState(false);

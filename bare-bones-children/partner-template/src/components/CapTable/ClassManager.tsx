@@ -23,6 +23,7 @@ import {
   abbrevShares,
   fmtShares,
   defaultCommonClass,
+  parseTokens,
 } from "./capTableHelpers";
 
 const SEC_MONTH = 30 * 24 * 60 * 60;
@@ -234,14 +235,14 @@ export function ClassEditor({ initial, onClose, onSave }: ClassEditorProps) {
         // Scale whole-token inputs back to 18-decimal base units (clean integer strings — never
         // JS Number/sci-notation, which ethers rejects e.g. "1e+29").
         chunkAmount:
-          p.chunkAmount && p.chunkAmount !== "0" ? ethers.utils.parseUnits(p.chunkAmount, 18).toString() : "0",
+          p.chunkAmount && p.chunkAmount !== "0" ? parseTokens(p.chunkAmount) : "0",
         transferLockDuration: p.transferLockDuration,
         transferGate: p.transferGate,
         payoutPriority: p.payoutPriority,
         distributionWeightBps: p.distributionWeightBps,
         distributionPolicy: p.distributionPolicy,
         authorizedCap:
-          p.authorizedCap && p.authorizedCap !== "0" ? ethers.utils.parseUnits(p.authorizedCap, 18).toString() : "0",
+          p.authorizedCap && p.authorizedCap !== "0" ? parseTokens(p.authorizedCap) : "0",
         excludeFromFullyDiluted: p.excludeFromFullyDiluted,
         excludeFromVotingTotal: p.excludeFromVotingTotal,
         unvestedVotes: p.unvestedVotes,
@@ -338,7 +339,7 @@ export function ClassEditor({ initial, onClose, onSave }: ClassEditorProps) {
                   value={capNum ? fmtShares(capNum) : "0"}
                   onChange={(e) => set("authorizedCap", onlyDigits(e.target.value) || "0")}
                 />
-                <span className="input-unit">sh</span>
+                <span className="input-unit">tokens</span>
               </div>
             </div>
 

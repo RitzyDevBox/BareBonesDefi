@@ -23,6 +23,8 @@ import { getBareBonesConfiguration } from "../../constants/misc";
 import { orgSlugFor } from "../../utils/payroll/orgSlug";
 import type { ClassParams } from "./capTableTypes";
 import { saveShareTokenAddress } from "./shareTokenResolver";
+// Shared scaling — whole-token UI input → 18-dec base units (the contract never scales).
+import { parseTokens } from "../../components/CapTable/capTableHelpers";
 
 const ZERO = ethers.constants.AddressZero;
 
@@ -38,12 +40,6 @@ export interface DeployCapTableConfig {
 
 function bn(v: ethers.BigNumberish): string {
   return ethers.BigNumber.from(v).toString();
-}
-
-// Share amounts are entered as whole tokens but stored as 18-decimal base units (ERC20/cap-table
-// convention the rest of the app uses). Scale on the way in.
-function units(wholeTokens: string): string {
-  return ethers.utils.parseUnits(wholeTokens, 18).toString();
 }
 
 export function useCapTableActions(slug: string, shareTokenAddress: string | null) {
@@ -119,7 +115,7 @@ export function useCapTableActions(slug: string, shareTokenAddress: string | nul
   // ── Owner-gated writes (via MTA.execute) ─────────────────────────────────
   const issueGrant = useExecuteRawTx(
     (classId: number, to: string, amount: string) =>
-      mtaExecuteTx(requireShareToken(), shareIface.encodeFunctionData("issue", [classId, to, units(amount)])),
+      mtaExecuteTx(requireShareToken(), shareIface.encodeFunctionData("issue", [classId, to, parseTokens(amount)])),
     (_classId, _to, amount) => `Issued ${amount} shares`,
   );
 
@@ -133,7 +129,7 @@ export function useCapTableActions(slug: string, shareTokenAddress: string | nul
     (classId: number, amount: string) =>
       mtaExecuteTx(
         requireShareToken(),
-        shareIface.encodeFunctionData("setReservedPool", [classId, units(amount)]),
+        shareIface.encodeFunctionData("setReservedPool", [classId, parseTokens(amount)]),
       ),
     () => "Option pool updated",
   );
@@ -198,7 +194,7 @@ export function useCapTableActions(slug: string, shareTokenAddress: string | nul
     (pricePerShare: string, preConversionShares: string) =>
       mtaExecuteTx(
         requireConvertibles(),
-        convIface.encodeFunctionData("openRound", [slugBytes, bn(pricePerShare), units(preConversionShares)]),
+        convIface.encodeFunctionData("openRound", [slugBytes, bn(pricePerShare), parseTokens(preConversionShares)]),
       ),
     () => "Priced round opened",
   );
@@ -238,7 +234,7 @@ export function useCapTableActions(slug: string, shareTokenAddress: string | nul
   const transferShares = useExecuteRawTx(
     (classId: number, to: string, amount: string) => ({
       to: requireShareToken(),
-      data: shareIface.encodeFunctionData("transfer", [classId, to, units(amount)]),
+      data: shareIface.encodeFunctionData("transfer", [classId, to, parseTokens(amount)]),
       value: undefined,
     }),
     (_classId, _to, amount) => `Transferred ${amount} shares`,

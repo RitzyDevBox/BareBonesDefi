@@ -281,7 +281,7 @@ export function IssueGrantModal({ classes, members, prefill, onClose, onIssue }:
                 </select>
               </div>
               <div>
-                <label className="ig-label">Amount</label>
+                <label className="ig-label">Amount (tokens)</label>
                 <div className="input-with-unit">
                   <input
                     className="input mono"
@@ -291,7 +291,7 @@ export function IssueGrantModal({ classes, members, prefill, onClose, onIssue }:
                     onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
                     data-testid="captable-issue-amount-input"
                   />
-                  <span className="input-unit">shares</span>
+                  <span className="input-unit">tokens</span>
                 </div>
               </div>
             </div>

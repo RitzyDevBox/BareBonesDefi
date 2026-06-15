@@ -95,7 +95,7 @@ export function TransferModal({ holder, onClose, onTransfer }: TransferModalProp
           </div>
 
           <div className="field">
-            <label className="ig-label">Amount</label>
+            <label className="ig-label">Amount (tokens)</label>
             <div className="input-with-unit">
               <input
                 className="input mono"

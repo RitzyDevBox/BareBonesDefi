@@ -6,6 +6,7 @@ import TimelockControllerABI from "../abis/dao/TimelockController.abi.json";
 import ERC20VotesABI from "../abis/diamond/ERC20Votes.abi.json";
 import ShareTokenABI from "../abis/capTable/ShareToken.abi.json";
 import "../styles/capTableSurfaces.css";
+import { formatTokens } from "../components/CapTable/capTableHelpers";
 import { ProposalsList } from "../components/DAO/ProposalsList";
 import { DAOInfoHeader } from "../components/DAO/DAOInfoHeader";
 import { ProposalBuilder } from "../components/DAO/ProposalBuilder";
@@ -249,16 +250,18 @@ export function DAODetailPage({ daoAddressOverride, embedded = false, showBackBu
             st.claimedVotesOf(account, c),
             st.classParams(c),
           ]);
-          const weight = BigInt(params.voteWeightBps);
-          const eligible = (BigInt(vested.toString()) * weight) / 10000n;
-          const delta = eligible - BigInt(claimed.toString());
-          if (delta > 0n) {
-            unclaimedBase += delta;
+          // `claimedVotesOf` stores UNWEIGHTED vested units (getVotes applies the class weight on
+          // read). So compare apples-to-apples in units: unclaimed exists iff vested units >
+          // claimed units. Only then weight it for the displayed "voting power".
+          const deltaUnits = BigInt(vested.toString()) - BigInt(claimed.toString());
+          if (deltaUnits > 0n) {
+            const weight = BigInt(params.voteWeightBps);
+            unclaimedBase += (deltaUnits * weight) / 10000n;
             classIds.push(c);
           }
         }
         if (cancelled) return;
-        const unclaimed = Number(ethers.utils.formatUnits(unclaimedBase.toString(), 18));
+        const unclaimed = formatTokens(unclaimedBase.toString());
         setCapClaim(classIds.length > 0 ? { token: tokenAddress, classIds, unclaimed } : null);
       } catch {
         if (!cancelled) setCapClaim(null); // not a ShareToken / read failed

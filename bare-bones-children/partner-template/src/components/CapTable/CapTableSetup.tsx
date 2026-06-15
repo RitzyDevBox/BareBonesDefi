@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { ethers } from "ethers";
 import type { Member } from "../../types/members";
 import type { DeployCapTableConfig } from "../../hooks/capTable/useCapTableActions";
-import { defaultCommonClass } from "./capTableHelpers";
+import { defaultCommonClass, parseTokens } from "./capTableHelpers";
 
 interface AllocRow {
   address: string;
@@ -60,7 +60,7 @@ export function CapTableSetup({ orgSlug, members, onCancel, onComplete }: CapTab
         defaultClass: defaultCommonClass(className.trim() || "Common"),
         initialHolders: validRows.map((r) => ethers.utils.getAddress(r.address)),
         // Whole shares entered → 18-decimal base units (matches the cap-table display convention).
-        initialAmounts: validRows.map((r) => ethers.utils.parseUnits(r.amount, 18).toString()),
+        initialAmounts: validRows.map((r) => parseTokens(r.amount)),
       };
       await onComplete(cfg);
     } finally {
@@ -102,7 +102,7 @@ export function CapTableSetup({ orgSlug, members, onCancel, onComplete }: CapTab
       <div className="ct-overview">
         <div className="ct-overview-top">
           <div className="ct-kicker">Founder allocations</div>
-          <span className="ct-help">{totalShares.toLocaleString("en-US")} shares total</span>
+          <span className="ct-help">{totalShares.toLocaleString("en-US")} tokens total</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {rows.map((r, i) => (
@@ -125,7 +125,7 @@ export function CapTableSetup({ orgSlug, members, onCancel, onComplete }: CapTab
               <input
                 className="ct-input"
                 inputMode="numeric"
-                placeholder="shares"
+                placeholder="tokens"
                 value={r.amount}
                 onChange={(e) => setRow(i, { amount: e.target.value.replace(/[^\d]/g, "") })}
                 data-testid={`captable-setup-amount-${i}`}

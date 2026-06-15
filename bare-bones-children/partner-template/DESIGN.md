@@ -113,6 +113,17 @@ singletons are MTA-owned; holder-scoped calls (`transfer`, `claim`) are direct w
 
 ## Changelog
 
+### 2026-06-14 — Fix: allocation amount double-scaled at DAO creation
+- **Bug:** founding allocations entered as `100` landed on-chain as `1e38` (displayed `1e20` tokens).
+  `StepGovernance` uses `TokenUnitsInput`, which *already* runs `parseUnits(_, 18)` and stores **base
+  units** in form state — but `useDeployDao` then called `parseTokens(a.amount)` again (`100 → 1e20 →
+  1e38`). The proposal-threshold field (same component) was correct because it's passed through raw.
+- **Fix:** `useDeployDao` passes `a.amount` straight through (`|| "0"`); removed the redundant
+  `parseTokens`. Single scaling point is now `TokenUnitsInput`. Validation already treated the field
+  as a base-units integer string, so no other change was needed.
+- **Note:** the contract stores raw and never rescales, so any org created before this fix keeps its
+  inflated balance — only newly-created orgs are correct.
+
 ### 2026-06-14 — Cap Table: formation wiring, 18-dec amounts, faithful design re-port
 - **Cap table is the DAO token at formation** (`useDeployDao` defaults `useShareToken`); resolved
   on-chain as `daoOf(slug) → governor.token()`. Dedupe the SuperAdmin out of the admin/minter/

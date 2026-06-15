@@ -25,16 +25,12 @@ import {
   classColor,
 } from "./capTableTypes";
 import { resolveShareTokenAddress } from "./shareTokenResolver";
+// Shared scaling — the contract never scales (stores raw 18-dec base units); the frontend always
+// does. `formatTokens` = base units → whole-token display. Reused across all cap-table surfaces.
+import { formatTokens as toTokens } from "../../components/CapTable/capTableHelpers";
 
 function toNum(v: ethers.BigNumberish): number {
   return Number(ethers.BigNumber.from(v).toString());
-}
-
-// Share amounts are 18-decimal base units (the cap table emulates an ERC20 / matches the
-// GovernanceToken convention the rest of the app displays with). Convert to whole tokens for
-// display so a 100-token grant shows as "100", not "100000000000000000000".
-function toTokens(v: ethers.BigNumberish): number {
-  return Number(ethers.utils.formatUnits(ethers.BigNumber.from(v), 18));
 }
 
 function shortAddr(a: string): string {

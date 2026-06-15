@@ -8,6 +8,21 @@ import {
 
 const ZERO = ethers.constants.AddressZero;
 
+// Single source of truth for cap-table amount scaling. The contract NEVER scales — it stores raw
+// 18-decimal base units. The frontend ALWAYS scales: inputs are entered as whole TOKEN units
+// (ethers, not wei) and converted with these helpers. Reuse everywhere amounts cross the boundary.
+export const TOKEN_DECIMALS = 18;
+
+/** Whole tokens (UI input) → 18-decimal base-unit string for the contract. */
+export function parseTokens(wholeTokens: string): string {
+  return ethers.utils.parseUnits((wholeTokens || "0").trim(), TOKEN_DECIMALS).toString();
+}
+
+/** 18-decimal base units (from the contract) → whole-token number for display. */
+export function formatTokens(baseUnits: ethers.BigNumberish): number {
+  return Number(ethers.utils.formatUnits(ethers.BigNumber.from(baseUnits), TOKEN_DECIMALS));
+}
+
 export function fmtShares(n: number): string {
   return n.toLocaleString("en-US");
 }

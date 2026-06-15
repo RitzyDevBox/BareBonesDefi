@@ -67,6 +67,10 @@ function buildInitialForm(chainId: number | null, account: string | null, tokenF
       // behaviour and is what most orgs want out of the box.
       authSuperAdmin: "",
       authSuperAdminName: "",
+      // Super Admin is left blank → the launcher makes the **founder** Super Admin for cap-table
+      // (ShareToken) launches, so they set up classes/cap table without governance, then
+      // `transferSuperAdmin(timelock)` to hand control to the DAO. So the founder is NOT also listed
+      // as an Admin here (they're the Super Admin).
       authInitialAdmins: [],
       additionalMembers: [],
     } as RolesForm,

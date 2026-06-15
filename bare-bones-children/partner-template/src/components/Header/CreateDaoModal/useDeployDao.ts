@@ -283,9 +283,10 @@ export function useDeployDao() {
             symbol: fc.symbol.trim(),
             mintable: fc.mintable,
             initialHolders: fc.allocations.map((a) => toChecksumAddress(a.holder)),
-            // Allocations are entered as whole tokens/shares; scale to 18-decimal base units to
-            // match the ERC20Votes / cap-table convention the rest of the app displays with.
-            initialAmounts: fc.allocations.map((a) => ethers.utils.parseUnits(a.amount, 18).toString()),
+            // `TokenUnitsInput` already emits base units (it runs parseUnits on the typed whole-token
+            // value), so the form state IS 18-dec base units — pass it through. Do NOT re-scale here:
+            // an extra parseTokens double-scaled (100 → 1e20 → 1e38). The contract never scales.
+            initialAmounts: fc.allocations.map((a) => a.amount || "0"),
           },
           initialMinters: fc.initialMinters.map((a) => toChecksumAddress(a)).filter(notSuperAdmin),
           initialPausers: fc.initialPausers.map((a) => toChecksumAddress(a)).filter(notSuperAdmin),

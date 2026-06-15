@@ -14,7 +14,8 @@ export type SystemRoleName =
   | "MemberManager"
   | "PermissionManager"
   | "PayrollOperator"
-  | "TreasuryOperator";
+  | "TreasuryOperator"
+  | "CapTableManager";
 
 export const SYSTEM_ROLE_NAMES: readonly SystemRoleName[] = [
   "SuperAdmin",
@@ -25,6 +26,7 @@ export const SYSTEM_ROLE_NAMES: readonly SystemRoleName[] = [
   "PermissionManager",
   "PayrollOperator",
   "TreasuryOperator",
+  "CapTableManager",
 ];
 
 // Pre-computed bytes32 slugs. Equivalent to
@@ -39,6 +41,7 @@ export const SYSTEM_ROLE_SLUG: Record<SystemRoleName, string> = {
   PermissionManager: ethers.utils.formatBytes32String("PermissionManager"),
   PayrollOperator: ethers.utils.formatBytes32String("PayrollOperator"),
   TreasuryOperator: ethers.utils.formatBytes32String("TreasuryOperator"),
+  CapTableManager: ethers.utils.formatBytes32String("CapTableManager"),
 };
 
 export interface SystemRole {
@@ -98,6 +101,12 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
     slug: SYSTEM_ROLE_SLUG.TreasuryOperator,
     description:
       "Treasury operations. Reserved system role — no implicit grants today; orgs grant explicit permissions to use it.",
+  },
+  {
+    name: "CapTableManager",
+    slug: SYSTEM_ROLE_SLUG.CapTableManager,
+    description:
+      "Cap-table operations. Delegated day-to-day management of the org's ShareToken (issue grants, create/retire classes, record SAFEs/notes). No implicit grants — governance (Super Admin) assigns this role and grants the explicit cap-table permissions; the timelock retains ultimate control.",
   },
 ];
 
