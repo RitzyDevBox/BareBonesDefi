@@ -21,7 +21,7 @@ import { useExecuteRawTx } from "../useExecuteRawTx";
 import { useWalletProvider } from "../useWalletProvider";
 import { getBareBonesConfiguration } from "../../constants/misc";
 import { orgSlugFor } from "../../utils/payroll/orgSlug";
-import type { ClassParams } from "./capTableTypes";
+import type { ClassParams, VestingTerms } from "./capTableTypes";
 import { saveShareTokenAddress } from "./shareTokenResolver";
 // Shared scaling — whole-token UI input → 18-dec base units (the contract never scales).
 import { parseTokens } from "../../components/CapTable/capTableHelpers";
@@ -117,6 +117,28 @@ export function useCapTableActions(slug: string, shareTokenAddress: string | nul
     (classId: number, to: string, amount: string) =>
       mtaExecuteTx(requireShareToken(), shareIface.encodeFunctionData("issue", [classId, to, parseTokens(amount)])),
     (_classId, _to, amount) => `Issued ${amount} shares`,
+  );
+
+  // Issue with a per-grant vesting override (the deal differs from the class default). `terms` is an
+  // on-chain-ready VestingTerms (chunkAmount already in base units — the caller scales it).
+  const issueGrantWithTerms = useExecuteRawTx(
+    (classId: number, to: string, amount: string, terms: VestingTerms) =>
+      mtaExecuteTx(
+        requireShareToken(),
+        shareIface.encodeFunctionData("issueWithTerms", [classId, to, parseTokens(amount), terms]),
+      ),
+    (_classId, _to, amount) => `Issued ${amount} shares`,
+  );
+
+  // Settle a holder's fully-vested grants into their flat balance (permissionless keeper — a plain
+  // direct call, not MTA-gated). Prunes the active set so balance/voting reads stay cheap.
+  const settle = useExecuteRawTx(
+    (holder: string, classId: number) => ({
+      to: requireShareToken(),
+      data: shareIface.encodeFunctionData("settle", [holder, classId]),
+      value: undefined,
+    }),
+    () => "Vested grants settled",
   );
 
   const createClass = useExecuteRawTx(
@@ -252,6 +274,8 @@ export function useCapTableActions(slug: string, shareTokenAddress: string | nul
   return {
     deployCapTable,
     issueGrant,
+    issueGrantWithTerms,
+    settle,
     createClass,
     setReservedPool,
     clawbackUnvested,

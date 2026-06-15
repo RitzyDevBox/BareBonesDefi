@@ -79,11 +79,6 @@ function decodeClassParams(raw: any): ClassParams {
   return {
     name: raw.name,
     voteWeightBps: Number(raw.voteWeightBps),
-    vestKind: Number(raw.vestKind),
-    vestCliff: Number(raw.vestCliff),
-    vestDuration: Number(raw.vestDuration),
-    vestPeriod: Number(raw.vestPeriod),
-    chunkAmount: ethers.BigNumber.from(raw.chunkAmount).toString(),
     transferLockDuration: Number(raw.transferLockDuration),
     transferGate: raw.transferGate,
     payoutPriority: Number(raw.payoutPriority),
@@ -94,9 +89,16 @@ function decodeClassParams(raw: any): ClassParams {
     excludeFromVotingTotal: Boolean(raw.excludeFromVotingTotal),
     unvestedVotes: Boolean(raw.unvestedVotes),
     requiresLiquidityEvent: Boolean(raw.requiresLiquidityEvent),
-    vestingStrategy: raw.vestingStrategy,
     transferPolicy: raw.transferPolicy,
     voteStrategy: raw.voteStrategy,
+    defaultTerms: {
+      vestKind: Number(raw.defaultTerms.vestKind),
+      vestCliff: Number(raw.defaultTerms.vestCliff),
+      vestDuration: Number(raw.defaultTerms.vestDuration),
+      vestPeriod: Number(raw.defaultTerms.vestPeriod),
+      chunkAmount: ethers.BigNumber.from(raw.defaultTerms.chunkAmount).toString(),
+      vestingStrategy: raw.defaultTerms.vestingStrategy,
+    },
   };
 }
 

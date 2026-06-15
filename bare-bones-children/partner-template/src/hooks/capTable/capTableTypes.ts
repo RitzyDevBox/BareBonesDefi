@@ -21,16 +21,31 @@ export enum ClassStatus {
   Removed = 2,
 }
 
-/** On-chain ClassParams, decoded. Field order matches the Solidity struct so it can
- *  be re-encoded for `createClass` / `deployFor.defaultClass`. */
-export interface ClassParams {
-  name: string;
-  voteWeightBps: number; // 10000 = 1.0x
+export enum GrantStatus {
+  Active = 0,
+  Cancelled = 1,
+  ClawedBack = 2,
+  Settled = 3, // fully vested + lock-elapsed, folded into the flat settled balance
+}
+
+/** The vesting curve. Lives on the GRANT (the deal); the class only carries a `defaultTerms`
+ *  template that `issue` prefills and `issueWithTerms` can override per grant. Field order matches
+ *  the Solidity `VestingTerms` struct. */
+export interface VestingTerms {
   vestKind: VestKind;
   vestCliff: number; // seconds
   vestDuration: number; // seconds
   vestPeriod: number; // seconds
-  chunkAmount: string; // uint256 as decimal string
+  chunkAmount: string; // uint256 as decimal string (base units)
+  vestingStrategy: string;
+}
+
+/** On-chain ClassParams, decoded. Field order matches the Solidity struct so it can
+ *  be re-encoded for `createClass` / `deployFor.defaultClass`. Vesting is no longer a class
+ *  field — it's `defaultTerms` (the per-grant default). */
+export interface ClassParams {
+  name: string;
+  voteWeightBps: number; // 10000 = 1.0x
   transferLockDuration: number; // seconds
   transferGate: string;
   payoutPriority: number; // 1 = paid first
@@ -41,9 +56,9 @@ export interface ClassParams {
   excludeFromVotingTotal: boolean;
   unvestedVotes: boolean;
   requiresLiquidityEvent: boolean;
-  vestingStrategy: string;
   transferPolicy: string;
   voteStrategy: string;
+  defaultTerms: VestingTerms;
 }
 
 export interface CapClass {

@@ -116,9 +116,9 @@ export function ClassManager({
                       <span className="cm-chip">{payoutLabel(p.payoutPriority)}</span>
                       <span className="cm-chip">dist {distLabel(p.distributionWeightBps)}</span>
                       <span className="cm-chip">
-                        {p.vestKind === VestKind.None ? "no vest" : secToDur(p.vestDuration)}
-                        {p.vestKind !== VestKind.None && p.vestCliff
-                          ? " / " + secToDur(p.vestCliff) + " cliff"
+                        {p.defaultTerms.vestKind === VestKind.None ? "no vest" : secToDur(p.defaultTerms.vestDuration)}
+                        {p.defaultTerms.vestKind !== VestKind.None && p.defaultTerms.vestCliff
+                          ? " / " + secToDur(p.defaultTerms.vestCliff) + " cliff"
                           : ""}
                       </span>
                       <span className="cm-chip">
@@ -195,7 +195,7 @@ export function ClassEditor({ initial, onClose, onSave }: ClassEditorProps) {
   const seed: ClassParams = {
     ...rawSeed,
     authorizedCap: toWhole(rawSeed.authorizedCap),
-    chunkAmount: toWhole(rawSeed.chunkAmount),
+    defaultTerms: { ...rawSeed.defaultTerms, chunkAmount: toWhole(rawSeed.defaultTerms.chunkAmount) },
   };
 
   const [name, setName] = useState<string>(seed.name);
@@ -205,11 +205,16 @@ export function ClassEditor({ initial, onClose, onSave }: ClassEditorProps) {
   const set = <K extends keyof ClassParams>(k: K, v: ClassParams[K]) =>
     setP((s) => ({ ...s, [k]: v }));
 
+  const setTerms = <K extends keyof ClassParams["defaultTerms"]>(
+    k: K,
+    v: ClassParams["defaultTerms"][K],
+  ) => setP((s) => ({ ...s, defaultTerms: { ...s.defaultTerms, [k]: v } }));
+
   const onlyDigits = (s: string) => s.replace(/[^0-9]/g, "");
   const onlyNum = (s: string) => s.replace(/[^0-9.]/g, "");
 
-  const cliffM = Math.round(p.vestCliff / SEC_MONTH);
-  const durM = Math.round(p.vestDuration / SEC_MONTH);
+  const cliffM = Math.round(p.defaultTerms.vestCliff / SEC_MONTH);
+  const durM = Math.round(p.defaultTerms.vestDuration / SEC_MONTH);
   const capNum = Number(p.authorizedCap);
 
   const flags: Array<[keyof ClassParams, string, string]> = [
@@ -228,14 +233,6 @@ export function ClassEditor({ initial, onClose, onSave }: ClassEditorProps) {
         ...defaultCommonClass(name.trim()),
         name: name.trim(),
         voteWeightBps: p.voteWeightBps,
-        vestKind: p.vestKind,
-        vestCliff: p.vestKind === VestKind.None ? 0 : p.vestCliff,
-        vestDuration: p.vestKind === VestKind.None ? 0 : p.vestDuration,
-        vestPeriod: p.vestKind === VestKind.None ? 0 : p.vestPeriod,
-        // Scale whole-token inputs back to 18-decimal base units (clean integer strings — never
-        // JS Number/sci-notation, which ethers rejects e.g. "1e+29").
-        chunkAmount:
-          p.chunkAmount && p.chunkAmount !== "0" ? parseTokens(p.chunkAmount) : "0",
         transferLockDuration: p.transferLockDuration,
         transferGate: p.transferGate,
         payoutPriority: p.payoutPriority,
@@ -247,9 +244,21 @@ export function ClassEditor({ initial, onClose, onSave }: ClassEditorProps) {
         excludeFromVotingTotal: p.excludeFromVotingTotal,
         unvestedVotes: p.unvestedVotes,
         requiresLiquidityEvent: p.requiresLiquidityEvent,
-        vestingStrategy: p.vestingStrategy || ethers.constants.AddressZero,
         transferPolicy: p.transferPolicy || ethers.constants.AddressZero,
         voteStrategy: p.voteStrategy || ethers.constants.AddressZero,
+        defaultTerms: {
+          vestKind: p.defaultTerms.vestKind,
+          vestCliff: p.defaultTerms.vestKind === VestKind.None ? 0 : p.defaultTerms.vestCliff,
+          vestDuration: p.defaultTerms.vestKind === VestKind.None ? 0 : p.defaultTerms.vestDuration,
+          vestPeriod: p.defaultTerms.vestKind === VestKind.None ? 0 : p.defaultTerms.vestPeriod,
+          // Scale whole-token inputs back to 18-decimal base units (clean integer strings — never
+          // JS Number/sci-notation, which ethers rejects e.g. "1e+29").
+          chunkAmount:
+            p.defaultTerms.chunkAmount && p.defaultTerms.chunkAmount !== "0"
+              ? parseTokens(p.defaultTerms.chunkAmount)
+              : "0",
+          vestingStrategy: p.defaultTerms.vestingStrategy || ethers.constants.AddressZero,
+        },
       };
       await onSave(params);
     } finally {
@@ -323,8 +332,8 @@ export function ClassEditor({ initial, onClose, onSave }: ClassEditorProps) {
               <label className="ig-label">Vest kind</label>
               <select
                 className="input ig-input"
-                value={p.vestKind}
-                onChange={(e) => set("vestKind", Number(e.target.value) as VestKind)}
+                value={p.defaultTerms.vestKind}
+                onChange={(e) => setTerms("vestKind", Number(e.target.value) as VestKind)}
               >
                 <option value={VestKind.None}>None</option>
                 <option value={VestKind.Linear}>Linear</option>
@@ -343,7 +352,7 @@ export function ClassEditor({ initial, onClose, onSave }: ClassEditorProps) {
               </div>
             </div>
 
-            {p.vestKind !== VestKind.None && (
+            {p.defaultTerms.vestKind !== VestKind.None && (
               <>
                 <div>
                   <label className="ig-label">Cliff</label>
@@ -352,7 +361,7 @@ export function ClassEditor({ initial, onClose, onSave }: ClassEditorProps) {
                       className="input mono"
                       value={cliffM}
                       onChange={(e) =>
-                        set("vestCliff", (Number(onlyDigits(e.target.value)) || 0) * SEC_MONTH)
+                        setTerms("vestCliff", (Number(onlyDigits(e.target.value)) || 0) * SEC_MONTH)
                       }
                     />
                     <span className="input-unit">mo</span>
@@ -365,7 +374,7 @@ export function ClassEditor({ initial, onClose, onSave }: ClassEditorProps) {
                       className="input mono"
                       value={durM}
                       onChange={(e) =>
-                        set("vestDuration", (Number(onlyDigits(e.target.value)) || 0) * SEC_MONTH)
+                        setTerms("vestDuration", (Number(onlyDigits(e.target.value)) || 0) * SEC_MONTH)
                       }
                     />
                     <span className="input-unit">mo</span>

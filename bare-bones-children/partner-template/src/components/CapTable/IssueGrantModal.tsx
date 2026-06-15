@@ -9,9 +9,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ethers } from "ethers";
-import type { CapClass, CapHolder } from "../../hooks/capTable/capTableTypes";
+import type { CapClass, CapHolder, VestingTerms } from "../../hooks/capTable/capTableTypes";
+import { VestKind } from "../../hooks/capTable/capTableTypes";
 import type { Member } from "../../types/members";
-import { abbrevShares, fmtPct, fmtShares, shortAddress, vestSummary } from "./capTableHelpers";
+import { abbrevShares, fmtPct, fmtShares, parseTokens, shortAddress, vestSummary } from "./capTableHelpers";
+
+const SEC_MONTH = 30 * 24 * 60 * 60;
 
 interface IssueGrantModalProps {
   classes: CapClass[];
@@ -19,6 +22,13 @@ interface IssueGrantModalProps {
   prefill?: CapHolder | null;
   onClose: () => void;
   onIssue: (classId: number, to: string, amount: string) => Promise<unknown>;
+  /** Optional: issue with a per-grant vesting override (the deal differs from the class default). */
+  onIssueWithTerms?: (
+    classId: number,
+    to: string,
+    amount: string,
+    terms: VestingTerms,
+  ) => Promise<unknown>;
 }
 
 /** Recipient combobox: pick a registered member, or fall back to a raw address typed
@@ -171,7 +181,14 @@ function RecipientPicker({
   );
 }
 
-export function IssueGrantModal({ classes, members, prefill, onClose, onIssue }: IssueGrantModalProps) {
+export function IssueGrantModal({
+  classes,
+  members,
+  prefill,
+  onClose,
+  onIssue,
+  onIssueWithTerms,
+}: IssueGrantModalProps) {
   const issuableClasses = useMemo(() => classes.filter((c) => !c.isPool), [classes]);
 
   const [classId, setClassId] = useState<number>(prefill?.classId ?? issuableClasses[0]?.classId ?? 0);
@@ -183,10 +200,36 @@ export function IssueGrantModal({ classes, members, prefill, onClose, onIssue }:
   const [amount, setAmount] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
+  // Per-grant vesting override (off → inherit the class default). Prefilled with a standard
+  // 1yr-cliff / 4yr-linear so a custom grant starts from a sensible schedule.
+  const [override, setOverride] = useState(false);
+  const [ovKind, setOvKind] = useState<VestKind>(VestKind.Linear);
+  const [ovCliffM, setOvCliffM] = useState("12");
+  const [ovDurM, setOvDurM] = useState("48");
+  const [ovPeriodM, setOvPeriodM] = useState("1");
+  const [ovChunk, setOvChunk] = useState("");
+
   const selectedClass = classes.find((c) => c.classId === classId);
   const validAddr = ethers.utils.isAddress(recipient);
   const validAmount = /^\d+$/.test(amount) && Number(amount) > 0;
   const canSubmit = validAddr && validAmount && !busy;
+
+  // The terms this grant will actually use — the override when on (and supported), else the class
+  // default. Drives both the preview and submit. chunkAmount is scaled to base units for the chain.
+  const overrideTerms: VestingTerms = useMemo(
+    () => ({
+      vestKind: ovKind,
+      vestCliff: ovKind === VestKind.Linear ? Math.round(Number(ovCliffM || "0") * SEC_MONTH) : 0,
+      vestDuration: ovKind === VestKind.Linear ? Math.round(Number(ovDurM || "0") * SEC_MONTH) : 0,
+      vestPeriod: ovKind === VestKind.Chunked ? Math.round(Number(ovPeriodM || "0") * SEC_MONTH) : 0,
+      chunkAmount: ovKind === VestKind.Chunked ? parseTokens(ovChunk || "0") : "0",
+      vestingStrategy: ethers.constants.AddressZero,
+    }),
+    [ovKind, ovCliffM, ovDurM, ovPeriodM, ovChunk],
+  );
+  const canOverride = !!onIssueWithTerms;
+  const effectiveTerms =
+    override && canOverride ? overrideTerms : selectedClass?.params.defaultTerms;
 
   // fully-diluted across all classes/holders (from totalIssued + reservedPool)
   const fdTotal = useMemo(
@@ -209,7 +252,12 @@ export function IssueGrantModal({ classes, members, prefill, onClose, onIssue }:
     if (!canSubmit) return;
     setBusy(true);
     try {
-      await onIssue(classId, ethers.utils.getAddress(recipient), amount);
+      const to = ethers.utils.getAddress(recipient);
+      if (override && canOverride) {
+        await onIssueWithTerms!(classId, to, amount, overrideTerms);
+      } else {
+        await onIssue(classId, to, amount);
+      }
       onClose();
     } finally {
       setBusy(false);
@@ -297,20 +345,94 @@ export function IssueGrantModal({ classes, members, prefill, onClose, onIssue }:
             </div>
 
             <div>
-              <label className="ig-label">Vesting (set by class)</label>
+              <label className="ig-label">Vesting</label>
               <div className="cd-note">
                 <span>ⓘ</span>
                 <span>
                   {selectedClass ? (
                     <>
-                      <b>{vestSummary(selectedClass.params)}</b> — vesting is fixed at the class level on-chain and
-                      applies to every grant in <b>{selectedClass.params.name}</b>.
+                      Default for <b>{selectedClass.params.name}</b>:{" "}
+                      <b>{vestSummary(selectedClass.params.defaultTerms)}</b>. Vesting is per-grant —
+                      override it below if this deal differs.
                     </>
                   ) : (
-                    "Select a class to see its vesting schedule."
+                    "Select a class to see its default vesting schedule."
                   )}
                 </span>
               </div>
+              {canOverride && (
+                <>
+                  <label
+                    style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: 13 }}
+                  >
+                    <input
+                      type="checkbox"
+                      data-testid="captable-issue-override-vesting"
+                      checked={override}
+                      onChange={(e) => setOverride(e.target.checked)}
+                    />
+                    Override vesting for this grant
+                  </label>
+                  {override && (
+                    <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                      <select
+                        className="input ig-input"
+                        data-testid="captable-issue-override-kind"
+                        value={ovKind}
+                        onChange={(e) => setOvKind(Number(e.target.value) as VestKind)}
+                      >
+                        <option value={VestKind.None}>No vesting (fully vested)</option>
+                        <option value={VestKind.Linear}>Linear</option>
+                        <option value={VestKind.Chunked}>Chunked</option>
+                      </select>
+                      {ovKind === VestKind.Linear && (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                          <label className="ig-label">
+                            Cliff (months)
+                            <input
+                              className="input ig-input"
+                              inputMode="numeric"
+                              value={ovCliffM}
+                              onChange={(e) => setOvCliffM(e.target.value.replace(/[^0-9]/g, ""))}
+                            />
+                          </label>
+                          <label className="ig-label">
+                            Duration (months)
+                            <input
+                              className="input ig-input"
+                              inputMode="numeric"
+                              value={ovDurM}
+                              onChange={(e) => setOvDurM(e.target.value.replace(/[^0-9]/g, ""))}
+                            />
+                          </label>
+                        </div>
+                      )}
+                      {ovKind === VestKind.Chunked && (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                          <label className="ig-label">
+                            Period (months)
+                            <input
+                              className="input ig-input"
+                              inputMode="numeric"
+                              value={ovPeriodM}
+                              onChange={(e) => setOvPeriodM(e.target.value.replace(/[^0-9]/g, ""))}
+                            />
+                          </label>
+                          <label className="ig-label">
+                            Chunk (tokens)
+                            <input
+                              className="input ig-input"
+                              inputMode="numeric"
+                              value={ovChunk}
+                              onChange={(e) => setOvChunk(e.target.value.replace(/[^0-9]/g, ""))}
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
@@ -320,7 +442,7 @@ export function IssueGrantModal({ classes, members, prefill, onClose, onIssue }:
               <div className="ig-chart-title" style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                 <b style={{ fontSize: 13 }}>Vesting preview</b>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-mute)" }}>
-                  {selectedClass ? vestSummary(selectedClass.params) : "—"}
+                  {effectiveTerms ? vestSummary(effectiveTerms) : "—"}
                 </span>
               </div>
               <div className="ig-stat-rows">
@@ -343,7 +465,7 @@ export function IssueGrantModal({ classes, members, prefill, onClose, onIssue }:
                 </div>
                 <div className="ig-stat-row">
                   <span className="ig-stat-k">Vesting</span>
-                  <span className="ig-stat-v">{selectedClass ? vestSummary(selectedClass.params) : "—"}</span>
+                  <span className="ig-stat-v">{effectiveTerms ? vestSummary(effectiveTerms) : "—"}</span>
                 </div>
                 <div className="ig-stat-row">
                   <span className="ig-stat-k">Ownership (fully-diluted)</span>

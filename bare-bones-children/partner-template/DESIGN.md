@@ -113,6 +113,14 @@ singletons are MTA-owned; holder-scoped calls (`transfer`, `claim`) are direct w
 
 ## Changelog
 
+### 2026-06-15 — Grant-level vesting + settlement (cap table)
+- Mirrors the on-chain rework ([CAPTABLE-VESTING-REWORK.md](../../../BareBonesDiamond/CAPTABLE-VESTING-REWORK.md)).
+  `ClassParams` now nests `defaultTerms: VestingTerms` (vesting moved off the class); decode/encode
+  (`useCapTable`, `ClassManager`) updated. `vestSummary` takes `VestingTerms`. New action
+  `issueGrantWithTerms` (per-grant override → `issueWithTerms`) and `settle` (permissionless keeper).
+  **IssueGrantModal** gained an optional "override vesting for this grant" editor, prefilled from the
+  class default; the old "vesting is fixed at the class level" copy is gone. ABI regenerated.
+
 ### 2026-06-14 — Fix: allocation amount double-scaled at DAO creation
 - **Bug:** founding allocations entered as `100` landed on-chain as `1e38` (displayed `1e20` tokens).
   `StepGovernance` uses `TokenUnitsInput`, which *already* runs `parseUnits(_, 18)` and stores **base

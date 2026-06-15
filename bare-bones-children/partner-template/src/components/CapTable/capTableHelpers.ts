@@ -2,6 +2,7 @@
 import { ethers } from "ethers";
 import {
   type ClassParams,
+  type VestingTerms,
   DistributionPolicy,
   VestKind,
 } from "../../hooks/capTable/capTableTypes";
@@ -84,12 +85,27 @@ export function shortAddress(a: string): string {
 
 const ONE_YEAR = 365 * 24 * 60 * 60;
 
-export function vestSummary(p: ClassParams): string {
-  if (p.vestKind === VestKind.None) return "Fully vested";
+/** The "fully vested at issue" terms (non-vesting). Reused as the default-class template and as
+ *  the issue-grant prefill. */
+export function noVestingTerms(): VestingTerms {
+  return {
+    vestKind: VestKind.None,
+    vestCliff: 0,
+    vestDuration: 0,
+    vestPeriod: 0,
+    chunkAmount: "0",
+    vestingStrategy: ZERO,
+  };
+}
+
+/** Summarize a vesting curve — works on either a class default (`ClassParams.defaultTerms`) or a
+ *  per-grant `VestingTerms`. */
+export function vestSummary(t: VestingTerms): string {
+  if (t.vestKind === VestKind.None) return "Fully vested";
   const yrs = (s: number) => `${(s / ONE_YEAR).toFixed(s % ONE_YEAR === 0 ? 0 : 1)}y`;
-  if (p.vestKind === VestKind.Linear) {
-    const cliff = p.vestCliff ? `${yrs(p.vestCliff)} cliff` : "no cliff";
-    return `Linear · ${yrs(p.vestDuration)} · ${cliff}`;
+  if (t.vestKind === VestKind.Linear) {
+    const cliff = t.vestCliff ? `${yrs(t.vestCliff)} cliff` : "no cliff";
+    return `Linear · ${yrs(t.vestDuration)} · ${cliff}`;
   }
   return "Chunked";
 }
@@ -100,11 +116,6 @@ export function defaultCommonClass(name = "Common"): ClassParams {
   return {
     name,
     voteWeightBps: 10000,
-    vestKind: VestKind.None,
-    vestCliff: 0,
-    vestDuration: 0,
-    vestPeriod: 0,
-    chunkAmount: "0",
     transferLockDuration: 0,
     transferGate: ZERO,
     payoutPriority: 1,
@@ -115,19 +126,23 @@ export function defaultCommonClass(name = "Common"): ClassParams {
     excludeFromVotingTotal: false,
     unvestedVotes: false,
     requiresLiquidityEvent: false,
-    vestingStrategy: ZERO,
     transferPolicy: ZERO,
     voteStrategy: ZERO,
+    defaultTerms: noVestingTerms(),
   };
 }
 
-/** Standard 1-yr cliff / 4-yr linear employee vesting, applied on a Common-shaped class. */
+/** Standard 1-yr cliff / 4-yr linear employee vesting as a class default template. */
 export function standardVestingClass(name: string): ClassParams {
   return {
     ...defaultCommonClass(name),
-    vestKind: VestKind.Linear,
-    vestCliff: ONE_YEAR,
-    vestDuration: 4 * ONE_YEAR,
-    vestPeriod: 30 * 24 * 60 * 60,
+    defaultTerms: {
+      vestKind: VestKind.Linear,
+      vestCliff: ONE_YEAR,
+      vestDuration: 4 * ONE_YEAR,
+      vestPeriod: 30 * 24 * 60 * 60,
+      chunkAmount: "0",
+      vestingStrategy: ZERO,
+    },
   };
 }

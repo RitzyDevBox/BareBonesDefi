@@ -78,7 +78,7 @@ function ClassParamsDetail({ c }: { c: CapClass }) {
         <Cell k="Payout priority" v={String(p.payoutPriority)} />
         <Cell k="Distribution weight" v={bpsToX(p.distributionWeightBps)} />
         <Cell k="Authorized cap" v={p.authorizedCap === "0" ? "Unlimited" : p.authorizedCap} />
-        <Cell k="Vesting" v={vestSummary(p)} />
+        <Cell k="Vesting" v={vestSummary(p.defaultTerms)} />
         <Cell k="Transfer lockup" v={p.transferLockDuration ? `${Math.round(p.transferLockDuration / 86400)}d` : "none"} />
         <Cell k="Status" v={["Active", "Retired", "Removed"][c.status] ?? "—"} />
         <Cell k="Reserved (pool)" v={fmtShares(c.reservedPool)} />
@@ -296,7 +296,7 @@ export function CapTableView({ state, isAdmin, account, onSetup, onIssue, onTran
                           <span className="ct-rights">
                             <span className="ct-right-chip">{bpsToX(c.params.voteWeightBps)} vote</span>
                             <span className="ct-right-chip">priority {c.params.payoutPriority}</span>
-                            <span className="ct-right-chip">vest {c.params.vestKind === VestKind.None ? "none" : vestSummary(c.params)}</span>
+                            <span className="ct-right-chip">vest {c.params.defaultTerms.vestKind === VestKind.None ? "none" : vestSummary(c.params.defaultTerms)}</span>
                             {c.status === ClassStatus.Retired && <span className="ct-right-chip">retired</span>}
                           </span>
                           <span className="ct-grp-sub">

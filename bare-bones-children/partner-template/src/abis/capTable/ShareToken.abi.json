@@ -32,6 +32,30 @@
   },
   {
     "type": "function",
+    "name": "activeGrantIds",
+    "inputs": [
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "classId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "balanceOf",
     "inputs": [
       {
@@ -167,31 +191,6 @@
             "internalType": "uint32"
           },
           {
-            "name": "vestKind",
-            "type": "uint8",
-            "internalType": "enum IShareToken.VestKind"
-          },
-          {
-            "name": "vestCliff",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "vestDuration",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "vestPeriod",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "chunkAmount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
             "name": "transferLockDuration",
             "type": "uint64",
             "internalType": "uint64"
@@ -242,11 +241,6 @@
             "internalType": "bool"
           },
           {
-            "name": "vestingStrategy",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
             "name": "transferPolicy",
             "type": "address",
             "internalType": "address"
@@ -255,6 +249,43 @@
             "name": "voteStrategy",
             "type": "address",
             "internalType": "address"
+          },
+          {
+            "name": "defaultTerms",
+            "type": "tuple",
+            "internalType": "struct IShareToken.VestingTerms",
+            "components": [
+              {
+                "name": "vestKind",
+                "type": "uint8",
+                "internalType": "enum IShareToken.VestKind"
+              },
+              {
+                "name": "vestCliff",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "vestDuration",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "vestPeriod",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "chunkAmount",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "vestingStrategy",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
           }
         ]
       }
@@ -339,31 +370,6 @@
             "internalType": "uint32"
           },
           {
-            "name": "vestKind",
-            "type": "uint8",
-            "internalType": "enum IShareToken.VestKind"
-          },
-          {
-            "name": "vestCliff",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "vestDuration",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "vestPeriod",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "chunkAmount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
             "name": "transferLockDuration",
             "type": "uint64",
             "internalType": "uint64"
@@ -414,11 +420,6 @@
             "internalType": "bool"
           },
           {
-            "name": "vestingStrategy",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
             "name": "transferPolicy",
             "type": "address",
             "internalType": "address"
@@ -427,6 +428,43 @@
             "name": "voteStrategy",
             "type": "address",
             "internalType": "address"
+          },
+          {
+            "name": "defaultTerms",
+            "type": "tuple",
+            "internalType": "struct IShareToken.VestingTerms",
+            "components": [
+              {
+                "name": "vestKind",
+                "type": "uint8",
+                "internalType": "enum IShareToken.VestKind"
+              },
+              {
+                "name": "vestCliff",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "vestDuration",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "vestPeriod",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "chunkAmount",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "vestingStrategy",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
           }
         ]
       }
@@ -578,6 +616,43 @@
             "name": "preVested",
             "type": "bool",
             "internalType": "bool"
+          },
+          {
+            "name": "terms",
+            "type": "tuple",
+            "internalType": "struct IShareToken.VestingTerms",
+            "components": [
+              {
+                "name": "vestKind",
+                "type": "uint8",
+                "internalType": "enum IShareToken.VestKind"
+              },
+              {
+                "name": "vestCliff",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "vestDuration",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "vestPeriod",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "chunkAmount",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "vestingStrategy",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
           }
         ]
       }
@@ -728,31 +803,6 @@
             "internalType": "uint32"
           },
           {
-            "name": "vestKind",
-            "type": "uint8",
-            "internalType": "enum IShareToken.VestKind"
-          },
-          {
-            "name": "vestCliff",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "vestDuration",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "vestPeriod",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "chunkAmount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
             "name": "transferLockDuration",
             "type": "uint64",
             "internalType": "uint64"
@@ -803,11 +853,6 @@
             "internalType": "bool"
           },
           {
-            "name": "vestingStrategy",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
             "name": "transferPolicy",
             "type": "address",
             "internalType": "address"
@@ -816,6 +861,43 @@
             "name": "voteStrategy",
             "type": "address",
             "internalType": "address"
+          },
+          {
+            "name": "defaultTerms",
+            "type": "tuple",
+            "internalType": "struct IShareToken.VestingTerms",
+            "components": [
+              {
+                "name": "vestKind",
+                "type": "uint8",
+                "internalType": "enum IShareToken.VestKind"
+              },
+              {
+                "name": "vestCliff",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "vestDuration",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "vestPeriod",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "chunkAmount",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "vestingStrategy",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
           }
         ]
       },
@@ -909,6 +991,72 @@
     "outputs": [
       {
         "name": "grantId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "issueWithTerms",
+    "inputs": [
+      {
+        "name": "classId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "terms",
+        "type": "tuple",
+        "internalType": "struct IShareToken.VestingTerms",
+        "components": [
+          {
+            "name": "vestKind",
+            "type": "uint8",
+            "internalType": "enum IShareToken.VestKind"
+          },
+          {
+            "name": "vestCliff",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "vestDuration",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "vestPeriod",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "chunkAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "vestingStrategy",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1131,6 +1279,66 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "settle",
+    "inputs": [
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "classId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "settleMany",
+    "inputs": [
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "classIds",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "settledBalanceOf",
+    "inputs": [
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "classId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -1401,6 +1609,37 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "GrantSettled",
+    "inputs": [
+      {
+        "name": "grantId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "classId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       },
       {
         "name": "amount",
@@ -1772,6 +2011,22 @@
     "type": "error",
     "name": "PoolExhausted",
     "inputs": [
+      {
+        "name": "classId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TooManyActiveGrants",
+    "inputs": [
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      },
       {
         "name": "classId",
         "type": "uint256",

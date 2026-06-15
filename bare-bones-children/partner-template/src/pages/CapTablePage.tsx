@@ -290,6 +290,9 @@ export function CapTablePage() {
           prefill={issuePrefill}
           onClose={() => setIssueOpen(false)}
           onIssue={(classId, to, amount) => actions.issueGrant(classId, to, amount)}
+          onIssueWithTerms={(classId, to, amount, terms) =>
+            actions.issueGrantWithTerms(classId, to, amount, terms)
+          }
         />
       )}
       {transferHolder && (

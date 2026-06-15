@@ -53,7 +53,7 @@ export function ClassManagerModal({ classes, onClose, onCreateClass }: ClassMana
               >
                 <span style={{ fontWeight: 500 }}>{c.params.name}</span>
                 <span className="ct-help">
-                  {bpsToX(c.params.voteWeightBps)} vote · {c.params.vestKind === VestKind.None ? "no vesting" : "vesting"}
+                  {bpsToX(c.params.voteWeightBps)} vote · {c.params.defaultTerms.vestKind === VestKind.None ? "no vesting" : "vesting"}
                 </span>
               </div>
             ))}
