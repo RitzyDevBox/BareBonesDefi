@@ -18,6 +18,9 @@ export const FEATURE_FLAGS = {
   // Cap table — on-chain equity register (ShareToken). Ships off by default; a user
   // self-enables it from the Settings "Features" toggles (local dev) like the others.
   capTable: false,
+  // Distributions — pay shareholders by ownership (a second mode of the Payments tab).
+  // Currently a visual MOCK behind this flag; self-enabled from Settings like the others.
+  distributions: false,
   // Staging hosts the same Anvil chain as local dev (just on a remote box),
   // so include it for both targets. Production excludes it.
   localAnvilChain: DEPLOYMENT_TARGET !== DeploymentTarget.Live,

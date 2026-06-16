@@ -212,6 +212,16 @@ function SettingsBody({
               />
             }
           />
+          <SettingsRow
+            title="Distributions"
+            subtitle="Show the Distributions tab in Payments (pay shareholders by ownership)"
+            right={
+              <ToggleSwitch
+                on={settings[SettingsKey.Distributions]}
+                onChange={() => toggle(SettingsKey.Distributions)}
+              />
+            }
+          />
         </>
       )}
       {IS_DEMO_ENV && (

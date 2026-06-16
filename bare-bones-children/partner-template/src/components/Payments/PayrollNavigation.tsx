@@ -1,10 +1,12 @@
-export type PayrollNavTab = "overview" | "batches" | "earnings" | "payrolls";
+export type PayrollNavTab = "overview" | "batches" | "earnings" | "payrolls" | "distributions";
 
 interface PayrollNavigationProps {
   tab: PayrollNavTab;
   onChange: (next: PayrollNavTab) => void;
   isAdmin?: boolean;
   disabled?: boolean;
+  // Distributions is a second Payments mode behind its own feature flag — append its tab when on.
+  showDistributions?: boolean;
 }
 
 interface TabSpec {
@@ -20,10 +22,19 @@ export const PAYROLL_TABS: TabSpec[] = [
   { id: "payrolls", label: "Payrolls", sub: "Cycles & runs" },
 ];
 
-export function PayrollNavigation({ tab, onChange, isAdmin = false, disabled = false }: PayrollNavigationProps) {
-  const idx = PAYROLL_TABS.findIndex((t) => t.id === tab);
-  const prev = () => onChange(PAYROLL_TABS[(idx - 1 + PAYROLL_TABS.length) % PAYROLL_TABS.length].id);
-  const next = () => onChange(PAYROLL_TABS[(idx + 1) % PAYROLL_TABS.length].id);
+const DISTRIBUTIONS_TAB: TabSpec = { id: "distributions", label: "Distributions", sub: "Pay by ownership" };
+
+export function PayrollNavigation({
+  tab,
+  onChange,
+  isAdmin = false,
+  disabled = false,
+  showDistributions = false,
+}: PayrollNavigationProps) {
+  const tabs = showDistributions ? [...PAYROLL_TABS, DISTRIBUTIONS_TAB] : PAYROLL_TABS;
+  const idx = tabs.findIndex((t) => t.id === tab);
+  const prev = () => onChange(tabs[(idx - 1 + tabs.length) % tabs.length].id);
+  const next = () => onChange(tabs[(idx + 1) % tabs.length].id);
 
   return (
     <nav className="bb-pn" role="tablist" aria-label="Payroll sections">
@@ -32,7 +43,7 @@ export function PayrollNavigation({ tab, onChange, isAdmin = false, disabled = f
       </button>
 
       <div className="bb-pn-tabs">
-        {PAYROLL_TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             role="tab"
@@ -54,7 +65,7 @@ export function PayrollNavigation({ tab, onChange, isAdmin = false, disabled = f
         disabled={disabled}
         aria-label="Payroll section"
       >
-        {PAYROLL_TABS.map((t) => (
+        {tabs.map((t) => (
           <option key={t.id} value={t.id}>
             {t.label}
           </option>

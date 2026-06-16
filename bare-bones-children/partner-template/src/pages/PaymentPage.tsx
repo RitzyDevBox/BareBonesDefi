@@ -25,8 +25,11 @@ import {
   EarningsView,
   PayrollsView,
 } from "../components/Payments";
+import { DistributionsView } from "../components/Distributions";
+import { useSettings, SettingsKey } from "../hooks/useSettings";
 
 function readTab(value: string | null): PayrollNavTab {
+  if (value === "distributions") return "distributions";
   if (value && PAYROLL_TABS.some((t) => t.id === value)) return value as PayrollNavTab;
   return "overview";
 }
@@ -40,6 +43,8 @@ export function PaymentPage() {
   const readProvider = useReadProvider();
   const { version } = useTxRefresh();
   const { activeOrgSlug } = useActiveOrganization();
+  const { settings } = useSettings();
+  const showDistributions = settings[SettingsKey.Distributions];
 
   const slug = (organizationId ?? activeOrgSlug ?? "").trim();
 
@@ -210,7 +215,7 @@ export function PaymentPage() {
       <Stack gap="lg" style={{ width: "100%" }}>
         <PaymentsHero orgSlug={slug} chainName={chainName} />
 
-        <PayrollNavigation tab={tab} onChange={setTab} isAdmin={isAdmin} />
+        <PayrollNavigation tab={tab} onChange={setTab} isAdmin={isAdmin} showDistributions={showDistributions} />
 
         {tab === "overview" && (
           <PayeesView
@@ -225,6 +230,9 @@ export function PaymentPage() {
         {tab === "batches" && <PayBatchesView slug={slug} isAdmin={isAdmin} />}
         {tab === "earnings" && <EarningsView slug={slug} isAdmin={isAdmin} />}
         {tab === "payrolls" && <PayrollsView slug={slug} isAdmin={isAdmin} />}
+        {tab === "distributions" && showDistributions && (
+          <DistributionsView isAdmin={isAdmin} daoName={slug} />
+        )}
       </Stack>
     </PageContainer>
   );
