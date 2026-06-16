@@ -105,6 +105,9 @@ function PaymentsPage({ chain, activeDao, wallet, onConnect }) {
           {tab === 'payrolls' && (
             <PayrollsPage chain={chain} activeDao={activeDao} wallet={wallet} isAdmin={isAdmin} />
           )}
+          {tab === 'distributions' && (
+            <DistributionsPage chain={chain} activeDao={activeDao} wallet={wallet} isAdmin={isAdmin} />
+          )}
         </div>
       </section>
     </>
@@ -120,10 +123,10 @@ function PaymentsHero({ activeDao, chain, activePayees, monthlyEst, openCycle, b
       <div className="container">
         <div className="pay-hero-top">
           <div>
-            <div className="crumb">{activeDao?.name || ''} · {chain?.name} · Payroll</div>
+            <div className="crumb">{activeDao?.name || ''} · {chain?.name} · Payments</div>
             <h1>Payments</h1>
             <div className="pay-hero-sub muted">
-              Manage payees, define earnings codes, group payees into batches, and run payroll cycles.
+              One money rail for everyone you pay — run payroll for contributors, and distribute dividends or profit splits to shareholders by ownership.
             </div>
           </div>
           <div className="pay-hero-meta mono small muted">

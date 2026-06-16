@@ -10,6 +10,7 @@ const PAYROLL_TABS = [
   { id: 'batches',   label: 'Pay Batches', sub: 'Default assignments' },
   { id: 'earnings',  label: 'Earnings',    sub: 'Codes & catalog' },
   { id: 'payrolls',  label: 'Payrolls',    sub: 'Cycles & runs' },
+  { id: 'distributions', label: 'Distributions', sub: 'Shareholder payouts' },
 ];
 
 function PayrollNavigation({ tab, onChange, isAdmin }) {

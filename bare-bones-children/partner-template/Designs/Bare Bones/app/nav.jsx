@@ -304,20 +304,14 @@ function Nav({
     <>
       <button className={`nav-link${route === 'home' ? ' active' : ''}`}
               onClick={() => { setRoute('home'); onPick && onPick(); }}>Home</button>
-      <button className={`nav-link${route === 'directory' ? ' active' : ''}`}
-              onClick={() => { setRoute('directory'); onPick && onPick(); }}>Directory</button>
       <button className={`nav-link${route === 'governance' ? ' active' : ''}`}
               onClick={() => { setRoute('governance'); onPick && onPick(); }}>Governance</button>
-      <button className={`nav-link${route === 'wallets' ? ' active' : ''}`}
-              onClick={() => { setRoute('wallets'); onPick && onPick(); }}>Wallets</button>
       <button className={`nav-link${route === 'payments' ? ' active' : ''}`}
               onClick={() => { setRoute('payments'); onPick && onPick(); }}>Payments</button>
       <button className={`nav-link${route === 'captable' ? ' active' : ''}`}
               onClick={() => { setRoute('captable'); onPick && onPick(); }}>Cap Table</button>
       <button className={`nav-link${route === 'formation' ? ' active' : ''}`}
               onClick={() => { setRoute('formation'); onPick && onPick(); }}>Formation</button>
-      <button className={`nav-link${route === 'docs' ? ' active' : ''}`}
-              onClick={() => { setRoute('docs'); onPick && onPick(); window.toast.info('Docs coming soon', { duration: 2500 }); }}>Docs</button>
     </>
   );
 

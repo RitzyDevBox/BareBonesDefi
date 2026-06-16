@@ -14,7 +14,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-const ROUTES = ['home','directory','governance','wallets','payments','captable','formation','docs'];
+const ROUTES = ['home','governance','payments','captable','formation'];
 const routeFromHash = () => {
   const h = (window.location.hash || '').replace(/^#/, '');
   return ROUTES.includes(h) ? h : 'home';
@@ -177,22 +177,10 @@ function App() {
       />
       <main>
         {route === 'home' && <Landing go={setRoute} />}
-        {route === 'directory' && <Directory daos={daos} setDaos={setDaos} wallet={wallet} onConnect={connect} onSelectDao={(d) => { selectDao(d); setRoute('governance'); }} />}
         {route === 'governance' && <Governance chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
-        {route === 'wallets' && <WalletsPage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'payments' && <PaymentsPage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'captable' && <CapTablePage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'formation' && <EntityFormation chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
-        {route === 'docs' && (
-          <section className="section">
-            <div className="container">
-              <div className="empty">
-                <h4>Docs are on the way.</h4>
-                <div>In the meantime, everything you need is in the app.</div>
-              </div>
-            </div>
-          </section>
-        )}
       </main>
 
       <footer style={{ borderTop: '1px solid var(--line)', padding: '28px 0', marginTop: 'auto', color: 'var(--text-mute)', fontSize: 13 }}>

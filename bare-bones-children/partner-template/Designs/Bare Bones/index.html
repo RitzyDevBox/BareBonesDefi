@@ -6104,6 +6104,150 @@
 
 </style>
 
+<style id="dist-styles">
+  /* ============================================================
+     Distributions — second mode of the Payments surface
+     ============================================================ */
+  .dist-intro {
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
+    margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .dist-intro-k { display: flex; flex-direction: column; gap: 4px; max-width: 64ch; }
+  .dist-intro-title { font-family: var(--font-display); font-size: 22px; font-weight: 500; letter-spacing: -0.01em; }
+
+  /* class chips */
+  .dist-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .dist-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px 3px 7px;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 999px; font-size: 12px; color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .dist-chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+  /* progress bar */
+  .dist-progress-wrap { display: flex; flex-direction: column; gap: 6px; }
+  .dist-progress {
+    height: 8px; border-radius: 999px; overflow: hidden;
+    background: var(--bg-elev-2); border: 1px solid var(--line);
+  }
+  .dist-progress-lg { height: 12px; }
+  .dist-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, color-mix(in oklab, var(--info) 70%, var(--accent)), var(--info));
+    border-radius: 999px;
+    transition: width .5s cubic-bezier(.4,0,.2,1);
+  }
+  .dist-progress-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--text-dim); }
+
+  /* run config meta strip */
+  .dist-meta-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+    background: var(--line); border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden; margin-bottom: 18px;
+  }
+  .dist-meta-cell { background: var(--bg-elev); padding: 14px 16px; display: flex; flex-direction: column; gap: 5px; }
+  .dist-meta-v { font-family: var(--font-display); font-size: 17px; font-weight: 500; letter-spacing: -0.005em; }
+  @media (max-width: 720px) { .dist-meta-grid { grid-template-columns: 1fr 1fr; } }
+
+  /* holder payout table (also reused for the distributions list) */
+  .dh-table { background: var(--bg-elev); }
+  .dh-head, .dh-row {
+    display: grid;
+    grid-template-columns: 2fr 1.2fr 1.1fr 1.1fr 0.9fr;
+    align-items: center; gap: 16px;
+    padding: 12px 18px; border-bottom: 1px solid var(--line);
+  }
+  .dh-head {
+    background: var(--bg-elev-2);
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--text-mute);
+    text-transform: uppercase; letter-spacing: .12em;
+  }
+  .dh-row { width: 100%; text-align: left; background: transparent; transition: background .12s; }
+  .dh-row:last-child { border-bottom: 0; }
+  button.dh-row { cursor: pointer; }
+  button.dh-row:hover { background: color-mix(in oklab, var(--accent) 4%, var(--bg-elev)); }
+  .dh-cell { min-width: 0; }
+  .dh-num { text-align: right; justify-self: end; }
+  .dh-stat { justify-self: end; }
+  .dh-empty { padding: 28px; text-align: center; }
+
+  .dh-holder { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .dh-avatar {
+    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-size: 11px; font-weight: 600; color: #0b0b0d;
+  }
+  .dh-avatar.sm { width: 22px; height: 22px; font-size: 9.5px; border-radius: 6px; }
+  .dh-holder-k { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .dh-holder-name { font-size: 14px; font-weight: 500; }
+
+  .dh-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 500;
+    border: 1px solid var(--line); background: var(--bg);
+  }
+  .dh-pill-paid { color: var(--success); border-color: color-mix(in oklab, var(--success) 32%, var(--line)); background: color-mix(in oklab, var(--success) 9%, var(--bg-elev)); }
+  .dh-pill-pending { color: var(--text-dim); }
+  .dh-pill-skip { color: var(--text-mute); }
+
+  /* distributions list table — different column layout */
+  .dist-list-head, .dist-list-row { grid-template-columns: 1.6fr 1fr 1.4fr 1fr 0.9fr auto; }
+  .dist-list-name { font-size: 14.5px; font-weight: 500; }
+  .dh-go { justify-self: end; color: var(--text-mute); }
+
+  @media (max-width: 760px) {
+    .dh-head { display: none; }
+    .dh-row, .dist-list-row {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 8px 12px; padding: 14px 16px;
+    }
+    .dh-num, .dh-stat { justify-self: start; text-align: left; }
+    .dh-go { display: none; }
+  }
+
+  /* create modal */
+  .dist-create-modal { max-width: 640px; }
+  .dist-create-body { padding: 20px 22px 8px; max-height: 62vh; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+  .dist-field-block { display: flex; flex-direction: column; gap: 9px; }
+  .dist-field-label { font-family: var(--font-mono); font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: .1em; }
+  .dist-field-label .muted { text-transform: none; letter-spacing: 0; }
+
+  .dist-class-pick { display: flex; flex-direction: column; gap: 8px; }
+  .dist-class-opt {
+    display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center;
+    padding: 12px 14px; background: var(--bg-elev); border: 1px solid var(--line);
+    border-radius: 10px; text-align: left; color: var(--text); cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .dist-class-opt:hover { border-color: var(--line-strong); }
+  .dist-class-opt.on { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 7%, var(--bg-elev)); }
+  .dist-check {
+    width: 18px; height: 18px; border-radius: 5px;
+    border: 1.5px solid var(--line-strong); flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center; color: var(--accent-ink);
+  }
+  .dist-check.on { background: var(--accent); border-color: var(--accent); }
+  .dist-class-opt-k { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .dist-class-opt-name { font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; }
+  .dist-class-opt-sub { font-size: 11.5px; color: var(--text-mute); }
+
+  .dist-summary {
+    border: 1px solid var(--line); border-radius: 12px;
+    background: color-mix(in oklab, var(--bg) 40%, var(--bg-elev-2));
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .dist-summary-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .dist-summary-v { font-family: var(--font-display); font-size: 22px; font-weight: 500; letter-spacing: -0.01em; }
+  .dist-summary-top { border-top: 1px solid var(--line); padding-top: 10px; }
+  .dist-summary-holder {
+    display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center;
+    padding: 4px 0; font-size: 13px;
+  }
+  .dist-summary-holder-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+
 <!-- Speaker-ish app metadata kept simple -->
 </head>
 <body>
@@ -6140,6 +6284,9 @@
   <script type="text/babel" src="app/pay-batches.jsx"></script>
   <script type="text/babel" src="app/earnings-catalog.jsx"></script>
   <script type="text/babel" src="app/payrolls.jsx"></script>
+  <script type="text/babel" src="app/distributions-data.jsx"></script>
+  <script type="text/babel" src="app/distributions.jsx"></script>
+  <script type="text/babel" src="app/distributions-create.jsx"></script>
   <script type="text/babel" src="app/payments.jsx"></script>
   <script type="text/babel" src="app/entity-formation.jsx"></script>
   <script type="text/babel" src="app/captable-data.jsx"></script>
@@ -6149,7 +6296,6 @@
   <script type="text/babel" src="app/captable-admin.jsx"></script>
   <script type="text/babel" src="app/captable.jsx"></script>
   <script type="text/babel" src="app/dao-switcher.jsx"></script>
-  <script type="text/babel" src="app/directory.jsx"></script>
   <script type="text/babel" src="app/main.jsx"></script>
 </body>
 </html>
