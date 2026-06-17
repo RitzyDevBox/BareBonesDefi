@@ -11,7 +11,7 @@
 // scaling + encoding internally, so amounts are passed as plain strings.
 
 import { useState } from "react";
-import { ethers } from "ethers";
+import { isHexAddress, normalizeAddress } from "../../utils/address";
 import {
   abbrevShares,
   abbrevUsd,
@@ -224,7 +224,7 @@ function InstrumentForm({
   const wireable = type.id === "safe" || type.id === "note";
   // The investor is recorded on-chain, so it must be a wallet address (the SAFE/note holder).
   // Pick an onboarded Member/Investor from the dropdown, or paste a raw 0x address.
-  const validInvestor = ethers.utils.isAddress(investor.trim());
+  const validInvestor = isHexAddress(investor.trim());
   const valid = validInvestor && Number(amount) > 0;
   const canSubmit = valid && !busy;
 
@@ -232,7 +232,7 @@ function InstrumentForm({
     if (!canSubmit) return;
     setBusy(true);
     try {
-      const investorAddr = ethers.utils.getAddress(investor.trim());
+      const investorAddr = normalizeAddress(investor.trim());
       if (type.id === "safe") {
         const discountBps = Math.round((Number(discount) || 0) * 100);
         await onRecordSafe(investorAddr, amount, valCap || "0", discountBps, targetClassId);

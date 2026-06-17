@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { ethers } from "ethers";
+import { isHexAddress, normalizeAddress } from "../../utils/address";
 import type { CapClass } from "../../hooks/capTable/capTableTypes";
 
 interface RaiseModalProps {
@@ -28,7 +28,7 @@ export function RaiseModal({ classes, onClose, onRecordSafe }: RaiseModalProps) 
   const [targetClassId, setTargetClassId] = useState<number>(targetable[0]?.classId ?? 0);
   const [busy, setBusy] = useState(false);
 
-  const validAddr = ethers.utils.isAddress(investor);
+  const validAddr = isHexAddress(investor);
   const validNums = /^\d+$/.test(principal) && Number(principal) > 0 && /^\d+$/.test(cap) && Number(cap) > 0;
   const canSubmit = validAddr && validNums && !busy;
 
@@ -37,7 +37,7 @@ export function RaiseModal({ classes, onClose, onRecordSafe }: RaiseModalProps) 
     setBusy(true);
     try {
       const discountBps = Math.round(Number(discountPct || "0") * 100);
-      await onRecordSafe(ethers.utils.getAddress(investor), principal, cap, discountBps, targetClassId);
+      await onRecordSafe(normalizeAddress(investor), principal, cap, discountBps, targetClassId);
       onClose();
     } finally {
       setBusy(false);

@@ -20,6 +20,8 @@ interface CapTableViewProps {
   account: string | null;
   onSetup: () => void;
   onIssue: (holder?: CapHolder) => void;
+  /** Issue a grant into a specific class (button lives in the class header). */
+  onIssueClass: (classId: number) => void;
   onTransfer: (holder: CapHolder) => void;
 }
 
@@ -93,7 +95,7 @@ function ClassParamsDetail({ c }: { c: CapClass }) {
   );
 }
 
-export function CapTableView({ state, isAdmin, account, onSetup, onIssue, onTransfer }: CapTableViewProps) {
+export function CapTableView({ state, isAdmin, account, onSetup, onIssue, onIssueClass, onTransfer }: CapTableViewProps) {
   const { classes, holders } = state;
   const [filter, setFilter] = useState<number | "all">("all");
   const [q, setQ] = useState("");
@@ -301,6 +303,19 @@ export function CapTableView({ state, isAdmin, account, onSetup, onIssue, onTran
                           </span>
                           <span className="ct-grp-sub">
                             <b>{fmtShares(c.isPool ? c.reservedPool : c.totalIssued)}</b> · {fmtPct((classFd / fdTotal) * 100)} FD
+                            {isAdmin && !c.isPool && c.status !== ClassStatus.Retired && (
+                              <button
+                                className="ct-btn"
+                                style={{ height: 26, padding: "0 10px", fontSize: 12, marginLeft: 4 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onIssueClass(c.classId);
+                                }}
+                                data-testid={`captable-issue-class-${c.classId}`}
+                              >
+                                + Issue
+                              </button>
+                            )}
                             <span className="ct-caret">{openClass === c.classId ? "▴" : "▾"}</span>
                           </span>
                         </div>

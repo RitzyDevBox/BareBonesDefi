@@ -7,6 +7,7 @@ import { Stack } from "../components/Primitives";
 import { useWalletProvider } from "../hooks/useWalletProvider";
 import { useReadProvider } from "../hooks/useReadProvider";
 import { useMtaState } from "../hooks/auth/useMtaState";
+import { orgSlugFor } from "../utils/payroll/orgSlug";
 import { useActiveOrganization } from "../providers/ActiveOrganizationProvider";
 import { DEFAULT_CHAIN_ID, getBareBonesConfiguration } from "../constants/misc";
 import { SYSTEM_ROLE_SLUG } from "../constants/mtaRoles";
@@ -41,7 +42,9 @@ export function CapTablePage() {
   const readProvider = useReadProvider();
   const config = useMemo(() => getBareBonesConfiguration(chainId ?? DEFAULT_CHAIN_ID), [chainId]);
 
-  const mtaState = useMtaState(slug);
+  // useMtaState expects the on-chain bytes32 slug, not the human-readable name (same as PaymentPage).
+  // Passing the raw name silently matches nothing → empty members (e.g. the issue-grant picker).
+  const mtaState = useMtaState(orgSlugFor(slug));
 
   const [orgInfo, setOrgInfo] = useState<OrganizationModel | null>(null);
   useEffect(() => {
@@ -82,6 +85,7 @@ export function CapTablePage() {
   const [mode, setMode] = useState<CapTableMode>("table");
   const [issueOpen, setIssueOpen] = useState(false);
   const [issuePrefill, setIssuePrefill] = useState<CapHolder | null>(null);
+  const [issueClassId, setIssueClassId] = useState<number | null>(null);
   const [transferHolder, setTransferHolder] = useState<CapHolder | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -184,6 +188,7 @@ export function CapTablePage() {
                     className="btn-primary"
                     onClick={() => {
                       setIssuePrefill(null);
+                      setIssueClassId(null);
                       setIssueOpen(true);
                     }}
                     data-testid="captable-issue-grant-btn"
@@ -276,6 +281,12 @@ export function CapTablePage() {
             onSetup={() => setMode("setup")}
             onIssue={(holder) => {
               setIssuePrefill(holder ?? null);
+              setIssueClassId(null);
+              setIssueOpen(true);
+            }}
+            onIssueClass={(classId) => {
+              setIssuePrefill(null);
+              setIssueClassId(classId);
               setIssueOpen(true);
             }}
             onTransfer={(holder) => setTransferHolder(holder)}
@@ -288,6 +299,7 @@ export function CapTablePage() {
           classes={state.classes}
           members={mtaState.members}
           prefill={issuePrefill}
+          initialClassId={issueClassId ?? undefined}
           onClose={() => setIssueOpen(false)}
           onIssue={(classId, to, amount) => actions.issueGrant(classId, to, amount)}
           onIssueWithTerms={(classId, to, amount, terms) =>

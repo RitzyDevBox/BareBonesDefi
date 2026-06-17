@@ -13,7 +13,6 @@ interface StepGovernanceProps {
 const emptyFactoryDefaults: FactoryTokenForm = {
   name: "",
   symbol: "",
-  mintable: true,
   allocations: [{ holder: "", amount: "" }],
   initialMinters: [],
   initialPausers: [],
@@ -127,19 +126,7 @@ export function StepGovernance({ form, onChange, tokenFactoryAvailable }: StepGo
               />
             </div>
 
-            <div className="bb-field bb-full" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="checkbox"
-                id="mintable-toggle"
-                checked={factory.mintable}
-                onChange={(e) => patchFactory({ mintable: e.target.checked })}
-              />
-              <label htmlFor="mintable-toggle" style={{ margin: 0 }}>
-                Mintable (cap table can grow post-deploy)
-              </label>
-              <div className="bb-field-hint bb-muted" style={{ marginLeft: 12 }}>
-                Immutable. If unchecked, <span className="bb-mono">mint()</span> reverts forever.
-              </div>
+            <div style={{ display: "none" }}>
             </div>
 
             <div className="bb-field bb-full">

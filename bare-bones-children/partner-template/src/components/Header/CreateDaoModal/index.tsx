@@ -45,7 +45,6 @@ function buildInitialForm(chainId: number | null, account: string | null, tokenF
             factory: {
               name: "",
               symbol: "",
-              mintable: true,
               // Pre-seed one allocation row pointing at the connected wallet so the
               // founder can drop a number in without thinking about array shape.
               allocations: [{ holder: account ?? "", amount: "" }],
@@ -177,7 +176,6 @@ export function CreateDaoModal({ isOpen, onClose, lockedOrgSlug }: CreateDaoModa
         factoryConfig: {
           name: ts.factory.name,
           symbol: ts.factory.symbol,
-          mintable: ts.factory.mintable,
           allocations,
           initialMinters: ts.factory.initialMinters.map((s) => s.trim()).filter(Boolean),
           initialPausers: ts.factory.initialPausers.map((s) => s.trim()).filter(Boolean),

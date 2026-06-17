@@ -1,53 +1,69 @@
-// Create distribution — pick mode, target classes, set rate/pool, confirm & fund (MOCK).
+// Create distribution — pick mode, target classes, set rate/pool, confirm & fund.
 // Ported 1:1 from Designs/Bare Bones/app/distributions-create.jsx. Mirrors
 // create(slug, shareToken, classIds[], ratesPerShare[], amount).
 
 import { useState } from "react";
 import { I } from "./distIcons";
+import type { CreateStep } from "../../hooks/distributions/useDistributionActions";
 import {
-  CAP_CLASSES,
-  CAP_HOLDERS,
   classBasisLabel,
   classById,
+  classWeightX,
   distClassBasis,
   distHolderPayout,
   fmtMoney,
   fmtRate,
   fmtShares,
+  fmtWeightPct,
   holderBasisShares,
+  holderRawShares,
+  type CapClass,
+  type CapHolder,
   type DistMode,
   type Distribution,
 } from "./distributionsMockData";
 
 interface CreateDistributionModalProps {
   daoName?: string;
+  classes: CapClass[];
+  holders: CapHolder[];
   onClose: () => void;
-  onCreate: (draft: Partial<Distribution>) => void;
+  onCreate: (
+    draft: { classIds: string[]; rates: string[]; pool: string; label: string },
+    onStep?: (s: CreateStep) => void,
+  ) => Promise<boolean>;
 }
 
-export function CreateDistributionModal({ daoName, onClose, onCreate }: CreateDistributionModalProps) {
+export function CreateDistributionModal({ daoName, classes, holders, onClose, onCreate }: CreateDistributionModalProps) {
   const [label, setLabel] = useState("");
   const [mode, setMode] = useState<DistMode>("prorata");
-  const [classIds, setClassIds] = useState<string[]>(["common"]);
+  // Default to the first class that actually has payable holders. NEVER a hardcoded slug —
+  // the on-chain class ids are numeric ("0"/"1"); a stale "common" sentinel here leaks into
+  // `classIds.map(Number)` → NaN → "invalid BigNumber" when the create tx is encoded.
+  const [classIds, setClassIds] = useState<string[]>(() => {
+    const first = classes.find((c) => distClassBasis(c.id, holders, classes) > 0);
+    return first ? [first.id] : [];
+  });
   const [pool, setPool] = useState("60000");
   const [rate, setRate] = useState("0.50");
   const token = "USDC"; // the org's single payment token (DistributionManager.paymentToken)
 
   // classes that actually have payable holders
-  const payableClasses = CAP_CLASSES.filter((c) => distClassBasis(c.id) > 0);
+  const payableClasses = classes.filter((c) => distClassBasis(c.id, holders, classes) > 0);
 
   const toggleClass = (id: string) =>
     setClassIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
 
-  const selectedBasis = classIds.reduce((s, cid) => s + distClassBasis(cid), 0);
+  const selectedBasis = classIds.reduce((s, cid) => s + distClassBasis(cid, holders, classes), 0);
+  const selectedHasWeights = classIds.some((cid) => classWeightX(classById(classes, cid)) !== 1);
   const poolN = Number(pool) || 0;
   const rateN = Number(rate) || 0;
   const derivedRate = mode === "prorata" ? (selectedBasis > 0 ? poolN / selectedBasis : 0) : rateN;
   const totalOut = mode === "prorata" ? poolN : rateN * selectedBasis;
 
-  const eligible = CAP_HOLDERS.filter(
-    (h) => classIds.includes(h.classId) && h.grantStatus === "Active" && holderBasisShares(h) > 0,
-  ).sort((a, b) => holderBasisShares(b) - holderBasisShares(a));
+  const eligible = holders.filter(
+    (h) => classIds.includes(h.classId) && h.grantStatus === "Active" && holderBasisShares(h, classes) > 0,
+  ).sort((a, b) => holderBasisShares(b, classes) - holderBasisShares(a, classes));
   const previewDist: Distribution = {
     id: "preview",
     label: "",
@@ -77,21 +93,42 @@ export function CreateDistributionModal({ daoName, onClose, onCreate }: CreateDi
           : null;
 
   const [funding, setFunding] = useState(false);
-  const submit = () => {
+  const [step, setStep] = useState<CreateStep | null>(null);
+  const submit = async () => {
     if (!valid) return;
-    const fallback = `${classIds.map((id) => classById(id)?.name).join(" / ")} ${mode === "pershare" ? "Dividend" : "Distribution"}`;
+    const fallback = `${classIds.map((id) => classById(classes, id)?.name).join(" / ")} ${mode === "pershare" ? "Dividend" : "Distribution"}`;
     setFunding(true);
-    setTimeout(() => {
-      onCreate({
-        label: label.trim() || fallback,
-        mode,
-        classIds,
-        token,
-        pool: mode === "prorata" ? poolN : Math.round(totalOut),
-        ...(mode === "pershare" ? { ratePerShare: rateN } : {}),
-      });
-    }, 900);
+    setStep(null);
+    const perShare = mode === "prorata" ? String(derivedRate) : rate;
+    const rates = classIds.map(() => perShare);
+    const poolOut = mode === "prorata" ? pool : String(totalOut);
+    try {
+      // On success the parent closes the modal; on failure (e.g. a rejected wallet prompt) we reset
+      // so the user can retry without re-opening.
+      await onCreate({ classIds, rates, pool: poolOut, label: label.trim() || fallback }, setStep);
+    } finally {
+      setFunding(false);
+      setStep(null);
+    }
   };
+
+  // Two-step funding flow surfaced as a tracker: approve → fund the treasury → open. (Approve/fund are
+  // skipped when the org's treasury already holds the pool; reaching "open" marks them satisfied.)
+  const STEP_ORDER: CreateStep[] = ["approving", "funding", "opening", "done"];
+  const curIdx = step ? STEP_ORDER.indexOf(step) : -1;
+  const trackerSteps: { key: CreateStep; label: string }[] = [
+    { key: "approving", label: "Approve USDC" },
+    { key: "funding", label: "Fund treasury" },
+    { key: "opening", label: "Open distribution" },
+  ];
+  const activeLabel =
+    step === "approving"
+      ? "Approving…"
+      : step === "funding"
+        ? "Funding…"
+        : step === "opening" || step === "done"
+          ? "Opening…"
+          : "Funding…";
 
   return (
     <div className="modal-scrim dist-scope" onClick={onClose}>
@@ -153,9 +190,14 @@ export function CreateDistributionModal({ daoName, onClose, onCreate }: CreateDi
                       <span className="dist-class-opt-name">
                         <span className="dist-chip-dot" style={{ background: c.color }} />
                         {c.name}
+                        {classWeightX(c) !== 1 && (
+                          <span className="dist-weight-chip" title="Economic distribution weight">
+                            {fmtWeightPct(classWeightX(c))}
+                          </span>
+                        )}
                       </span>
                       <span className="dist-class-opt-sub mono">
-                        {classBasisLabel(c)} · {fmtShares(distClassBasis(c.id))} sh basis
+                        {classBasisLabel(c)} · {fmtShares(distClassBasis(c.id, holders, classes) / classWeightX(c))} sh
                       </span>
                     </span>
                   </button>
@@ -181,11 +223,13 @@ export function CreateDistributionModal({ daoName, onClose, onCreate }: CreateDi
             <div className="field-hint">
               {mode === "prorata" ? (
                 <>
-                  ≈ <b className="text mono">{fmtRate(derivedRate, token)}</b> across {fmtShares(selectedBasis)} basis shares
+                  ≈ <b className="text mono">{fmtRate(derivedRate, token)}</b> per 1.0× share
+                  {selectedHasWeights && " · weighted classes get more"}
                 </>
               ) : (
                 <>
-                  ≈ <b className="text mono">{fmtMoney(totalOut, token)}</b> total across {fmtShares(selectedBasis)} basis shares
+                  ≈ <b className="text mono">{fmtMoney(totalOut, token)}</b> total
+                  {selectedHasWeights && " · weighted classes get more"}
                 </>
               )}
             </div>
@@ -210,16 +254,22 @@ export function CreateDistributionModal({ daoName, onClose, onCreate }: CreateDi
                 <div className="kicker" style={{ marginBottom: 6 }}>
                   Top holders get
                 </div>
-                {topHolders.map((h) => (
-                  <div key={h.id} className="dist-summary-holder">
-                    <span className="dh-avatar sm" style={{ background: `oklch(0.7 0.12 ${h.avatarHue})` }}>
-                      {h.initials}
-                    </span>
-                    <span className="dist-summary-holder-name">{h.name}</span>
-                    <span className="mono muted small">{fmtShares(holderBasisShares(h))} sh</span>
-                    <span className="mono">{fmtMoney(distHolderPayout(previewDist, h), token)}</span>
-                  </div>
-                ))}
+                {topHolders.map((h) => {
+                  const wx = classWeightX(classById(classes, h.classId));
+                  return (
+                    <div key={h.id} className="dist-summary-holder">
+                      <span className="dh-avatar sm" style={{ background: `oklch(0.7 0.12 ${h.avatarHue})` }}>
+                        {h.initials}
+                      </span>
+                      <span className="dist-summary-holder-name">{h.name}</span>
+                      <span className="mono muted small" style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
+                        {fmtShares(holderRawShares(h, classes))} sh
+                        {wx !== 1 && <span className="dist-weight-chip">{fmtWeightPct(wx)}</span>}
+                      </span>
+                      <span className="mono">{fmtMoney(distHolderPayout(previewDist, h, holders, classes), token)}</span>
+                    </div>
+                  );
+                })}
                 {eligible.length > topHolders.length && (
                   <div className="muted small" style={{ marginTop: 4 }}>
                     + {eligible.length - topHolders.length} more holder{eligible.length - topHolders.length === 1 ? "" : "s"}
@@ -238,6 +288,23 @@ export function CreateDistributionModal({ daoName, onClose, onCreate }: CreateDi
           </div>
         </div>
 
+        {funding && (
+          <div className="dist-step-track" aria-label="Funding progress">
+            {trackerSteps.map((s, i) => {
+              const idx = STEP_ORDER.indexOf(s.key);
+              const state = curIdx > idx ? "done" : curIdx === idx ? "active" : "pending";
+              return (
+                <div key={s.key} className={`dist-step ${state}`}>
+                  <span className="dist-step-dot">
+                    {state === "done" ? <I.Check size={12} /> : state === "active" ? <span className="spinner sm" /> : i + 1}
+                  </span>
+                  <span className="dist-step-label">{s.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div className="modal-foot">
           {blockReason ? (
             <span className="muted small" style={{ marginRight: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -252,7 +319,7 @@ export function CreateDistributionModal({ daoName, onClose, onCreate }: CreateDi
           <button className="btn-primary btn-sm" disabled={!valid || funding} onClick={submit}>
             {funding ? (
               <>
-                <span className="spinner sm" /> Funding…
+                <span className="spinner sm" /> {activeLabel}
               </>
             ) : (
               <>Fund {fmtMoney(totalOut, token)}</>

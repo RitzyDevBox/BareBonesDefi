@@ -11,6 +11,9 @@ export type DistMode = "pershare" | "prorata";
 
 export interface CapClassParams {
   distributionPolicy: "VestedOnly" | "AccrueAndPayOnVest" | "Full";
+  // Economic weight in bps (10000 = 1.0x, 10800 = +8%). Optional in the mock; defaults to 1.0x.
+  // Mirrors ClassParams.distributionWeightBps — DistributionManager scales each holder's basis by it.
+  distributionWeightBps?: number;
 }
 export interface CapClass {
   id: string;
@@ -118,58 +121,83 @@ export const fmtRate = (r: number | null | undefined, token = "USDC") => {
 export const DIST_STATUS_TONE: Record<DistStatus, string> = { processing: "info", done: "ok", cancelled: "error" };
 export const DIST_STATUS_LABEL: Record<DistStatus, string> = { processing: "Processing", done: "Done", cancelled: "Cancelled" };
 
-export const classById = (id: string) => CAP_CLASSES.find((c) => c.id === id);
-export const distClassNames = (dist: Distribution) =>
-  dist.classIds.map((id) => classById(id)?.name || id).join(" · ");
+// The helpers below take `classes`/`holders` explicitly so they work off real cap-table data
+// (useCapTable, mapped into the CapClass/CapHolder shape) — not just the mock globals.
+
+export const classById = (classes: CapClass[], id: string) => classes.find((c) => c.id === id);
+export const distClassNames = (dist: Distribution, classes: CapClass[]) =>
+  dist.classIds.map((id) => classById(classes, id)?.name || id).join(" · ");
 
 // basis policy per class: Full pays on all granted shares (investor/preferred); else vested only.
 export const classBasisMode = (cls?: CapClass): "all" | "vested" =>
   cls && cls.params && cls.params.distributionPolicy === "Full" ? "all" : "vested";
 export const classBasisLabel = (cls?: CapClass) => (classBasisMode(cls) === "all" ? "All granted" : "Vested only");
 
-export const holderBasisShares = (h: CapHolder) =>
-  classBasisMode(classById(h.classId)) === "all" ? h.shares || 0 : h.vested || 0;
+// Raw payable shares (vested/all per policy) the holder actually holds — WITHOUT the economic weight.
+// For display; the weighted version below drives the payout math.
+export const holderRawShares = (h: CapHolder, classes: CapClass[]) =>
+  classBasisMode(classById(classes, h.classId)) === "all" ? h.shares || 0 : h.vested || 0;
 
-export function distEligibleHolders(dist: Distribution): CapHolder[] {
-  return CAP_HOLDERS.filter(
-    (h) => dist.classIds.includes(h.classId) && h.grantStatus === "Active" && holderBasisShares(h) > 0,
+// A class's economic weight as a multiplier: 1 = 1.0x, 1.08 = +8%. A weight of 0 (uninitialized) → 1.0x.
+export const classWeightX = (cls?: CapClass) => {
+  const w = cls?.params.distributionWeightBps || 0;
+  return (w === 0 ? 10000 : w) / 10000;
+};
+// "+8%" / "-5%" — the premium/discount vs a 1.0x class.
+export const fmtWeightPct = (x: number) => `${x >= 1 ? "+" : ""}${Math.round((x - 1) * 100)}%`;
+
+// A holder's distribution basis: raw payable shares scaled by the class's economic weight, matching
+// DistributionManager.processChunk. The pro-rata rate is derived against this same weighted basis
+// (distTotalBasis), so the pool sums exactly.
+export const holderBasisShares = (h: CapHolder, classes: CapClass[]) =>
+  holderRawShares(h, classes) * classWeightX(classById(classes, h.classId));
+
+export function distEligibleHolders(dist: Distribution, holders: CapHolder[], classes: CapClass[]): CapHolder[] {
+  return holders.filter(
+    (h) => dist.classIds.includes(h.classId) && h.grantStatus === "Active" && holderBasisShares(h, classes) > 0,
   );
 }
 // sum a class's basis — mirrors previewClassBasis(shareToken, classId, atTime)
-export function distClassBasis(classId: string): number {
-  return CAP_HOLDERS.filter((h) => h.classId === classId && h.grantStatus === "Active").reduce(
-    (s, h) => s + holderBasisShares(h),
-    0,
-  );
+export function distClassBasis(classId: string, holders: CapHolder[], classes: CapClass[]): number {
+  return holders
+    .filter((h) => h.classId === classId && h.grantStatus === "Active")
+    .reduce((s, h) => s + holderBasisShares(h, classes), 0);
 }
-export function distTotalBasis(dist: Distribution): number {
-  return dist.classIds.reduce((s, cid) => s + distClassBasis(cid), 0);
+export function distTotalBasis(dist: Distribution, holders: CapHolder[], classes: CapClass[]): number {
+  return dist.classIds.reduce((s, cid) => s + distClassBasis(cid, holders, classes), 0);
 }
 // payment-token amount per whole share. pro-rata derives it: pool / total basis.
-export function distRate(dist: Distribution): number {
+export function distRate(dist: Distribution, holders: CapHolder[], classes: CapClass[]): number {
   if (dist.mode === "pershare") return dist.ratePerShare || 0;
-  const basis = distTotalBasis(dist);
+  const basis = distTotalBasis(dist, holders, classes);
   return basis > 0 ? dist.pool / basis : 0;
 }
-export function distHolderPayout(dist: Distribution, h: CapHolder): number {
-  return holderBasisShares(h) * distRate(dist);
+export function distHolderPayout(dist: Distribution, h: CapHolder, holders: CapHolder[], classes: CapClass[]): number {
+  return holderBasisShares(h, classes) * distRate(dist, holders, classes);
 }
-export function distTotalToDistribute(dist: Distribution): number {
+export function distTotalToDistribute(dist: Distribution, holders: CapHolder[], classes: CapClass[]): number {
   if (dist.mode === "pershare") {
-    return distEligibleHolders(dist).reduce((s, h) => s + distHolderPayout(dist, h), 0);
+    return distEligibleHolders(dist, holders, classes).reduce(
+      (s, h) => s + distHolderPayout(dist, h, holders, classes),
+      0,
+    );
   }
   return dist.pool;
 }
 export const distIsPaid = (dist: Distribution, h: CapHolder) =>
-  dist.paidHolderIds === "all" || (dist.paidHolderIds || []).includes(h.id);
+  dist.paidHolderIds === "all" || (dist.paidHolderIds || []).some((x) => x.toLowerCase() === h.id.toLowerCase());
 
-export function distPaidAmount(dist: Distribution): number {
-  return distEligibleHolders(dist)
+export function distPaidAmount(dist: Distribution, holders: CapHolder[], classes: CapClass[]): number {
+  return distEligibleHolders(dist, holders, classes)
     .filter((h) => distIsPaid(dist, h))
-    .reduce((s, h) => s + distHolderPayout(dist, h), 0);
+    .reduce((s, h) => s + distHolderPayout(dist, h, holders, classes), 0);
 }
-export function distHolderCounts(dist: Distribution): { paid: number; total: number } {
-  const elig = distEligibleHolders(dist);
+export function distHolderCounts(
+  dist: Distribution,
+  holders: CapHolder[],
+  classes: CapClass[],
+): { paid: number; total: number } {
+  const elig = distEligibleHolders(dist, holders, classes);
   const paid = dist.paidHolderIds === "all" ? elig.length : elig.filter((h) => distIsPaid(dist, h)).length;
   return { paid, total: elig.length };
 }

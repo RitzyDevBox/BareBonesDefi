@@ -187,6 +187,42 @@
 }
 .dist-scope .spinner.sm { width: 12px; height: 12px; border-width: 2px; }
 
+/* Economic distribution-weight chip (e.g. "+8%") */
+.dist-scope .dist-weight-chip {
+  display: inline-flex; align-items: center; flex-shrink: 0; white-space: nowrap;
+  padding: 1px 7px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; font-family: var(--font-mono);
+  color: var(--accent); background: color-mix(in oklab, var(--accent) 16%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent);
+}
+
+/* Create-flow step tracker: approve → fund → open */
+.dist-scope .dist-step-track {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 18px; border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.dist-scope .dist-step {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--text-mute);
+}
+.dist-scope .dist-step + .dist-step::before {
+  content: ""; width: 16px; height: 1px; background: var(--line-strong);
+  margin-right: 3px;
+}
+.dist-scope .dist-step-dot {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1px solid var(--line-strong); background: var(--bg-elev-2);
+  font-size: 11px; font-weight: 600; color: var(--text-mute);
+}
+.dist-scope .dist-step.active { color: var(--text); }
+.dist-scope .dist-step.active .dist-step-dot { border-color: var(--accent); }
+.dist-scope .dist-step.done { color: var(--text); }
+.dist-scope .dist-step.done .dist-step-dot {
+  border-color: var(--accent); background: var(--accent); color: var(--bg);
+}
+
 .dist-scope .kicker {
   font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .12em;
   font-size: 10.5px; color: var(--text-mute);

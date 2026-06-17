@@ -38,7 +38,6 @@ export interface TokenAllocationForm {
 export interface FactoryTokenForm {
   name: string;
   symbol: string;
-  mintable: boolean;
   allocations: TokenAllocationForm[];
   initialMinters: string[];
   initialPausers: string[];

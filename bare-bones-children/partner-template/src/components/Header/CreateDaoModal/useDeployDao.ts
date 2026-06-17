@@ -50,7 +50,6 @@ export interface MemberInitInput {
 export interface FactoryTokenConfig {
   name: string;
   symbol: string;
-  mintable: boolean;
   allocations: TokenAllocationInput[];
   /** Wallets to receive `TOKEN_MINTER_ROLE` in the new slug. Empty = only
    *  Super Admin (timelock) can mint via a DAO proposal. */
@@ -281,7 +280,10 @@ export function useDeployDao() {
           factoryConfig: {
             name: fc.name.trim(),
             symbol: fc.symbol.trim(),
-            mintable: fc.mintable,
+            // `mintable` is part of the on-chain TokenConfig struct but unused for the cap-table path
+            // (the launcher deploys a ShareToken, which has no mintable flag). Hardcoded; the UI
+            // toggle was removed.
+            mintable: true,
             initialHolders: fc.allocations.map((a) => toChecksumAddress(a.holder)),
             // `TokenUnitsInput` already emits base units (it runs parseUnits on the typed whole-token
             // value), so the form state IS 18-dec base units — pass it through. Do NOT re-scale here:

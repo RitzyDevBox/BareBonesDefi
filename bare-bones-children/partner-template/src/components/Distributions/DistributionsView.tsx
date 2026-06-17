@@ -1,4 +1,4 @@
-// Distributions — a second mode of the Payments surface, alongside Payroll (MOCK).
+// Distributions — a second mode of the Payments surface, alongside Payroll.
 // Ported 1:1 from Designs/Bare Bones/app/distributions.jsx. Pays shareholders by ownership.
 //   List   : active (processing) runs hoisted as cards + historic table.
 //   Detail : record date, pool, progress bar, "Process next batch", holder table, Reclaim / Cancel.
@@ -7,16 +7,18 @@
 import { useState } from "react";
 import "../../styles/distributionsSurfaces.css";
 import { I } from "./distIcons";
-import { distToast } from "./distToast";
 import { CreateDistributionModal } from "./CreateDistributionModal";
+import { useDistributionData } from "../../hooks/distributions/useDistributionData";
+import { useDistributionActions, type CreateStep } from "../../hooks/distributions/useDistributionActions";
+import { useWalletProvider } from "../../hooks/useWalletProvider";
 import {
-  DISTRIBUTIONS_SEED,
-  DIST_CHUNK,
   DIST_STATUS_TONE,
   DIST_STATUS_LABEL,
   classById,
   classBasisLabel,
-  holderBasisShares,
+  classWeightX,
+  fmtWeightPct,
+  holderRawShares,
   distClassNames,
   distEligibleHolders,
   distHolderCounts,
@@ -28,44 +30,42 @@ import {
   fmtMoney,
   fmtRate,
   fmtShares,
-  newId,
   shortHex,
+  type CapClass,
   type CapHolder,
   type Distribution,
 } from "./distributionsMockData";
 
 interface DistributionsViewProps {
+  slug: string;
   isAdmin: boolean;
   daoName?: string;
 }
 
-export function DistributionsView({ isAdmin, daoName }: DistributionsViewProps) {
-  const [dists, setDists] = useState<Distribution[]>(DISTRIBUTIONS_SEED);
+export function DistributionsView({ slug, isAdmin, daoName }: DistributionsViewProps) {
+  const data = useDistributionData(slug);
+  const { account } = useWalletProvider();
+  const actions = useDistributionActions(slug, data.shareTokenAddress);
+  const dists = data.distributions;
   const [openId, setOpenId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const updateDist = (id: string, patch: Partial<Distribution>) =>
-    setDists((list) => list.map((d) => (d.id === id ? { ...d, ...patch } : d)));
-
-  const createDist = (draft: Partial<Distribution>) => {
-    const id = newId("dist");
-    const rec = new Date();
-    const recordDate = rec.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-    const recordTime =
-      rec.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }) + " UTC";
-    const dist = {
-      ...(draft as Distribution),
-      id,
-      status: "processing" as const,
-      paidHolderIds: [] as string[],
-      recordDate,
-      recordTime,
-      createdAt: recordDate,
-    };
-    setDists((list) => [dist, ...list]);
-    setCreateOpen(false);
-    distToast("success", "Distribution funded", `${draft.label} · record date stamped · targeted classes locked`, 4500);
-    setOpenId(id);
+  const createDist = async (
+    draft: { classIds: string[]; rates: string[]; pool: string; label: string },
+    onStep?: (s: CreateStep) => void,
+  ) => {
+    const ok = await actions.createDistribution(
+      draft.classIds.map(Number),
+      draft.rates,
+      draft.pool,
+      draft.label,
+      onStep,
+    );
+    if (ok) {
+      data.refresh();
+      setCreateOpen(false);
+    }
+    return ok;
   };
 
   let body;
@@ -79,16 +79,33 @@ export function DistributionsView({ isAdmin, daoName }: DistributionsViewProps) 
       <DistributionDetail
         isAdmin={isAdmin}
         dist={sel}
+        holders={data.holders}
+        classes={data.classes}
+        account={account}
+        actions={actions}
+        onRefresh={data.refresh}
         onBack={() => setOpenId(null)}
-        onUpdate={(patch) => updateDist(sel.id, patch)}
       />
     );
   } else {
     body = (
       <>
-        <DistributionsList dists={dists} onOpen={setOpenId} onCreate={() => setCreateOpen(true)} isAdmin={isAdmin} />
+        <DistributionsList
+          dists={dists}
+          holders={data.holders}
+          classes={data.classes}
+          onOpen={setOpenId}
+          onCreate={() => setCreateOpen(true)}
+          isAdmin={isAdmin}
+        />
         {createOpen && (
-          <CreateDistributionModal daoName={daoName} onClose={() => setCreateOpen(false)} onCreate={createDist} />
+          <CreateDistributionModal
+            daoName={daoName}
+            classes={data.classes}
+            holders={data.holders}
+            onClose={() => setCreateOpen(false)}
+            onCreate={createDist}
+          />
         )}
       </>
     );
@@ -102,11 +119,15 @@ export function DistributionsView({ isAdmin, daoName }: DistributionsViewProps) 
 // =================================================================
 function DistributionsList({
   dists,
+  holders,
+  classes,
   onOpen,
   onCreate,
   isAdmin,
 }: {
   dists: Distribution[];
+  holders: CapHolder[];
+  classes: CapClass[];
   onOpen: (id: string) => void;
   onCreate: () => void;
   isAdmin: boolean;
@@ -126,7 +147,12 @@ function DistributionsList({
           </div>
         </div>
         {isAdmin && (
-          <button className="btn-primary btn-sm" onClick={onCreate}>
+          <button
+            className="btn-primary btn-sm"
+            onClick={onCreate}
+            disabled={active.length > 0}
+            title={active.length > 0 ? "Finish or cancel the in-progress distribution first (one per org at a time)." : undefined}
+          >
             <I.Plus size={13} /> New distribution
           </button>
         )}
@@ -141,7 +167,7 @@ function DistributionsList({
           <div className="panel-body">
             <div className="prl-active-grid">
               {active.map((d) => (
-                <DistributionActiveCard key={d.id} dist={d} onOpen={() => onOpen(d.id)} />
+                <DistributionActiveCard key={d.id} dist={d} holders={holders} classes={classes} onOpen={() => onOpen(d.id)} />
               ))}
             </div>
           </div>
@@ -180,14 +206,14 @@ function DistributionsList({
                   <div className="dist-chips">
                     {d.classIds.map((cid) => (
                       <span key={cid} className="dist-chip">
-                        <span className="dist-chip-dot" style={{ background: classById(cid)?.color }} />
-                        {classById(cid)?.name}
+                        <span className="dist-chip-dot" style={{ background: classById(classes, cid)?.color }} />
+                        {classById(classes, cid)?.name}
                       </span>
                     ))}
                   </div>
                 </div>
                 <div className="dh-cell dh-num mono">
-                  {fmtMoney(d.status === "cancelled" ? d.pool : distTotalToDistribute(d), d.token)}
+                  {fmtMoney(d.status === "cancelled" ? d.pool : distTotalToDistribute(d, holders, classes), d.token)}
                 </div>
                 <div className="dh-cell">
                   <span className={`pay-status pay-status-${tone}`}>
@@ -207,10 +233,20 @@ function DistributionsList({
   );
 }
 
-function DistributionActiveCard({ dist, onOpen }: { dist: Distribution; onOpen: () => void }) {
-  const { paid, total } = distHolderCounts(dist);
+function DistributionActiveCard({
+  dist,
+  holders,
+  classes,
+  onOpen,
+}: {
+  dist: Distribution;
+  holders: CapHolder[];
+  classes: CapClass[];
+  onOpen: () => void;
+}) {
+  const { paid, total } = distHolderCounts(dist, holders, classes);
   const pct = total ? Math.round((paid / total) * 100) : 0;
-  const paidAmt = distPaidAmount(dist);
+  const paidAmt = distPaidAmount(dist, holders, classes);
   return (
     <button className="prl-active-card prl-tone-info" onClick={onOpen}>
       <div className="prl-active-top">
@@ -235,7 +271,7 @@ function DistributionActiveCard({ dist, onOpen }: { dist: Distribution; onOpen: 
             {paid} / {total} holders paid
           </span>
           <span className="mono">
-            {fmtMoney(paidAmt, dist.token)} / {fmtMoney(distTotalToDistribute(dist), dist.token)}
+            {fmtMoney(paidAmt, dist.token)} / {fmtMoney(distTotalToDistribute(dist, holders, classes), dist.token)}
           </span>
         </div>
       </div>
@@ -246,8 +282,8 @@ function DistributionActiveCard({ dist, onOpen }: { dist: Distribution; onOpen: 
           <div className="dist-chips" style={{ marginTop: 4 }}>
             {dist.classIds.map((cid) => (
               <span key={cid} className="dist-chip">
-                <span className="dist-chip-dot" style={{ background: classById(cid)?.color }} />
-                {classById(cid)?.name}
+                <span className="dist-chip-dot" style={{ background: classById(classes, cid)?.color }} />
+                {classById(classes, cid)?.name}
               </span>
             ))}
           </div>
@@ -255,7 +291,7 @@ function DistributionActiveCard({ dist, onOpen }: { dist: Distribution; onOpen: 
         <div>
           <div className="kicker">{dist.mode === "pershare" ? "Rate" : "Pool"}</div>
           <div className="prl-active-v mono">
-            {dist.mode === "pershare" ? fmtRate(distRate(dist), dist.token) : fmtMoney(dist.pool, dist.token)}
+            {dist.mode === "pershare" ? fmtRate(distRate(dist, holders, classes), dist.token) : fmtMoney(dist.pool, dist.token)}
           </div>
         </div>
       </div>
@@ -272,20 +308,28 @@ function DistributionActiveCard({ dist, onOpen }: { dist: Distribution; onOpen: 
 function DistributionDetail({
   isAdmin,
   dist,
+  holders,
+  classes,
+  account,
+  actions,
+  onRefresh,
   onBack,
-  onUpdate,
 }: {
   isAdmin: boolean;
   dist: Distribution;
+  holders: CapHolder[];
+  classes: CapClass[];
+  account: string | null;
+  actions: ReturnType<typeof useDistributionActions>;
+  onRefresh: () => void;
   onBack: () => void;
-  onUpdate: (patch: Partial<Distribution>) => void;
 }) {
   const [processing, setProcessing] = useState(false);
-  const eligible = distEligibleHolders(dist);
-  const { paid, total } = distHolderCounts(dist);
+  const eligible = distEligibleHolders(dist, holders, classes);
+  const { paid, total } = distHolderCounts(dist, holders, classes);
   const pct = total ? Math.round((paid / total) * 100) : 0;
-  const paidAmt = distPaidAmount(dist);
-  const totalAmt = distTotalToDistribute(dist);
+  const paidAmt = distPaidAmount(dist, holders, classes);
+  const totalAmt = distTotalToDistribute(dist, holders, classes);
   const tone = DIST_STATUS_TONE[dist.status];
   const isProcessing = dist.status === "processing";
   const leftover = Math.max(0, dist.pool - totalAmt);
@@ -296,38 +340,29 @@ function DistributionDetail({
     cancelled: "Cancelled — classes unlocked and the unpaid remainder refunded.",
   }[dist.status];
 
-  const processNext = () => {
+  const processNext = async () => {
     if (!isProcessing) return;
     setProcessing(true);
-    setTimeout(() => {
-      const order = eligible.map((h) => h.id);
-      const already = new Set(dist.paidHolderIds === "all" ? order : dist.paidHolderIds);
-      const next = order.filter((id) => !already.has(id)).slice(0, DIST_CHUNK);
-      const merged = [...(dist.paidHolderIds === "all" ? order : dist.paidHolderIds), ...next];
-      const done = merged.length >= order.length;
-      if (done) {
-        onUpdate({ paidHolderIds: "all", status: "done", totalPaid: totalAmt, reclaimed: 0 });
-        distToast("success", "Distribution complete", `${order.length} holders paid · classes unlocked`, 4000);
-      } else {
-        onUpdate({ paidHolderIds: merged });
-        distToast(
-          "info",
-          "Batch processed",
-          `${next.length} more holder${next.length === 1 ? "" : "s"} paid · ${merged.length} / ${order.length} total`,
-          3000,
-        );
+    try {
+      const tx = await actions.processChunk(Number(dist.id), 50);
+      if (tx) {
+        await tx.wait?.();
+        onRefresh();
       }
+    } finally {
       setProcessing(false);
-    }, 850);
+    }
   };
 
-  const cancel = () => {
-    onUpdate({ status: "cancelled", refunded: totalAmt - paidAmt });
-    distToast("warning", "Distribution cancelled", "Classes unlocked · unpaid remainder refunded", 3500);
+  const cancel = async () => {
+    await actions.cancel(Number(dist.id));
+    onRefresh();
   };
-  const reclaim = () => {
-    onUpdate({ reclaimed: leftover });
-    distToast("success", "Leftover reclaimed", `${fmtMoney(leftover, dist.token)} returned to treasury`, 3500);
+  // "Reclaim" now = withdraw the unspent pool from the org treasury back to the connected wallet
+  // (the unspent funds never left the treasury, so it's a plain treasury withdrawal).
+  const reclaim = async () => {
+    await actions.withdraw(account!, String(leftover));
+    onRefresh();
   };
 
   return (
@@ -399,18 +434,18 @@ function DistributionDetail({
         <div className="dist-meta-cell">
           <div className="kicker">{dist.mode === "pershare" ? "Rate" : "Pool funded"}</div>
           <div className="dist-meta-v mono">
-            {dist.mode === "pershare" ? fmtRate(distRate(dist), dist.token) : fmtMoney(dist.pool, dist.token)}
+            {dist.mode === "pershare" ? fmtRate(distRate(dist, holders, classes), dist.token) : fmtMoney(dist.pool, dist.token)}
           </div>
         </div>
         <div className="dist-meta-cell">
           <div className="kicker">Basis</div>
           <div className="dist-meta-v">
-            {dist.classIds.length === 1 ? classBasisLabel(classById(dist.classIds[0])) : "Per class policy"}
+            {dist.classIds.length === 1 ? classBasisLabel(classById(classes, dist.classIds[0])) : "Per class policy"}
           </div>
         </div>
         <div className="dist-meta-cell">
           <div className="kicker">Derived rate</div>
-          <div className="dist-meta-v mono">{fmtRate(distRate(dist), dist.token)}</div>
+          <div className="dist-meta-v mono">{fmtRate(distRate(dist, holders, classes), dist.token)}</div>
         </div>
       </div>
 
@@ -418,7 +453,7 @@ function DistributionDetail({
         <div className="pay-banner pay-banner-warn">
           <I.Lock size={14} />
           <div>
-            <b>{distClassNames(dist)} locked.</b> No transfers, issuance, or clawbacks on{" "}
+            <b>{distClassNames(dist, classes)} locked.</b> No transfers, issuance, or clawbacks on{" "}
             {dist.classIds.length > 1 ? "these classes" : "this class"} until the distribution finishes.
           </div>
         </div>
@@ -454,17 +489,27 @@ function DistributionDetail({
         <div className="panel-head">
           <span className="kicker">Holder payouts</span>
           <span className="muted small">
-            {total} eligible holder{total === 1 ? "" : "s"} · {distClassNames(dist)}
+            {total} eligible holder{total === 1 ? "" : "s"} · {distClassNames(dist, classes)}
           </span>
         </div>
-        <DistributionHolderTable dist={dist} holders={eligible} />
+        <DistributionHolderTable dist={dist} holders={eligible} classes={classes} allHolders={holders} />
       </div>
     </>
   );
 }
 
-function DistributionHolderTable({ dist, holders }: { dist: Distribution; holders: CapHolder[] }) {
-  const sorted = [...holders].sort((a, b) => distHolderPayout(dist, b) - distHolderPayout(dist, a));
+function DistributionHolderTable({
+  dist,
+  holders,
+  classes,
+  allHolders,
+}: {
+  dist: Distribution;
+  holders: CapHolder[];
+  classes: CapClass[];
+  allHolders: CapHolder[];
+}) {
+  const sorted = [...holders].sort((a, b) => distHolderPayout(dist, b, allHolders, classes) - distHolderPayout(dist, a, allHolders, classes));
   return (
     <div className="dh-table panel-table" role="table" aria-label="Holder payouts">
       <div className="dh-head" role="row">
@@ -475,8 +520,8 @@ function DistributionHolderTable({ dist, holders }: { dist: Distribution; holder
         <div className="dh-cell dh-stat">Status</div>
       </div>
       {sorted.map((h) => {
-        const cls = classById(h.classId);
-        const payout = distHolderPayout(dist, h);
+        const cls = classById(classes, h.classId);
+        const payout = distHolderPayout(dist, h, allHolders, classes);
         const isPaid = distIsPaid(dist, h);
         const settled = dist.status === "cancelled" ? false : isPaid;
         return (
@@ -496,9 +541,14 @@ function DistributionHolderTable({ dist, holders }: { dist: Distribution; holder
               <span className="dist-chip">
                 <span className="dist-chip-dot" style={{ background: cls?.color }} />
                 {cls?.name}
+                {classWeightX(cls) !== 1 && (
+                  <span className="dist-weight-chip" title="Economic distribution weight">
+                    {fmtWeightPct(classWeightX(cls))}
+                  </span>
+                )}
               </span>
             </div>
-            <div className="dh-cell dh-num mono">{fmtShares(holderBasisShares(h))}</div>
+            <div className="dh-cell dh-num mono">{fmtShares(holderRawShares(h, classes))}</div>
             <div className="dh-cell dh-num mono">{fmtMoney(payout, dist.token)}</div>
             <div className="dh-cell dh-stat">
               {dist.status === "cancelled" ? (

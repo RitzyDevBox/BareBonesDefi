@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { ethers } from "ethers";
+import { isHexAddress, normalizeAddress } from "../../utils/address";
 import type { CapHolder } from "../../hooks/capTable/capTableTypes";
 import { fmtShares } from "./capTableHelpers";
 
@@ -23,7 +23,7 @@ export function TransferModal({ holder, onClose, onTransfer }: TransferModalProp
   const [busy, setBusy] = useState(false);
 
   const amt = Number(amount) || 0;
-  const validAddr = ethers.utils.isAddress(to);
+  const validAddr = isHexAddress(to);
   const validAmount = /^\d+$/.test(amount) && amt > 0 && amt <= holder.shares;
   const canSubmit = validAddr && validAmount && !busy;
 
@@ -31,7 +31,7 @@ export function TransferModal({ holder, onClose, onTransfer }: TransferModalProp
     if (!canSubmit) return;
     setBusy(true);
     try {
-      await onTransfer(holder.classId, ethers.utils.getAddress(to), amount);
+      await onTransfer(holder.classId, normalizeAddress(to), amount);
       onClose();
     } finally {
       setBusy(false);

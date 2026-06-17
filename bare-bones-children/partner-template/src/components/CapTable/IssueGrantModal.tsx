@@ -13,6 +13,7 @@ import type { CapClass, CapHolder, VestingTerms } from "../../hooks/capTable/cap
 import { VestKind } from "../../hooks/capTable/capTableTypes";
 import type { Member } from "../../types/members";
 import { abbrevShares, fmtPct, fmtShares, parseTokens, shortAddress, vestSummary } from "./capTableHelpers";
+import { isHexAddress, normalizeAddress } from "../../utils/address";
 
 const SEC_MONTH = 30 * 24 * 60 * 60;
 
@@ -20,6 +21,8 @@ interface IssueGrantModalProps {
   classes: CapClass[];
   members: Member[];
   prefill?: CapHolder | null;
+  /** Preselect a class (used by the per-class "+ Issue" button) when there's no holder prefill. */
+  initialClassId?: number;
   onClose: () => void;
   onIssue: (classId: number, to: string, amount: string) => Promise<unknown>;
   /** Optional: issue with a per-grant vesting override (the deal differs from the class default). */
@@ -72,7 +75,7 @@ function RecipientPicker({
       );
   }, [members, q]);
 
-  const typedIsAddress = ethers.utils.isAddress(q.trim());
+  const typedIsAddress = isHexAddress(q.trim());
 
   return (
     <div className="ig-recip" ref={ref}>
@@ -91,7 +94,7 @@ function RecipientPicker({
               <span className="ig-recip-sub">{String(selected.accountType)}</span>
             </span>
           </>
-        ) : rawAddress && ethers.utils.isAddress(rawAddress) ? (
+        ) : rawAddress && isHexAddress(rawAddress) ? (
           <>
             <span
               className="m-avatar"
@@ -127,7 +130,7 @@ function RecipientPicker({
               type="button"
               className="ig-opt"
               onClick={() => {
-                onTypeAddress(ethers.utils.getAddress(q.trim()));
+                onTypeAddress(normalizeAddress(q.trim()));
                 setOpen(false);
                 setQ("");
               }}
@@ -185,13 +188,16 @@ export function IssueGrantModal({
   classes,
   members,
   prefill,
+  initialClassId,
   onClose,
   onIssue,
   onIssueWithTerms,
 }: IssueGrantModalProps) {
   const issuableClasses = useMemo(() => classes.filter((c) => !c.isPool), [classes]);
 
-  const [classId, setClassId] = useState<number>(prefill?.classId ?? issuableClasses[0]?.classId ?? 0);
+  const [classId, setClassId] = useState<number>(
+    prefill?.classId ?? initialClassId ?? issuableClasses[0]?.classId ?? 0,
+  );
   // recipient is tracked as a raw address string; a picked member also sets selectedMember
   const [recipient, setRecipient] = useState<string>(prefill?.address ?? "");
   const [selectedMember, setSelectedMember] = useState<Member | null>(
@@ -210,7 +216,7 @@ export function IssueGrantModal({
   const [ovChunk, setOvChunk] = useState("");
 
   const selectedClass = classes.find((c) => c.classId === classId);
-  const validAddr = ethers.utils.isAddress(recipient);
+  const validAddr = isHexAddress(recipient);
   const validAmount = /^\d+$/.test(amount) && Number(amount) > 0;
   const canSubmit = validAddr && validAmount && !busy;
 
@@ -252,7 +258,7 @@ export function IssueGrantModal({
     if (!canSubmit) return;
     setBusy(true);
     try {
-      const to = ethers.utils.getAddress(recipient);
+      const to = normalizeAddress(recipient);
       if (override && canOverride) {
         await onIssueWithTerms!(classId, to, amount, overrideTerms);
       } else {

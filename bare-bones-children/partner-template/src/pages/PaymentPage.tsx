@@ -231,7 +231,7 @@ export function PaymentPage() {
         {tab === "earnings" && <EarningsView slug={slug} isAdmin={isAdmin} />}
         {tab === "payrolls" && <PayrollsView slug={slug} isAdmin={isAdmin} />}
         {tab === "distributions" && showDistributions && (
-          <DistributionsView isAdmin={isAdmin} daoName={slug} />
+          <DistributionsView slug={slug} isAdmin={isAdmin} daoName={slug} />
         )}
       </Stack>
     </PageContainer>

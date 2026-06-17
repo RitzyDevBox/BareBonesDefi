@@ -4,6 +4,7 @@
 
 import { useMemo, useState } from "react";
 import { ethers } from "ethers";
+import { isHexAddress, normalizeAddress } from "../../utils/address";
 import type { Member } from "../../types/members";
 import type { DeployCapTableConfig } from "../../hooks/capTable/useCapTableActions";
 import { defaultCommonClass, parseTokens } from "./capTableHelpers";
@@ -45,7 +46,7 @@ export function CapTableSetup({ orgSlug, members, onCancel, onComplete }: CapTab
     setRows((rs) => rs.filter((_, idx) => idx !== i));
   }
 
-  const validRows = rows.filter((r) => ethers.utils.isAddress(r.address) && /^\d+$/.test(r.amount) && Number(r.amount) > 0);
+  const validRows = rows.filter((r) => isHexAddress(r.address) && /^\d+$/.test(r.amount) && Number(r.amount) > 0);
   const totalShares = validRows.reduce((s, r) => s + Number(r.amount), 0);
   const canSubmit = name.trim().length > 0 && symbol.trim().length > 0 && validRows.length > 0 && !busy;
 
@@ -58,7 +59,7 @@ export function CapTableSetup({ orgSlug, members, onCancel, onComplete }: CapTab
         symbol: symbol.trim(),
         complianceSBT: ethers.constants.AddressZero, // KYC gate off for v1
         defaultClass: defaultCommonClass(className.trim() || "Common"),
-        initialHolders: validRows.map((r) => ethers.utils.getAddress(r.address)),
+        initialHolders: validRows.map((r) => normalizeAddress(r.address)),
         // Whole shares entered → 18-decimal base units (matches the cap-table display convention).
         initialAmounts: validRows.map((r) => parseTokens(r.amount)),
       };
