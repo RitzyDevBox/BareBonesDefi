@@ -44,7 +44,10 @@ export function CapTablePage() {
 
   // useMtaState expects the on-chain bytes32 slug, not the human-readable name (same as PaymentPage).
   // Passing the raw name silently matches nothing → empty members (e.g. the issue-grant picker).
-  const mtaState = useMtaState(orgSlugFor(slug));
+  // Guard the encode: orgSlugFor THROWS on an empty name, and this runs before the `if (!slug)` early
+  // return (hooks can't be conditional), so we must pass "" through when no org is selected yet.
+  const slugBytes = useMemo(() => (slug ? orgSlugFor(slug) : ""), [slug]);
+  const mtaState = useMtaState(slugBytes);
 
   const [orgInfo, setOrgInfo] = useState<OrganizationModel | null>(null);
   useEffect(() => {

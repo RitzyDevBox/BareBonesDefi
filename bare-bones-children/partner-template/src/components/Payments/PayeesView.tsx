@@ -272,7 +272,10 @@ export function PayeesView({ slug, orgInfo, payees, loading, isAdmin, onPayeesCh
   // Edits use the standard MTA member selectors (`setMemberStatus`,
   // `setMemberNameSlug`, `rotateWallet`) bundled into a single
   // `configure(slug, calls[])` tx so multi-field edits are one signature.
-  const mtaActions = useMtaActions(orgSlugFor(slug));
+  // Guard the encode — orgSlugFor throws on an empty name, and this is a render-path call (can't be
+  // conditional). Pass "" through until the org slug hydrates.
+  const slugBytes = useMemo(() => (slug ? orgSlugFor(slug) : ""), [slug]);
+  const mtaActions = useMtaActions(slugBytes);
 
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);

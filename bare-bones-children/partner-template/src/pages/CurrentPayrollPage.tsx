@@ -5,7 +5,6 @@ import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { Card, CardContent } from "../components/BasicComponents";
 import { Stack, Row } from "../components/Primitives";
 import { Text } from "../components/Primitives/Text";
-import { SplitActionDropdown } from "../components/Button/SplitActionDropdown";
 import { ERC20Mintable } from "../components/ERC20Mintable/ERC20Mintable";
 import { PayrollTreasuryFund } from "../components/PayrollTreasuryFund/PayrollTreasuryFund";
 import { useWalletProvider } from "../hooks/useWalletProvider";
@@ -537,6 +536,24 @@ export function CurrentPayrollPage() {
     }
   }
 
+  // Auto-preview: while a payroll is still in Draft (open for edits) and there are no un-applied staged
+  // changes, keep the gross preview live without a manual "Preview" click. Re-runs when staging settles
+  // (hasStagedChanges flips back to false) or the cycle changes. handlePreviewPayroll self-guards against
+  // concurrent runs and against running while staged changes exist, so this can't spam the chain; on a
+  // preview error it sets previewError and the unchanged deps stop it from retrying in a loop.
+  useEffect(() => {
+    if (
+      payrollStatus === PayrollStatus.Draft &&
+      currentPayrollId != null &&
+      !hasStagedChanges &&
+      !isApplyingStaged &&
+      !isPreviewingPayroll
+    ) {
+      void handlePreviewPayroll();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payrollStatus, currentPayrollId, hasStagedChanges, isApplyingStaged]);
+
   return (
     <PageContainer center maxWidth={1440}>
       <Stack gap="lg" style={{ width: "100%" }}>
@@ -656,30 +673,32 @@ export function CurrentPayrollPage() {
                     baseIncludedPayeeIds={payeeIdsInPayroll}
                     canEdit={isAdmin && !isViewOnly && currentPayrollId != null}
                     headerActions={
-                      <SplitActionDropdown
-                        testIdPrefix="payroll-actions"
-                        compact={screenSize === ScreenSize.Phone}
-                        label={isPreviewingPayroll ? "Previewing..." : "Preview"}
-                        onPrimaryClick={handlePreviewPayroll}
-                        primaryDisabled={currentPayrollId == null || isPreviewingPayroll || hasStagedChanges}
-                        actions={[
-                          {
-                            label: isCancellingPayroll ? "Cancelling..." : "Cancel",
-                            onClick: handleCancelPayroll,
-                            disabled: !isAdmin || !slug || isCancellingPayroll || isProcessingPayroll || currentPayrollId == null || isViewOnly || hasStagedChanges,
-                          },
-                          {
-                            label: isPreviewingPayroll ? "Previewing..." : "Preview",
-                            onClick: handlePreviewPayroll,
-                            disabled: currentPayrollId == null || isPreviewingPayroll || hasStagedChanges,
-                          },
-                          {
-                            label: isProcessingPayroll ? "Processing..." : "Process",
-                            onClick: handleOpenProcessFlow,
-                            disabled: !isAdmin || !slug || isProcessingPayroll || currentPayrollId == null || isViewOnly || hasStagedChanges,
-                          },
-                        ]}
-                      />
+                      // Preview is automatic now (see the auto-preview effect), so the old split
+                      // Preview▾ dropdown is gone — just Cancel + Process, mirroring the Distributions
+                      // action bar. A subtle inline spinner shows when the live preview is recomputing.
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        {isPreviewingPayroll && (
+                          <span className="bb-muted bb-small" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <span className="bb-spinner bb-sm" /> Updating preview…
+                          </span>
+                        )}
+                        <button
+                          className="bb-btn-ghost bb-btn-xs"
+                          onClick={handleCancelPayroll}
+                          disabled={!isAdmin || !slug || isCancellingPayroll || isProcessingPayroll || currentPayrollId == null || isViewOnly || hasStagedChanges}
+                          data-testid="payroll-actions-cancel"
+                        >
+                          {isCancellingPayroll ? "Cancelling…" : "Cancel"}
+                        </button>
+                        <button
+                          className="bb-btn-primary bb-btn-xs"
+                          onClick={handleOpenProcessFlow}
+                          disabled={!isAdmin || !slug || isProcessingPayroll || currentPayrollId == null || isViewOnly || hasStagedChanges}
+                          data-testid="payroll-actions-process"
+                        >
+                          {isProcessingPayroll ? "Processing…" : "Process"}
+                        </button>
+                      </div>
                     }
                     extraColumns={[
                       ...(showResolvedCodesColumn ? [{ key: "resolvedCodes", header: "Codes" }] : []),

@@ -113,6 +113,48 @@ singletons are MTA-owned; holder-scoped calls (`transfer`, `claim`) are direct w
 
 ## Changelog
 
+### 2026-06-17 — MTA state: on-chain fallback so the graph isn't a hard dependency
+- **Why:** when the subgraph was down / still syncing, `useMtaState` threw and took the whole authorizer
+  surface with it — the Members page showed "Failed to load authorizer state", the cap-table header
+  resolved the connected wallet as a plain **Holder** instead of **Super Admin** (members list was empty,
+  so the super-admin couldn't be matched), and admin-gated actions like "add a pay batch" were disabled.
+  Members/roles/permissions are all **enumerable on-chain** (the MTA exposes `memberIdsForSlug`/`getMember`,
+  `systemRoles`/`customRoleSlugs`/`getRole`, `nextPermissionId`/`permissionTargets`/`permissionRoleSlugs`,
+  `superAdminOf`/`slugState`/`bootstrapped`), so the graph should be an optimization, not a dependency.
+- **What:** new `utils/onchain/mtaOnChainService.ts#fetchMtaStateOnChain` reads the MTA contract directly
+  and returns the **same `MtaStateGraphResult` shape** as `fetchMtaState`, so `useMtaState`'s conversion
+  layer is unchanged. `useMtaState` now does graph-first, and on a graph **error** (not on an empty/
+  un-bootstrapped result — that's a legitimate "no authorizer" state, not an outage) falls back to the
+  on-chain reader. A few graph-only fields degrade gracefully: member `dateAdded` / role+permission
+  `createdAt` timestamps → null, permission validity-window / rate-limit / mode → null, `orgContracts` → [].
+  The core (membership, roles, status, super admin, role↔permission attachments) is faithful.
+- **Pattern:** other graph-backed surfaces (DAO proposals, vaults, distributions list, cap table) can adopt
+  the same graph-first-with-on-chain-fallback shape; this establishes it for the authorizer.
+
+### 2026-06-17 — Payroll detail UX: auto-preview, drop the split dropdown, preprocess→pay wizard
+- **Why:** the payroll run page felt unlike the newer Distributions surface. It had (a) a `SplitActionDropdown`
+  (primary "Preview" + a ▾ menu of Cancel/Preview/Process) that buried the real actions, (b) a *manual*
+  Preview the operator had to click to see gross, and (c) a process wizard whose steps read as opaque
+  "process/finalize chunks".
+- **Changes** (all in `CurrentPayrollPage.tsx` + `ProcessPayrollFlowModal.tsx`):
+  - **Auto-preview** — an effect recomputes the gross preview whenever the run is in Draft with no
+    un-applied staged changes (re-runs when staging settles). `handlePreviewPayroll` self-guards against
+    concurrent runs / running during staging, so it can't spam the chain; a preview error stops the loop.
+  - **Dropdown → plain buttons** — just Cancel + Process (the distributions action-bar shape). Preview is
+    gone from the bar (it's automatic); a small inline "Updating preview…" spinner shows while it recomputes.
+    `SplitActionDropdown` is no longer used anywhere.
+  - **Wizard reframed as preprocess → pay** — steps relabeled ("Preprocess earnings" → "Pay out"),
+    phase-aware primary button. The two-phase split is intentional: the **treasury funding gate** sits
+    between locking amounts and paying out. Not auto-looped past that gate on purpose (would revert on an
+    underfunded finalize).
+  - **Shared `StepTimeline`** (`components/StepTimeline/`) — extracted the Distributions progress aesthetic
+    (numbered dots → accent-fill + check when done, spinner on the active step, a connector rail that
+    lights up) into a reusable vertical timeline, themed off the global `--accent`/`--text`/`--line`
+    tokens. The payroll process modal now uses it instead of the old ✓/•/○ text rows. Step rows keep
+    `data-testid="process-flow-step-*"` + `data-status` so the lifecycle e2e is unaffected.
+- **Rename deferred:** considered renaming "Payroll" away from the word (toward a payments framing) but the
+  user wasn't settled on a term — skipped for now, code names (usePayrollActions, etc.) untouched regardless.
+
 ### 2026-06-15 — Grant-level vesting + settlement (cap table)
 - Mirrors the on-chain rework ([CAPTABLE-VESTING-REWORK.md](../../../BareBonesDiamond/CAPTABLE-VESTING-REWORK.md)).
   `ClassParams` now nests `defaultTerms: VestingTerms` (vesting moved off the class); decode/encode

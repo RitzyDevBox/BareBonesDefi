@@ -344,11 +344,11 @@ function DistributionDetail({
     if (!isProcessing) return;
     setProcessing(true);
     try {
-      const tx = await actions.processChunk(Number(dist.id), 50);
-      if (tx) {
-        await tx.wait?.();
-        onRefresh();
-      }
+      // One click processes every chunk: processAll loops processChunk at 30 holders/tx until done.
+      // 30 is large enough that most cap tables finish in a single chunk, but bounded so a big roster
+      // can't blow the block gas limit (each payout is an ERC-20 transfer).
+      await actions.processAll(Number(dist.id));
+      onRefresh();
     } finally {
       setProcessing(false);
     }
@@ -406,11 +406,11 @@ function DistributionDetail({
             <button className="btn-primary btn-sm" onClick={processNext} disabled={processing || paid >= total}>
               {processing ? (
                 <>
-                  <span className="spinner sm" /> Processing…
+                  <span className="spinner sm" /> Processing chunks…
                 </>
               ) : (
                 <>
-                  <I.Play size={12} /> Process next batch
+                  <I.Play size={12} /> Process all chunks
                 </>
               )}
             </button>

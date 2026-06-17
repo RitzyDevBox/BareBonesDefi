@@ -152,6 +152,30 @@ export function useDistributionActions(slug: string, shareTokenAddress: string |
     () => "Batch processed",
   );
 
+  // Process the WHOLE distribution: each tx pays up to `perTx` holders (bounded for block-gas safety),
+  // and we loop until the distribution leaves Processing (Status.Done/Cancelled). 30/tx is large enough
+  // that most cap tables finish in a single chunk; only a very large roster splits into several, and
+  // the loop makes that invisible (one click). `onProgress(paid)` fires after each chunk so the UI can tick.
+  const processAll = useCallback(
+    async (id: number, perTx = 30, onProgress?: (paid: number) => void): Promise<boolean> => {
+      if (!readProvider) throw new Error("No provider.");
+      const dm = new ethers.Contract(dmAddress(), DistributionManagerABI as any, readProvider);
+      // Guard is a runaway backstop; perTx×guard caps total holders we'll ever push from one click.
+      for (let guard = 0; guard < 1000; guard++) {
+        const tx = await processChunk(id, perTx);
+        if (!tx) return false; // user rejected / tx failed
+        await tx.wait?.();
+        const d = await dm.getDistribution(id);
+        const status = Number(d.status ?? d[4]); // Status: None=0, Processing=1, Done=2, Cancelled=3
+        onProgress?.(Number(ethers.utils.formatUnits(d.paid ?? d[6], decimals)));
+        if (status !== 1) return true; // left Processing → fully done (or cancelled)
+      }
+      return false;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [readProvider, processChunk, decimals],
+  );
+
   // MTA-gated: cancel (just unlocks) + withdraw unused org funds
   const cancel = useExecuteRawTx(
     (id: number) => mtaExecuteTx(dmIface.encodeFunctionData("cancel", [slugBytes, id])),
@@ -170,5 +194,5 @@ export function useDistributionActions(slug: string, shareTokenAddress: string |
     () => "Funds withdrawn",
   );
 
-  return { createDistribution, processChunk, cancel, withdraw };
+  return { createDistribution, processChunk, processAll, cancel, withdraw };
 }

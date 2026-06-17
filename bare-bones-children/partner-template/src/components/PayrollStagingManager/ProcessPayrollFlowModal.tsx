@@ -5,6 +5,7 @@ import { Stack, Row } from "../Primitives";
 import { Text } from "../Primitives/Text";
 import { ButtonPrimary, ButtonSecondary } from "../Button/ButtonPrimary";
 import { ScreenSize, useMediaQuery } from "../../hooks/useMediaQuery";
+import { StepTimeline, type TimelineStep } from "../StepTimeline/StepTimeline";
 
 interface ProcessPayrollFlowModalProps {
   isOpen: boolean;
@@ -52,42 +53,48 @@ export function ProcessPayrollFlowModal({
   const isMobile = screenSize === ScreenSize.Phone;
   const normalizedStatus = payrollStatus ?? PAYROLL_STATUS.None;
 
-  const processFlowSteps = useMemo(
-    () => [
-      {
-        key: "draft",
-        label: "Payroll is in Draft state",
-        done: normalizedStatus >= PAYROLL_STATUS.Draft,
-        active: normalizedStatus < PAYROLL_STATUS.Draft,
-      },
-      {
-        key: "process",
-        label: "Process payroll chunks",
-        done: normalizedStatus >= PAYROLL_STATUS.Processed,
-        active:
-          normalizedStatus === PAYROLL_STATUS.Draft ||
-          normalizedStatus === PAYROLL_STATUS.Processing,
-      },
-      {
-        key: "finalize",
-        label: "Finalize payroll chunks",
-        done: normalizedStatus >= PAYROLL_STATUS.Finalized,
-        active:
-          normalizedStatus === PAYROLL_STATUS.Processed ||
-          normalizedStatus === PAYROLL_STATUS.Finalizing,
-      },
-      {
-        key: "complete",
-        label: "Payroll finalized",
-        done: normalizedStatus >= PAYROLL_STATUS.Finalized,
-        active: false,
-      },
-    ],
-    [normalizedStatus]
-  );
+  // Two real phases — **preprocess** (walk the roster, lock each payee's gross) then **pay out**
+  // (finalize transfers from the treasury). The funding gate sits between them: if the treasury can't
+  // cover the locked total, pay-out is blocked until the org tops up. Mirrors the Distributions
+  // "compute basis → pay" shape rather than an opaque "process chunks" stepper.
+  const processFlowSteps = useMemo<TimelineStep[]>(() => {
+    const mk = (key: string, label: string, sub: string, done: boolean, active: boolean): TimelineStep => ({
+      key,
+      label,
+      sub,
+      state: done ? "done" : active ? "active" : "pending",
+    });
+    return [
+      mk("draft", "Draft", "Open for edits", normalizedStatus >= PAYROLL_STATUS.Draft, normalizedStatus < PAYROLL_STATUS.Draft),
+      mk(
+        "process",
+        "Calculate",
+        "Walk the roster, lock each payee's gross.",
+        normalizedStatus >= PAYROLL_STATUS.Processed,
+        normalizedStatus === PAYROLL_STATUS.Draft || normalizedStatus === PAYROLL_STATUS.Processing,
+      ),
+      mk(
+        "finalize",
+        "Pay out",
+        "Transfer the locked funds from the treasury.",
+        normalizedStatus >= PAYROLL_STATUS.Finalized,
+        normalizedStatus === PAYROLL_STATUS.Processed || normalizedStatus === PAYROLL_STATUS.Finalizing,
+      ),
+      mk("complete", "Paid", "All transfers sent.", normalizedStatus >= PAYROLL_STATUS.Finalized, false),
+    ];
+  }, [normalizedStatus]);
 
   const isFinalized = normalizedStatus === PAYROLL_STATUS.Finalized;
   const isCancelled = normalizedStatus === PAYROLL_STATUS.Cancelled;
+
+  // Phase-aware primary label so the button says what it will actually do next.
+  const primaryLabel = isProcessing
+    ? "Working…"
+    : normalizedStatus === PAYROLL_STATUS.Draft || normalizedStatus === PAYROLL_STATUS.Processing
+      ? "Calculate"
+      : normalizedStatus === PAYROLL_STATUS.Processed || normalizedStatus === PAYROLL_STATUS.Finalizing
+        ? "Pay out"
+        : "Continue";
 
   const content = (
     <Stack gap="md">
@@ -95,27 +102,7 @@ export function ProcessPayrollFlowModal({
         Payroll #{currentPayrollId ?? "-"} · {payrollStatusLabel(normalizedStatus)}
       </Text.Body>
 
-      <Stack gap="xs">
-        {processFlowSteps.map((step) => (
-          <Row
-            key={step.key}
-            gap="sm"
-            align="center"
-            data-testid={`process-flow-step-${step.key}`}
-            data-status={step.done ? "done" : step.active ? "active" : "idle"}
-          >
-            <Text.Body
-              style={{ width: 20, display: "inline-flex", justifyContent: "center" }}
-              color={step.done ? "success" : step.active ? "warn" : "muted"}
-            >
-              {step.done ? "✓" : step.active ? "•" : "○"}
-            </Text.Body>
-            <Text.Body color={step.done ? "main" : step.active ? "warn" : "muted"}>
-              {step.label}
-            </Text.Body>
-          </Row>
-        ))}
-      </Stack>
+      <StepTimeline steps={processFlowSteps} testIdPrefix="process-flow-step" />
 
       {processFlowError && (
         <Text.Body size="sm" color="danger">
@@ -155,7 +142,8 @@ export function ProcessPayrollFlowModal({
         <Text.Body size="sm" color="warn">Payroll is cancelled and cannot continue.</Text.Body>
       ) : !treasuryShortfall ? (
         <Text.Body size="sm" color="muted">
-          If processing fails, click Continue again to resume from the last completed step.
+          Each click runs the current phase to completion (the whole roster in one pass). If it fails,
+          click again to resume from the last completed step.
         </Text.Body>
       ) : null}
 
@@ -174,7 +162,7 @@ export function ProcessPayrollFlowModal({
           onClick={onContinue}
           disabled={isProcessing || isFinalized || isCancelled || Boolean(treasuryShortfall)}
         >
-          {isProcessing ? "Working..." : processFlowError ? "Continue" : "Continue"}
+          {primaryLabel}
         </ButtonPrimary>
       </Row>
     </Stack>

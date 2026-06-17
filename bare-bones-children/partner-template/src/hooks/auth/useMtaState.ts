@@ -30,9 +30,12 @@ import { useTxRefresh } from "../../providers/TxRefreshProvider";
 import {
   fetchMtaState,
   MemberRow,
+  MtaStateGraphResult,
   PermissionRow,
   RoleRow,
 } from "../../utils/graph/mtaGraphService";
+import { fetchMtaStateOnChain } from "../../utils/onchain/mtaOnChainService";
+import { getBareBonesConfiguration } from "../../constants/misc";
 import {
   fetchMemberProfiles,
   fetchPermissionProfiles,
@@ -126,7 +129,19 @@ export function useMtaState(slug: string, governanceTokenAddress?: string): MtaS
 
     (async () => {
       try {
-        const graph = await fetchMtaState(chainId, slug);
+        // Graph is the fast path; if it's down / still syncing, fall back to reading the MTA contract
+        // directly so members/roles/permissions (and the super-admin gate) still resolve. The graph
+        // returns empty (not an error) for an un-bootstrapped slug, so only a real failure triggers the
+        // fallback — we don't mask "not initialized" as a graph outage.
+        let graph: MtaStateGraphResult;
+        try {
+          graph = await fetchMtaState(chainId, slug);
+        } catch (graphErr) {
+          const mtaAddress = chainId != null ? getBareBonesConfiguration(chainId)?.multiTenantAuthAddress : null;
+          if (!provider || !mtaAddress) throw graphErr;
+          console.warn("MTA subgraph unavailable — falling back to on-chain enumeration.", graphErr);
+          graph = await fetchMtaStateOnChain(provider, mtaAddress, slug);
+        }
 
         const wallets = graph.members.map((m) => m.wallet);
         const roleSlugs = graph.roles.map((r) => r.roleSlug);

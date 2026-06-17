@@ -177,13 +177,12 @@ test("full lifecycle: deploy → onboard payee → attach earnings → start pay
   await supplyBtn.click();
   await expect(page.getByText(/Deposited/i)).toBeVisible({ timeout: 90_000 });
 
-  // 7. Open the Process flow modal and run Process + Finalize. The Process
-  //    action lives inside a SplitActionDropdown wired with
-  //    `testIdPrefix="payroll-actions"`.
-  await page.getByTestId("payroll-actions-trigger").click();
-  const processItem = page.getByTestId("payroll-actions-item-process");
-  await expect(processItem).toBeEnabled({ timeout: 15_000 });
-  await processItem.click();
+  // 7. Open the Process flow modal and run Process + Finalize. The split-button
+  //    dropdown is gone — Process is now a plain button in the action bar
+  //    (`payroll-actions-process`), alongside Cancel. (Preview is automatic.)
+  const processBtn = page.getByTestId("payroll-actions-process");
+  await expect(processBtn).toBeEnabled({ timeout: 15_000 });
+  await processBtn.click();
 
   // A single Continue click runs BOTH processPayrollChunk and
   // finalizePayrollChunk back-to-back (see useProcessCurrentPayroll.ts —
