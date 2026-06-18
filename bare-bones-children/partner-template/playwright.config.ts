@@ -34,6 +34,9 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: BASE_URL,
+    // The local dev server can run over HTTPS (self-signed cert via `dev:local`); tolerate it so
+    // e2e can drive an already-running https://localhost:5173 instance. Harmless for plain http.
+    ignoreHTTPSErrors: true,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: DEMO ? { mode: "on", size: VIDEO_SIZE } : "off",
@@ -56,6 +59,7 @@ export default defineConfig({
     command: "npm run dev",
     url: BASE_URL,
     reuseExistingServer: true,
+    ignoreHTTPSErrors: true,
     timeout: 120_000,
   },
 });
