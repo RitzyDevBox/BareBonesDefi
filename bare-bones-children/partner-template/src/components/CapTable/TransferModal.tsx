@@ -70,7 +70,7 @@ export function TransferModal({ holder, onClose, onTransfer }: TransferModalProp
               {holder.initials}
             </span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 500 }}>{holder.name}</div>
+              <div style={{ fontWeight: 500, color: "var(--text)" }}>{holder.name}</div>
               <div style={{ fontSize: 11.5, color: "var(--text-mute)" }}>
                 holds {fmtShares(holder.shares)} · {fmtShares(holder.vested)} vested
               </div>

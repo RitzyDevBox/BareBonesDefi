@@ -223,7 +223,7 @@
 
 /* ── ig-* : modal scaffold (grant / class editor / transfer / clawback) ── */
 .ig-backdrop { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center; padding: 24px; background: color-mix(in oklab, #000 55%, transparent); }
-.ig-modal { width: min(880px, 96vw); max-height: 92vh; display: flex; flex-direction: column; background: var(--bg-elev); border: 1px solid var(--line-strong); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); }
+.ig-modal { width: min(880px, 96vw); max-height: 92vh; display: flex; flex-direction: column; background: var(--bg-elev); color: var(--text); border: 1px solid var(--line-strong); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); }
 .ig-modal.sm { width: min(560px, 96vw); }
 .ig-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
 .ig-head h3 { margin: 2px 0 0; font-size: 20px; font-weight: var(--display-weight); letter-spacing: -0.01em; color: var(--text); }

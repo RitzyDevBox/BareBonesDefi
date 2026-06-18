@@ -127,7 +127,7 @@
 
 /* modal */
 .ct-modal-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 9000; }
-.ct-modal { width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; background: var(--colors-surface); border: 1px solid var(--colors-border); border-radius: 16px; }
+.ct-modal { width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; background: var(--colors-surface); color: var(--colors-text-main); border: 1px solid var(--colors-border); border-radius: 16px; }
 .ct-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--colors-border); }
 .ct-modal-title { font-size: 18px; font-weight: 600; color: var(--colors-text-main); }
 .ct-modal-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
@@ -168,6 +168,10 @@
 
   .ct-col-vest { display: none; }       /* hide the vesting bar — too wide for a card row */
   .ct-col-fd { display: flex; }         /* keep fully-diluted, now as a label:value line */
+
+  /* Stack the header on phones and lift the action bar ABOVE the title (slug crumb + "Cap table"). */
+  .ct-hdr { flex-direction: column; align-items: stretch !important; }
+  .ct-hdr > .ct-actions-bar { order: -1; }
 
   /* Header action bar: "Acting as …" pinned left, the ⋯ menu pinned right; the Classes / Raise /
      Issue buttons move into that menu (see .ct-menu-mobile-item), so they're not loose on the row. */

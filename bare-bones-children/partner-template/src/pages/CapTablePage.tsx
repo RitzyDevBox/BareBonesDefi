@@ -158,6 +158,7 @@ export function CapTablePage() {
     <PageContainer maxWidth={1440}>
       <Stack gap="lg">
         <div
+          className="ct-hdr"
           style={{
             display: "flex",
             alignItems: "flex-end",
