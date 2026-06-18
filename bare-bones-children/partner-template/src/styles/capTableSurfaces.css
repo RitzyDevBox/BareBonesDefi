@@ -283,3 +283,32 @@
 .cts-slider { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; background: var(--bg-elev-2); outline: none; }
 .cts-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg-elev); cursor: pointer; }
 .cts-slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg-elev); cursor: pointer; }
+
+/* ── Mobile (≤560px, down to iPhone SE 375px) ───────────────────────────────────
+   The .ig-* dialogs (issue grant, transfer, raise, clawback, AND "Create a share
+   class") default to width:min(880px,96vw) inside a 24px-padded backdrop, which
+   overflows a 375px screen. On phones, dock them to the bottom edge-to-edge — a
+   bottom sheet — with no side padding, and stack the 2-col form + the wide
+   fundraising tables so nothing forces a horizontal page scroll. */
+@media (max-width: 560px) {
+  .ig-backdrop { padding: 0; place-items: end center; }
+  .ig-modal,
+  .ig-modal.sm {
+    width: 100%;
+    max-width: none;
+    max-height: 94vh;
+    border-radius: 16px 16px 0 0;
+    border-bottom: 0;
+  }
+  .ig-head,
+  .ig-foot { padding-left: 16px; padding-right: 16px; }
+  .ig-form { padding: 16px; }
+  /* 2-up form fields (class name / vote weight, etc.) stack on a phone */
+  .ig-grid2 { grid-template-columns: 1fr; }
+
+  /* Wide fundraising tables: drop the column header + stack each row's cells. */
+  .cts-alloc-head,
+  .fund-conv-head { display: none; }
+  .cts-alloc-row,
+  .fund-conv-row { grid-template-columns: 1fr; gap: 8px; }
+}

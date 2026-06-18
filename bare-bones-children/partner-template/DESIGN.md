@@ -113,6 +113,28 @@ singletons are MTA-owned; holder-scoped calls (`transfer`, `claim`) are direct w
 
 ## Changelog
 
+### 2026-06-17 — Cap-table mobile: bottom-sheet dialogs + 375px (iPhone SE) fit
+- **Why:** the cap-table dialogs (issue grant, transfer, raise, clawback, and **"Create a share class"** —
+  all the `.ig-modal`s, plus the `.ct-modal` class list) are `width: min(880px, 96vw)` inside a 24px-padded
+  backdrop, which overflows / crams below ~500px. The fundraising `cts-alloc`/`fund-conv` tables have
+  fixed-px columns (~390px+) that force a horizontal page scroll on a phone.
+- **What** (CSS-only, `≤560px`): the `.ig-*` and `.ct-modal` dialogs dock to the bottom edge-to-edge as a
+  **bottom sheet** — no side padding, full width, rounded top, internal scroll. The 2-up form grid
+  (`.ig-grid2`) and the wide fundraising tables stack to one column (their column headers hidden).
+- **Holder table → stacked cards on phones (follow-up²):** hiding columns just left a broken-looking
+  table. The right fix is a responsive **table→card** flip: on `≤560px` the header is hidden and each
+  holder/pool row becomes a card — identity on top, then `Shares` / `Ownership` / `Fully-diluted` as
+  "Label  value" lines (via `data-label` + `::before`), Issue button left-aligned at the bottom. The
+  Vesting bar is the only thing dropped on mobile (too wide for a card row; the data lives on the grant).
+  Nothing scrolls off-screen, and desktop is an unchanged real table.
+- **Header action bar (follow-up):** the loose Classes / Raise / + Issue grant buttons looked cramped on a
+  phone, so on `≤560px` they collapse into the ⋯ menu (`.ct-menu-mobile-item`), and the bar becomes
+  "Acting as …" pinned left / ⋯ pinned right (`.ct-actions-bar` + `.ct-actions-desktop-btn`). Desktop is
+  unchanged (buttons inline, menu items hidden).
+- **Considered:** swapping the bespoke `.ig-modal` for the app's `<Sheet>` component (drag-to-dismiss).
+  Rejected for now — the CSS bottom-sheet gives the same edge-to-edge phone affordance without rewriting
+  five working dialogs; revisit if we want gesture dismissal.
+
 ### 2026-06-17 — MTA state: on-chain fallback so the graph isn't a hard dependency
 - **Why:** when the subgraph was down / still syncing, `useMtaState` threw and took the whole authorizer
   surface with it — the Members page showed "Failed to load authorizer state", the cap-table header

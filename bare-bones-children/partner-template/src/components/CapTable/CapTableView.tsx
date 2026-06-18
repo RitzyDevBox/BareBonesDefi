@@ -272,10 +272,10 @@ export function CapTableView({ state, isAdmin, account, onSetup, onIssue, onIssu
             <thead>
               <tr>
                 <th>Holder</th>
-                <th>Vesting</th>
+                <th className="ct-col-vest">Vesting</th>
                 <th className="num">Shares</th>
                 <th className="num">Ownership</th>
-                <th className="num">Fully-diluted</th>
+                <th className="num ct-col-fd">Fully-diluted</th>
                 <th style={{ width: 130 }} />
               </tr>
             </thead>
@@ -341,16 +341,16 @@ export function CapTableView({ state, isAdmin, account, onSetup, onIssue, onIssu
                             </div>
                           </div>
                         </td>
-                        <td>
+                        <td className="ct-col-vest">
                           <span className="ct-num-dim">No grants yet</span>
                         </td>
-                        <td className="num">
+                        <td className="num" data-label="Reserved">
                           <span className="ct-num">{fmtShares(c.reservedPool)}</span>
                         </td>
-                        <td className="num">
+                        <td className="num" data-label="Ownership">
                           <span className="ct-num-dim">—</span>
                         </td>
-                        <td className="num">
+                        <td className="num ct-col-fd" data-label="Fully-diluted">
                           <span className="ct-num">{fmtPct((c.reservedPool / fdTotal) * 100)}</span>
                         </td>
                         <td />
@@ -372,16 +372,16 @@ export function CapTableView({ state, isAdmin, account, onSetup, onIssue, onIssu
                               </div>
                             </div>
                           </td>
-                          <td>
+                          <td className="ct-col-vest">
                             <VestBar holder={h} color={c.color} />
                           </td>
-                          <td className="num">
+                          <td className="num" data-label="Shares">
                             <span className="ct-num">{fmtShares(h.shares)}</span>
                           </td>
-                          <td className="num">
+                          <td className="num" data-label="Ownership">
                             <span className="ct-num">{fmtPct((h.shares / (issuedTotal || 1)) * 100)}</span>
                           </td>
-                          <td className="num">
+                          <td className="num ct-col-fd" data-label="Fully-diluted">
                             <span className="ct-num-dim">{fmtPct((h.shares / fdTotal) * 100)}</span>
                           </td>
                           <td>

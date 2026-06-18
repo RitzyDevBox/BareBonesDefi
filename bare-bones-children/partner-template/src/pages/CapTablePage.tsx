@@ -175,20 +175,20 @@ export function CapTablePage() {
             </h1>
           </div>
           {mode === "table" && state.hasTable && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div className="ct-actions-bar" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <span className="ct-role">
                 <span className="ct-role-dot" /> Acting as <b>{isAdmin ? "Super Admin" : "Holder"}</b>
               </span>
               {isAdmin && (
                 <>
-                  <button className="btn-ghost" onClick={() => setMode("classes")} data-testid="captable-classes-btn">
+                  <button className="btn-ghost ct-actions-desktop-btn" onClick={() => setMode("classes")} data-testid="captable-classes-btn">
                     Classes
                   </button>
-                  <button className="btn-ghost" onClick={() => setMode("raise")} data-testid="captable-raise-btn">
+                  <button className="btn-ghost ct-actions-desktop-btn" onClick={() => setMode("raise")} data-testid="captable-raise-btn">
                     Raise
                   </button>
                   <button
-                    className="btn-primary"
+                    className="btn-primary ct-actions-desktop-btn"
                     onClick={() => {
                       setIssuePrefill(null);
                       setIssueClassId(null);
@@ -209,6 +209,37 @@ export function CapTablePage() {
                     </button>
                     {menuOpen && (
                       <div className="menu" style={{ top: "calc(100% + 6px)", right: 0, minWidth: 220 }} role="menu">
+                        {/* On phones the loose Classes/Raise/Issue buttons collapse into here. */}
+                        <button
+                          className="menu-item ct-menu-mobile-item"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            setIssuePrefill(null);
+                            setIssueClassId(null);
+                            setIssueOpen(true);
+                          }}
+                        >
+                          + Issue grant
+                        </button>
+                        <button
+                          className="menu-item ct-menu-mobile-item"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            setMode("classes");
+                          }}
+                        >
+                          Classes
+                        </button>
+                        <button
+                          className="menu-item ct-menu-mobile-item"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            setMode("raise");
+                          }}
+                        >
+                          Raise
+                        </button>
+                        <div className="menu-sep ct-menu-mobile-item" />
                         <button
                           className="menu-item"
                           onClick={() => {

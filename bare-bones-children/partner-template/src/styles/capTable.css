@@ -132,6 +132,52 @@
 .ct-modal-title { font-size: 18px; font-weight: 600; color: var(--colors-text-main); }
 .ct-modal-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
 .ct-modal-foot { padding: 16px 22px; border-top: 1px solid var(--colors-border); display: flex; justify-content: flex-end; gap: 10px; }
+/* On phones the centered modal docks to the bottom edge-to-edge (bottom sheet, no side padding). */
+@media (max-width: 560px) {
+  .ct-modal-scrim { padding: 0; align-items: flex-end; }
+  .ct-modal { max-width: none; max-height: 94vh; border-radius: 16px 16px 0 0; }
+
+  /* A 6-column table can't fit a phone, so render each holder row as a STACKED CARD instead of
+     scrolling off-screen: header row hidden, each row a card, each numeric cell a "Label  value"
+     line. Nothing is dropped except the Vesting bar (awkward inline; its data is on the grant). */
+  .ct-table { min-width: 0; }
+  .ct-table thead { display: none; }
+  .ct-table, .ct-table tbody, .ct-table tr, .ct-table td { display: block; width: auto; }
+  .ct-table td { border: 0; }
+
+  /* class-group header + expandable detail stay full-width strips; let the header chips wrap */
+  .ct-grp td, .ct-detail td { padding: 0; }
+  .ct-grp-inner { flex-wrap: wrap; }
+
+  /* each holder / pool row = a card */
+  .ct-row { padding: 12px 16px 14px; border-bottom: 1px solid var(--colors-border); }
+  .ct-row > td { padding: 0; }
+  .ct-row > td:first-child { margin-bottom: 8px; }                 /* holder identity = card header */
+  .ct-row > td.num { text-align: left; }
+  .ct-row > td[data-label] {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 5px 0; border-top: 1px solid color-mix(in oklab, var(--colors-border) 55%, transparent);
+  }
+  .ct-row > td[data-label]::before {
+    content: attr(data-label);
+    color: var(--colors-text-muted); font-size: 11px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .07em;
+  }
+  /* actions (Issue button) sit left-aligned at the bottom of the card */
+  .ct-row > td:last-child > div { justify-content: flex-start !important; padding-top: 10px; }
+
+  .ct-col-vest { display: none; }       /* hide the vesting bar — too wide for a card row */
+  .ct-col-fd { display: flex; }         /* keep fully-diluted, now as a label:value line */
+
+  /* Header action bar: "Acting as …" pinned left, the ⋯ menu pinned right; the Classes / Raise /
+     Issue buttons move into that menu (see .ct-menu-mobile-item), so they're not loose on the row. */
+  .ct-actions-bar { width: 100%; justify-content: space-between; flex-wrap: nowrap; }
+  .ct-actions-desktop-btn { display: none; }
+}
+/* The Classes/Raise/Issue items live in the ⋯ menu only on phones; hidden on larger screens. */
+@media (min-width: 561px) {
+  .ct-menu-mobile-item { display: none; }
+}
 
 /* form */
 .ct-field { display: flex; flex-direction: column; gap: 6px; }
