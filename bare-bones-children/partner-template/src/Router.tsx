@@ -16,6 +16,7 @@ import { PaymentPage } from "./pages/PaymentPage";
 import { CurrentPayrollPage } from "./pages/CurrentPayrollPage.tsx";
 import { EntityFormationPage } from "./pages/EntityFormationPage";
 import { CapTablePage } from "./pages/CapTablePage";
+import { LendingPage } from "./pages/LendingPage";
 import { FEATURE_FLAGS } from "./constants/featureFlags";
 import { useSettings, SettingsKey } from "./hooks/useSettings";
 
@@ -89,6 +90,10 @@ export const router = createHashRouter([
       {
         path: `${ROUTES.CAP_TABLE_ORG_ROUTE}`,
         element: <FeatureRoute flag={SettingsKey.CapTable}><CapTablePage /></FeatureRoute>,
+      },
+      {
+        path: `${ROUTES.LENDING}`,
+        element: <FeatureRoute flag={SettingsKey.Lending}><LendingPage /></FeatureRoute>,
       },
       ...dappBrowserRoutes,
       ...organizationRoutes,

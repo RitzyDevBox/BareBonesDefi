@@ -16,6 +16,7 @@ export enum SettingsKey {
   Payments = "payments",
   CapTable = "capTable",
   Distributions = "distributions",
+  Lending = "lending",
 }
 
 interface Settings {
@@ -25,6 +26,7 @@ interface Settings {
   [SettingsKey.Payments]: boolean;
   [SettingsKey.CapTable]: boolean;
   [SettingsKey.Distributions]: boolean;
+  [SettingsKey.Lending]: boolean;
 }
 
 const defaults: Settings = {
@@ -34,6 +36,7 @@ const defaults: Settings = {
   [SettingsKey.Payments]: FEATURE_FLAGS.payments,
   [SettingsKey.CapTable]: FEATURE_FLAGS.capTable,
   [SettingsKey.Distributions]: FEATURE_FLAGS.distributions,
+  [SettingsKey.Lending]: FEATURE_FLAGS.lending,
 };
 
 function load(): Settings {

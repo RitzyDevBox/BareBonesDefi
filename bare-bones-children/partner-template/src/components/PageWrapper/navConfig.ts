@@ -10,6 +10,7 @@ const BROWSER_ID = "browser";
 const VAULTS_ID = "vaults";
 const PAYMENTS_ID = "Payments";
 const CAP_TABLE_ID = "cap-table";
+const LENDING_ID = "lending";
 
 export interface NavItem {
   id: string;
@@ -26,6 +27,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { id: ENTITY_FORMATION_ID, label: "Formation", path: ROUTES.ENTITIES_FORMATION },
   { id: PAYMENTS_ID, label: "Payments", path: ROUTES.PAYMENTS },
   { id: CAP_TABLE_ID, label: "Cap Table", path: ROUTES.CAP_TABLE },
+  { id: LENDING_ID, label: "Lending", path: ROUTES.LENDING },
   { id: VAULTS_ID, label: "Vaults", path: ROUTES.VAULTS },
 ];
 
@@ -45,6 +47,7 @@ export function useNavItems(): NavItem[] {
     if (item.id === VAULTS_ID) return settings[SettingsKey.Vaults];
     if (item.id === PAYMENTS_ID) return settings[SettingsKey.Payments];
     if (item.id === CAP_TABLE_ID) return settings[SettingsKey.CapTable];
+    if (item.id === LENDING_ID) return settings[SettingsKey.Lending];
     return true;
   });
 }

@@ -113,6 +113,15 @@ singletons are MTA-owned; holder-scoped calls (`transfer`, `claim`) are direct w
 
 ## Changelog
 
+### 2026-06-20 — Share Lending Market: mock page ported AS-IS behind a feature flag
+- **Why:** the designer delivered the cross-org Share Lending Market screens (Designs/Bare Bones/app/lending*.jsx — global order book, lender/borrower POV toggle, listing detail with the accept-then-view doc gate + quote book, and the post-quote / fund / repay / foreclose / dispute / list-collateral dialogs). The ask was to drop the mock into the app **exactly as designed** and **wire up only navigation** — nothing on-chain.
+- **What:** new top-level **Lending** tab/page.
+  - **Mock-only.** [src/pages/LendingPage.tsx](src/pages/LendingPage.tsx) + [src/components/Lending/](src/components/Lending/) (`lendingData.ts` seed book, `LendingDetail.tsx`, `LendingModals.tsx`, `lendingShared.tsx`, `lendingIcons.tsx`) are a 1:1 port that runs entirely off seed data + local component state. No chain / subgraph / API calls; lifecycle actions (post quote, accept, fund, repay, foreclose, …) only mutate local state and raise a toast. Mirrors the borrower-led flow in `BareBonesDiamond/SHARE_LENDING.md`.
+  - **Self-contained styling.** [src/styles/lending.css](src/styles/lending.css) is a verbatim CSS port scoped under `.lm-scope` (and the modal portal carries `.lm-scope` too) — the exact pattern `distributionsSurfaces.css` uses with `.dist-scope`. Scoping means our copied generic classes (`panel` / `pay-banner` / `btn` / `field` / `modal` / `dist-*`) override the app's globals **inside** the lending page for pixel fidelity, without leaking out. Design tokens are aliased from the app's `--colors-*` at `:root`.
+  - **Only real integrations = navigation + toast host.** Route `ROUTES.LENDING` ([routes.ts](src/routes.ts)) gated by `<FeatureRoute flag={SettingsKey.Lending}>` ([Router.tsx](src/Router.tsx)); nav entry in [navConfig.ts](src/components/PageWrapper/navConfig.ts); the action-feedback toasts go through the app's global `useToastStore`. The mock assumes a connected lender on a DAO, so it defaults the borrower POV to a mock "Quorum Collective" org and uses the connected `account` (falling back to the wallet-connect prompt via `requireWallet`).
+  - **Deliberate deviation from the prototype:** the standalone mock deep-links the open listing through `window.location.hash`; this app uses a `HashRouter`, so the open/close listing selection is kept in **local state** instead (so we don't fight the router). Visuals are unchanged.
+- **Flag default:** `FEATURE_FLAGS.lending = false` — same posture as the other unwired mock (`distributions`). It's gated behind the flag + a Settings "Features" toggle (local dev). Flip the flag to `true` (one-line) to ship it visible on staging/live, or toggle it in Settings on local.
+
 ### 2026-06-17 — Cap-table mobile: bottom-sheet dialogs + 375px (iPhone SE) fit
 - **Why:** the cap-table dialogs (issue grant, transfer, raise, clawback, and **"Create a share class"** —
   all the `.ig-modal`s, plus the `.ct-modal` class list) are `width: min(880px, 96vw)` inside a 24px-padded

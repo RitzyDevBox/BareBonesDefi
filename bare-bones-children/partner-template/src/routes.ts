@@ -7,6 +7,7 @@ const PAYMENTS_SUB_ROUTE = 'payments'
 const PAYROLL_SUB_ROUTE = 'payroll'
 const ENTITIES_SUB_ROUTE = 'entities'
 const CAP_TABLE_SUB_ROUTE = 'cap-table'
+const LENDING_SUB_ROUTE = 'lending'
 
 export const ROUTES = {
   ROOT: "/",
@@ -23,6 +24,7 @@ export const ROUTES = {
   VAULT_DETAIL_ROUTE: `/${WALLETS_SUB_ROUTE}/:walletAddress/${VAULTS_SUB_ROUTE}/:vaultAddress`,
   CAP_TABLE: `/${CAP_TABLE_SUB_ROUTE}`,
   CAP_TABLE_ORG_ROUTE: `/${CAP_TABLE_SUB_ROUTE}/:organizationId`,
+  LENDING: `/${LENDING_SUB_ROUTE}`,
 
   // Navigation helpers
   BASIC_WALLET_WITH_ADDRESS: (address: string) => `/${BASIC_WALLET_SUB_ROUTE}/${address}`,

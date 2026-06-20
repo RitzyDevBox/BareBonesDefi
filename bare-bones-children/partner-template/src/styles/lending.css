@@ -1,0 +1,320 @@
+/* Share Lending Market surfaces — ported VERBATIM from the designer mockup
+   (Designs/Bare Bones/app/lending*.jsx + the shared base classes in
+   Designs/Bare Bones/index.html), scoped under `.lm-scope` so the design's
+   generic class names (panel / pay-banner / btn / field / modal / dist-*) don't
+   collide with or get overridden by the app's global versions. Mirrors exactly
+   how distributionsSurfaces.css scopes its port under `.dist-scope`.
+
+   This is a VISUAL MOCK behind a feature flag — nothing here is wired to chain. */
+
+:root {
+  --line: var(--colors-border);
+  --line-strong: color-mix(in oklab, var(--colors-border) 60%, var(--colors-text-main));
+  --bg: var(--colors-background);
+  --bg-elev: var(--colors-surface);
+  --bg-elev-2: color-mix(in oklab, var(--colors-surface) 80%, var(--colors-text-main));
+  --text: var(--colors-text-main);
+  --text-dim: color-mix(in oklab, var(--colors-text-main) 70%, var(--colors-text-muted));
+  --text-mute: var(--colors-text-muted);
+  --accent: var(--colors-primary);
+  --accent-ink: #fff;
+  --info: var(--colors-primary);
+  --warn: var(--colors-warn);
+  --success: var(--colors-success);
+  --error: var(--colors-error);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: inherit;
+  --font-ui: inherit;
+  --display-weight: 600;
+  --display-italic: normal;
+  --shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.5);
+}
+
+/* ── base surface text + resets ── */
+.lm-scope,
+.lm-scope .modal { color: var(--text); }
+.lm-scope button { color: inherit; cursor: pointer; border: 0; background: none; }
+.lm-scope a { color: inherit; text-decoration: none; }
+.lm-scope code { font-family: var(--font-mono); }
+
+/* ── shared utilities (VERBATIM from index.html) ── */
+.lm-scope .mono { font-family: var(--font-mono); font-feature-settings: "zero"; }
+.lm-scope .muted { color: var(--text-mute); }
+.lm-scope .small { font-size: 12.5px; }
+.lm-scope .kicker { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .12em; font-size: 10.5px; color: var(--text-mute); }
+.lm-scope .crumb { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--text-mute); }
+
+/* ── hero ── */
+.lm-scope .gov-hero { padding: 48px 0 32px; border-bottom: 1px solid var(--line); }
+.lm-scope .gov-hero-inner { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; }
+@media (max-width: 640px) { .lm-scope .gov-hero-inner { grid-template-columns: 1fr; } }
+.lm-scope .gov-hero h1 { font-family: var(--font-display); font-size: clamp(36px, 5vw, 52px); font-weight: 400; letter-spacing: -0.01em; margin: 0; }
+.lm-scope .gov-hero .crumb { font-family: var(--font-mono); font-size: 11px; color: var(--text-mute); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 12px; }
+
+/* ── buttons ── */
+.lm-scope .btn-primary, .lm-scope .btn-ghost {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 44px; padding: 0 18px; border-radius: 10px;
+  font-size: 14px; font-weight: 500;
+  transition: transform .1s, background .15s, border-color .15s, filter .15s;
+}
+.lm-scope .btn-primary { background: var(--accent); color: var(--accent-ink); }
+.lm-scope .btn-primary:hover { filter: brightness(0.95); }
+.lm-scope .btn-primary:active { transform: translateY(1px); }
+.lm-scope .btn-primary:disabled, .lm-scope .btn-ghost:disabled { opacity: .5; cursor: not-allowed; }
+.lm-scope .btn-primary.btn-sm, .lm-scope .btn-ghost.btn-sm { height: 36px; padding: 0 14px; font-size: 13px; font-weight: 500; }
+.lm-scope .btn-ghost { background: var(--bg-elev); color: var(--text); border: 1px solid var(--line); }
+.lm-scope .btn-ghost:hover { border-color: var(--line-strong); background: var(--bg-elev-2); }
+.lm-scope .btn-ghost.danger { color: var(--error); border-color: color-mix(in oklab, var(--error) 35%, var(--line)); height: 36px; padding: 0 14px; font-size: 13px; }
+.lm-scope .btn-ghost.danger:hover { background: color-mix(in oklab, var(--error) 10%, var(--bg-elev-2)); }
+
+/* ── tabs ── */
+.lm-scope .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 24px; overflow-x: auto; scrollbar-width: none; }
+.lm-scope .tabs::-webkit-scrollbar { display: none; }
+.lm-scope .tab { padding: 12px 16px; font-size: 14px; font-weight: 500; color: var(--text-dim); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; transition: color .15s; }
+.lm-scope .tab:hover { color: var(--text); }
+.lm-scope .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.lm-scope .tab .count { margin-left: 8px; font-family: var(--font-mono); font-size: 11px; color: var(--text-mute); padding: 2px 6px; border-radius: 4px; background: var(--bg-elev); }
+
+/* ── panels ── */
+.lm-scope .panel { border: 1px solid var(--line); border-radius: 12px; background: var(--bg-elev); overflow: hidden; margin-bottom: 18px; }
+.lm-scope .panel-table { border: 0 !important; border-radius: 0 !important; }
+.lm-scope .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--bg-elev-2); }
+.lm-scope .panel-body { padding: 14px; }
+
+/* ── pillar cta ── */
+.lm-scope .pillar-cta { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; color: var(--text); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .08em; transition: color .15s; }
+.lm-scope .pillar-cta svg { transition: transform .15s; }
+
+/* ── fields / inputs ── */
+.lm-scope .field-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+@media (max-width: 640px) { .lm-scope .field-grid { grid-template-columns: 1fr; } }
+.lm-scope .field { display: flex; flex-direction: column; gap: 6px; }
+.lm-scope .field.full { grid-column: 1 / -1; }
+.lm-scope .field label { font-family: var(--font-mono); font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: .1em; }
+.lm-scope .input, .lm-scope .textarea { width: 100%; height: 40px; padding: 0 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font-size: 14px; color: var(--text); transition: border-color .15s; }
+.lm-scope .input:focus, .lm-scope .textarea:focus { outline: none; border-color: var(--accent); }
+.lm-scope .input.mono, .lm-scope .textarea.mono { font-family: var(--font-mono); font-size: 13px; }
+.lm-scope .input[aria-invalid="true"] { border-color: var(--error); }
+.lm-scope .input-with-unit { display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-elev); overflow: hidden; }
+.lm-scope .input-with-unit:focus-within { border-color: var(--accent); }
+.lm-scope .input-with-unit .input { border: 0; background: transparent; flex: 1; min-width: 0; border-radius: 0; }
+.lm-scope .input-with-unit .input:focus { outline: none; box-shadow: none; }
+.lm-scope .input-unit { display: inline-flex; align-items: center; padding: 0 12px; border-left: 1px solid var(--line); font-size: 12.5px; color: var(--text-mute); background: var(--bg); font-family: var(--font-mono); }
+.lm-scope .field-hint { font-size: 11.5px; color: var(--text-mute); margin-top: 2px; }
+
+/* ── toggle ── */
+.lm-scope .toggle { --w: 36px; --h: 20px; width: var(--w); height: var(--h); border-radius: 999px; background: var(--bg-elev-2); border: 1px solid var(--line); position: relative; flex-shrink: 0; cursor: pointer; transition: background .15s, border-color .15s; }
+.lm-scope .toggle::after { content: ""; position: absolute; top: 1px; left: 1px; width: calc(var(--h) - 4px); height: calc(var(--h) - 4px); border-radius: 50%; background: var(--text-dim); transition: transform .15s, background .15s; }
+.lm-scope .toggle.on { background: color-mix(in oklab, var(--accent) 35%, var(--bg-elev-2)); border-color: var(--accent); }
+.lm-scope .toggle.on::after { transform: translateX(calc(var(--w) - var(--h))); background: var(--accent); }
+
+/* ── flag row ── */
+.lm-scope .flag-row { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; padding: 10px 0; }
+.lm-scope .flag-row-k { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.lm-scope .flag-row-name { font-size: 13px; font-weight: 500; color: var(--text); display: inline-flex; align-items: center; gap: 8px; }
+.lm-scope .flag-row-sub { font-size: 11.5px; color: var(--text-mute); line-height: 1.45; max-width: 52ch; }
+
+/* ── cd-section (used by the list-collateral form) ── */
+.lm-scope .cd-section { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in oklab, var(--bg) 35%, var(--bg-elev)); }
+.lm-scope .cd-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.lm-scope .cd-section-head h4 { margin: 0; font-family: var(--font-display); font-size: 15px; font-weight: 500; letter-spacing: -0.005em; }
+.lm-scope .cd-section-head p { margin: 2px 0 0; font-size: 11.5px; color: var(--text-mute); max-width: 48ch; }
+
+/* ── cfg-link ── */
+.lm-scope .cfg-link { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); display: inline-flex; align-items: center; gap: 6px; padding-top: 4px; transition: color .15s; }
+.lm-scope .cfg-link:hover { color: var(--accent); }
+.lm-scope .cfg-link svg { width: 11px; height: 11px; }
+
+/* ── status pill ── */
+.lm-scope .pay-status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 11px; border-radius: 999px; font-size: 12px; font-weight: 500; font-family: var(--font-mono); letter-spacing: .04em; text-transform: uppercase; border: 1px solid var(--line); background: var(--bg-elev); color: var(--text-dim); }
+.lm-scope .pay-status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 22%, transparent); }
+.lm-scope .pay-status-draft { color: var(--text-dim); }
+.lm-scope .pay-status-info  { color: var(--info); border-color: color-mix(in oklab, var(--info) 35%, var(--line)); background: color-mix(in oklab, var(--info) 8%, var(--bg-elev)); }
+.lm-scope .pay-status-warn  { color: var(--warn); border-color: color-mix(in oklab, var(--warn) 35%, var(--line)); background: color-mix(in oklab, var(--warn) 8%, var(--bg-elev)); }
+.lm-scope .pay-status-ok    { color: var(--success); border-color: color-mix(in oklab, var(--success) 35%, var(--line)); background: color-mix(in oklab, var(--success) 8%, var(--bg-elev)); }
+.lm-scope .pay-status-error { color: var(--error); border-color: color-mix(in oklab, var(--error) 35%, var(--line)); background: color-mix(in oklab, var(--error) 8%, var(--bg-elev)); }
+.lm-scope .pay-status-lg { font-size: 12px !important; padding: 5px 10px !important; }
+
+/* ── banner ── */
+.lm-scope .pay-banner { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 12px 16px; border: 1px solid color-mix(in oklab, var(--warn) 40%, var(--line)); background: color-mix(in oklab, var(--warn) 9%, var(--bg-elev)); border-radius: 12px; margin-bottom: 16px; font-size: 13.5px; color: var(--text); }
+.lm-scope .pay-banner > svg { color: var(--warn); margin-top: 2px; }
+.lm-scope .pay-banner b { color: var(--text); }
+.lm-scope .pay-banner-act { margin-left: 10px; padding: 4px 10px; border: 1px solid var(--line); background: var(--bg-elev); color: var(--text); border-radius: 6px; font-size: 12px; cursor: pointer; }
+.lm-scope .pay-banner-act:hover { border-color: var(--line-strong); }
+.lm-scope .pay-banner-warn { border-color: color-mix(in oklab, var(--warn) 40%, var(--line)); background: color-mix(in oklab, var(--warn) 9%, var(--bg-elev)); }
+.lm-scope .pay-banner-ok   { border-color: color-mix(in oklab, var(--success) 40%, var(--line)); background: color-mix(in oklab, var(--success) 9%, var(--bg-elev)); }
+.lm-scope .pay-banner-ok > svg { color: var(--success); }
+
+/* ── dist summary / option pickers (reused by the modals) ── */
+.lm-scope .dist-class-pick { display: flex; flex-direction: column; gap: 8px; }
+.lm-scope .dist-class-opt { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; padding: 12px 14px; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px; text-align: left; color: var(--text); cursor: pointer; transition: border-color .15s, background .15s; }
+.lm-scope .dist-class-opt:hover { border-color: var(--line-strong); }
+.lm-scope .dist-class-opt.on { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 7%, var(--bg-elev)); }
+.lm-scope .dist-check { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--line-strong); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; color: var(--accent-ink); }
+.lm-scope .dist-check.on { background: var(--accent); border-color: var(--accent); }
+.lm-scope .dist-class-opt-k { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lm-scope .dist-class-opt-name { font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; }
+.lm-scope .dist-class-opt-sub { font-size: 11.5px; color: var(--text-mute); }
+.lm-scope .dist-summary { border: 1px solid var(--line); border-radius: 12px; background: color-mix(in oklab, var(--bg) 40%, var(--bg-elev-2)); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.lm-scope .dist-summary-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.lm-scope .dist-summary-v { font-family: var(--font-display); font-size: 22px; font-weight: 500; letter-spacing: -0.01em; }
+.lm-scope .dist-summary-top { border-top: 1px solid var(--line); padding-top: 10px; }
+
+/* ── modal (prototype scrim/head/body/foot) ── */
+.lm-scope .modal-scrim { position: fixed; inset: 0; z-index: 90; background: color-mix(in oklab, var(--bg) 70%, black); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 20px; animation: lm-fade .15s ease; }
+@keyframes lm-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes lm-pop { from { opacity: 0; transform: translateY(6px) scale(.99) } to { opacity: 1; transform: none } }
+.lm-scope .modal { width: 100%; max-width: 440px; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow), 0 30px 60px -20px rgba(0,0,0,.6); overflow: hidden; animation: lm-pop .18s ease; }
+.lm-scope .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--line); }
+.lm-scope .modal-head h3 { font-family: var(--font-display); font-size: 22px; font-weight: var(--display-weight); font-style: var(--display-italic); letter-spacing: -0.01em; margin: 0; }
+.lm-scope .modal-close { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; color: var(--text-mute); }
+.lm-scope .modal-close:hover { background: var(--bg-elev-2); color: var(--text); }
+.lm-scope .modal-body { padding: 22px; }
+.lm-scope .modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--line); }
+
+/* ====================================================================
+   Lending-market specific styling — VERBATIM from
+   Designs/Bare Bones/app/lending.jsx (injectLendingCss), prefixed `.lm-scope`.
+   ==================================================================== */
+.lm-scope .lm-page { display: flex; flex-direction: column; gap: 22px; }
+
+/* hero row */
+.lm-scope .lm-hero-inner { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; }
+@media (max-width: 760px) { .lm-scope .lm-hero-inner { grid-template-columns: 1fr; } }
+.lm-scope .lm-hero h1 { font-family: var(--font-display); font-weight: var(--display-weight); font-style: var(--display-italic); font-size: clamp(32px, 5vw, 48px); letter-spacing: -0.02em; line-height: 1; margin: 0; }
+.lm-scope .lm-hero-sub { color: var(--text-dim); font-size: 15px; margin-top: 10px; max-width: 60ch; text-wrap: pretty; }
+.lm-scope .lm-hero-r { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+
+/* POV segmented toggle */
+.lm-scope .lm-pov { display: inline-flex; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; }
+.lm-scope .lm-pov-btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border: 0; background: transparent; color: var(--text-mute); font-size: 13px; font-weight: 500; border-radius: 7px; cursor: pointer; }
+.lm-scope .lm-pov-btn:hover { color: var(--text); }
+.lm-scope .lm-pov-btn.on { background: var(--bg-elev-2); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+.lm-scope .lm-pov-btn .lm-pov-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* market stat strip */
+.lm-scope .lm-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+@media (max-width: 720px) { .lm-scope .lm-stats { grid-template-columns: 1fr 1fr; } }
+.lm-scope .lm-stat { background: var(--bg-elev); padding: 16px 18px; display: flex; flex-direction: column; gap: 5px; }
+.lm-scope .lm-stat-k { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--text-mute); }
+.lm-scope .lm-stat-v { font-family: var(--font-display); font-weight: var(--display-weight); font-size: 22px; letter-spacing: -0.01em; line-height: 1.1; }
+.lm-scope .lm-stat-v small { font-size: 13px; color: var(--text-dim); font-family: var(--font-ui); margin-left: 3px; letter-spacing: 0; }
+
+/* org avatar */
+.lm-scope .lm-org { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.lm-scope .lm-org-av { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 8px; color: #fff; font-family: var(--font-display); font-weight: 700; line-height: 1; box-shadow: inset 0 0 0 1px color-mix(in oklab, #fff 16%, transparent); }
+.lm-scope .lm-org-k { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.lm-scope .lm-org-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lm-scope .lm-org-sub { font-size: 11px; color: var(--text-mute); font-family: var(--font-mono); }
+
+/* ===== cards layout ===== */
+.lm-scope .lm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.lm-scope .lm-card { display: flex; flex-direction: column; gap: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-elev); padding: 18px; text-align: left; color: var(--text); cursor: pointer; transition: border-color .15s, transform .12s; }
+.lm-scope .lm-card:hover { border-color: var(--line-strong); transform: translateY(-2px); }
+.lm-scope .lm-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.lm-scope .lm-card-title { font-family: var(--font-display); font-weight: var(--display-weight); font-style: var(--display-italic); font-size: 20px; letter-spacing: -0.01em; line-height: 1.1; }
+.lm-scope .lm-card-asset-sub { font-size: 12px; color: var(--text-mute); margin-top: 3px; }
+.lm-scope .lm-terms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.lm-scope .lm-term { background: var(--bg); padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; }
+.lm-scope .lm-term-k { font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--text-mute); }
+.lm-scope .lm-term-v { font-family: var(--font-display); font-weight: 500; font-size: 16px; letter-spacing: -0.005em; }
+.lm-scope .lm-term-v.mono { font-family: var(--font-mono); font-size: 14px; }
+
+/* collateral line */
+.lm-scope .lm-collat { display: flex; flex-direction: column; gap: 7px; }
+.lm-scope .lm-collat-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+.lm-scope .lm-class-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); font-size: 11.5px; color: var(--text-dim); white-space: nowrap; }
+.lm-scope .lm-class-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+/* teaser chips */
+.lm-scope .lm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lm-scope .lm-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); font-size: 11.5px; color: var(--text-dim); }
+.lm-scope .lm-chip svg { color: var(--text-mute); }
+.lm-scope .lm-chip.good { color: var(--success); border-color: color-mix(in oklab, var(--success) 30%, var(--line)); background: color-mix(in oklab, var(--success) 7%, var(--bg-elev)); }
+
+.lm-scope .lm-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); margin-top: auto; }
+.lm-scope .lm-foot-meta { font-size: 12px; color: var(--text-dim); }
+.lm-scope .lm-foot-meta b { color: var(--text); font-weight: 600; font-family: var(--font-mono); }
+
+/* ===== table layout ===== */
+.lm-scope .lm-table { background: var(--bg-elev); }
+.lm-scope .lm-thead, .lm-scope .lm-trow { display: grid; grid-template-columns: 2.2fr 1fr 1.1fr 0.8fr 1fr 1.3fr auto; align-items: center; gap: 14px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.lm-scope .lm-thead { background: var(--bg-elev-2); font-family: var(--font-mono); font-size: 10.5px; color: var(--text-mute); text-transform: uppercase; letter-spacing: .1em; }
+.lm-scope .lm-trow { width: 100%; text-align: left; background: transparent; cursor: pointer; transition: background .12s; }
+.lm-scope .lm-trow:last-child { border-bottom: 0; }
+.lm-scope .lm-trow:hover { background: color-mix(in oklab, var(--accent) 4%, var(--bg-elev)); }
+.lm-scope .lm-tnum { justify-self: end; text-align: right; font-family: var(--font-mono); }
+.lm-scope .lm-tgo { justify-self: end; color: var(--text-mute); }
+@media (max-width: 860px) {
+  .lm-scope .lm-thead { display: none; }
+  .lm-scope .lm-trow { grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+  .lm-scope .lm-tgo { display: none; }
+}
+
+/* ===== detail ===== */
+.lm-scope .lm-detail-back { display: flex; align-items: center; gap: 10px; }
+.lm-scope .lm-detail-grid { display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: start; }
+@media (max-width: 920px) { .lm-scope .lm-detail-grid { grid-template-columns: 1fr; } }
+.lm-scope .lm-main { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.lm-scope .lm-rail { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 76px; }
+@media (max-width: 920px) { .lm-scope .lm-rail { position: static; } }
+
+.lm-scope .lm-detail-head { display: flex; flex-direction: column; gap: 12px; }
+.lm-scope .lm-detail-title { font-family: var(--font-display); font-weight: var(--display-weight); font-style: var(--display-italic); font-size: clamp(26px, 4vw, 38px); letter-spacing: -0.02em; line-height: 1; }
+
+/* key-value metadata grid */
+.lm-scope .lm-kv { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+@media (max-width: 540px) { .lm-scope .lm-kv { grid-template-columns: 1fr; } }
+.lm-scope .lm-kv-cell { background: var(--bg-elev); padding: 13px 16px; display: flex; flex-direction: column; gap: 4px; }
+.lm-scope .lm-kv-k { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--text-mute); }
+.lm-scope .lm-kv-v { font-size: 14px; color: var(--text); }
+
+/* big collateral readout */
+.lm-scope .lm-collat-big { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+@media (max-width: 540px) { .lm-scope .lm-collat-big { grid-template-columns: 1fr; } }
+
+/* loan readout */
+.lm-scope .lm-loan-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+@media (max-width: 640px) { .lm-scope .lm-loan-grid { grid-template-columns: 1fr 1fr; } }
+.lm-scope .lm-loan-cell { background: var(--bg-elev); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.lm-scope .lm-loan-v { font-family: var(--font-display); font-weight: 500; font-size: 19px; letter-spacing: -0.005em; }
+.lm-scope .lm-loan-v.mono { font-family: var(--font-mono); font-size: 16px; }
+
+.lm-scope .lm-progress { height: 10px; border-radius: 999px; background: var(--bg-elev-2); border: 1px solid var(--line); overflow: hidden; }
+.lm-scope .lm-progress-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 80%, var(--info)), var(--accent)); transition: width .5s; }
+.lm-scope .lm-progress-bar.warn { background: var(--warn); }
+.lm-scope .lm-progress-bar.hot { background: var(--error); }
+
+/* quote row */
+.lm-scope .lm-quote { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.lm-scope .lm-quote:last-child { border-bottom: 0; }
+.lm-scope .lm-quote.mine { background: color-mix(in oklab, var(--accent) 5%, var(--bg-elev)); }
+.lm-scope .lm-quote-terms { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--text-dim); }
+.lm-scope .lm-quote-terms b { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
+.lm-scope .lm-quote-acts { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.lm-scope .lm-best-tag { font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; padding: 2px 6px; border-radius: 4px; background: color-mix(in oklab, var(--success) 16%, var(--bg-elev-2)); color: var(--success); }
+
+/* action rail box */
+.lm-scope .lm-action { border: 1px solid var(--line); border-radius: 14px; background: var(--bg-elev); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.lm-scope .lm-action.accent { border-color: color-mix(in oklab, var(--accent) 35%, var(--line)); background: color-mix(in oklab, var(--accent) 6%, var(--bg-elev)); }
+.lm-scope .lm-action-title { font-family: var(--font-display); font-weight: 500; font-size: 16px; letter-spacing: -0.005em; }
+.lm-scope .lm-action-sub { font-size: 12.5px; color: var(--text-dim); line-height: 1.5; text-wrap: pretty; }
+.lm-scope .lm-action .btn-primary, .lm-scope .lm-action .btn-ghost { width: 100%; justify-content: center; }
+
+/* doc gate */
+.lm-scope .lm-doc { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.lm-scope .lm-doc.locked { border-style: dashed; }
+.lm-scope .lm-doc-icon { width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in oklab, var(--accent) 14%, var(--bg-elev-2)); color: var(--accent); }
+.lm-scope .lm-doc.locked .lm-doc-icon { background: var(--bg-elev-2); color: var(--text-mute); }
+.lm-scope .lm-doc-k { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.lm-scope .lm-doc-hash { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-mute); word-break: break-all; }
+
+/* empty */
+.lm-scope .lm-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 48px 24px; border: 1px dashed var(--line); border-radius: 14px; background: var(--bg-elev); text-align: center; }
+.lm-scope .lm-empty-icon { width: 46px; height: 46px; border-radius: 12px; background: color-mix(in oklab, var(--accent) 14%, var(--bg-elev-2)); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; }
+.lm-scope .lm-empty h4 { margin: 6px 0 0; font-family: var(--font-display); font-weight: 500; font-size: 18px; }
+.lm-scope .lm-empty p { margin: 0; color: var(--text-mute); font-size: 13px; max-width: 44ch; }
+
+/* eligibility note */
+.lm-scope .lm-elig { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--success); }

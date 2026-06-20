@@ -22,6 +22,11 @@ export const FEATURE_FLAGS = {
   // Distributions — pay shareholders by ownership (a second mode of the Payments tab).
   // Currently a visual MOCK behind this flag; self-enabled from Settings like the others.
   distributions: false,
+  // Lending — the cross-org Share Lending Market (borrow cash against pledged cap-table
+  // shares). Currently a visual MOCK ported AS-IS from the designer mockup; nothing is wired
+  // to chain. Off by default like `distributions`; flip to `true` to ship it visible, or
+  // self-enable from the Settings "Features" toggles on local dev. Gates the nav entry + routes.
+  lending: false,
   // Staging hosts the same Anvil chain as local dev (just on a remote box),
   // so include it for both targets. Production excludes it.
   localAnvilChain: DEPLOYMENT_TARGET !== DeploymentTarget.Live,

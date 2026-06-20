@@ -222,6 +222,16 @@ function SettingsBody({
               />
             }
           />
+          <SettingsRow
+            title="Lending"
+            subtitle="Show the Share Lending Market tab (borrow against pledged shares)"
+            right={
+              <ToggleSwitch
+                on={settings[SettingsKey.Lending]}
+                onChange={() => toggle(SettingsKey.Lending)}
+              />
+            }
+          />
         </>
       )}
       {IS_DEMO_ENV && (
