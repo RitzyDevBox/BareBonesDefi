@@ -310,6 +310,8 @@ function Nav({
               onClick={() => { setRoute('payments'); onPick && onPick(); }}>Payments</button>
       <button className={`nav-link${route === 'captable' ? ' active' : ''}`}
               onClick={() => { setRoute('captable'); onPick && onPick(); }}>Cap Table</button>
+      <button className={`nav-link${route === 'lending' ? ' active' : ''}`}
+              onClick={() => { setRoute('lending'); onPick && onPick(); }}>Lending</button>
       <button className={`nav-link${route === 'formation' ? ' active' : ''}`}
               onClick={() => { setRoute('formation'); onPick && onPick(); }}>Formation</button>
     </>

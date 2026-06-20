@@ -9,14 +9,15 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "cardStyle": "bordered",
   "honeycomb": true,
   "mobilePreview": false,
-  "navMode": "unified"
+  "navMode": "unified",
+  "lendingLayout": "cards"
 }/*EDITMODE-END*/;
 
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-const ROUTES = ['home','governance','payments','captable','formation'];
+const ROUTES = ['home','governance','payments','captable','lending','formation'];
 const routeFromHash = () => {
-  const h = (window.location.hash || '').replace(/^#/, '');
+  const h = (window.location.hash || '').replace(/^#/, '').split('?')[0].split('/')[0];
   return ROUTES.includes(h) ? h : 'home';
 };
 
@@ -180,6 +181,7 @@ function App() {
         {route === 'governance' && <Governance chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'payments' && <PaymentsPage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
         {route === 'captable' && <CapTablePage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
+        {route === 'lending' && <LendingPage chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} layout={tweaks.lendingLayout} />}
         {route === 'formation' && <EntityFormation chain={chain} wallet={wallet} onConnect={connect} activeDao={activeDao} />}
       </main>
 
@@ -246,6 +248,13 @@ function App() {
         <TweakSection label="Background" />
         <TweakToggle label="Honeycomb" value={tweaks.honeycomb}
                      onChange={(v) => setTweak('honeycomb', v)} />
+        <TweakSection label="Lending market" />
+        <TweakRadio label="Book layout" value={tweaks.lendingLayout}
+                    options={[
+                      { value: 'cards', label: 'Cards' },
+                      { value: 'table', label: 'Table' },
+                    ]}
+                    onChange={(v) => setTweak('lendingLayout', v)} />
         <TweakSection label="Nav layout" />
         <TweakRadio label="Mode" value={tweaks.navMode}
                     options={[
