@@ -15,9 +15,10 @@ export const FEATURE_FLAGS = {
   basicWallet: false,
   vaults: false,
   payments: true,
-  // Cap table — on-chain equity register (ShareToken). Ships off by default; a user
-  // self-enables it from the Settings "Features" toggles (local dev) like the others.
-  capTable: false,
+  // Cap table — on-chain equity register (ShareToken). Visible by default (like payments) so it's
+  // reachable on staging/live where the Settings "Features" toggles are hidden (showFeatureToggles
+  // is local-only). Seeds the SettingsKey.CapTable default; gates both the nav entry and the routes.
+  capTable: true,
   // Distributions — pay shareholders by ownership (a second mode of the Payments tab).
   // Currently a visual MOCK behind this flag; self-enabled from Settings like the others.
   distributions: false,
