@@ -29,6 +29,8 @@ export interface ListDraft {
   assetSub: string;
   assetType: string;
   classId: string;
+  /** Numeric on-chain class index the shares are pledged from (the collateral class). */
+  classIdNum: number;
   pledgedShares: number;
   valuePerShare: number;
   wantAmount: number;

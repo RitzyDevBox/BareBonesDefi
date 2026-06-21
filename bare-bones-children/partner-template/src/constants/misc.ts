@@ -166,6 +166,9 @@ export interface BareBonesConfiguration {
   profitInterestAddress: string;
   // DistributionManager — cap-table cash distributions (slug-keyed, MTA-gated). See DISTRIBUTIONS.md.
   distributionManagerAddress: string;
+  // ShareLendingMarket — collateralized lending against pledged cap-table shares (singleton,
+  // per-org setShareToken, MTA foundation). See BareBonesDiamond/SHARE_LENDING.md.
+  shareLendingMarketAddress: string;
   // SVR Configuration
   svrFactoryAddress?: string;
 }
@@ -294,6 +297,7 @@ export const DEFAULT_BARE_BONES_CONFIG: BareBonesConfiguration = {
   revenueFinancingAddress: "0x0000000000000000000000000000000000000000",
   profitInterestAddress: "0x0000000000000000000000000000000000000000",
   distributionManagerAddress: "0x0000000000000000000000000000000000000000",
+  shareLendingMarketAddress: "0x0000000000000000000000000000000000000000",
 
 } as const;
 
@@ -332,6 +336,7 @@ const LOCAL_BARE_BONES_CONFIG_ENV_KEYS: Record<Exclude<keyof BareBonesConfigurat
   revenueFinancingAddress: "VITE_LOCAL_REVENUE_FINANCING_ADDRESS",
   profitInterestAddress: "VITE_LOCAL_PROFIT_INTEREST_ADDRESS",
   distributionManagerAddress: "VITE_LOCAL_DISTRIBUTION_MANAGER_ADDRESS",
+  shareLendingMarketAddress: "VITE_LOCAL_SHARE_LENDING_MARKET_ADDRESS",
 };
 
 function buildLocalBareBonesOverride(): Partial<BareBonesConfiguration> {
@@ -383,6 +388,7 @@ const STAGING_BARE_BONES_CONFIG_ENV_KEYS: Record<Exclude<keyof BareBonesConfigur
   revenueFinancingAddress: "VITE_STAGING_REVENUE_FINANCING_ADDRESS",
   profitInterestAddress: "VITE_STAGING_PROFIT_INTEREST_ADDRESS",
   distributionManagerAddress: "VITE_STAGING_DISTRIBUTION_MANAGER_ADDRESS",
+  shareLendingMarketAddress: "VITE_STAGING_SHARE_LENDING_MARKET_ADDRESS",
 };
 
 function buildStagingBareBonesOverride(): Partial<BareBonesConfiguration> {

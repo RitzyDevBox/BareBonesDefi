@@ -113,6 +113,40 @@ singletons are MTA-owned; holder-scoped calls (`transfer`, `claim`) are direct w
 
 ## Changelog
 
+### 2026-06-21 — Share Lending Market: wired to the real stack (graph + API + contract)
+- **Why:** the lending page shipped as a visual mock (entry below). This wires it to the live
+  `ShareLendingMarket` contract, the subgraph (cross-org order book), and BareBonesApi (off-chain
+  asset/teaser/doc metadata) — without touching the presentational components or CSS.
+- **How — an adapter, so the UI is untouched.** The components still consume the same
+  `Listing`/`Quote`/`Loan` shapes; a new data layer produces them:
+  - [utils/graph/lendingGraphService.ts](src/utils/graph/lendingGraphService.ts) — reads the whole
+    cross-org book (every slug) from the subgraph in one query (listings + quotes + loan + org→shareToken
+    + class names).
+  - [utils/api/lendingMetadataService.ts](src/utils/api/lendingMetadataService.ts) — batch GET the
+    off-chain asset/teaser/docLink from `/lending/metadata` (public) and POST it on list (SIWE-authed).
+  - [hooks/lending/lendingAdapter.ts](src/hooks/lending/lendingAdapter.ts) — maps graph row ⋈ metadata →
+    `Listing`. Org name is decoded from the bytes32 slug; counterparties we only know by address get a
+    derived avatar; status maps listing+loan state → the mock's lifecycle; money amounts use the payment
+    token's decimals, shares are 1e18. Closed-with-no-funded-loan (cancelled) listings are hidden.
+  - [hooks/lending/useLendingMarket.ts](src/hooks/lending/useLendingMarket.ts) — orchestrates graph + API
+    + market config (paymentToken/decimals/grace), re-runs on `useTxRefresh.version`.
+  - [hooks/lending/useLendingActions.ts](src/hooks/lending/useLendingActions.ts) — the real lifecycle:
+    list/quote/accept/fund/repay/foreclose/withdraw/reject/dispute as **direct EOA calls** to the market
+    (these are NOT MTA-gated), via `useExecuteRawTx`, with inline ERC20 approvals before deposit/principal/
+    repay. `listCollateral` computes the `metadataHash`, calls the contract, parses the `Listed` event for
+    the listingId, then POSTs the metadata. Repay approves a 2% buffer over live `amountOwed` (interest
+    accrues until the tx mines).
+  - [hooks/lending/useLendingAdmin.ts](src/hooks/lending/useLendingAdmin.ts) — the **"Enable lending"**
+    admin action (shown in the Borrow POV when the org isn't enabled): two `MTA.execute` calls —
+    `setShareToken(slug, shareToken)` on the market + `ShareToken.setLocker(market, true)`.
+- **List-collateral class picker:** the mock's free-text "Share class" became a dropdown of the org's
+  real cap-table classes (numeric `classId` drives the on-chain lock; the name is kept for the card +
+  metadata). The only component change in the whole rewire.
+- **Config:** `shareLendingMarketAddress` added to `getBareBonesConfiguration` + the `VITE_LOCAL/STAGING`
+  maps (emitted by `deploy-anvil-full.sh`).
+- **Flag still defaults off** (`FEATURE_FLAGS.lending = false`) — it now needs a fresh `deploy:anvil` (so
+  the real address + local subgraph + API land) and an org "Enable lending" before it shows data.
+
 ### 2026-06-20 — Share Lending Market: mock page ported AS-IS behind a feature flag
 - **Why:** the designer delivered the cross-org Share Lending Market screens (Designs/Bare Bones/app/lending*.jsx — global order book, lender/borrower POV toggle, listing detail with the accept-then-view doc gate + quote book, and the post-quote / fund / repay / foreclose / dispute / list-collateral dialogs). The ask was to drop the mock into the app **exactly as designed** and **wire up only navigation** — nothing on-chain.
 - **What:** new top-level **Lending** tab/page.

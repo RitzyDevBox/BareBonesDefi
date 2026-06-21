@@ -6,6 +6,7 @@ import { I } from "./lendingIcons";
 import { Field, Modal, parseNum } from "./lendingShared";
 import type { ActiveDao, Listing } from "./lendingData";
 import type { LendingActions, ModalState } from "./lendingShared";
+import type { OrgClass } from "../../hooks/lending/useLendingMarket";
 import {
   ASSET_TYPES, abbrevUsd, bpsPct, fmtShares, fmtUsd, loanMath, monthsLabel, shortHex,
 } from "./lendingData";
@@ -172,12 +173,8 @@ function DisputeModal({ listing: l, onClose, actions }: { listing: Listing; onCl
   ];
   if (l.mediator) opts.push({ id: "mediator", name: "Mediator decision", sub: `${shortHex(l.mediator, 6, 4)} (multisig/arbitrator) forces a release. Contract enforces, never judges.` });
   const submit = () => {
-    const label = ({
-      "mutual-borrower": "Mutual release — collateral returned to the borrower.",
-      "mutual-lender": "Mutual release — collateral transferred to the lender.",
-      mediator: "Mediator forced a release per off-chain arbitration.",
-    } as Record<string, string>)[choice];
-    actions.release(l.id, label);
+    // Pass the choice id; useLendingActions maps it to mutualRelease(to)/mediatorRelease(to).
+    actions.release(l.id, choice);
     onClose();
   };
   return (
@@ -202,10 +199,11 @@ function DisputeModal({ listing: l, onClose, actions }: { listing: Listing; onCl
 }
 
 // ---------- List collateral (borrower) ----------
-function ListCollateralModal({ activeDao, onClose, actions }: { activeDao: ActiveDao; onClose: () => void; actions: LendingActions }) {
+function ListCollateralModal({ activeDao, onClose, actions, orgClasses = [] }: { activeDao: ActiveDao; onClose: () => void; actions: LendingActions; orgClasses?: OrgClass[] }) {
   const [f, setF] = useState({
     asset: "", assetSub: "", assetType: "multifamily",
-    classId: "Class A LP Units",
+    classId: orgClasses[0]?.name ?? "",
+    classIdNum: orgClasses[0]?.classId ?? 0,
     pledgedShares: 1000000, valuePerShare: 2.5,
     wantAmount: 1500000, maxRatePct: 11, termMonths: 36,
     requireDeposit: false, depositAmount: 15000, mediator: "",
@@ -220,7 +218,7 @@ function ListCollateralModal({ activeDao, onClose, actions }: { activeDao: Activ
     if (!valid) return;
     actions.listCollateral({
       asset: f.asset.trim(), assetSub: f.assetSub.trim() || ASSET_TYPES[f.assetType], assetType: f.assetType,
-      classId: f.classId.trim(), pledgedShares: f.pledgedShares, valuePerShare: f.valuePerShare,
+      classId: f.classId.trim() || `Class ${f.classIdNum}`, classIdNum: f.classIdNum, pledgedShares: f.pledgedShares, valuePerShare: f.valuePerShare,
       wantAmount: f.wantAmount, maxRateBps: Math.round(f.maxRatePct * 100), termMonths: f.termMonths,
       requireDeposit: f.requireDeposit, depositAmount: f.requireDeposit ? f.depositAmount : 0, mediator: f.mediator.trim(),
       lien: f.lien, title: f.title, rented: f.rented, rentRate: f.rentRate || "—", occupancy: f.rented ? f.occupancy : "—",
@@ -250,7 +248,23 @@ function ListCollateralModal({ activeDao, onClose, actions }: { activeDao: Activ
         <div className="cd-section">
           <div className="cd-section-head"><h4>Collateral &amp; ask</h4></div>
           <div className="field-grid">
-            <Field label="Share class"><input className="input" value={f.classId} onChange={(e) => set("classId", e.target.value)} /></Field>
+            <Field label="Share class" hint={orgClasses.length === 0 ? "No classes found for this org" : undefined}>
+              {orgClasses.length > 0 ? (
+                <select
+                  className="input"
+                  value={f.classIdNum}
+                  onChange={(e) => {
+                    const cid = Number(e.target.value);
+                    const cls = orgClasses.find((c) => c.classId === cid);
+                    setF((s) => ({ ...s, classIdNum: cid, classId: cls?.name ?? `Class ${cid}` }));
+                  }}
+                >
+                  {orgClasses.map((c) => <option key={c.classId} value={c.classId}>{c.name}</option>)}
+                </select>
+              ) : (
+                <input className="input" inputMode="numeric" value={f.classIdNum} onChange={(e) => set("classIdNum", parseNum(e.target.value))} />
+              )}
+            </Field>
             <Field label="Shares pledged"><input className="input" inputMode="numeric" value={f.pledgedShares.toLocaleString()} onChange={(e) => set("pledgedShares", parseNum(e.target.value))} /></Field>
             <Field label="Loan wanted"><div className="input-with-unit"><span className="input-unit">$</span><input className="input" inputMode="numeric" value={f.wantAmount.toLocaleString()} onChange={(e) => set("wantAmount", parseNum(e.target.value))} /></div></Field>
             <Field label="Max rate"><div className="input-with-unit"><input className="input" inputMode="decimal" value={f.maxRatePct} onChange={(e) => set("maxRatePct", parseNum(e.target.value))} /><span className="input-unit">% / yr</span></div></Field>
@@ -298,11 +312,11 @@ function ListCollateralModal({ activeDao, onClose, actions }: { activeDao: Activ
 
 // ---------- dispatcher ----------
 export function LendingModals({
-  modal, listing, activeDao, onClose, actions,
+  modal, listing, activeDao, onClose, actions, orgClasses,
 }: {
-  modal: ModalState; listing: Listing | null; activeDao: ActiveDao; onClose: () => void; actions: LendingActions;
+  modal: ModalState; listing: Listing | null; activeDao: ActiveDao; onClose: () => void; actions: LendingActions; orgClasses?: OrgClass[];
 }) {
-  if (modal.kind === "list") return <ListCollateralModal activeDao={activeDao} onClose={onClose} actions={actions} />;
+  if (modal.kind === "list") return <ListCollateralModal activeDao={activeDao} onClose={onClose} actions={actions} orgClasses={orgClasses} />;
   if (!listing) return null;
   switch (modal.kind) {
     case "quote": return <PostQuoteModal listing={listing} onClose={onClose} actions={actions} />;

@@ -1,16 +1,13 @@
-// Share Lending Market — page shell, point-of-view toggle, global order book
-// (cards + table layouts) and the lifecycle state machine. Detail view lives in
-// components/Lending/LendingDetail.tsx; action dialogs in LendingModals.tsx.
-//
-// THIS IS A VISUAL MOCK behind the `lending` feature flag. Ported 1:1 from the
-// designer mockup (Designs/Bare Bones/app/lending*.jsx). It runs entirely off
-// seed data + local component state — NOTHING is wired to chain, the subgraph or
-// the API. The only real integrations are navigation (route + nav entry, gated by
-// the feature flag) and the app's toast host for action feedback.
-import { useMemo, useState } from "react";
+// Share Lending Market — page shell wired to the real stack. The cross-org order book comes from
+// the subgraph ⋈ BareBonesApi metadata (useLendingMarket); the lifecycle actions are real contract
+// calls (useLendingActions); a Super Admin enables their org via useLendingAdmin. The presentational
+// components (header / book / cards / detail / modals) and the CSS are unchanged from the design port.
+import { useCallback, useMemo, useState } from "react";
 import "../styles/lending.css";
 import { PageContainer } from "../components/PageWrapper/PageContainer";
 import { useWalletProvider } from "../hooks/useWalletProvider";
+import { useActiveOrganization } from "../providers/ActiveOrganizationProvider";
+import { orgSlugFor } from "../utils/payroll/orgSlug";
 import { useToastStore } from "../components/Toasts/useToastStore";
 import { ToastBehavior, ToastPosition, ToastType } from "../components/Toasts/toast.types";
 import { I } from "../components/Lending/lendingIcons";
@@ -18,31 +15,68 @@ import { ListingDetail } from "../components/Lending/LendingDetail";
 import { LendingModals } from "../components/Lending/LendingModals";
 import {
   OrgAvatar, StatusPill, TeaserChips,
-  type LendingActions, type LmToast, type ModalState, type RequireWallet,
+  type LmToast, type ModalState, type RequireWallet,
 } from "../components/Lending/lendingShared";
 import {
-  ASSET_TYPES, LENDING_LISTINGS, LENDERS, LEND_NOW,
-  abbrevShares, abbrevUsd, activeDaoOrg, addDays, bpsPct, fmtDate, fmtShares,
-  listingPhase, loanMath, monthsLabel, newLendId,
+  ASSET_TYPES,
+  abbrevShares, abbrevUsd, bpsPct, listingPhase, loanMath, monthsLabel,
   type ActiveDao, type Listing, type Pov,
 } from "../components/Lending/lendingData";
+import { useLendingMarket } from "../hooks/lending/useLendingMarket";
+import { useLendingActions } from "../hooks/lending/useLendingActions";
+import { useLendingAdmin } from "../hooks/lending/useLendingAdmin";
 
-// The signed-in lender identity + the borrowing org are mocked here (the standalone
-// prototype always assumes a connected wallet on a DAO). We default the borrower
-// point-of-view to Quorum Collective so the "Borrow" tabs render as designed.
-const MOCK_ACTIVE_DAO: ActiveDao = {
-  id: "quorum",
-  name: "Quorum Collective",
-  symbol: "QRM",
-  owner: "0x8F3A7b241cAa9E1d7bC2d5a0F4911ee37dC2c0aB",
-  avatar: { glyph: "Q", bg: "#2b3ad6" },
-};
+const prettify = (name: string): string =>
+  name.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).trim();
+
+function safeSlug(name: string): string | null {
+  try {
+    return name ? orgSlugFor(name) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function LendingPage() {
   const { account, connect } = useWalletProvider();
+  const { activeOrgSlug } = useActiveOrganization();
   const { showToast } = useToastStore();
 
-  // Map the prototype's window.toast.* onto the app's global toast host.
+  const orgName = activeOrgSlug ?? "";
+  const slugBytes = useMemo(() => safeSlug(orgName), [orgName]);
+  const activeDao: ActiveDao = useMemo(
+    () => ({
+      id: orgName,
+      name: prettify(orgName) || "Your org",
+      avatar: { glyph: (orgName[0] || "?").toUpperCase(), bg: "#2b3ad6" },
+      owner: account ?? undefined,
+    }),
+    [orgName, account],
+  );
+
+  const { listings, meta, loading, error, classesForOrg } = useLendingMarket();
+  const getListing = useCallback((id: string) => listings.find((l) => l.id === id), [listings]);
+  const actions = useLendingActions({
+    marketAddress: meta?.marketAddress ?? "",
+    decimals: meta?.decimals ?? 18,
+    activeSlugBytes: slugBytes,
+    getListing,
+  });
+  const admin = useLendingAdmin(slugBytes, orgName || null);
+  const orgClasses = slugBytes ? classesForOrg(slugBytes) : [];
+
+  // The mock assumed a connected lender; real wiring uses the connected wallet, and requireWallet
+  // prompts a connect when needed.
+  const wallet = account;
+  const requireWallet: RequireWallet = (fn) => () => {
+    if (!wallet) {
+      void connect();
+      return;
+    }
+    fn();
+  };
+
+  // ListingDetail's doc-link uses a small info toast — bridge it to the global toast host.
   const toast: LmToast = useMemo(() => {
     let n = 0;
     const mk =
@@ -65,11 +99,6 @@ export function LendingPage() {
     };
   }, [showToast]);
 
-  const wallet = account; // null when disconnected → requireWallet triggers connect
-  const activeDao = MOCK_ACTIVE_DAO;
-  const layout: "cards" | "table" = "cards";
-
-  const [listings, setListings] = useState<Listing[]>(() => LENDING_LISTINGS.map((l) => ({ ...l })));
   const [pov, setPov] = useState<Pov>(() => {
     try {
       return (localStorage.getItem("lm-pov") as Pov) || "lender";
@@ -89,158 +118,29 @@ export function LendingPage() {
   const [tab, setTab] = useState("market");
   const [openId, setOpenId] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState | null>(null);
+  const layout: "cards" | "table" = "cards";
 
-  // In-page open/close kept in local state (the prototype deep-links via the URL
-  // hash, but this app uses a HashRouter — so we don't touch the hash here).
   const goListing = (id: string | null) => {
     setOpenId(id);
     if (id) window.scrollTo({ top: 0 });
   };
 
-  const patch = (id: string, fn: (l: Listing) => Listing) =>
-    setListings((list) => list.map((l) => (l.id === id ? fn({ ...l }) : l)));
-  const requireWallet: RequireWallet = (fn) => () => {
-    if (!wallet) {
-      void connect();
-      return;
-    }
-    fn();
-  };
-
-  // ---- lifecycle actions (all local-state mutations) ----
-  const actions: LendingActions = {
-    postQuote: (id, draft) => {
-      patch(id, (l) => {
-        const q = {
-          id: newLendId("q"),
-          lender: LENDERS.me,
-          mine: true,
-          amount: draft.amount,
-          rateBps: draft.rateBps,
-          termMonths: draft.termMonths,
-          expiry: fmtDate(addDays(LEND_NOW, draft.expiryDays)),
-          expiryDays: draft.expiryDays,
-          deposit: l.requireDeposit ? l.depositAmount : 0,
-          status: "pending" as const,
-          postedAt: fmtDate(LEND_NOW),
-        };
-        return { ...l, quotes: [q, ...l.quotes] };
-      });
-      toast.success("Quote posted", {
-        description: `${abbrevUsd(draft.amount)} @ ${bpsPct(draft.rateBps)} · ${monthsLabel(draft.termMonths)} · non-binding until you fund`,
-        duration: 4500,
-      });
-    },
-    withdrawQuote: (id, qid) => {
-      patch(id, (l) => ({ ...l, quotes: l.quotes.map((q) => (q.id === qid ? { ...q, status: "withdrawn" } : q)) }));
-      toast.info("Quote withdrawn", { description: "Good-faith deposit (if any) returned.", duration: 3000 });
-    },
-    acceptQuote: (id, qid) => {
-      const lst = listings.find((x) => x.id === id);
-      const others = lst ? lst.quotes.filter((q) => q.status === "pending" && q.id !== qid).length : 0;
-      patch(id, (l) => ({
-        ...l,
-        status: "matched",
-        matchedQuoteId: qid,
-        quotes: l.quotes.map((q) =>
-          q.id === qid ? { ...q, status: "accepted" } : q.status === "pending" ? { ...q, status: "declined" } : q,
-        ),
-      }));
-      toast.success("Quote accepted", {
-        description: `Loan terms locked · documents released to lender${others ? ` · ${others} losing quote${others > 1 ? "s" : ""} refunded` : ""}`,
-        duration: 4500,
-      });
-    },
-    declineQuote: (id, qid) => {
-      patch(id, (l) => ({ ...l, quotes: l.quotes.map((q) => (q.id === qid ? { ...q, status: "declined" } : q)) }));
-      toast.info("Quote declined", { description: "Deposit returned to the lender.", duration: 3000 });
-    },
-    fundLoan: (id) => {
-      patch(id, (l) => {
-        const q = l.quotes.find((x) => x.id === l.matchedQuoteId)!;
-        return {
-          ...l,
-          status: "funded",
-          quotes: l.quotes.map((x) => (x.id === q.id ? { ...x, status: "funded" } : x)),
-          loan: {
-            lender: q.lender,
-            mine: q.mine,
-            principal: q.amount,
-            rateBps: q.rateBps,
-            penaltyRateBps: q.rateBps + 1200,
-            termMonths: q.termMonths,
-            graceDays: 30,
-            startedAt: LEND_NOW.toISOString().slice(0, 10),
-          },
-        };
-      });
-      toast.success("Loan funded", { description: "Principal transferred to borrower · collateral locked · clock started.", duration: 4500 });
-    },
-    repayLoan: (id) => {
-      patch(id, (l) => ({ ...l, status: "repaid", closedNote: `Repaid in full on ${fmtDate(LEND_NOW)} · collateral unlocked & released to borrower.` }));
-      toast.success("Loan repaid", { description: "Principal + accrued interest paid · pledged shares unlocked.", duration: 4500 });
-    },
-    foreclose: (id) => {
-      patch(id, (l) => ({
-        ...l,
-        status: "foreclosed",
-        closedNote: `Strict foreclosure executed ${fmtDate(LEND_NOW)} · ${fmtShares(l.pledgedShares)} ${l.classId} transferred to ${l.loan?.lender.name} (eligible holder).`,
-      }));
-      toast.warning("Foreclosure executed", { description: "Pledged shares transferred to the lender — compliance gate passed.", duration: 4500 });
-    },
-    forfeitDeposit: (id) => {
-      toast.warning("Deposit forfeited", { description: "Lender failed to fund in the window — good-faith deposit sent to the platform fee-sink.", duration: 4500 });
-      patch(id, (l) => ({
-        ...l,
-        status: "open",
-        matchedQuoteId: null,
-        quotes: l.quotes.map((q) => (q.status === "accepted" ? { ...q, status: "withdrawn" } : q)),
-      }));
-    },
-    listCollateral: (draft) => {
-      const id = newLendId("lst");
-      const l: Listing = {
-        id,
-        borrower: { ...activeDaoOrg(activeDao) },
-        borrowerOrgId: activeDao.id,
-        asset: draft.asset,
-        assetSub: draft.assetSub,
-        assetType: draft.assetType,
-        classId: draft.classId,
-        classColor: "var(--accent)",
-        pledgedShares: draft.pledgedShares,
-        valuePerShare: draft.valuePerShare,
-        wantAmount: draft.wantAmount,
-        maxRateBps: draft.maxRateBps,
-        termMonths: draft.termMonths,
-        requireDeposit: draft.requireDeposit,
-        depositAmount: draft.depositAmount,
-        mediator: draft.mediator || "",
-        teaser: {
-          lien: draft.lien,
-          title: draft.title,
-          rented: draft.rented,
-          rentRate: draft.rentRate,
-          occupancy: draft.occupancy,
-          noi: draft.noi || "—",
-          appraisal: draft.appraisal || "—",
-        },
-        docHash: draft.docHash || "0x0000…0000",
-        docLink: draft.docLink || "ipfs://…",
-        docNote: "Released to the accepted lender (accept-then-view).",
-        postedAt: fmtDate(LEND_NOW),
-        status: "open",
-        quotes: [],
-      };
-      setListings((list) => [l, ...list]);
-      toast.success("Collateral listed", { description: `${draft.asset} · ${abbrevUsd(draft.wantAmount)} ask · shares pledged into escrow`, duration: 4500 });
-      goListing(id);
-    },
-    release: (id, label) => {
-      toast.success("Dispute resolved", { description: label, duration: 4500 });
-      patch(id, (l) => ({ ...l, disputeNote: label }));
-    },
-  };
+  // Market not deployed on this chain.
+  if (!meta && !loading) {
+    return (
+      <PageContainer maxWidth={1200}>
+        <div className="lm-scope">
+          <div className="lm-page" style={{ padding: "28px 0 80px" }}>
+            <div className="lm-empty">
+              <span className="lm-empty-icon"><I.Layers size={22} /></span>
+              <h4>Lending market unavailable</h4>
+              <p>The Share Lending Market isn't deployed on this chain yet.</p>
+            </div>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
 
   // selected listing detail
   if (openId) {
@@ -272,6 +172,7 @@ export function LendingPage() {
               activeDao={activeDao}
               onClose={() => setModal(null)}
               actions={actions}
+              orgClasses={orgClasses}
             />
           )}
         </div>
@@ -292,19 +193,36 @@ export function LendingPage() {
             listings={listings}
             onList={requireWallet(() => setModal({ kind: "list" }))}
           />
-          <MarketBook
-            listings={listings}
-            pov={pov}
-            tab={tab}
-            setTab={setTab}
-            activeDao={activeDao}
-            layout={layout}
-            onOpen={goListing}
-            onList={requireWallet(() => setModal({ kind: "list" }))}
-          />
+
+          {error && (
+            <div className="pay-banner pay-banner-warn" style={{ gridTemplateColumns: "auto 1fr" }}>
+              <I.Alert size={14} /><div>{error}</div>
+            </div>
+          )}
+          {pov === "borrower" && slugBytes && !admin.checking && !admin.enabled && (
+            <div className="pay-banner" style={{ gridTemplateColumns: "auto 1fr auto" }}>
+              <I.Lock size={14} />
+              <div><b>Lending isn't enabled for {activeDao.name}.</b> A Super Admin registers the cap table and allows the market to lock collateral.</div>
+              <button className="pay-banner-act" onClick={requireWallet(() => { void admin.enableLending(); })}>Enable lending</button>
+            </div>
+          )}
+          {loading && listings.length === 0 ? (
+            <div className="muted small" style={{ padding: "8px 2px" }}>Loading the market…</div>
+          ) : (
+            <MarketBook
+              listings={listings}
+              pov={pov}
+              tab={tab}
+              setTab={setTab}
+              activeDao={activeDao}
+              layout={layout}
+              onOpen={goListing}
+              onList={requireWallet(() => setModal({ kind: "list" }))}
+            />
+          )}
         </div>
         {modal && modal.kind === "list" && (
-          <LendingModals modal={modal} listing={null} activeDao={activeDao} onClose={() => setModal(null)} actions={actions} />
+          <LendingModals modal={modal} listing={null} activeDao={activeDao} onClose={() => setModal(null)} actions={actions} orgClasses={orgClasses} />
         )}
       </div>
     </PageContainer>

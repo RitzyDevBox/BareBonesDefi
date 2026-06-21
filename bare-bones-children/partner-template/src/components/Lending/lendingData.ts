@@ -37,6 +37,8 @@ export interface Quote {
   deposit: number;
   status: QuoteStatus;
   postedAt: string;
+  /** Raw on-chain quote index, present when adapted from the subgraph. */
+  chainQuoteId?: number;
 }
 
 export interface Loan {
@@ -88,6 +90,11 @@ export interface Listing {
   loan?: Loan;
   closedNote?: string;
   disputeNote?: string;
+  /** Raw on-chain identity, present when this Listing is adapted from the subgraph (not the seed).
+   *  The lifecycle actions read these to build contract calls. */
+  slugBytes?: string;
+  chainListingId?: number;
+  loanId?: number;
 }
 
 export interface ActiveDao {
@@ -158,21 +165,21 @@ export const fmtDate = (d: Date): string =>
 // applies only to the [maturity → now] portion once past due; both clocks are
 // capped at the foreclosure point (maturity + grace) so a defaulted-but-
 // unforeclosed debt can't run away. Mirrors amountOwed() in the spec.
-export function loanMath(L: Loan | undefined | null): LoanMath | null {
+export function loanMath(L: Loan | undefined | null, now: Date = new Date()): LoanMath | null {
   if (!L) return null;
   const start = new Date(L.startedAt);
   const maturity = addDays(start, L.termMonths * 30);
   const graceEnds = addDays(maturity, L.graceDays);
-  const horizon = LEND_NOW < graceEnds ? LEND_NOW : graceEnds;
+  const horizon = now < graceEnds ? now : graceEnds;
   const elapsedDays = Math.max(0, daysBetween(start, horizon));
   const base = L.principal * (L.rateBps / 10000) * (elapsedDays / 365);
   const overDays = Math.max(0, daysBetween(maturity, horizon));
   const penalty = L.principal * (L.penaltyRateBps / 10000) * (overDays / 365);
-  const pastDue = LEND_NOW > maturity;
-  const inGrace = pastDue && LEND_NOW <= graceEnds;
-  const defaulted = LEND_NOW > graceEnds;
-  const daysToMaturity = daysBetween(LEND_NOW, maturity);
-  const daysToForeclose = daysBetween(LEND_NOW, graceEnds);
+  const pastDue = now > maturity;
+  const inGrace = pastDue && now <= graceEnds;
+  const defaulted = now > graceEnds;
+  const daysToMaturity = daysBetween(now, maturity);
+  const daysToForeclose = daysBetween(now, graceEnds);
   return {
     start, maturity, graceEnds,
     principal: L.principal, interest: base, penalty,
