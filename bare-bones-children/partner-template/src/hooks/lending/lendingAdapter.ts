@@ -102,6 +102,7 @@ function adaptQuote(q: GraphQuote, decimals: number, account: string | null): Qu
     deposit: toNum(q.deposit, decimals),
     status: QUOTE_STATUS_MAP[q.status] ?? "pending",
     postedAt: "",
+    mediator: q.mediator && q.mediator !== ethers.constants.AddressZero ? q.mediator : "",
   };
 }
 
@@ -155,7 +156,9 @@ export function adaptListing(gl: GraphListing, ctx: AdaptContext): Listing | nul
   // Only surface a loan panel once funded (Accepted-but-unfunded shows as "matched" with no loan, like the mock).
   const loanFunded = gl.loan && gl.loan.status !== "Accepted";
   const loan = loanFunded ? adaptLoan(gl.loan as GraphLoan, ctx) : undefined;
-  const loanId = gl.loanId != null ? Number(gl.loanId) : gl.loan ? Number(gl.loan.loanId) : undefined;
+  // loanId 0 = "no loan" (on-chain ids start at 1, 0 reserved).
+  const loanIdRaw = gl.loanId != null ? Number(gl.loanId) : gl.loan ? Number(gl.loan.loanId) : 0;
+  const loanId = loanIdRaw > 0 ? loanIdRaw : undefined;
 
   let closedNote: string | undefined;
   if (status === "repaid") closedNote = "Repaid in full · collateral unlocked & released to the borrower.";
@@ -180,7 +183,11 @@ export function adaptListing(gl: GraphListing, ctx: AdaptContext): Listing | nul
     termMonths: Math.max(1, Math.round(Number(gl.termSeconds) / (30 * 86400))),
     requireDeposit: gl.requireDeposit,
     depositAmount: toNum(gl.depositAmount, ctx.decimals),
-    mediator: gl.mediator && gl.mediator !== ethers.constants.AddressZero ? gl.mediator : "",
+    // The mediator now lives on the quote (lender-proposed) → the funded loan, or the accepted quote.
+    mediator: (() => {
+      const m = gl.loan?.mediator || matched?.mediator || "";
+      return m && m !== ethers.constants.AddressZero ? m : "";
+    })(),
     teaser: meta?.teaser || FALLBACK_TEASER,
     docHash: gl.metadataHash,
     docLink: meta?.docLink || "",

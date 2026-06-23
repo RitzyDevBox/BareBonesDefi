@@ -28,6 +28,9 @@ export interface MarketMeta {
 export interface OrgClass {
   classId: number;
   name: string;
+  /** Connected wallet's free (unpledged) balance in this class, in whole shares — populated by
+   *  useOrgHoldings for the "List collateral" picker. */
+  free?: number;
 }
 
 export interface UseLendingMarket {

@@ -15,8 +15,8 @@ import type { Listing } from "../../components/Lending/lendingData";
 import type { LendingActions } from "../../components/Lending/lendingShared";
 
 const MARKET_ABI = [
-  "function listCollateral(bytes32 slug, uint256 classId, uint256 shares, uint256 wantAmount, uint16 maxRateBps, uint64 termSeconds, bytes32 metadataHash, bool requireDeposit, uint256 depositAmount, address mediator) returns (uint256)",
-  "function postQuote(bytes32 slug, uint256 listingId, uint256 amount, uint16 rateBps, uint64 termSeconds, uint64 expiry) returns (uint256)",
+  "function listCollateral(bytes32 slug, uint256 classId, uint256 shares, uint256 wantAmount, uint16 maxRateBps, uint64 termSeconds, bytes32 metadataHash, bool requireDeposit, uint256 depositAmount) returns (uint256)",
+  "function postQuote(bytes32 slug, uint256 listingId, uint256 amount, uint16 rateBps, uint64 termSeconds, uint64 expiry, address mediator) returns (uint256)",
   "function acceptQuote(bytes32 slug, uint256 listingId, uint256 quoteId) returns (uint256)",
   "function rejectQuote(bytes32 slug, uint256 listingId, uint256 quoteId)",
   "function withdrawQuote(bytes32 slug, uint256 listingId, uint256 quoteId)",
@@ -98,7 +98,8 @@ export function useLendingActions({
         const ok = await approve(token, toBase(l.depositAmount), "Good-faith deposit approved");
         if (!ok) return;
       }
-      const data = market.encodeFunctionData("postQuote", [slug, lid, toBase(draft.amount), draft.rateBps, termSeconds, expiry]);
+      const mediator = draft.mediator && ethers.utils.isAddress(draft.mediator) ? draft.mediator : ethers.constants.AddressZero;
+      const data = market.encodeFunctionData("postQuote", [slug, lid, toBase(draft.amount), draft.rateBps, termSeconds, expiry, mediator]);
       await call(data, "Quote posted");
     },
 
@@ -183,7 +184,7 @@ export function useLendingActions({
       const data = market.encodeFunctionData("listCollateral", [
         activeSlugBytes, classId, toShares(draft.pledgedShares), toBase(draft.wantAmount),
         draft.maxRateBps, termSeconds, metadataHash, draft.requireDeposit,
-        draft.requireDeposit ? toBase(draft.depositAmount) : 0, draft.mediator || ethers.constants.AddressZero,
+        draft.requireDeposit ? toBase(draft.depositAmount) : 0,
       ]);
       const tx = await call(data, "Collateral listed · shares pledged");
       if (!tx) return;

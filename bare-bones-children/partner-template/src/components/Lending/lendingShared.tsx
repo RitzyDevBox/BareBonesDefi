@@ -23,6 +23,8 @@ export interface QuoteDraft {
   rateBps: number;
   termMonths: number;
   expiryDays: number;
+  /** Lender-proposed dispute mediator address ("" = none). The borrower agrees by accepting. */
+  mediator: string;
 }
 export interface ListDraft {
   asset: string;
@@ -38,7 +40,6 @@ export interface ListDraft {
   termMonths: number;
   requireDeposit: boolean;
   depositAmount: number;
-  mediator: string;
   lien: string;
   title: string;
   rented: boolean;

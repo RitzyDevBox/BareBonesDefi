@@ -37,6 +37,8 @@ export interface Quote {
   deposit: number;
   status: QuoteStatus;
   postedAt: string;
+  /** Lender-proposed dispute mediator (empty = none); the borrower agrees by accepting the quote. */
+  mediator?: string;
   /** Raw on-chain quote index, present when adapted from the subgraph. */
   chainQuoteId?: number;
 }

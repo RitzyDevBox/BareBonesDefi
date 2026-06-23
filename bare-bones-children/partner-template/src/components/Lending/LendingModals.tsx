@@ -18,15 +18,17 @@ function PostQuoteModal({ listing: l, onClose, actions }: { listing: Listing; on
   const [ratePct, setRatePct] = useState(existing ? existing.rateBps / 100 : Math.max(1, l.maxRateBps / 100 - 1));
   const [term, setTerm] = useState(existing ? existing.termMonths : l.termMonths);
   const [expiryDays, setExpiryDays] = useState(existing ? existing.expiryDays : 7);
+  const [mediator, setMediator] = useState(existing?.mediator ?? "");
 
   const rateBps = Math.round(ratePct * 100);
   const overRate = rateBps > l.maxRateBps;
   const overAmt = amount > l.wantAmount * 1.25;
-  const valid = amount > 0 && rateBps > 0 && term > 0 && !overRate;
+  const badMediator = mediator.trim().length > 0 && !/^0x[0-9a-fA-F]{40}$/.test(mediator.trim());
+  const valid = amount > 0 && rateBps > 0 && term > 0 && !overRate && !badMediator;
 
   const submit = () => {
     if (!valid) return;
-    actions.postQuote(l.id, { amount, rateBps, termMonths: term, expiryDays });
+    actions.postQuote(l.id, { amount, rateBps, termMonths: term, expiryDays, mediator: mediator.trim() });
     onClose();
   };
 
@@ -60,6 +62,9 @@ function PostQuoteModal({ listing: l, onClose, actions }: { listing: Listing; on
               <span className="input-unit">days</span>
             </div>
           </Field>
+          <Field label="Dispute mediator (optional)" full hint={badMediator ? "Not a valid address" : "An address that can force a dispute release — e.g. a multisig/arbitrator. The borrower agrees to it by accepting your quote. Leave blank for none."}>
+            <input className="input mono" aria-invalid={badMediator} value={mediator} placeholder="0x… (optional)" onChange={(e) => setMediator(e.target.value)} />
+          </Field>
         </div>
 
         <div className="lm-kv" style={{ gridTemplateColumns: "1fr 1fr" }}>
@@ -70,7 +75,7 @@ function PostQuoteModal({ listing: l, onClose, actions }: { listing: Listing; on
         </div>
 
         <div className="dist-summary">
-          <div className="dist-summary-row"><span className="muted small">Interest at maturity (simple)</span><span className="mono">{fmtUsd(Math.round(amount * (rateBps / 10000) * (term / 12)))}</span></div>
+          <div className="dist-summary-row"><span className="muted small">Max interest (full term · less if repaid early)</span><span className="mono">{fmtUsd(Math.round(amount * (rateBps / 10000) * (term / 12)))}</span></div>
           {l.requireDeposit && <div className="dist-summary-row"><span className="muted small">Good-faith deposit (refundable)</span><span className="mono">{fmtUsd(l.depositAmount)}</span></div>}
         </div>
         <span className="lm-elig"><I.CheckC size={13} /> Eligible holder — you can legally foreclose if the loan defaults</span>
@@ -199,20 +204,25 @@ function DisputeModal({ listing: l, onClose, actions }: { listing: Listing; onCl
 }
 
 // ---------- List collateral (borrower) ----------
+const LIEN_OPTIONS = ["1st-position, clean", "1st-position", "2nd-position", "Unsecured"];
+const TITLE_OPTIONS = ["Insured · no clouds", "Insured", "Uninsured"];
+
 function ListCollateralModal({ activeDao, onClose, actions, orgClasses = [] }: { activeDao: ActiveDao; onClose: () => void; actions: LendingActions; orgClasses?: OrgClass[] }) {
   const [f, setF] = useState({
     asset: "", assetSub: "", assetType: "multifamily",
     classId: orgClasses[0]?.name ?? "",
     classIdNum: orgClasses[0]?.classId ?? 0,
-    pledgedShares: 1000000, valuePerShare: 2.5,
-    wantAmount: 1500000, maxRatePct: 11, termMonths: 36,
-    requireDeposit: false, depositAmount: 15000, mediator: "",
-    lien: "1st-position, clean", title: "Insured · no clouds", rented: true,
-    rentRate: "", occupancy: "90%", noi: "", appraisal: "",
-    docLink: "ipfs://…/package.zip", docHash: "0x0000…0000",
+    pledgedShares: Math.floor(orgClasses[0]?.free ?? 0), valuePerShare: 0,
+    wantAmount: 0, maxRatePct: 11, termMonths: 36,
+    requireDeposit: false, depositAmount: 15000,
+    lien: LIEN_OPTIONS[0], title: TITLE_OPTIONS[0], rented: true,
+    rentYearly: 0, occupancyPct: 90, noiYearly: 0, appraisalUsd: 0,
+    docLink: "",
   });
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((s) => ({ ...s, [k]: v }));
-  const valid = f.asset.trim() && f.wantAmount > 0 && f.pledgedShares > 0;
+  const selFree = Math.floor(orgClasses.find((c) => c.classId === f.classIdNum)?.free ?? 0);
+  const overPledge = f.pledgedShares > selFree;
+  const valid = Boolean(f.asset.trim()) && f.wantAmount > 0 && f.pledgedShares > 0 && !overPledge;
 
   const submit = () => {
     if (!valid) return;
@@ -220,9 +230,14 @@ function ListCollateralModal({ activeDao, onClose, actions, orgClasses = [] }: {
       asset: f.asset.trim(), assetSub: f.assetSub.trim() || ASSET_TYPES[f.assetType], assetType: f.assetType,
       classId: f.classId.trim() || `Class ${f.classIdNum}`, classIdNum: f.classIdNum, pledgedShares: f.pledgedShares, valuePerShare: f.valuePerShare,
       wantAmount: f.wantAmount, maxRateBps: Math.round(f.maxRatePct * 100), termMonths: f.termMonths,
-      requireDeposit: f.requireDeposit, depositAmount: f.requireDeposit ? f.depositAmount : 0, mediator: f.mediator.trim(),
-      lien: f.lien, title: f.title, rented: f.rented, rentRate: f.rentRate || "—", occupancy: f.rented ? f.occupancy : "—",
-      noi: f.noi, appraisal: f.appraisal, docLink: f.docLink, docHash: f.docHash,
+      requireDeposit: f.requireDeposit, depositAmount: f.requireDeposit ? f.depositAmount : 0,
+      lien: f.lien, title: f.title, rented: f.rented,
+      // Structured numeric inputs → the consistent display strings the cards/detail render.
+      rentRate: f.rented && f.rentYearly > 0 ? `$${f.rentYearly.toLocaleString()} / yr` : "—",
+      occupancy: f.rented ? `${f.occupancyPct}%` : "—",
+      noi: f.noiYearly > 0 ? `$${f.noiYearly.toLocaleString()} / yr` : "—",
+      appraisal: f.appraisalUsd > 0 ? `$${f.appraisalUsd.toLocaleString()}` : "—",
+      docLink: f.docLink, docHash: "0x0000…0000",
     });
     onClose();
   };
@@ -256,16 +271,18 @@ function ListCollateralModal({ activeDao, onClose, actions, orgClasses = [] }: {
                   onChange={(e) => {
                     const cid = Number(e.target.value);
                     const cls = orgClasses.find((c) => c.classId === cid);
-                    setF((s) => ({ ...s, classIdNum: cid, classId: cls?.name ?? `Class ${cid}` }));
+                    setF((s) => ({ ...s, classIdNum: cid, classId: cls?.name ?? `Class ${cid}`, pledgedShares: Math.floor(cls?.free ?? 0) }));
                   }}
                 >
-                  {orgClasses.map((c) => <option key={c.classId} value={c.classId}>{c.name}</option>)}
+                  {orgClasses.map((c) => <option key={c.classId} value={c.classId}>{c.name} · {Math.floor(c.free ?? 0).toLocaleString()} free</option>)}
                 </select>
               ) : (
                 <input className="input" inputMode="numeric" value={f.classIdNum} onChange={(e) => set("classIdNum", parseNum(e.target.value))} />
               )}
             </Field>
-            <Field label="Shares pledged"><input className="input" inputMode="numeric" value={f.pledgedShares.toLocaleString()} onChange={(e) => set("pledgedShares", parseNum(e.target.value))} /></Field>
+            <Field label="Shares pledged" hint={overPledge ? `Only ${selFree.toLocaleString()} free in this class` : `${selFree.toLocaleString()} free`}>
+              <input className="input" inputMode="numeric" aria-invalid={overPledge} value={f.pledgedShares.toLocaleString()} onChange={(e) => set("pledgedShares", parseNum(e.target.value))} />
+            </Field>
             <Field label="Loan wanted"><div className="input-with-unit"><span className="input-unit">$</span><input className="input" inputMode="numeric" value={f.wantAmount.toLocaleString()} onChange={(e) => set("wantAmount", parseNum(e.target.value))} /></div></Field>
             <Field label="Max rate"><div className="input-with-unit"><input className="input" inputMode="decimal" value={f.maxRatePct} onChange={(e) => set("maxRatePct", parseNum(e.target.value))} /><span className="input-unit">% / yr</span></div></Field>
             <Field label="Term"><div className="input-with-unit"><input className="input" inputMode="numeric" value={f.termMonths} onChange={(e) => set("termMonths", Math.round(parseNum(e.target.value)))} /><span className="input-unit">months</span></div></Field>
@@ -273,14 +290,22 @@ function ListCollateralModal({ activeDao, onClose, actions, orgClasses = [] }: {
         </div>
 
         <div className="cd-section">
-          <div className="cd-section-head"><h4>Teaser metadata</h4><p>Non-sensitive, on-chain. This is the lender's valuation input — full documents are released only after you accept a quote.</p></div>
+          <div className="cd-section-head"><h4>Teaser metadata</h4><p>Non-sensitive valuation input for lenders — full documents are released only after you accept a quote. Amounts are numbers so the format is consistent.</p></div>
           <div className="field-grid">
-            <Field label="Lien status"><input className="input" value={f.lien} onChange={(e) => set("lien", e.target.value)} /></Field>
-            <Field label="Title status"><input className="input" value={f.title} onChange={(e) => set("title", e.target.value)} /></Field>
-            <Field label="Rent / income"><input className="input" value={f.rentRate} placeholder="$1.0M / yr gross" onChange={(e) => set("rentRate", e.target.value)} /></Field>
-            <Field label="Occupancy"><input className="input" value={f.occupancy} onChange={(e) => set("occupancy", e.target.value)} /></Field>
-            <Field label="Net operating income"><input className="input" value={f.noi} placeholder="$600k / yr" onChange={(e) => set("noi", e.target.value)} /></Field>
-            <Field label="Last appraisal"><input className="input" value={f.appraisal} placeholder="$5.0M (2026)" onChange={(e) => set("appraisal", e.target.value)} /></Field>
+            <Field label="Lien status">
+              <select className="input" value={f.lien} onChange={(e) => set("lien", e.target.value)}>
+                {LIEN_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </Field>
+            <Field label="Title status">
+              <select className="input" value={f.title} onChange={(e) => set("title", e.target.value)}>
+                {TITLE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </Field>
+            <Field label="Last appraisal"><div className="input-with-unit"><span className="input-unit">$</span><input className="input" inputMode="numeric" value={f.appraisalUsd.toLocaleString()} onChange={(e) => set("appraisalUsd", parseNum(e.target.value))} /></div></Field>
+            {f.rented && <Field label="Yearly rent income"><div className="input-with-unit"><span className="input-unit">$ / yr</span><input className="input" inputMode="numeric" value={f.rentYearly.toLocaleString()} onChange={(e) => set("rentYearly", parseNum(e.target.value))} /></div></Field>}
+            {f.rented && <Field label="Occupancy"><div className="input-with-unit"><input className="input" inputMode="numeric" value={f.occupancyPct} onChange={(e) => set("occupancyPct", parseNum(e.target.value))} /><span className="input-unit">%</span></div></Field>}
+            <Field label="Yearly net operating income"><div className="input-with-unit"><span className="input-unit">$ / yr</span><input className="input" inputMode="numeric" value={f.noiYearly.toLocaleString()} onChange={(e) => set("noiYearly", parseNum(e.target.value))} /></div></Field>
           </div>
           <div className="flag-row">
             <div className="flag-row-k"><div className="flag-row-name">Currently leased</div><div className="flag-row-sub">Surfaces a "leased" badge and the rent figure on the listing card.</div></div>
@@ -297,9 +322,7 @@ function ListCollateralModal({ activeDao, onClose, actions, orgClasses = [] }: {
           {f.requireDeposit && (
             <Field label="Deposit amount"><div className="input-with-unit"><span className="input-unit">$</span><input className="input" inputMode="numeric" value={f.depositAmount.toLocaleString()} onChange={(e) => set("depositAmount", parseNum(e.target.value))} /></div></Field>
           )}
-          <Field label="Mediator address (optional)" hint="An address that CAN force a dispute release — e.g. a multisig or arbitrator. Leave blank for none.">
-            <input className="input mono" value={f.mediator} placeholder="0x…" onChange={(e) => set("mediator", e.target.value)} />
-          </Field>
+          <div className="muted small">The dispute mediator is proposed by the lender in their quote (you agree by accepting) — not set here.</div>
         </div>
       </div>
       <div className="modal-foot">

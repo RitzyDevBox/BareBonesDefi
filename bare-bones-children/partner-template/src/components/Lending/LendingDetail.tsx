@@ -153,25 +153,28 @@ export function ListingDetail({
             </div>
           </div>
 
-          {/* documents — accept-then-view gate */}
+          {/* documents — accept-then-view gate (borrower-provided link, revealed on accept) */}
           <div className="panel">
             <div className="panel-head">
-              <span className="kicker">Evidential documents</span>
-              <span className="muted small">Off-chain · hash committed</span>
+              <span className="kicker">Evidential document</span>
+              <span className="muted small">Borrower-provided link · revealed on accept</span>
             </div>
             <div className="panel-body">
               <div className={`lm-doc${docsUnlocked ? "" : " locked"}`}>
                 <span className="lm-doc-icon">{docsUnlocked ? <I.Eye size={16} /> : <I.Lock size={16} />}</span>
                 <div className="lm-doc-k">
                   <div style={{ fontWeight: 500, fontSize: 13.5 }}>
-                    {docsUnlocked ? "Documents released" : "Documents locked"}
+                    {docsUnlocked ? "Document link released" : "Document link locked"}
                   </div>
                   <div className="muted small">{l.docNote}</div>
-                  <div className="lm-doc-hash">sha256 {l.docHash}</div>
                   {docsUnlocked ? (
-                    <a className="cfg-link" href="#" onClick={(e) => { e.preventDefault(); toast.info("Opening secure link", { description: l.docLink, duration: 3000 }); }} style={{ marginTop: 2 }}>
-                      <I.Ext size={11} /> {l.docLink}
-                    </a>
+                    l.docLink ? (
+                      <a className="cfg-link" href="#" onClick={(e) => { e.preventDefault(); toast.info("Opening link", { description: l.docLink, duration: 3000 }); }} style={{ marginTop: 2 }}>
+                        <I.Ext size={11} /> {l.docLink}
+                      </a>
+                    ) : (
+                      <div className="muted small" style={{ marginTop: 2 }}>No document link was provided for this listing.</div>
+                    )
                   ) : (
                     <div className="muted small" style={{ marginTop: 2 }}>
                       {pov === "lender" ? "Visible once the borrower accepts your quote (accept-then-view)." : "Visible to the accepted lender."}

@@ -13,6 +13,7 @@ import { ToastBehavior, ToastPosition, ToastType } from "../components/Toasts/to
 import { I } from "../components/Lending/lendingIcons";
 import { ListingDetail } from "../components/Lending/LendingDetail";
 import { LendingModals } from "../components/Lending/LendingModals";
+import { EnableLendingModal } from "../components/Lending/EnableLendingModal";
 import {
   OrgAvatar, StatusPill, TeaserChips,
   type LmToast, type ModalState, type RequireWallet,
@@ -25,6 +26,7 @@ import {
 import { useLendingMarket } from "../hooks/lending/useLendingMarket";
 import { useLendingActions } from "../hooks/lending/useLendingActions";
 import { useLendingAdmin } from "../hooks/lending/useLendingAdmin";
+import { useOrgHoldings } from "../hooks/lending/useOrgHoldings";
 
 const prettify = (name: string): string =>
   name.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).trim();
@@ -64,6 +66,8 @@ export function LendingPage() {
   });
   const admin = useLendingAdmin(slugBytes, orgName || null);
   const orgClasses = slugBytes ? classesForOrg(slugBytes) : [];
+  // Only classes the connected wallet actually holds free shares in are pledgeable.
+  const holdable = useOrgHoldings(admin.shareToken, orgClasses).filter((c) => (c.free ?? 0) > 0);
 
   // The mock assumed a connected lender; real wiring uses the connected wallet, and requireWallet
   // prompts a connect when needed.
@@ -99,6 +103,20 @@ export function LendingPage() {
     };
   }, [showToast]);
 
+  // List collateral is only callable once lending is enabled for the org AND the wallet holds
+  // pledgeable shares — otherwise the on-chain call reverts (ShareTokenNotSet / InsufficientFree).
+  const openList = requireWallet(() => {
+    if (!admin.enabled) {
+      toast.warning("Enable lending first", { description: "Register this org's cap table before listing collateral." });
+      return;
+    }
+    if (holdable.length === 0) {
+      toast.warning("No shares to pledge", { description: "You hold no free shares in this org's classes." });
+      return;
+    }
+    setModal({ kind: "list" });
+  });
+
   const [pov, setPov] = useState<Pov>(() => {
     try {
       return (localStorage.getItem("lm-pov") as Pov) || "lender";
@@ -118,6 +136,7 @@ export function LendingPage() {
   const [tab, setTab] = useState("market");
   const [openId, setOpenId] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState | null>(null);
+  const [enableOpen, setEnableOpen] = useState(false);
   const layout: "cards" | "table" = "cards";
 
   const goListing = (id: string | null) => {
@@ -172,7 +191,7 @@ export function LendingPage() {
               activeDao={activeDao}
               onClose={() => setModal(null)}
               actions={actions}
-              orgClasses={orgClasses}
+              orgClasses={holdable}
             />
           )}
         </div>
@@ -191,7 +210,7 @@ export function LendingPage() {
               setTab(p === "lender" ? "market" : "mylistings");
             }}
             listings={listings}
-            onList={requireWallet(() => setModal({ kind: "list" }))}
+            onList={openList}
           />
 
           {error && (
@@ -203,7 +222,7 @@ export function LendingPage() {
             <div className="pay-banner" style={{ gridTemplateColumns: "auto 1fr auto" }}>
               <I.Lock size={14} />
               <div><b>Lending isn't enabled for {activeDao.name}.</b> A Super Admin registers the cap table and allows the market to lock collateral.</div>
-              <button className="pay-banner-act" onClick={requireWallet(() => { void admin.enableLending(); })}>Enable lending</button>
+              <button className="pay-banner-act" onClick={requireWallet(() => setEnableOpen(true))}>Enable lending</button>
             </div>
           )}
           {loading && listings.length === 0 ? (
@@ -217,13 +236,14 @@ export function LendingPage() {
               activeDao={activeDao}
               layout={layout}
               onOpen={goListing}
-              onList={requireWallet(() => setModal({ kind: "list" }))}
+              onList={openList}
             />
           )}
         </div>
         {modal && modal.kind === "list" && (
-          <LendingModals modal={modal} listing={null} activeDao={activeDao} onClose={() => setModal(null)} actions={actions} orgClasses={orgClasses} />
+          <LendingModals modal={modal} listing={null} activeDao={activeDao} onClose={() => setModal(null)} actions={actions} orgClasses={holdable} />
         )}
+        {enableOpen && <EnableLendingModal admin={admin} orgName={activeDao.name} onClose={() => setEnableOpen(false)} />}
       </div>
     </PageContainer>
   );

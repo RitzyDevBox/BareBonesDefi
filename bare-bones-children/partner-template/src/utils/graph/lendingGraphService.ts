@@ -15,6 +15,7 @@ export interface GraphQuote {
   termSeconds: string;
   expiry: string;
   deposit: string;
+  mediator: string; // lender-proposed dispute mediator (0x0 = none)
   status: string; // Open | Accepted | Rejected | Funded | Withdrawn
 }
 
@@ -29,6 +30,7 @@ export interface GraphLoan {
   termSeconds: string;
   startedAt: string | null;
   maturity: string | null;
+  mediator: string; // the mediator the accepted lender proposed (0x0 = none)
   status: string; // Accepted | Active | Repaid | Foreclosed | Released
 }
 
@@ -45,7 +47,6 @@ export interface GraphListing {
   metadataHash: string;
   requireDeposit: boolean;
   depositAmount: string;
-  mediator: string;
   status: string; // Open | Accepted | Closed
   loanId: string | null;
   createdAt: string;
@@ -86,7 +87,6 @@ const MARKET_QUERY = `
       metadataHash
       requireDeposit
       depositAmount
-      mediator
       status
       loanId
       createdAt
@@ -99,6 +99,7 @@ const MARKET_QUERY = `
         termSeconds
         expiry
         deposit
+        mediator
         status
       }
       loan {
@@ -112,6 +113,7 @@ const MARKET_QUERY = `
         termSeconds
         startedAt
         maturity
+        mediator
         status
       }
     }

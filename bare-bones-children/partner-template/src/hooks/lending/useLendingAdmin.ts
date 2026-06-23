@@ -26,7 +26,10 @@ export interface UseLendingAdmin {
   shareToken: string | null;
   enabled: boolean;
   checking: boolean;
-  enableLending: () => Promise<void>;
+  /** Step 1 of enabling: register the org's cap table on the market (setShareToken). */
+  registerCapTable: () => Promise<unknown>;
+  /** Step 2 of enabling: allow the market to lock/seize collateral (ShareToken.setLocker). */
+  allowCollateralLock: () => Promise<unknown>;
 }
 
 /** @param slugBytes active org slug (bytes32 hex). @param orgName human-readable org name (for the
@@ -81,21 +84,25 @@ export function useLendingAdmin(slugBytes: string | null, orgName: string | null
     return () => { cancelled = true; };
   }, [readProvider, slugBytes, orgName, marketAddress, chainId, config.payrollManagerAddress, version]);
 
-  const enableLending = useCallback(async () => {
-    if (!slugBytes || !shareToken || !marketAddress) return;
-    // 1) register the org's cap table on the market (authorized(slug))
-    await mta.execute(
+  // 1) register the org's cap table on the market (authorized(slug))
+  const registerCapTable = useCallback(() => {
+    if (!slugBytes || !shareToken || !marketAddress) return Promise.resolve(undefined);
+    return mta.execute(
       marketAddress,
       marketIface.encodeFunctionData("setShareToken", [slugBytes, shareToken]),
-      "Lending enabled · cap table registered",
+      "Cap table registered on the lending market",
     );
-    // 2) allow-list the market to lock/seize collateral on the ShareToken (onlyOwner = MTA)
-    await mta.execute(
+  }, [slugBytes, shareToken, marketAddress, mta, marketIface]);
+
+  // 2) allow-list the market to lock/seize collateral on the ShareToken (onlyOwner = MTA)
+  const allowCollateralLock = useCallback(() => {
+    if (!shareToken || !marketAddress) return Promise.resolve(undefined);
+    return mta.execute(
       shareToken,
       stIface.encodeFunctionData("setLocker", [marketAddress, true]),
-      "Lending enabled · collateral lock allowed",
+      "Market allowed to lock collateral",
     );
-  }, [slugBytes, shareToken, marketAddress, mta, marketIface, stIface]);
+  }, [shareToken, marketAddress, mta, stIface]);
 
-  return { shareToken, enabled, checking, enableLending };
+  return { shareToken, enabled, checking, registerCapTable, allowCollateralLock };
 }

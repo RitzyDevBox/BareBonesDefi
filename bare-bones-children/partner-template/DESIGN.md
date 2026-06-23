@@ -113,6 +113,27 @@ singletons are MTA-owned; holder-scoped calls (`transfer`, `claim`) are direct w
 
 ## Changelog
 
+### 2026-06-22 — Lending: guard listing, pledge from real holdings, structured teaser, enable workflow
+- **Why:** `listCollateral` reverted two ways — `ShareTokenNotSet()` (listing before the org was enabled)
+  and `InsufficientFree(classId, requested, available)` (the form defaulted to pledging 1,000,000 shares
+  regardless of what the wallet held). Both were UI gaps, not contract bugs.
+- **Guard listing.** "List collateral" now no-ops with a toast unless lending is enabled for the org AND
+  the connected wallet holds pledgeable shares. New [useOrgHoldings](src/hooks/lending/useOrgHoldings.ts)
+  reads `ShareToken.freeBalanceOf(account, classId)` per class; the picker only offers classes with a free
+  balance, shows "N free" per option, defaults the pledge to that balance and rejects over-pledging.
+- **Structured teaser inputs.** The free-text teaser fields (rent "$1.0M / yr", occupancy "90%", NOI,
+  appraisal) became **numeric** inputs ("Yearly rent income", "Yearly NOI", "Last appraisal" as `$`,
+  occupancy as `%`); lien/title became selects. Formatted into the display strings on submit, so the
+  card/detail rendering is unchanged but the captured data is consistent. (Off-chain metadata, but the
+  user's point stands: unverifiable free-text is pointless.)
+- **Enable lending is a 2-step workflow modal.** Enabling is two MTA txs — `setShareToken` (register the
+  cap table on the market) then `ShareToken.setLocker` (allow the market to lock/seize). Surfaced via a
+  `StepTimeline` ([EnableLendingModal](src/components/Lending/EnableLendingModal.tsx)) so the second
+  signature isn't a surprise; resumable if a step is rejected. `useLendingAdmin` now exposes
+  `registerCapTable()` / `allowCollateralLock()` instead of a single combined call.
+- **Class is per-listing, not per-enable.** Enabling registers the whole cap table; the collateral class
+  is chosen each time you list (now from your real holdings) — the contract has no per-class enablement.
+
 ### 2026-06-21 — Share Lending Market: wired to the real stack (graph + API + contract)
 - **Why:** the lending page shipped as a visual mock (entry below). This wires it to the live
   `ShareLendingMarket` contract, the subgraph (cross-org order book), and BareBonesApi (off-chain
