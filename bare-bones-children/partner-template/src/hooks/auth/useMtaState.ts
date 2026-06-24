@@ -129,18 +129,34 @@ export function useMtaState(slug: string, governanceTokenAddress?: string): MtaS
 
     (async () => {
       try {
-        // Graph is the fast path; if it's down / still syncing, fall back to reading the MTA contract
-        // directly so members/roles/permissions (and the super-admin gate) still resolve. The graph
-        // returns empty (not an error) for an un-bootstrapped slug, so only a real failure triggers the
-        // fallback — we don't mask "not initialized" as a graph outage.
+        // Graph is the fast path (it carries enrichment the chain doesn't — event timestamps, etc.), but
+        // it must NEVER be the only source: a down/wedged subgraph either throws ("not started syncing")
+        // OR returns successful-but-empty (stuck at block 0). Both have to fall through to reading the MTA
+        // contract directly, or the super-admin gate + members list silently disappear when the graph is
+        // behind. We can't distinguish "un-bootstrapped org" from "graph behind" off an empty graph alone,
+        // so we ask the chain — `fetchMtaStateOnChain` self-guards (returns empty iff the slug truly isn't
+        // bootstrapped), making it safe to consult on ANY empty graph result.
+        const mtaAddress = chainId != null ? getBareBonesConfiguration(chainId)?.multiTenantAuthAddress : null;
         let graph: MtaStateGraphResult;
         try {
           graph = await fetchMtaState(chainId, slug);
         } catch (graphErr) {
-          const mtaAddress = chainId != null ? getBareBonesConfiguration(chainId)?.multiTenantAuthAddress : null;
           if (!provider || !mtaAddress) throw graphErr;
-          console.warn("MTA subgraph unavailable — falling back to on-chain enumeration.", graphErr);
+          console.warn("MTA subgraph errored — falling back to on-chain enumeration.", graphErr);
           graph = await fetchMtaStateOnChain(provider, mtaAddress, slug);
+        }
+        // Graph returned OK but empty (no super admin / no members) → verify against the chain. If the org
+        // is actually bootstrapped on-chain, the graph is just behind; use the on-chain state instead.
+        const graphLooksEmpty =
+          !graph.slugConfig?.superAdmin ||
+          graph.slugConfig.superAdmin === EMPTY_STATE.superAdmin ||
+          graph.members.length === 0;
+        if (graphLooksEmpty && provider && mtaAddress) {
+          const onChain = await fetchMtaStateOnChain(provider, mtaAddress, slug);
+          if (onChain.slugConfig?.superAdmin && onChain.members.length > 0) {
+            console.warn("MTA subgraph is behind (empty for a bootstrapped org) — using on-chain enumeration.");
+            graph = onChain;
+          }
         }
 
         const wallets = graph.members.map((m) => m.wallet);

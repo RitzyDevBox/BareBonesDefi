@@ -7,13 +7,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ethers } from "ethers";
 import ShareTokenABI from "../../abis/capTable/ShareToken.abi.json";
-import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
-import DAOGovernorABI from "../../abis/dao/DAOGovernor.abi.json";
 import { useReadProvider } from "../useReadProvider";
 import { useWalletProvider } from "../useWalletProvider";
 import { useTxRefresh } from "../../providers/TxRefreshProvider";
 import { getBareBonesConfiguration } from "../../constants/misc";
-import { orgSlugFor } from "../../utils/payroll/orgSlug";
 import type { Member } from "../../types/members";
 import {
   type CapClass,
@@ -24,7 +21,7 @@ import {
   EMPTY_CAP_TABLE_STATE,
   classColor,
 } from "./capTableTypes";
-import { resolveShareTokenAddress } from "./shareTokenResolver";
+import { resolveOrgShareToken } from "./shareTokenResolver";
 // Shared scaling — the contract never scales (stores raw 18-dec base units); the frontend always
 // does. `formatTokens` = base units → whole-token display. Reused across all cap-table surfaces.
 import { formatTokens as toTokens } from "../../components/CapTable/capTableHelpers";
@@ -35,31 +32,6 @@ function toNum(v: ethers.BigNumberish): number {
 
 function shortAddr(a: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
-}
-
-/** Primary resolution: the cap table IS the DAO's IVotes token (formation path). Resolve the
- *  org's DAO → governor → token(), then probe `classCount()` to confirm it's a ShareToken (a
- *  legacy fungible GovernanceToken would revert the probe). Returns null on any miss so the
- *  caller can fall back to the standalone resolver (localStorage/subgraph). */
-async function resolveFromDaoToken(
-  provider: ethers.providers.Provider,
-  payrollManagerAddress: string,
-  slug: string,
-): Promise<string | null> {
-  try {
-    const pm = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as ethers.ContractInterface, provider);
-    const dao = await pm.daoOf(orgSlugFor(slug));
-    const governor: string = Array.isArray(dao) ? dao[0] : dao.governor;
-    if (!governor || governor === ethers.constants.AddressZero) return null;
-    const gov = new ethers.Contract(governor, DAOGovernorABI as ethers.ContractInterface, provider);
-    const token: string = await gov.token();
-    if (!token || token === ethers.constants.AddressZero) return null;
-    const probe = new ethers.Contract(token, ShareTokenABI as ethers.ContractInterface, provider);
-    await probe.classCount(); // reverts if `token` isn't a ShareToken
-    return token;
-  } catch {
-    return null;
-  }
 }
 
 function roleLabelForType(accountType: string): string {
@@ -192,8 +164,9 @@ export function useCapTable(slug: string, owner: string | null | undefined, memb
       // Primary: the cap table is the DAO token (formation path). Fall back to the standalone
       // resolver (localStorage record / subgraph) for cap tables created outside formation.
       const cfg = getBareBonesConfiguration(chainId);
-      let address = await resolveFromDaoToken(readProvider, cfg.payrollManagerAddress, slug);
-      if (!address) address = await resolveShareTokenAddress(chainId, slug, owner);
+      const address = await resolveOrgShareToken(readProvider, chainId, slug, owner, {
+        payrollManagerAddress: cfg.payrollManagerAddress,
+      });
       if (!address) {
         if (id === reqId.current) setState({ ...EMPTY_CAP_TABLE_STATE, hasTable: false });
         return;

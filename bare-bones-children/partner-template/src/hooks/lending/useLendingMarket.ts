@@ -10,13 +10,12 @@ import { fetchLendingMarket, type GraphOrg, type GraphShareClass } from "../../u
 import { fetchListingMetadata, type ListingMetadata } from "../../utils/api/lendingMetadataService";
 import { adaptListing, indexClassNames, indexOrgs } from "./lendingAdapter";
 import type { Listing } from "../../components/Lending/lendingData";
+import ShareLendingMarketABI from "../../abis/capTable/ShareLendingMarket.abi.json";
+import ERC20ABI from "../../abis/ERC20.json";
 
 const ZERO = ethers.constants.AddressZero;
-const MARKET_ABI = [
-  "function paymentToken() view returns (address)",
-  "function gracePeriod() view returns (uint64)",
-];
-const ERC20_DECIMALS_ABI = ["function decimals() view returns (uint8)"];
+const MARKET_ABI = ShareLendingMarketABI as ethers.ContractInterface;
+const ERC20_DECIMALS_ABI = ERC20ABI as ethers.ContractInterface;
 
 export interface MarketMeta {
   marketAddress: string;

@@ -13,23 +13,10 @@ import { postListingMetadata } from "../../utils/api/lendingMetadataService";
 import type { RawTx } from "../../utils/basicWalletUtils";
 import type { Listing } from "../../components/Lending/lendingData";
 import type { LendingActions } from "../../components/Lending/lendingShared";
+import ShareLendingMarketABI from "../../abis/capTable/ShareLendingMarket.abi.json";
+import ERC20ABI from "../../abis/ERC20.json";
 
-const MARKET_ABI = [
-  "function listCollateral(bytes32 slug, uint256 classId, uint256 shares, uint256 wantAmount, uint16 maxRateBps, uint64 termSeconds, bytes32 metadataHash, bool requireDeposit, uint256 depositAmount) returns (uint256)",
-  "function postQuote(bytes32 slug, uint256 listingId, uint256 amount, uint16 rateBps, uint64 termSeconds, uint64 expiry, address mediator) returns (uint256)",
-  "function acceptQuote(bytes32 slug, uint256 listingId, uint256 quoteId) returns (uint256)",
-  "function rejectQuote(bytes32 slug, uint256 listingId, uint256 quoteId)",
-  "function withdrawQuote(bytes32 slug, uint256 listingId, uint256 quoteId)",
-  "function fundLoan(bytes32 slug, uint256 loanId)",
-  "function repay(bytes32 slug, uint256 loanId)",
-  "function foreclose(bytes32 slug, uint256 loanId)",
-  "function forfeitDeposit(bytes32 slug, uint256 listingId)",
-  "function mutualRelease(bytes32 slug, uint256 loanId, address to)",
-  "function mediatorRelease(bytes32 slug, uint256 loanId, address to)",
-  "function amountOwed(bytes32 slug, uint256 loanId, uint256 atTime) view returns (uint256)",
-  "event Listed(bytes32 indexed slug, uint256 indexed listingId, address indexed borrower, uint256 classId, uint256 shares, uint256 wantAmount, bytes32 metadataHash)",
-];
-const ERC20_APPROVE_ABI = ["function approve(address spender, uint256 amount) returns (bool)"];
+const MARKET_ABI = ShareLendingMarketABI as ethers.ContractInterface;
 
 export interface UseLendingActionsArgs {
   marketAddress: string;
@@ -46,8 +33,8 @@ export function useLendingActions({
   const readProvider = useReadProvider();
   const { showToast } = useToastStore();
 
-  const market = useMemo(() => new ethers.utils.Interface(MARKET_ABI), []);
-  const erc20 = useMemo(() => new ethers.utils.Interface(ERC20_APPROVE_ABI), []);
+  const market = useMemo(() => new ethers.utils.Interface(ShareLendingMarketABI as never), []);
+  const erc20 = useMemo(() => new ethers.utils.Interface(ERC20ABI as never), []);
 
   // One generic raw-tx executor (approve + every market call go through it).
   const rawTx = useExecuteRawTx(
@@ -81,7 +68,7 @@ export function useLendingActions({
 
   // Resolve the org's payment token from the market (for approvals).
   const paymentTokenOf = useCallback(async (): Promise<string> => {
-    const c = new ethers.Contract(marketAddress, ["function paymentToken() view returns (address)"], readProvider);
+    const c = new ethers.Contract(marketAddress, MARKET_ABI, readProvider);
     return c.paymentToken();
   }, [marketAddress, readProvider]);
 

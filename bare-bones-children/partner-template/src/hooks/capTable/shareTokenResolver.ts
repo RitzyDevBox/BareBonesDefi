@@ -12,6 +12,10 @@
 import { ethers } from "ethers";
 import { CHAIN_SVR_SUBGRAPH_URL } from "../../constants/misc";
 import { graphQuery } from "../../utils/graph/graphClient";
+import { orgSlugFor } from "../../utils/payroll/orgSlug";
+import PayrollManagerABI from "../../abis/paymentPipelines/PayrollManager.abi.json";
+import DAOGovernorABI from "../../abis/dao/DAOGovernor.abi.json";
+import ShareTokenABI from "../../abis/capTable/ShareToken.abi.json";
 
 const LS_PREFIX = "captable:shareToken";
 
@@ -73,8 +77,10 @@ export async function fetchShareTokenAddressFromGraph(
   }
 }
 
-/** Resolve the cap-table address: local record first (instant, dev-friendly), then the
- *  subgraph keyed by the org owner. */
+/** Standalone cap-table resolution: local record first (instant), then the subgraph by owner. NOTE: no
+ *  RPC log enumeration here on purpose — `eth_getLogs` scans are unreliable/rate-limited and there is no
+ *  on-chain slug→ShareToken registry on the factory. The graph-independent path is the *formation* getter
+ *  (`resolveFromDaoToken` below); this remains the standalone fallback. */
 export async function resolveShareTokenAddress(
   chainId: number,
   slug: string,
@@ -90,4 +96,49 @@ export async function resolveShareTokenAddress(
     }
   }
   return null;
+}
+
+/** Formation path (pure RPC): an org created through formation has its cap table = the DAO's IVotes
+ *  token. `PayrollManager.daoOf(slug)` → governor → `governor.token()` → probe `classCount()` to confirm
+ *  it's a ShareToken. Returns null when the org has no DAO token (cap table was created standalone). */
+export async function resolveFromDaoToken(
+  provider: ethers.providers.Provider,
+  payrollManagerAddress: string,
+  slug: string,
+): Promise<string | null> {
+  try {
+    const pm = new ethers.Contract(payrollManagerAddress, PayrollManagerABI as ethers.ContractInterface, provider);
+    const dao = await pm.daoOf(orgSlugFor(slug));
+    const governor: string = Array.isArray(dao) ? dao[0] : dao.governor;
+    if (!governor || governor === ethers.constants.AddressZero) return null;
+    const gov = new ethers.Contract(governor, DAOGovernorABI as ethers.ContractInterface, provider);
+    const token: string = await gov.token();
+    if (!token || token === ethers.constants.AddressZero) return null;
+    const probe = new ethers.Contract(token, ShareTokenABI as ethers.ContractInterface, provider);
+    await probe.classCount(); // reverts if `token` isn't a ShareToken
+    return token;
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve an org's ShareToken across BOTH deployment paths:
+ *    1. formation — the DAO token via plain getters (`resolveFromDaoToken`), graph-independent;
+ *    2. standalone — local record / subgraph (no RPC log scans).
+ *  Use this everywhere (cap table + lending) so the cap table resolves identically in every surface. */
+export async function resolveOrgShareToken(
+  provider: ethers.providers.Provider | null | undefined,
+  chainId: number,
+  slug: string,
+  owner?: string | null,
+  opts?: { payrollManagerAddress?: string | null },
+): Promise<string | null> {
+  if (provider && opts?.payrollManagerAddress) {
+    const fromDao = await resolveFromDaoToken(provider, opts.payrollManagerAddress, slug);
+    if (fromDao) {
+      saveShareTokenAddress(chainId, slug, fromDao);
+      return fromDao;
+    }
+  }
+  return resolveShareTokenAddress(chainId, slug, owner);
 }

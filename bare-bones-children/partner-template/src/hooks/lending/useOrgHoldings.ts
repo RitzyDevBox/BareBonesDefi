@@ -7,8 +7,9 @@ import { useReadProvider } from "../useReadProvider";
 import { useWalletProvider } from "../useWalletProvider";
 import { useTxRefresh } from "../../providers/TxRefreshProvider";
 import type { OrgClass } from "./useLendingMarket";
+import ShareTokenABI from "../../abis/capTable/ShareToken.abi.json";
 
-const SHARE_TOKEN_ABI = ["function freeBalanceOf(address holder, uint256 classId) view returns (uint256)"];
+const SHARE_TOKEN_ABI = ShareTokenABI as ethers.ContractInterface;
 
 export function useOrgHoldings(
   shareToken: string | null,
